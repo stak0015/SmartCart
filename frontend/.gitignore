@@ -1,0 +1,19 @@
+# Next.js and Node.js
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+
+# Local configuration
+.env
+.env.local
+.env.*.local
+
+# Editor and operating-system files
+.DS_Store
+Thumbs.db
+*.log
+
+# Python/database local files are additionally covered by database/.gitignore.
