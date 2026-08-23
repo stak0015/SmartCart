@@ -3,5 +3,6 @@
 SmartCart is an accessible household-essential basket planning tool for the
 FIT5120 SDG 10 industry experience project.
 
-Iteration 1 database setup, PriceCatcher ingestion and maintenance instructions
-are in [`database/README.md`](database/README.md).
+For a beginner-friendly local database walkthrough, start with
+[`database/SETUP_GUIDE.md`](database/SETUP_GUIDE.md). Technical ingestion and
+maintenance details are in [`database/README.md`](database/README.md).

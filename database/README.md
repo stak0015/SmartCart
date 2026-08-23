@@ -4,6 +4,9 @@ This directory contains the minimum local PostgreSQL setup and ingestion
 workflow for the current three-table schema: `item`, `premise`, and
 `current_status`.
 
+New to Docker, Python, or command-line setup? Follow the step-by-step
+[`SETUP_GUIDE.md`](SETUP_GUIDE.md) first.
+
 The loader downloads official PriceCatcher item, premise, and current-year
 monthly price files. It also reads the committed, dated premise-enrichment
 snapshot so every developer gets the same candidate Place IDs.
@@ -11,6 +14,7 @@ snapshot so every developer gets the same candidate Place IDs.
 ## Files
 
 - `schema.sql` — idempotent PostgreSQL schema.
+- `SETUP_GUIDE.md` — beginner-friendly local setup and troubleshooting guide.
 - `docker-compose.yml` — local PostgreSQL 16 service.
 - `ingest_pricecatcher.py` — PriceCatcher download, validation, transformation,
   and idempotent database upserts.
