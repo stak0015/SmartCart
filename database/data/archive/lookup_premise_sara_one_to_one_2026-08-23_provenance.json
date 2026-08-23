@@ -1,0 +1,33 @@
+{
+  "generated_at": "2026-08-23T14:48:04.686128+00:00",
+  "archive_file": "lookup_premise_sara_one_to_one_2026-08-23.parquet",
+  "archive_sha256": "7c2d329304b0e6271dc6adc78bc9446c1f52e14eb6d16d3bd9fc970456368ef2",
+  "sources": {
+    "lookup_premise": {
+      "file": "lookup_premise.parquet",
+      "sha256": "ebbcebd084d2a0c599390e925a55932fa8e3d164807457ef9931d3d0c76c8d5a"
+    },
+    "pricecatcher_place_candidates": {
+      "file": "google_place_candidates_pricecatcher.csv",
+      "sha256": "3ee0d87079e1d6716c17b6f3f53dbae38847f283055cfc2630381af0d1aca511"
+    },
+    "sara_pair_review": {
+      "file": "sara_premise_match_review.csv",
+      "sha256": "24a2e100bed360da0f4a8829b0c1df545f8aef33ae605d2328d1953f1ff4b4c2"
+    }
+  },
+  "row_counts": {
+    "source_lookup_rows": 3889,
+    "valid_pricecatcher_premises": 3887,
+    "pricecatcher_top_place_id_candidates": 3803,
+    "strict_one_to_one_sara_candidates": 1407
+  },
+  "match_rule": {
+    "pricecatcher_candidate_rank": 1,
+    "sara_candidate_rank": 1,
+    "unique_pricecatcher_premises_per_place_id": 1,
+    "unique_sara_merchants_per_place_id": 1,
+    "status": "candidate_requires_review"
+  },
+  "warning": "A strict one-to-one shared Place ID is still an unverified candidate. Missing SARA data must not be interpreted as ineligible or non-partner."
+}

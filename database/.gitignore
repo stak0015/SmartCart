@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+logs/
+
+# PriceCatcher archives are reproducible downloads and are too large for Git.
+data/archive/*
+!data/archive/.gitkeep
+!data/archive/lookup_premise_sara_one_to_one_2026-08-23.parquet
+!data/archive/lookup_premise_sara_one_to_one_2026-08-23_provenance.json
