@@ -11,11 +11,19 @@ body {
   margin: 0;
 }
 
+html {
+  background: #f7f8f6;
+  color-scheme: light;
+  scroll-padding-top: 88px;
+}
+
 body {
-  background: #f8f9fa;
-  color: #191c1d;
+  overflow-x: hidden;
+  background: #f7f8f6;
+  color: #10231d;
   font-family: Inter, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -26,6 +34,12 @@ select {
 
 button {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+button:active {
+  transform: translateY(1px);
 }
 
 button:focus-visible,
@@ -66,5 +80,9 @@ select:focus-visible {
     scroll-behavior: auto !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+
+  button:active {
+    transform: none;
   }
 }
