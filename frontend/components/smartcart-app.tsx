@@ -10,7 +10,7 @@ import svgPathsSaved from "@/components/icons/saved";
 const productImg = "/rice-product.png";
 
 // ── Types ───────────────────────────────────────────────────────────────────
-type Screen = "basket" | "location" | "compare";
+type Screen = "shop" | "basket" | "location" | "compare";
 
 interface BasketItem {
   id: string;
@@ -168,33 +168,67 @@ function IcoPriceCatcher({ color = "#3E494A" }: { color?: string }) {
 }
 
 // ── Header ───────────────────────────────────────────────────────────────────
-function Header() {
+function Header({
+  basketCount,
+  onBasket,
+  basketActive,
+  onBack,
+}: {
+  basketCount: number;
+  onBasket: () => void;
+  basketActive: boolean;
+  onBack?: () => void;
+}) {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex h-14 items-center justify-center border-b border-[#d8dfe0] bg-[#f8f9fa]/95 px-5 backdrop-blur">
-      <span className="text-xl font-bold tracking-[-0.3px] text-[#00535b]">SmartCart</span>
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[#e7ece9] bg-white/95 backdrop-blur">
+      <div className="mx-auto grid h-16 w-full max-w-[760px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6">
+        {onBack ? (
+          <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-sm font-bold text-[#087f5b]">
+            <IcoArrowBack /> Shop
+          </button>
+        ) : <span aria-hidden="true" />}
+
+        <span className="text-lg font-extrabold tracking-[-0.3px] text-[#10231d]">SmartCart</span>
+
+        <button
+          type="button"
+          onClick={onBasket}
+          aria-label={`View basket, ${basketCount} item${basketCount === 1 ? "" : "s"}`}
+          aria-current={basketActive ? "page" : undefined}
+          className={`relative flex h-11 w-11 shrink-0 items-center justify-center justify-self-end rounded-xl border ${basketActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
+        >
+          <IcoBasket color="#087f5b" size={22} />
+          {basketCount > 0 && (
+            <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-bold text-white">
+              {basketCount}
+            </span>
+          )}
+        </button>
+      </div>
     </header>
   );
 }
 
 // ── Progress indicator ────────────────────────────────────────────────────────
-function ProgressIndicator({ step }: { step: 1 | 2 | 3 }) {
+function ProgressIndicator({ step }: { step: 1 | 2 | 3 | 4 }) {
   const steps = [
-    { n: 1, label: "Basket" },
-    { n: 2, label: "Location" },
-    { n: 3, label: "Compare" },
+    { n: 1, label: "Shop" },
+    { n: 2, label: "Basket" },
+    { n: 3, label: "Travel" },
+    { n: 4, label: "Compare" },
   ] as const;
 
   return (
-    <div aria-label={`Step ${step} of 3`} className="relative grid w-full grid-cols-3 gap-1">
-      <div aria-hidden="true" className="absolute left-[16.5%] right-[16.5%] top-4 h-px bg-[#bec8ca]" />
+    <div aria-label={`Step ${step} of 4`} className="grid w-full grid-cols-4 rounded-xl bg-[#edf3ef] p-1">
       {steps.map(current => (
-        <div key={current.n} className="relative z-10 flex min-w-0 items-center justify-center gap-2 bg-[#f8f9fa] px-1">
-          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${step === current.n ? "bg-[#006d77] text-white" : "bg-[#e1e3e4] text-[#3e494a]"}`}>
-            {current.n}
-          </span>
-          <span className={`truncate text-[13px] sm:text-sm ${step === current.n ? "font-bold text-[#00535b]" : "font-medium text-[#3e494a]"}`}>
-            {current.label}
-          </span>
+        <div
+          key={current.n}
+          className={`flex min-w-0 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-bold sm:text-sm ${
+            step === current.n ? "bg-white text-[#087f5b] shadow-sm" : current.n < step ? "text-[#087f5b]" : "text-[#617069]"
+          }`}
+        >
+          <span aria-hidden="true">{current.n < step ? "✓" : current.n}</span>
+          <span className="truncate">{current.label}</span>
         </div>
       ))}
     </div>
@@ -203,21 +237,34 @@ function ProgressIndicator({ step }: { step: 1 | 2 | 3 }) {
 
 // ── Screen 1: Build Your Basket ───────────────────────────────────────────────
 function BasketScreen({
+  view,
   basket,
   setBasket,
+  onViewBasket,
   onContinue,
 }: {
+  view: "shop" | "basket";
   basket: BasketItem[];
   setBasket: (b: BasketItem[]) => void;
+  onViewBasket: () => void;
   onContinue: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState("Rice & Grains");
+  const [activeCategories, setActiveCategories] = useState<string[]>([]);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
 
-  const filtered = search
-    ? CATALOG.filter(c => c.name.toLowerCase().includes(search.toLowerCase()))
-    : CATALOG.filter(c => c.category === activeCategory);
+  const filtered = CATALOG.filter(item => {
+    const matchesSearch = !search || `${item.name} ${item.brand}`.toLowerCase().includes(search.toLowerCase());
+    const matchesCategory = activeCategories.length === 0 || activeCategories.includes(item.category);
+    return matchesSearch && matchesCategory;
+  });
+
+  const toggleCategory = (category: string) => {
+    setActiveCategories(current => current.includes(category)
+      ? current.filter(selected => selected !== category)
+      : [...current, category]);
+  };
 
   const inBasket = (id: string) => basket.find(b => b.id === id);
 
@@ -251,71 +298,110 @@ function BasketScreen({
     onContinue();
   };
 
+  const itemCount = basket.reduce((count, item) => count + item.qty, 0);
+  const basketEstimate = basket.reduce((total, item) => total + item.price * item.qty, 0);
+
   return (
-    <div className="screen-enter">
+    <div className="screen-enter pb-32">
+      {view === "shop" && (
+        <>
       {/* Page header */}
-      <div className="px-5 pb-7 pt-7 sm:px-6 sm:pb-8">
-        <h1 className="text-[32px] font-bold leading-[40px] tracking-[-0.64px] text-[#006d77] sm:text-[36px] sm:leading-[44px]">Build Your Basket</h1>
-        <p className="mt-2 text-[17px] font-normal leading-7 text-[#3e494a] sm:text-[18px]">
-          Add the essentials you need and we&apos;ll compare the total cost at stores you can reach.
+      <div className="px-4 pb-5 pt-6 sm:px-6 sm:pt-8">
+        <p className="mb-1 text-sm font-bold text-[#087f5b]">Plan one affordable shop</p>
+        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">Shop household essentials</h1>
+        <p className="mt-2 max-w-[580px] text-[16px] leading-6 text-[#53635c]">
+          Search and add what you need. Open your basket when you&apos;re ready to review quantities and continue.
         </p>
       </div>
 
       {/* Progress */}
-      <div className="px-5 pb-7 sm:px-6 sm:pb-8">
+      <div className="px-4 pb-5 sm:px-6">
         <ProgressIndicator step={1} />
       </div>
 
       {/* Search */}
-      <div className="px-5 pb-4 sm:px-6">
-        <div className="relative h-12">
+      <div className="sticky top-16 z-30 bg-[#f7f8f6]/95 px-4 pb-3 pt-2 backdrop-blur sm:px-6">
+        <div className="relative h-14">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
             <IcoSearch />
           </div>
           <input
             type="text"
-            placeholder="Search item name"
+            aria-label="Search household essentials"
+            placeholder="Search household essentials"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full h-12 pl-12 pr-4 bg-white border border-[#bec8ca] rounded-[4px] text-[16px] text-[#191c1d] placeholder:text-[#6b7280] focus:outline-none focus:border-[#006d77]"
+            className="h-14 w-full rounded-2xl border border-[#dce5e0] bg-white pl-12 pr-4 text-[16px] text-[#10231d] shadow-[0_3px_14px_rgba(16,35,29,0.07)] placeholder:text-[#718078] focus:border-[#087f5b] focus:outline-none"
           />
         </div>
       </div>
 
-      {/* Category filter */}
-      <div className="pb-4">
-        <div className="mx-5 sm:mx-6">
-          <label htmlFor="category" className="block text-[14px] font-medium text-[#191c1d] mb-1">Browse by category</label>
-          <select
-            id="category"
-            value={activeCategory}
-            onChange={event => { setActiveCategory(event.target.value); setSearch(""); }}
-            className="w-full h-12 px-3 bg-white border border-[#bec8ca] rounded-[4px] text-[16px] text-[#191c1d]"
-          >
-            {CATEGORIES.map(category => <option key={category}>{category}</option>)}
-          </select>
-        </div>
+      {/* Multi-select category filter */}
+      <div className="relative z-[60] px-4 pb-6 pt-1 sm:px-6">
+        <button
+          type="button"
+          aria-expanded={categoryOpen}
+          aria-controls="category-options"
+          onClick={() => setCategoryOpen(open => !open)}
+          className="flex min-h-12 w-full items-center justify-between rounded-xl border border-[#d7e1dc] bg-white px-4 text-left shadow-sm"
+        >
+          <span>
+            <span className="block text-xs font-semibold text-[#718078]">Categories</span>
+            <span className="block text-[15px] font-bold text-[#17362c]">
+              {activeCategories.length === 0 ? "All categories" : `${activeCategories.length} selected`}
+            </span>
+          </span>
+          <span aria-hidden="true" className={`text-lg text-[#087f5b] transition-transform ${categoryOpen ? "rotate-180" : ""}`}>⌄</span>
+        </button>
+
+        {categoryOpen && (
+          <div id="category-options" className="absolute left-4 right-4 top-[60px] rounded-2xl border border-[#d7e1dc] bg-white p-3 shadow-[0_14px_34px_rgba(16,35,29,0.16)] sm:left-6 sm:right-6">
+            <div className="mb-2 flex items-center justify-between border-b border-[#edf1ef] px-1 pb-2">
+              <p className="text-sm font-extrabold text-[#10231d]">Filter by category</p>
+              {activeCategories.length > 0 && (
+                <button type="button" onClick={() => setActiveCategories([])} className="min-h-11 px-2 text-sm font-bold text-[#087f5b]">Clear all</button>
+              )}
+            </div>
+            <div className="grid max-h-[210px] grid-cols-1 gap-1 overflow-y-auto sm:max-h-[300px] sm:grid-cols-2">
+              {CATEGORIES.map(category => (
+                <label key={category} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-2 hover:bg-[#f2f6f3]">
+                  <input
+                    type="checkbox"
+                    checked={activeCategories.includes(category)}
+                    onChange={() => toggleCategory(category)}
+                    className="h-5 w-5 accent-[#087f5b]"
+                  />
+                  <span className="text-sm font-medium text-[#263b33]">{category}</span>
+                </label>
+              ))}
+            </div>
+            <button type="button" onClick={() => setCategoryOpen(false)} className="mt-3 h-11 w-full rounded-xl bg-[#087f5b] text-sm font-extrabold text-white">Show {filtered.length} item{filtered.length === 1 ? "" : "s"}</button>
+          </div>
+        )}
       </div>
 
       {/* Matching items */}
-      <div className="px-5 pb-4 sm:px-6">
-        <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d] mb-4">Matching items</h2>
-        <div className="flex flex-col gap-4">
+      <div className="px-4 pb-7 sm:px-6">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{search ? "Search results" : activeCategories.length > 0 ? "Selected categories" : "All essentials"}</h2>
+          <span className="text-sm font-medium text-[#718078]">{filtered.length} item{filtered.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {filtered.length === 0 ? (
             <p className="text-[16px] text-[#3e494a] text-center py-6">No items found. Try another keyword.</p>
           ) : filtered.slice(0, 5).map(item => {
             const basketItem = inBasket(item.id);
             return (
-              <div key={item.id} className="grid grid-cols-[64px_minmax(0,1fr)] items-center gap-3 rounded-[6px] border border-[#bec8ca] bg-white p-4 sm:grid-cols-[64px_minmax(0,1fr)_auto]">
+              <article key={item.id} className="grid grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
                 {/* Image */}
-                <div className="h-16 w-16 shrink-0">
+                <div className="h-[84px] w-[84px] shrink-0 sm:h-[92px] sm:w-[92px]">
                   {item.hasImg ? (
-                    <div className="relative w-16 h-16 rounded-[2px] overflow-hidden bg-[#e1e3e4]">
-                      <Image src={productImg} alt={item.name} width={118} height={64} className="absolute h-full left-[-41.76%] max-w-none top-0 w-[183.51%] object-cover" />
+                    <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#eef2ef]">
+                      <Image src={productImg} alt={item.name} fill sizes="92px" className="object-cover" />
                     </div>
                   ) : (
-                    <div className="w-16 h-16 bg-[#e1e3e4] rounded-[2px] flex items-center justify-center">
-                      <svg width={18} height={18} viewBox="0 0 18 18" fill="none">
+                    <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#eef2ef]">
+                      <svg width={24} height={24} viewBox="0 0 18 18" fill="none">
                         <path d={svgPathsBasket.p1fe4bc00} fill="#6F797A" />
                       </svg>
                     </div>
@@ -323,48 +409,68 @@ function BasketScreen({
                 </div>
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[14px] font-medium leading-5 tracking-[0.14px] text-[#191c1d]">{item.name}</p>
-                  <p className="text-[16px] font-normal leading-6 text-[#3e494a]">{item.brand} · {item.size}</p>
-                  <p className="text-[14px] text-[#3e494a]">From RM{item.price.toFixed(2)} · RM{item.unitPrice.toFixed(2)}/{item.unit}</p>
+                  <p className="text-[16px] font-extrabold leading-5 text-[#10231d]">{item.name}</p>
+                  <p className="mt-0.5 text-[13px] leading-5 text-[#617069]">{item.brand} · {item.size}</p>
+                  <p className="mt-1 text-[15px] font-bold text-[#17362c]">From RM{item.price.toFixed(2)}</p>
+                  <p className="text-[12px] text-[#718078]">RM{item.unitPrice.toFixed(2)}/{item.unit}</p>
                   {item.saraEligible === true && (
-                    <span className="inline-flex mt-1 bg-[#e5f5ed] text-[#166534] px-2 py-0.5 rounded-[2px] text-xs font-medium">SARA eligible · verified</span>
+                    <span className="mt-1 inline-flex rounded-md bg-[#e8f7ef] px-2 py-0.5 text-[11px] font-bold text-[#166534]">SARA eligible · verified</span>
                   )}
                 </div>
                 {/* Action */}
                 {basketItem ? (
-                  <div className="col-span-2 flex shrink-0 items-center justify-end gap-2 sm:col-span-1">
+                  <div className="col-span-2 flex h-11 shrink-0 items-center justify-between rounded-xl bg-[#edf7f2] p-1">
                     <button
+                      aria-label={`Decrease ${item.name} quantity`}
                       onClick={() => updateQty(item.id, -1)}
-                      className="w-8 h-8 flex items-center justify-center border border-[#00535b] rounded-xl text-[#00535b] text-base"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-xl font-medium text-[#087f5b] shadow-sm"
                     >−</button>
-                    <span className="w-4 text-center text-[14px] font-medium leading-5 text-[#191c1d]">{basketItem.qty}</span>
+                    <span aria-live="polite" className="w-8 text-center text-sm font-extrabold text-[#17362c]">{basketItem.qty}</span>
                     <button
+                      aria-label={`Increase ${item.name} quantity`}
                       onClick={() => updateQty(item.id, 1)}
-                      className="w-8 h-8 flex items-center justify-center border border-[#00535b] rounded-xl text-[#00535b] text-base"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#087f5b] text-xl font-medium text-white shadow-sm"
                     >+</button>
                   </div>
                 ) : (
                   <button
                     onClick={() => addItem(item)}
-                    className="col-span-2 h-11 w-full shrink-0 rounded-[4px] bg-[#006d77] px-4 text-[14px] font-medium leading-5 tracking-[0.14px] text-white sm:col-span-1 sm:h-10 sm:w-auto"
+                    className="col-span-2 h-11 w-full shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b]"
                   >
-                    Add
+                    + Add to basket
                   </button>
                 )}
-              </div>
+              </article>
             );
           })}
         </div>
       </div>
 
+        </>
+      )}
+
       {/* Your basket */}
-      <div className="px-5 pb-10 sm:px-6 sm:pb-12">
-        <div className="rounded-[6px] border border-[#bec8ca] bg-white p-4 sm:p-[17px]">
+      {view === "basket" && (
+        <>
+      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
+        <ProgressIndicator step={2} />
+        <p className="mb-1 mt-6 text-sm font-bold text-[#087f5b]">Review before comparing</p>
+        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">Your basket</h1>
+        <p className="mt-2 text-[16px] leading-6 text-[#53635c]">Check quantities and lower-cost alternatives before choosing your travel preferences.</p>
+      </div>
+
+      <div className="px-4 pb-8 sm:px-6">
+        <div className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
           {/* Heading */}
-          <div className="flex items-center gap-2 mb-4">
-            <IcoBasket color="#00535B" size={22} />
-            <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">Your Basket</h2>
+          <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-4">
+            <div className="flex items-center gap-2">
+              <IcoBasket color="#087f5b" size={22} />
+              <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Basket items</h2>
+            </div>
+            <span className="text-sm font-bold text-[#617069]">{itemCount} item{itemCount === 1 ? "" : "s"}</span>
           </div>
+
+          <div className="p-4">
 
           {basket.length === 0 ? (
             <p className="text-[16px] text-[#3e494a] text-center py-4">Your basket is empty. Search and add items to start comparing prices.</p>
@@ -372,17 +478,17 @@ function BasketScreen({
             <div className="flex flex-col gap-2">
               {basket.map((item, idx) => (
                 <div key={item.id}>
-                  <div className="flex flex-col items-start gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-2">
+                  <div className="flex items-center justify-between gap-3 py-3">
                     <div className="min-w-0 pr-3">
-                      <p className="text-[14px] font-medium leading-5 tracking-[0.14px] text-[#191c1d]">{item.name}</p>
-                      <p className="text-[14px] font-normal leading-5 text-[#3e494a]">{item.brand} · {item.size}</p>
+                      <p className="text-[15px] font-bold leading-5 text-[#10231d]">{item.name}</p>
+                      <p className="text-[13px] leading-5 text-[#617069]">{item.brand} · {item.size}</p>
                       {item.saraEligible === true && <p className="text-xs font-medium text-[#166534] mt-1">SARA eligible · verified</p>}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-                      <button aria-label={`Decrease ${item.name} quantity`} onClick={() => updateQty(item.id, -1)} className="w-8 h-8 border border-[#00535b] rounded-xl text-[#00535b]">−</button>
-                      <span aria-label={`${item.qty} selected`} className="w-4 text-center text-sm">{item.qty}</span>
-                      <button aria-label={`Increase ${item.name} quantity`} onClick={() => updateQty(item.id, 1)} className="w-8 h-8 border border-[#00535b] rounded-xl text-[#00535b]">+</button>
-                      <button aria-label={`Remove ${item.name}`} onClick={() => removeItem(item.id)} className="w-8 h-8 flex items-center justify-center">
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button aria-label={`Decrease ${item.name} quantity`} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
+                      <span aria-label={`${item.qty} selected`} className="w-7 text-center text-sm font-bold">{item.qty}</span>
+                      <button aria-label={`Increase ${item.name} quantity`} onClick={() => updateQty(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
+                      <button aria-label={`Remove ${item.name}`} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
                         <IcoTrash />
                       </button>
                     </div>
@@ -394,18 +500,18 @@ function BasketScreen({
           )}
 
           {/* Prices note */}
-          <div className="mt-4 text-center">
-            <p className="text-[16px] font-normal leading-6 text-[#3e494a]">Prices will be calculated based on your location.</p>
+          <div className="mt-4 rounded-xl bg-[#f2f6f3] px-3 py-2 text-center">
+            <p className="text-[13px] leading-5 text-[#53635c]">This is an item estimate. We&apos;ll calculate the comparable store total using your location.</p>
           </div>
 
           {basket.some(item => item.id === "2") && (
-            <div className="mt-4 bg-[#fff8e1] border border-[#e7c65f] rounded-[4px] p-3 text-left">
+            <div className="mt-4 rounded-xl border border-[#ead98e] bg-[#fff9e8] p-3 text-left">
               <p className="text-sm font-semibold text-[#5f4700]">Lower-cost option available</p>
               <p className="text-sm text-[#3e494a] mt-1">Cooking Oil 500g costs RM7.20 now. Your 1kg pack costs more today but offers better long-term value at RM12.50/kg versus RM14.40/kg.</p>
               <div className="flex flex-wrap gap-2 mt-3">
                 <button
                   onClick={() => setBasket(basket.map(item => item.id === "2" ? { ...item, name: "Cooking Oil (Blended) 500g", size: "500g polybag", price: 7.20, unitPrice: 14.40 } : item))}
-                  className="h-10 px-3 border border-[#00535b] text-[#00535b] bg-white rounded-[2px] text-sm font-medium"
+                  className="min-h-11 rounded-lg border border-[#087f5b] bg-white px-3 text-sm font-bold text-[#087f5b]"
                 >
                   Spend RM5.30 less now
                 </button>
@@ -418,22 +524,30 @@ function BasketScreen({
             <p role="status" className="mt-3 text-sm font-medium text-[#286d67]">Basket updated · potential saving RM5.30</p>
           )}
 
-          {/* CTA */}
-          <div className="mt-4">
-            {emptyError && (
-              <p className="text-sm text-[#ba1a1a] mb-2 text-center">Your basket is empty. Add at least one item.</p>
-            )}
-            <button
-              onClick={handleContinue}
-              className="w-full h-12 bg-[#006d77] rounded-[4px] flex items-center justify-center gap-2 text-[14px] font-medium leading-5 text-white tracking-[0.14px]"
-            >
-              Continue to Location
-              <IcoArrowRight />
-            </button>
           </div>
         </div>
-
       </div>
+        </>
+      )}
+
+      {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[712px] items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold text-[#718078]">{itemCount} item{itemCount === 1 ? "" : "s"} · item estimate</p>
+            <p className="text-lg font-extrabold text-[#10231d]">RM{basketEstimate.toFixed(2)}</p>
+          </div>
+          <button
+            onClick={view === "shop" ? onViewBasket : handleContinue}
+            className="flex h-14 min-w-[190px] items-center justify-center gap-2 rounded-2xl bg-[#087f5b] px-5 text-[15px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
+          >
+            {view === "shop" ? "View basket" : "Choose location"}
+            <IcoArrowRight />
+          </button>
+        </div>
+        {emptyError && (
+          <p role="alert" className="mx-auto mt-2 max-w-[712px] text-right text-sm font-medium text-[#ba1a1a]">Add at least one item to continue.</p>
+        )}
+      </div>}
     </div>
   );
 }
@@ -472,31 +586,32 @@ function LocationScreen({
   return (
     <div className="screen-enter">
       {/* Transactional back header (overlays the main header) */}
-      <header className="fixed inset-x-0 top-0 z-50 grid h-14 grid-cols-[1fr_auto_1fr] items-center border-b border-[#d8dfe0] bg-[#f8f9fa]/95 px-5 backdrop-blur">
-        <button onClick={onBack} className="flex items-center gap-2 justify-self-start text-[14px] font-medium text-[#00535b]">
+      <header className="fixed inset-x-0 top-0 z-50 grid h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-[#e7ece9] bg-white/95 px-4 backdrop-blur">
+        <button onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-[14px] font-bold text-[#087f5b]">
           <IcoArrowBack /> Back
         </button>
-        <span className="text-xl font-bold tracking-[-0.3px] text-[#00535b]">SmartCart</span>
+        <span className="text-lg font-extrabold tracking-[-0.3px] text-[#10231d]">SmartCart</span>
         <span aria-hidden="true" />
       </header>
 
-      <div className="px-5 pb-5 pt-20 sm:px-6">
-        <ProgressIndicator step={2} />
+      <div className="px-4 pb-5 pt-20 sm:px-6">
+        <ProgressIndicator step={3} />
       </div>
 
-      <div className="px-5 pb-5 sm:px-6">
-        <h1 className="text-[32px] font-bold leading-[40px] tracking-[-0.64px] text-[#191c1d] sm:text-[36px] sm:leading-[44px]">Set Your Location</h1>
-        <p className="mt-2 text-[17px] font-normal leading-7 text-[#3e494a] sm:text-[18px]">
-          Tell us where you usually shop from and how far you can realistically travel.
+      <div className="px-4 pb-5 sm:px-6">
+        <p className="mb-1 text-sm font-bold text-[#087f5b]">Find a reachable shop</p>
+        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">How do you get around?</h1>
+        <p className="mt-2 text-[16px] leading-6 text-[#53635c]">
+          Set a realistic starting point, transport mode and travel limit.
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 px-5 pb-32 sm:px-6">
+      <div className="flex flex-col gap-6 px-4 pb-36 sm:px-6">
         {/* Location card */}
-        <div className="flex flex-col gap-4 rounded-[8px] border border-[#bec8ca] bg-white p-4 sm:p-5">
+        <div className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
           <div className="flex items-center gap-2">
             <IcoLocation />
-            <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">Starting Point</h2>
+            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Starting point</h2>
           </div>
           {/* Input */}
           <div className="relative">
@@ -505,7 +620,8 @@ function LocationScreen({
               type="text"
               value={location}
               onChange={e => setLocation(e.target.value)}
-              className="w-full h-12 pl-10 pr-10 bg-[#f8f9fa] border border-[#bec8ca] rounded-[4px] text-[16px] text-[#191c1d] focus:outline-none focus:border-[#006d77]"
+              aria-label="Starting location"
+              className="h-14 w-full rounded-xl border border-[#dce5e0] bg-[#f7f9f8] pl-10 pr-4 text-[16px] text-[#10231d] focus:border-[#087f5b] focus:outline-none"
             />
           </div>
           {/* Privacy note */}
@@ -519,16 +635,17 @@ function LocationScreen({
 
         {/* Transport mode */}
         <div className="flex flex-col gap-4">
-          <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">Transport Mode</h2>
-          <div className="grid grid-cols-2 gap-4">
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Transport mode</h2>
+          <div className="grid grid-cols-2 gap-3">
             {TRANSPORT_OPTS.map(t => {
               const active = transport === t.id;
               return (
                 <button
                   key={t.id}
                   onClick={() => setTransport(t.id)}
-                  className={`flex flex-col items-center justify-center py-[17px] rounded-[8px] border ${
-                    active ? "bg-[#006d77] border-[#006d77]" : "bg-white border-[#bec8ca]"
+                  aria-pressed={active}
+                  className={`flex min-h-[92px] flex-col items-center justify-center rounded-2xl border py-4 shadow-sm ${
+                    active ? "border-[#087f5b] bg-[#087f5b]" : "border-[#dce5e0] bg-white"
                   }`}
                 >
                   <div className="mb-2"><t.Icon active={active} /></div>
@@ -541,15 +658,16 @@ function LocationScreen({
 
         {/* Travel limit */}
         <div className="flex flex-col gap-2">
-          <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">Travel Limit</h2>
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Travel limit</h2>
           <p className="text-[16px] text-[#3e494a]">We&apos;ll only compare stores within this limit.</p>
           <div className="grid grid-cols-4 gap-2 pt-2">
             {[2, 5, 10, 15].map(d => (
               <button
                 key={d}
                 onClick={() => setDistance(d)}
-                className={`h-12 rounded-[8px] border px-2 text-[14px] font-medium leading-5 tracking-[0.14px] ${
-                  distance === d ? "bg-[#006d77] border-[#006d77] text-white" : "bg-white border-[#bec8ca] text-[#191c1d]"
+                aria-pressed={distance === d}
+                className={`h-12 rounded-xl border px-2 text-[14px] font-bold ${
+                  distance === d ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#dce5e0] bg-white text-[#405149]"
                 }`}
               >
                 {d}km
@@ -559,9 +677,9 @@ function LocationScreen({
         </div>
 
         {/* Remember preferences */}
-        <div className="bg-white border border-[#bec8ca] rounded-[8px] p-4 flex flex-col gap-4">
+        <div className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
           <div>
-            <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">SARA planning <span className="text-sm font-normal text-[#3e494a]">(optional)</span></h2>
+            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">SARA planning <span className="text-sm font-normal text-[#53635c]">(optional)</span></h2>
             <p className="text-sm text-[#3e494a] mt-1">You do not need to share your income or eligibility.</p>
           </div>
           <label className="flex items-start gap-3 text-[16px] text-[#191c1d]">
@@ -576,7 +694,7 @@ function LocationScreen({
             step="1"
             value={saraCredit}
             onChange={event => setSaraCredit(Math.max(0, Number(event.target.value)))}
-            className="w-full h-12 px-3 bg-[#f8f9fa] border border-[#bec8ca] rounded-[4px] text-[16px]"
+            className="h-14 w-full rounded-xl border border-[#dce5e0] bg-[#f7f9f8] px-3 text-[16px]"
           />
           <p className="text-xs text-[#6f797a]">Estimates use only items and stores marked as verified. Confirm acceptance at the store.</p>
         </div>
@@ -584,7 +702,8 @@ function LocationScreen({
         {/* Remember preferences */}
         <button
           onClick={() => setRemember(!remember)}
-          className="bg-white border border-[#bec8ca] rounded-[8px] flex items-center gap-3 px-4 py-[17px] w-full text-left"
+          aria-pressed={remember}
+          className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#dce5e0] bg-white px-4 py-3 text-left"
         >
           <div className={`w-[22px] h-[22px] rounded-[2px] flex items-center justify-center shrink-0 border ${remember ? "bg-[#00535b] border-[#00535b]" : "bg-white border-[#bec8ca]"}`}>
             {remember && <IcoCheckbox />}
@@ -594,12 +713,12 @@ function LocationScreen({
       </div>
 
       {/* Fixed bottom actions */}
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#bec8ca] bg-[#f8f9fa]/95 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[640px] gap-3 px-5 py-4 sm:px-6">
-          <button onClick={onBack} className="h-12 flex-1 rounded-[4px] border border-[#00535b] bg-[#f8f9fa] text-[14px] font-medium text-[#00535b]">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[712px] gap-3">
+          <button onClick={onBack} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
             Back to Basket
           </button>
-          <button onClick={handleCompare} className="h-12 flex-1 rounded-[4px] bg-[#006d77] text-[14px] font-medium text-white">
+          <button onClick={handleCompare} className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]">
             Compare Prices
           </button>
         </div>
@@ -629,38 +748,39 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
 
   return (
     <div className="screen-enter pb-8">
-      <div className="flex flex-col gap-7 px-5 pb-6 pt-6 sm:gap-8 sm:px-6 sm:pt-8">
-        <div className="flex flex-col gap-5">
-          <button onClick={onBack} className="flex items-center gap-2 self-start text-[14px] font-medium text-[#00535b]">
+      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
+        <div className="flex flex-col gap-4">
+          <button onClick={onBack} className="flex min-h-11 items-center gap-2 self-start text-[14px] font-bold text-[#087f5b]">
             <IcoArrowBack /> Back to travel preferences
           </button>
-          <ProgressIndicator step={3} />
+          <ProgressIndicator step={4} />
         </div>
 
         {/* Header section */}
         <div className="flex flex-col gap-2">
-          <h1 className="text-[32px] font-bold leading-[40px] tracking-[-0.64px] text-[#191c1d] sm:text-[36px] sm:leading-[44px]">
-            Stores Near You — Cheapest First
+          <p className="text-sm font-bold text-[#087f5b]">Complete basket matches</p>
+          <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
+            Best reachable stores
           </h1>
-          <p className="text-[16px] font-normal leading-6 text-[#3e494a]">
+          <p className="text-[15px] leading-6 text-[#53635c]">
             Comparing {reachableStores.length} reachable premises within {preferences.distanceKm} km of {preferences.location} by {TRANSPORT_OPTS.find(option => option.id === preferences.transport)?.label.toLowerCase()}.
           </p>
           {preferences.saraOnly && <p className="text-sm font-medium text-[#166534]">Filter applied: verified SARA partner stores only.</p>}
         </div>
 
         {/* Savings banner */}
-        {recommendedStore && <div className="flex gap-3 rounded-[8px] border border-[#bec8ca] bg-[#a9ece5] p-4 sm:gap-4 sm:p-[17px]">
-          <div className="shrink-0 mt-0.5"><IcoSavings /></div>
+        {recommendedStore && <div className="flex gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4 sm:gap-4 sm:p-5">
+          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><IcoSavings /></div>
           <div className="flex flex-col gap-2">
-            <p className="text-[20px] font-semibold leading-7 text-[#286d67]">You could save RM{savings.toFixed(2)}</p>
-            <p className="text-[16px] font-normal leading-6 text-[#286d67]">
+            <p className="text-[20px] font-extrabold leading-7 text-[#175f4b]">Save about RM{savings.toFixed(2)}</p>
+            <p className="text-[14px] leading-5 text-[#286d67]">
               {recommendedStore.name} is the lowest-priced complete basket among stores inside your travel limit, at RM{savings.toFixed(2)} below the average.
             </p>
           </div>
         </div>}
 
         {recommendedStore?.saraPartner === true && preferences.saraCredit > 0 && (
-          <div className="bg-white border border-[#bec8ca] rounded-[8px] p-[17px]">
+          <div className="rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <h2 className="text-[20px] font-semibold text-[#191c1d]">Estimated payment plan</h2>
               <span className="bg-[#e5f5ed] text-[#166534] text-xs font-semibold px-2 py-1 rounded-[2px]">Verified SARA partner</span>
@@ -675,27 +795,30 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
 
         {/* Full basket section */}
         <div className="flex flex-col gap-4">
-          <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">Full basket available</h2>
-          <div className="flex flex-col gap-4">
+          <div className="flex items-end justify-between gap-3">
+            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Full basket available</h2>
+            <span className="text-sm font-medium text-[#718078]">Cheapest first</span>
+          </div>
+          <div className="flex flex-col gap-3">
             {visibleStores.map((store, index) => (
-              <div key={store.id} className={`relative overflow-hidden rounded-[8px] border bg-white shadow-[0px_4px_12px_0px_rgba(0,0,0,0.05)] ${index === 0 ? "border-[#00535b]" : "border-[#bec8ca]"}`}>
+              <article key={store.id} className={`relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] ${index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]"}`}>
                 {index === 0 && (
-                  <div className="bg-[#00535b] px-3 py-2 text-center">
-                    <span className="text-[14px] font-medium leading-5 text-white">Lowest reachable price</span>
+                  <div className="bg-[#087f5b] px-3 py-2 text-center">
+                    <span className="text-[13px] font-extrabold leading-5 text-white">Best match · lowest complete price</span>
                   </div>
                 )}
-                <div className="flex flex-col gap-2 pb-8 pt-4 px-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#e7e8e9] rounded-xl flex items-center justify-center shrink-0">
+                <div className="flex flex-col gap-2 px-4 pb-5 pt-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]">
                       <IcoStore />
                     </div>
-                    <div>
-                      <p className="text-[18px] font-semibold leading-6 text-[#191c1d] sm:text-[20px] sm:leading-7">{store.name}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
                       <div className="flex items-center gap-1">
                         <IcoPriceCatcher />
                         <span className="text-[14px] font-medium leading-5 text-[#3e494a] tracking-[0.14px]">PriceCatcher</span>
                       </div>
-                      <p className="text-[14px] text-[#3e494a] mt-1">{store.distanceKm} km · about {store.travelMinutes} min</p>
+                      <p className="mt-1 text-[14px] font-medium text-[#53635c]">{store.distanceKm} km · about {store.travelMinutes} min</p>
                       {store.saraPartner === true ? (
                         <span className="inline-flex mt-1 bg-[#e5f5ed] text-[#166534] px-2 py-0.5 rounded-[2px] text-xs font-medium">Verified SARA partner</span>
                       ) : (
@@ -705,7 +828,7 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
                   </div>
                   <div className="flex items-end justify-between pt-2">
                     <span className="text-[16px] text-[#3e494a]">Total</span>
-                    <span className={`text-[22px] font-bold leading-7 ${index === 0 ? "text-[#00535b]" : "text-[#191c1d]"}`}>
+                    <span className={`text-[24px] font-extrabold leading-7 ${index === 0 ? "text-[#087f5b]" : "text-[#10231d]"}`}>
                       RM{store.total.toFixed(2)}
                     </span>
                   </div>
@@ -717,16 +840,16 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
                     </div>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#bec8ca] bg-[#f8f9fa] px-4 py-3">
-                  <span className="text-[14px] font-medium leading-5 text-[#3e494a] tracking-[0.14px]">Updated: {store.updated}</span>
-                  <button onClick={() => setBreakdown(true)} className="px-3 py-3 text-[14px] font-semibold leading-5 text-[#00535b] tracking-[0.14px]">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7ece9] bg-[#fafbf9] px-4 py-2">
+                  <span className="text-[12px] font-medium leading-5 text-[#617069]">Price observed: {store.updated}</span>
+                  <button onClick={() => setBreakdown(true)} className="min-h-11 px-2 text-[14px] font-extrabold leading-5 text-[#087f5b]">
                     View breakdown
                   </button>
                 </div>
-              </div>
+              </article>
             ))}
             {reachableStores.length > 5 && (
-              <button onClick={() => setShowAll(value => !value)} className="w-full h-12 border border-[#00535b] rounded-[4px] text-[#00535b] text-sm font-semibold bg-white">
+              <button onClick={() => setShowAll(value => !value)} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
                 {showAll ? "Show first 5" : `See more (+${reachableStores.length - 5})`}
               </button>
             )}
@@ -742,7 +865,7 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
         {/* Partial basket section */}
         <div className="flex flex-col gap-4">
           <div>
-            <h2 className="text-[20px] font-semibold leading-7 text-[#191c1d]">Partial basket</h2>
+            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Partial basket</h2>
             <p className="mt-1 text-sm text-[#3e494a]">These stores do not list every item in your basket.</p>
           </div>
           {PARTIAL_STORES.map(store => (
@@ -788,11 +911,11 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
 
       {/* Breakdown modal */}
       {breakdown && (
-        <div className="fixed inset-0 bg-black/50 flex items-end z-50">
-          <div className="bg-white w-full max-h-[85vh] flex flex-col rounded-t-2xl screen-enter">
+        <div className="fixed inset-0 z-50 flex items-end bg-black/50">
+          <div role="dialog" aria-modal="true" aria-labelledby="breakdown-title" className="screen-enter flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white">
             <div className="flex items-center justify-between px-5 py-4 border-b border-[#bec8ca]">
-              <h2 className="text-[20px] font-bold text-[#191c1d]">Basket Price Breakdown</h2>
-              <button onClick={() => setBreakdown(false)} className="w-9 h-9 flex items-center justify-center text-[#3e494a] text-lg font-medium">✕</button>
+              <h2 id="breakdown-title" className="text-[20px] font-bold text-[#191c1d]">Basket Price Breakdown</h2>
+              <button aria-label="Close price breakdown" onClick={() => setBreakdown(false)} className="flex h-11 w-11 items-center justify-center text-lg font-medium text-[#3e494a]">✕</button>
             </div>
             <div className="overflow-auto flex-1 scroll-x">
               <table className="w-full min-w-[500px] text-sm">
@@ -846,7 +969,7 @@ function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; 
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("basket");
+  const [screen, setScreen] = useState<Screen>("shop");
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [preferences, setPreferences] = useState<TravelPreferences>({
     location: "Kota Bharu, Kelantan",
@@ -871,14 +994,37 @@ export default function App() {
   }, []);
 
   const showHeader = screen !== "location";
+  const basketCount = basket.reduce((count, item) => count + item.qty, 0);
 
   return (
-    <div className="min-h-full bg-[#f8f9fa]">
-      {showHeader && <Header />}
+    <div className="min-h-full bg-[#f7f8f6]">
+      {showHeader && (
+        <Header
+          basketCount={basketCount}
+          basketActive={screen === "basket"}
+          onBasket={() => setScreen("basket")}
+          onBack={screen === "basket" ? () => setScreen("shop") : undefined}
+        />
+      )}
 
-      <main className={`mx-auto w-full max-w-[640px] ${showHeader ? "pt-14" : ""}`}>
+      <main className={`mx-auto w-full max-w-[760px] ${showHeader ? "pt-16" : ""}`}>
+        {screen === "shop" && (
+          <BasketScreen
+            view="shop"
+            basket={basket}
+            setBasket={setBasket}
+            onViewBasket={() => setScreen("basket")}
+            onContinue={() => setScreen("location")}
+          />
+        )}
         {screen === "basket" && (
-          <BasketScreen basket={basket} setBasket={setBasket} onContinue={() => setScreen("location")} />
+          <BasketScreen
+            view="basket"
+            basket={basket}
+            setBasket={setBasket}
+            onViewBasket={() => setScreen("basket")}
+            onContinue={() => setScreen("location")}
+          />
         )}
         {screen === "location" && (
           <LocationScreen
