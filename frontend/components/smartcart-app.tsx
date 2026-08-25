@@ -1,7 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
+import {
+  getRecommendations,
+  resolveLocation,
+  searchLocations,
+  SmartCartApiError,
+} from "@/lib/api-client";
+import type {
+  LocationSuggestion,
+  RecommendationResponse,
+  SaraFilter,
+  SelectedLocation,
+  TransportMode,
+  TravelLimitType,
+} from "@/lib/contracts";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -24,11 +38,11 @@ interface BasketItem {
 }
 
 interface TravelPreferences {
-  location: string;
-  transport: string;
-  distanceKm: number;
-  saraOnly: boolean;
-  saraCredit: number;
+  origin: SelectedLocation | null;
+  transportMode: TransportMode;
+  limitType: TravelLimitType;
+  limitValue: number;
+  saraFilter: SaraFilter;
 }
 
 // ── Data ────────────────────────────────────────────────────────────────────
@@ -45,19 +59,6 @@ const CATEGORIES = ["Rice & Grains", "Cooking Oil", "Eggs & Dairy", "Vegetables"
 const INIT_BASKET: BasketItem[] = [
   { id: "2", name: "Cooking Oil (Blended)", brand: "Saji", size: "1kg polybag", qty: 1, price: 12.50, unitPrice: 12.50, saraEligible: true },
   { id: "3", name: "Grade A Eggs", brand: "Farm Fresh", size: "10 pcs", qty: 1, price: 13.00, unitPrice: 1.30, saraEligible: null },
-];
-
-const STORES = [
-  { id: "s1", name: "Pasar Mini Murni", total: 58.40, avg: 70.80, updated: "18 Aug 2026", distanceKm: 1.8, travelMinutes: 6, saraPartner: true as const, recommended: true, items: { "2": 12.50, "3": 13.00, "4": 17.00, "1": 15.90 } },
-  { id: "s2", name: "Kedai Rakyat Harmoni", total: 63.20, avg: 70.80, updated: "18 Aug 2026", distanceKm: 2.4, travelMinutes: 8, saraPartner: null, recommended: false, items: { "2": 13.00, "3": 14.50, "4": 18.50, "1": 17.20 } },
-  { id: "s3", name: "Pasaraya Sejahtera", total: 67.80, avg: 70.80, updated: "18 Aug 2026", distanceKm: 3.1, travelMinutes: 10, saraPartner: true as const, recommended: false, items: { "2": 14.20, "3": 15.00, "4": 22.10, "1": 16.50 } },
-  { id: "s5", name: "Pasar Mini Cemerlang", total: 68.10, avg: 70.80, updated: "17 Aug 2026", distanceKm: 3.8, travelMinutes: 12, saraPartner: null, recommended: false, items: { "2": 13.80, "3": 14.80, "4": 21.40, "1": 18.10 } },
-  { id: "s6", name: "Kedai Keluarga Kita", total: 69.40, avg: 70.80, updated: "18 Aug 2026", distanceKm: 4.2, travelMinutes: 14, saraPartner: true as const, recommended: false, items: { "2": 14.00, "3": 15.10, "4": 20.90, "1": 19.40 } },
-  { id: "s7", name: "Pasaraya Pantai Timur", total: 71.20, avg: 70.80, updated: "16 Aug 2026", distanceKm: 4.6, travelMinutes: 15, saraPartner: null, recommended: false, items: { "2": 14.40, "3": 15.20, "4": 21.70, "1": 19.90 } },
-  { id: "s8", name: "Kedai Mesra Wakaf", total: 72.00, avg: 70.80, updated: "18 Aug 2026", distanceKm: 4.9, travelMinutes: 16, saraPartner: true as const, recommended: false, items: { "2": 14.50, "3": 15.50, "4": 21.80, "1": 20.20 } },
-];
-const PARTIAL_STORES = [
-  { id: "s4", name: "Kedai Desa Amanah", total: 42.50, updated: "18 Aug 2026", missing: 2, items: { "2": 12.80, "3": null, "4": null, "1": 15.50 } },
 ];
 
 // ── Shared SVG icons (from imports) ─────────────────────────────────────────
@@ -553,12 +554,26 @@ function BasketScreen({
 }
 
 // ── Screen 2: Set Your Location ───────────────────────────────────────────────
-const TRANSPORT_OPTS = [
+const TRANSPORT_OPTS: Array<{
+  id: TransportMode;
+  label: string;
+  Icon: ({ active }: { active: boolean }) => React.ReactNode;
+}> = [
   { id: "walk", label: "Walking", Icon: ({ active }: { active: boolean }) => <IcoWalkFigma color={active ? "white" : "#3E494A"} /> },
-  { id: "bus", label: "Public Transport", Icon: ({ active }: { active: boolean }) => <IcoBusFigma color={active ? "white" : "#3E494A"} /> },
-  { id: "moto", label: "Motorcycle", Icon: ({ active }: { active: boolean }) => <IcoMotoFigma color={active ? "white" : "#3E494A"} /> },
+  { id: "public_transport", label: "Public Transport", Icon: ({ active }: { active: boolean }) => <IcoBusFigma color={active ? "white" : "#3E494A"} /> },
+  { id: "motorcycle", label: "Motorcycle", Icon: ({ active }: { active: boolean }) => <IcoMotoFigma color={active ? "white" : "#3E494A"} /> },
   { id: "car", label: "Car", Icon: ({ active }: { active: boolean }) => <IcoCarFigma color={active ? "white" : "#3E494A"} /> },
 ];
+
+function createLocationSessionToken(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "smartcart-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+}
+
+const DISTANCE_LIMITS = [2, 5, 10, 15] as const;
+const TIME_LIMITS = [10, 20, 30, 45] as const;
 
 function LocationScreen({
   preferences,
@@ -569,25 +584,152 @@ function LocationScreen({
   onBack: () => void;
   onCompare: (preferences: TravelPreferences) => void;
 }) {
-  const [location, setLocation] = useState(preferences.location);
-  const [transport, setTransport] = useState(preferences.transport);
-  const [distance, setDistance] = useState(preferences.distanceKm);
-  const [saraOnly, setSaraOnly] = useState(preferences.saraOnly);
-  const [saraCredit, setSaraCredit] = useState(preferences.saraCredit);
+  const [locationInput, setLocationInput] = useState(preferences.origin?.label ?? "");
+  const [selectedOrigin, setSelectedOrigin] = useState<SelectedLocation | null>(preferences.origin);
+  const [transportMode, setTransportMode] = useState<TransportMode>(preferences.transportMode);
+  const [limitType, setLimitType] = useState<TravelLimitType>(preferences.limitType);
+  const [limitValue, setLimitValue] = useState(preferences.limitValue);
+  const [saraFilter, setSaraFilter] = useState<SaraFilter>(preferences.saraFilter);
   const [remember, setRemember] = useState(true);
+  const [sessionToken, setSessionToken] = useState(createLocationSessionToken);
+  const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [searchState, setSearchState] = useState<"idle" | "searching" | "resolving" | "locating">("idle");
+  const [locationError, setLocationError] = useState("");
+
+  useEffect(() => {
+    const query = locationInput.trim();
+    if (query.length < 3 || selectedOrigin?.label === locationInput) {
+      setSuggestions([]);
+      setActiveSuggestion(-1);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      setSearchState("searching");
+      setLocationError("");
+      searchLocations(query, sessionToken, controller.signal)
+        .then(result => {
+          setSuggestions(result.suggestions);
+          setActiveSuggestion(-1);
+        })
+        .catch(error => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setSuggestions([]);
+          setLocationError(error instanceof Error ? error.message : "Location search is unavailable.");
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchState("idle");
+        });
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [locationInput, selectedOrigin, sessionToken]);
+
+  const chooseSuggestion = async (suggestion: LocationSuggestion) => {
+    setSearchState("resolving");
+    setLocationError("");
+    try {
+      const resolved = await resolveLocation(suggestion.placeId, sessionToken);
+      const origin: SelectedLocation = { ...resolved, source: "search" };
+      setSelectedOrigin(origin);
+      setLocationInput(origin.label);
+      setSuggestions([]);
+      setActiveSuggestion(-1);
+      setSessionToken(createLocationSessionToken());
+    } catch (error) {
+      setLocationError(error instanceof Error ? error.message : "That location could not be selected.");
+    } finally {
+      setSearchState("idle");
+    }
+  };
+
+  const usePreciseLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationError("This browser does not support precise location.");
+      return;
+    }
+
+    setSearchState("locating");
+    setLocationError("");
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        const origin: SelectedLocation = {
+          label: "Current precise location",
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          source: "device",
+        };
+        setSelectedOrigin(origin);
+        setLocationInput(origin.label);
+        setSuggestions([]);
+        setSearchState("idle");
+      },
+      error => {
+        const message = error.code === error.PERMISSION_DENIED
+          ? "Location access was not allowed. Search for a location instead."
+          : "Your precise location could not be found. Try again or search instead.";
+        setLocationError(message);
+        setSearchState("idle");
+      },
+      { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+    );
+  };
+
+  const handleLocationKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveSuggestion(current => Math.min(suggestions.length - 1, current + 1));
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveSuggestion(current => Math.max(0, current - 1));
+    } else if (event.key === "Enter" && activeSuggestion >= 0) {
+      event.preventDefault();
+      void chooseSuggestion(suggestions[activeSuggestion]);
+    } else if (event.key === "Escape") {
+      setSuggestions([]);
+      setActiveSuggestion(-1);
+    }
+  };
 
   const handleCompare = () => {
-    const nextPreferences = { location, transport, distanceKm: distance, saraOnly, saraCredit };
-    if (remember) window.localStorage.setItem("smartcart-travel-preferences", JSON.stringify(nextPreferences));
-    else window.localStorage.removeItem("smartcart-travel-preferences");
+    if (!selectedOrigin) {
+      setLocationError("Use your precise location or select a location from the search suggestions.");
+      return;
+    }
+
+    const nextPreferences: TravelPreferences = {
+      origin: selectedOrigin,
+      transportMode,
+      limitType,
+      limitValue,
+      saraFilter,
+    };
+
+    if (remember) {
+      window.localStorage.setItem("smartcart-travel-preferences", JSON.stringify({
+        transportMode,
+        limitType,
+        limitValue,
+        saraFilter,
+      }));
+    } else {
+      window.localStorage.removeItem("smartcart-travel-preferences");
+    }
     onCompare(nextPreferences);
   };
 
+  const limits = limitType === "distance" ? DISTANCE_LIMITS : TIME_LIMITS;
+
   return (
     <div className="screen-enter">
-      {/* Transactional back header (overlays the main header) */}
       <header className="fixed inset-x-0 top-0 z-50 grid h-16 grid-cols-[1fr_auto_1fr] items-center border-b border-[#e7ece9] bg-white/95 px-4 backdrop-blur">
-        <button onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-[14px] font-bold text-[#087f5b]">
+        <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-[14px] font-bold text-[#087f5b]">
           <IcoArrowBack /> Back
         </button>
         <span className="text-lg font-extrabold tracking-[-0.3px] text-[#10231d]">SmartCart</span>
@@ -602,124 +744,192 @@ function LocationScreen({
         <p className="mb-1 text-sm font-bold text-[#087f5b]">Find a reachable shop</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">How do you get around?</h1>
         <p className="mt-2 text-[16px] leading-6 text-[#53635c]">
-          Set a realistic starting point, transport mode and travel limit.
+          Set a precise starting point, transport mode and realistic travel limit.
         </p>
       </div>
 
       <div className="flex flex-col gap-6 px-4 pb-36 sm:px-6">
-        {/* Location card */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+        <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
           <div className="flex items-center gap-2">
             <IcoLocation />
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Starting point</h2>
           </div>
-          {/* Input */}
+
+          <button
+            type="button"
+            onClick={usePreciseLocation}
+            disabled={searchState === "locating"}
+            className="flex min-h-14 w-full items-center justify-center gap-2 rounded-xl border border-[#087f5b] bg-[#edf7f2] px-4 text-[15px] font-extrabold text-[#087f5b] disabled:cursor-wait disabled:opacity-60"
+          >
+            <IcoLocation color="#087f5b" />
+            {searchState === "locating" ? "Finding your location..." : "Use my precise location"}
+          </button>
+
+          <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-wide text-[#718078]">
+            <span className="h-px flex-1 bg-[#dce5e0]" />
+            or search
+            <span className="h-px flex-1 bg-[#dce5e0]" />
+          </div>
+
           <div className="relative">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2"><IcoSearch color="#3E494A" /></div>
+            <div className="absolute left-3 top-7 -translate-y-1/2"><IcoSearch color="#3E494A" /></div>
             <input
               type="text"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-              aria-label="Starting location"
+              value={locationInput}
+              onChange={event => {
+                const value = event.target.value;
+                setLocationInput(value);
+                if (value !== selectedOrigin?.label) setSelectedOrigin(null);
+              }}
+              onKeyDown={handleLocationKeyDown}
+              role="combobox"
+              aria-label="Search for a starting location"
+              aria-autocomplete="list"
+              aria-expanded={suggestions.length > 0}
+              aria-controls="location-suggestions"
+              aria-activedescendant={activeSuggestion >= 0 ? "location-suggestion-" + activeSuggestion : undefined}
+              placeholder="Search an address, town or postcode"
+              autoComplete="off"
               className="h-14 w-full rounded-xl border border-[#dce5e0] bg-[#f7f9f8] pl-10 pr-4 text-[16px] text-[#10231d] focus:border-[#087f5b] focus:outline-none"
             />
+            {suggestions.length > 0 && (
+              <div id="location-suggestions" role="listbox" className="absolute inset-x-0 top-[60px] z-30 overflow-hidden rounded-xl border border-[#d7e1dc] bg-white shadow-[0_14px_34px_rgba(16,35,29,0.16)]">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    id={"location-suggestion-" + index}
+                    role="option"
+                    aria-selected={activeSuggestion === index}
+                    type="button"
+                    key={suggestion.placeId}
+                    onMouseDown={event => event.preventDefault()}
+                    onClick={() => void chooseSuggestion(suggestion)}
+                    className={"block min-h-14 w-full border-b border-[#edf1ef] px-4 py-3 text-left last:border-b-0 " + (activeSuggestion === index ? "bg-[#edf7f2]" : "bg-white hover:bg-[#f7f9f8]")}
+                  >
+                    <span className="block text-[15px] font-bold text-[#17362c]">{suggestion.mainText}</span>
+                    {suggestion.secondaryText && <span className="mt-0.5 block text-xs text-[#617069]">{suggestion.secondaryText}</span>}
+                  </button>
+                ))}
+                <p className="bg-[#fafbf9] px-4 py-2 text-right text-[11px] font-semibold text-[#718078]">Powered by Google</p>
+              </div>
+            )}
           </div>
-          {/* Privacy note */}
+
+          <div aria-live="polite" className="min-h-5 text-sm">
+            {searchState === "searching" && <span className="text-[#53635c]">Searching locations...</span>}
+            {searchState === "resolving" && <span className="text-[#53635c]">Selecting location...</span>}
+            {selectedOrigin && searchState === "idle" && <span className="font-medium text-[#166534]">Location selected.</span>}
+            {locationError && <span role="alert" className="font-medium text-[#ba1a1a]">{locationError}</span>}
+          </div>
+
           <div className="flex items-start gap-1 text-[14px] text-[#3e494a]">
-            <svg width={13.333} height={13.333} viewBox="0 0 13.3333 13.3333" fill="none" className="shrink-0 mt-0.5">
+            <svg width={13.333} height={13.333} viewBox="0 0 13.3333 13.3333" fill="none" className="mt-0.5 shrink-0">
               <path d={svgPathsLocation.p33549300} fill="#3E494A" />
             </svg>
-            <span>Your precise location does not need to be saved.</span>
+            <span>Your location is sent to Google Maps to calculate routes and is never saved by SmartCart. Remembered preferences exclude location.</span>
           </div>
-        </div>
+        </section>
 
-        {/* Transport mode */}
-        <div className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4">
           <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Transport mode</h2>
           <div className="grid grid-cols-2 gap-3">
-            {TRANSPORT_OPTS.map(t => {
-              const active = transport === t.id;
+            {TRANSPORT_OPTS.map(option => {
+              const active = transportMode === option.id;
               return (
                 <button
-                  key={t.id}
-                  onClick={() => setTransport(t.id)}
+                  type="button"
+                  key={option.id}
+                  onClick={() => setTransportMode(option.id)}
                   aria-pressed={active}
-                  className={`flex min-h-[92px] flex-col items-center justify-center rounded-2xl border py-4 shadow-sm ${
-                    active ? "border-[#087f5b] bg-[#087f5b]" : "border-[#dce5e0] bg-white"
-                  }`}
+                  className={"flex min-h-[92px] flex-col items-center justify-center rounded-2xl border py-4 shadow-sm " + (active ? "border-[#087f5b] bg-[#087f5b]" : "border-[#dce5e0] bg-white")}
                 >
-                  <div className="mb-2"><t.Icon active={active} /></div>
-                  <span className={`text-[14px] font-medium leading-5 ${active ? "text-white" : "text-[#191c1d]"}`}>{t.label}</span>
+                  <div className="mb-2"><option.Icon active={active} /></div>
+                  <span className={"text-[14px] font-medium leading-5 " + (active ? "text-white" : "text-[#191c1d]")}>{option.label}</span>
                 </button>
               );
             })}
           </div>
-        </div>
+        </section>
 
-        {/* Travel limit */}
-        <div className="flex flex-col gap-2">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Travel limit</h2>
-          <p className="text-[16px] text-[#3e494a]">We&apos;ll only compare stores within this limit.</p>
-          <div className="grid grid-cols-4 gap-2 pt-2">
-            {[2, 5, 10, 15].map(d => (
+        <section className="flex flex-col gap-3">
+          <div>
+            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Travel limit</h2>
+            <p className="mt-1 text-[16px] text-[#3e494a]">Choose a one-way route distance or travel time.</p>
+          </div>
+          <div className="grid grid-cols-2 rounded-xl bg-[#e8efeb] p-1" aria-label="Travel limit type">
+            {(["distance", "time"] as const).map(type => (
               <button
-                key={d}
-                onClick={() => setDistance(d)}
-                aria-pressed={distance === d}
-                className={`h-12 rounded-xl border px-2 text-[14px] font-bold ${
-                  distance === d ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#dce5e0] bg-white text-[#405149]"
-                }`}
+                type="button"
+                key={type}
+                onClick={() => {
+                  setLimitType(type);
+                  setLimitValue(type === "distance" ? 5 : 20);
+                }}
+                aria-pressed={limitType === type}
+                className={"min-h-11 rounded-lg px-3 text-sm font-bold " + (limitType === type ? "bg-white text-[#087f5b] shadow-sm" : "text-[#53635c]")}
               >
-                {d}km
+                {type === "distance" ? "Distance" : "Travel time"}
               </button>
             ))}
           </div>
-        </div>
+          <div className="grid grid-cols-4 gap-2">
+            {limits.map(value => (
+              <button
+                type="button"
+                key={value}
+                onClick={() => setLimitValue(value)}
+                aria-pressed={limitValue === value}
+                className={"h-12 rounded-xl border px-2 text-[14px] font-bold " + (limitValue === value ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#dce5e0] bg-white text-[#405149]")}
+              >
+                {value}{limitType === "distance" ? " km" : " min"}
+              </button>
+            ))}
+          </div>
+        </section>
 
-        {/* Remember preferences */}
-        <div className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
+        <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
           <div>
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">SARA planning <span className="text-sm font-normal text-[#53635c]">(optional)</span></h2>
-            <p className="text-sm text-[#3e494a] mt-1">You do not need to share your income or eligibility.</p>
+            <p className="mt-1 text-sm text-[#3e494a]">You do not need to share your income or eligibility.</p>
           </div>
           <label className="flex items-start gap-3 text-[16px] text-[#191c1d]">
-            <input type="checkbox" checked={saraOnly} onChange={event => setSaraOnly(event.target.checked)} className="mt-1 w-5 h-5 accent-[#00535b]" />
-            <span>Show only stores verified as SARA partners</span>
+            <input
+              type="checkbox"
+              checked={saraFilter === "candidate"}
+              onChange={event => setSaraFilter(event.target.checked ? "candidate" : "any")}
+              className="mt-1 h-5 w-5 accent-[#00535b]"
+            />
+            <span>
+              Show only SARA match candidates
+              <span className="mt-1 block text-xs text-[#6f797a]">Automated one-to-one matches for development; not independently verified partners.</span>
+            </span>
           </label>
-          <label htmlFor="sara-credit" className="text-sm font-medium text-[#191c1d]">SARA credit available for this shop (RM)</label>
-          <input
-            id="sara-credit"
-            type="number"
-            min="0"
-            step="1"
-            value={saraCredit}
-            onChange={event => setSaraCredit(Math.max(0, Number(event.target.value)))}
-            className="h-14 w-full rounded-xl border border-[#dce5e0] bg-[#f7f9f8] px-3 text-[16px]"
-          />
-          <p className="text-xs text-[#6f797a]">Estimates use only items and stores marked as verified. Confirm acceptance at the store.</p>
-        </div>
+        </section>
 
-        {/* Remember preferences */}
         <button
+          type="button"
           onClick={() => setRemember(!remember)}
           aria-pressed={remember}
           className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#dce5e0] bg-white px-4 py-3 text-left"
         >
-          <div className={`w-[22px] h-[22px] rounded-[2px] flex items-center justify-center shrink-0 border ${remember ? "bg-[#00535b] border-[#00535b]" : "bg-white border-[#bec8ca]"}`}>
+          <span className={"flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[2px] border " + (remember ? "border-[#00535b] bg-[#00535b]" : "border-[#bec8ca] bg-white")}>
             {remember && <IcoCheckbox />}
-          </div>
-          <span className="text-[16px] text-[#191c1d] leading-6">Remember my travel preferences on this device (No account required)</span>
+          </span>
+          <span className="text-[16px] leading-6 text-[#191c1d]">Remember transport and travel-limit preferences on this device</span>
         </button>
       </div>
 
-      {/* Fixed bottom actions */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-[712px] gap-3">
-          <button onClick={onBack} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
+          <button type="button" onClick={onBack} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
             Back to Basket
           </button>
-          <button onClick={handleCompare} className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]">
-            Compare Prices
+          <button
+            type="button"
+            onClick={handleCompare}
+            disabled={!selectedOrigin || searchState === "resolving" || searchState === "locating"}
+            className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none"
+          >
+            Find reachable stores
           </button>
         </div>
       </div>
@@ -727,242 +937,207 @@ function LocationScreen({
   );
 }
 
-// ── Screen 3: Compare Stores ──────────────────────────────────────────────────
-function CompareScreen({ basket, preferences, onBack }: { basket: BasketItem[]; preferences: TravelPreferences; onBack: () => void }) {
-  const [breakdown, setBreakdown] = useState(false);
+function CompareScreen({
+  basket,
+  preferences,
+  onBack,
+}: {
+  basket: BasketItem[];
+  preferences: TravelPreferences;
+  onBack: () => void;
+}) {
+  const [result, setResult] = useState<RecommendationResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
-  const reachableStores = useMemo(
-    () => STORES.filter(store => store.distanceKm <= preferences.distanceKm && (!preferences.saraOnly || store.saraPartner === true)),
-    [preferences.distanceKm, preferences.saraOnly],
-  );
-  const visibleStores = showAll ? reachableStores : reachableStores.slice(0, 5);
-  const recommendedStore = reachableStores[0];
-  const savings = recommendedStore ? recommendedStore.avg - recommendedStore.total : 0;
-  const verifiedSaraSubtotal = basket.reduce((total, item) => {
-    if (item.saraEligible !== true || !recommendedStore) return total;
-    const itemPrice = recommendedStore.items[item.id as keyof typeof recommendedStore.items];
-    return total + (itemPrice ?? 0) * item.qty;
-  }, 0);
-  const creditUse = Math.min(preferences.saraCredit, verifiedSaraSubtotal);
-  const cashRequired = Math.max(0, (recommendedStore?.total ?? 0) - creditUse);
+
+  useEffect(() => {
+    if (!preferences.origin) {
+      setError("Choose a starting location before requesting recommendations.");
+      setLoading(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+    setError("");
+
+    getRecommendations({
+      basket: basket.map(item => ({ itemId: item.id, quantity: item.qty })),
+      travel: {
+        origin: preferences.origin,
+        transportMode: preferences.transportMode,
+        limit: { type: preferences.limitType, value: preferences.limitValue },
+        saraFilter: preferences.saraFilter,
+      },
+    }, controller.signal)
+      .then(setResult)
+      .catch(requestError => {
+        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
+        setError(
+          requestError instanceof SmartCartApiError
+            ? requestError.message
+            : "Recommendations are temporarily unavailable. Please try again.",
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [basket, preferences]);
+
+  const recommendations = result?.recommendations ?? [];
+  const visibleStores = showAll ? recommendations : recommendations.slice(0, 5);
+  const recommendedStore = recommendations[0];
+  const modeLabel = TRANSPORT_OPTS.find(option => option.id === preferences.transportMode)?.label ?? "Selected transport";
+  const limitLabel = preferences.limitType === "distance"
+    ? preferences.limitValue + " km"
+    : preferences.limitValue + " minutes";
 
   return (
     <div className="screen-enter pb-8">
       <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
         <div className="flex flex-col gap-4">
-          <button onClick={onBack} className="flex min-h-11 items-center gap-2 self-start text-[14px] font-bold text-[#087f5b]">
+          <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 self-start text-[14px] font-bold text-[#087f5b]">
             <IcoArrowBack /> Back to travel preferences
           </button>
           <ProgressIndicator step={4} />
         </div>
 
-        {/* Header section */}
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-bold text-[#087f5b]">Complete basket matches</p>
+          <p className="text-sm font-bold text-[#087f5b]">Transport-first recommendation</p>
           <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
             Best reachable stores
           </h1>
           <p className="text-[15px] leading-6 text-[#53635c]">
-            Comparing {reachableStores.length} reachable premises within {preferences.distanceKm} km of {preferences.location} by {TRANSPORT_OPTS.find(option => option.id === preferences.transport)?.label.toLowerCase()}.
+            Stores within a one-way limit of {limitLabel} from {preferences.origin?.label} by {modeLabel.toLowerCase()}.
           </p>
-          {preferences.saraOnly && <p className="text-sm font-medium text-[#166534]">Filter applied: verified SARA partner stores only.</p>}
+          {preferences.saraFilter === "candidate" && (
+            <p className="text-sm font-medium text-[#7a5b00]">Filter applied: automated SARA match candidates only. These are not independently verified.</p>
+          )}
         </div>
 
-        {/* Savings banner */}
-        {recommendedStore && <div className="flex gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4 sm:gap-4 sm:p-5">
-          <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><IcoSavings /></div>
-          <div className="flex flex-col gap-2">
-            <p className="text-[20px] font-extrabold leading-7 text-[#175f4b]">Save about RM{savings.toFixed(2)}</p>
-            <p className="text-[14px] leading-5 text-[#286d67]">
-              {recommendedStore.name} is the lowest-priced complete basket among stores inside your travel limit, at RM{savings.toFixed(2)} below the average.
-            </p>
-          </div>
-        </div>}
-
-        {recommendedStore?.saraPartner === true && preferences.saraCredit > 0 && (
-          <div className="rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
-            <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              <h2 className="text-[20px] font-semibold text-[#191c1d]">Estimated payment plan</h2>
-              <span className="bg-[#e5f5ed] text-[#166534] text-xs font-semibold px-2 py-1 rounded-[2px]">Verified SARA partner</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <div className="bg-[#f3faf7] p-3 rounded-[4px]"><p className="text-sm text-[#3e494a]">SARA credit</p><p className="text-xl font-bold text-[#166534]">RM{creditUse.toFixed(2)}</p></div>
-              <div className="bg-[#f8f9fa] p-3 rounded-[4px]"><p className="text-sm text-[#3e494a]">Cash required</p><p className="text-xl font-bold text-[#191c1d]">RM{cashRequired.toFixed(2)}</p></div>
-            </div>
-            <p className="text-xs text-[#6f797a] mt-3">Estimate only. Unverified items are treated as cash, not as ineligible. Confirm the final amount at checkout.</p>
+        {loading && (
+          <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-6 text-center shadow-sm">
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[#cce3d9] border-t-[#087f5b]" />
+            <p className="font-bold text-[#17362c]">Checking reachable PriceCatcher stores...</p>
+            <p className="mt-1 text-sm text-[#617069]">Route times depend on the selected transport mode.</p>
           </div>
         )}
 
-        {/* Full basket section */}
-        <div className="flex flex-col gap-4">
-          <div className="flex items-end justify-between gap-3">
-            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Full basket available</h2>
-            <span className="text-sm font-medium text-[#718078]">Cheapest first</span>
+        {!loading && error && (
+          <div role="alert" className="rounded-2xl border border-[#f0b8b8] bg-[#fff5f5] p-5 text-center">
+            <div className="mx-auto mb-2 flex w-fit items-center gap-2 font-bold text-[#93000a]"><IcoWarn /> Recommendation unavailable</div>
+            <p className="text-sm leading-5 text-[#6f3030]">{error}</p>
+            <button type="button" onClick={onBack} className="mt-4 min-h-11 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#93000a]">Change travel preferences</button>
           </div>
-          <div className="flex flex-col gap-3">
-            {visibleStores.map((store, index) => (
-              <article key={store.id} className={`relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] ${index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]"}`}>
-                {index === 0 && (
-                  <div className="bg-[#087f5b] px-3 py-2 text-center">
-                    <span className="text-[13px] font-extrabold leading-5 text-white">Best match · lowest complete price</span>
-                  </div>
-                )}
-                <div className="flex flex-col gap-2 px-4 pb-5 pt-4">
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]">
-                      <IcoStore />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
-                      <div className="flex items-center gap-1">
-                        <IcoPriceCatcher />
-                        <span className="text-[14px] font-medium leading-5 text-[#3e494a] tracking-[0.14px]">PriceCatcher</span>
-                      </div>
-                      <p className="mt-1 text-[14px] font-medium text-[#53635c]">{store.distanceKm} km · about {store.travelMinutes} min</p>
-                      {store.saraPartner === true ? (
-                        <span className="inline-flex mt-1 bg-[#e5f5ed] text-[#166534] px-2 py-0.5 rounded-[2px] text-xs font-medium">Verified SARA partner</span>
-                      ) : (
-                        <span className="inline-flex mt-1 bg-[#f3f4f5] text-[#5f6368] px-2 py-0.5 rounded-[2px] text-xs font-medium">SARA status not verified</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-end justify-between pt-2">
-                    <span className="text-[16px] text-[#3e494a]">Total</span>
-                    <span className={`text-[24px] font-extrabold leading-7 ${index === 0 ? "text-[#087f5b]" : "text-[#10231d]"}`}>
-                      RM{store.total.toFixed(2)}
-                    </span>
-                  </div>
+        )}
+
+        {!loading && !error && recommendedStore && (
+          <div className="flex gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4 sm:gap-4 sm:p-5">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><IcoSavings /></div>
+            <div className="flex flex-col gap-1">
+              <p className="text-[20px] font-extrabold leading-7 text-[#175f4b]">{recommendedStore.name}</p>
+              <p className="text-[14px] leading-5 text-[#286d67]">
+                Best match by estimated return transport cost, then travel time and route distance.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {!loading && !error && result?.routeWarning && (
+          <div className="flex items-start gap-2 rounded-xl border border-[#ead89d] bg-[#fff9e8] p-4 text-sm leading-5 text-[#6d5700]">
+            <IcoWarn color="#6d5700" />
+            <span>{result.routeWarning}</span>
+          </div>
+        )}
+
+        {!loading && !error && result && (
+          <section className="flex flex-col gap-4">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Reachable premises</h2>
+                <p className="mt-1 text-sm text-[#617069]">{result.totalReachable} reachable from {result.totalCandidatesEvaluated} nearby candidates checked.</p>
+              </div>
+              <span className="text-right text-xs font-medium text-[#718078]">Lower travel cost first</span>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {visibleStores.map((store, index) => (
+                <article key={store.premiseId} className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
                   {index === 0 && (
-                    <div className="inline-block self-start bg-[#dcfce7] px-2 py-1 rounded-[2px]">
-                      <span className="text-[14px] font-medium leading-5 text-[#166534] tracking-[0.14px]">
-                        Save RM{savings.toFixed(2)} vs average
-                      </span>
+                    <div className="bg-[#087f5b] px-3 py-2 text-center">
+                      <span className="text-[13px] font-extrabold leading-5 text-white">Recommended reachable store</span>
                     </div>
                   )}
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[#e7ece9] bg-[#fafbf9] px-4 py-2">
-                  <span className="text-[12px] font-medium leading-5 text-[#617069]">Price observed: {store.updated}</span>
-                  <button onClick={() => setBreakdown(true)} className="min-h-11 px-2 text-[14px] font-extrabold leading-5 text-[#087f5b]">
-                    View breakdown
-                  </button>
-                </div>
-              </article>
-            ))}
-            {reachableStores.length > 5 && (
-              <button onClick={() => setShowAll(value => !value)} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
-                {showAll ? "Show first 5" : `See more (+${reachableStores.length - 5})`}
-              </button>
-            )}
-            {reachableStores.length === 0 && (
-              <div className="bg-white border border-[#bec8ca] rounded-[8px] p-5 text-center">
-                <p className="font-semibold text-[#191c1d]">No verified partner stores found inside this travel limit.</p>
-                <button onClick={onBack} className="mt-3 text-[#00535b] font-medium">Change travel or SARA preferences</button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Partial basket section */}
-        <div className="flex flex-col gap-4">
-          <div>
-            <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Partial basket</h2>
-            <p className="mt-1 text-sm text-[#3e494a]">These stores do not list every item in your basket.</p>
-          </div>
-          {PARTIAL_STORES.map(store => (
-            <div key={store.id} className="bg-white rounded-[8px] overflow-hidden opacity-80 shadow-[0px_4px_12px_0px_rgba(0,0,0,0.05)] border border-[#bec8ca]">
-              <div className="flex flex-col gap-4 pb-8 pt-4 px-4">
-                <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-[#e7e8e9] rounded-xl flex items-center justify-center shrink-0">
-                      <IcoStore />
-                    </div>
-                    <div>
-                      <p className="text-[20px] font-semibold leading-7 text-[#191c1d]">{store.name}</p>
-                      <div className="flex items-center gap-1">
-                        <IcoPriceCatcher />
-                        <span className="text-[14px] font-medium leading-5 text-[#3e494a] tracking-[0.14px]">PriceCatcher</span>
+                  <div className="flex flex-col gap-4 px-4 pb-5 pt-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
+                        <div className="mt-0.5 flex items-center gap-1">
+                          <IcoPriceCatcher />
+                          <span className="text-[13px] font-medium text-[#53635c]">PriceCatcher premise {store.premiseCode}</span>
+                        </div>
+                        {(store.address || store.district || store.state) && (
+                          <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
+                        )}
                       </div>
                     </div>
-                  </div>
-                  <div className="bg-[#ffdad6] flex items-center gap-1 px-2 py-1 rounded-[2px]">
-                    <IcoWarn />
-                    <span className="text-[14px] font-medium text-[#93000a] leading-5 tracking-[0.14px] whitespace-nowrap">Missing {store.missing} items</span>
-                  </div>
-                </div>
-                <div className="flex items-end justify-between">
-                  <span className="text-[16px] text-[#3e494a]">Partial Total</span>
-                  <span className="text-[22px] font-bold leading-7 text-[#191c1d]">RM{store.total.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="border-t border-[#bec8ca] bg-[#f8f9fa] px-4 py-3">
-                <span className="text-[14px] font-medium leading-5 text-[#3e494a] tracking-[0.14px]">Updated: {store.updated}</span>
-              </div>
-            </div>
-          ))}
-        </div>
 
-        {/* Footer note */}
-        <div className="border-t border-[#bec8ca] pt-[17px]">
-          <p className="text-[14px] font-medium leading-5 text-[#3e494a] text-center tracking-[0.14px]">
-            Prices may differ from in-store prices. Data sourced from PriceCatcher, last refreshed 18 Aug 2026 10:30.
-          </p>
-        </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-xl bg-[#f3faf7] p-3">
+                        <p className="text-xs text-[#617069]">Return travel</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f7f8f6] p-3">
+                        <p className="text-xs text-[#617069]">One way</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
+                      </div>
+                      <div className="rounded-xl bg-[#f7f8f6] p-3">
+                        <p className="text-xs text-[#617069]">Route</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+                      </div>
+                    </div>
+
+                    {store.saraStatus === "verified" ? (
+                      <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">Verified SARA partner</span>
+                    ) : store.saraStatus === "candidate" ? (
+                      <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">SARA match candidate - requires verification</span>
+                    ) : (
+                      <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">SARA status not verified</span>
+                    )}
+                  </div>
+                </article>
+              ))}
+
+              {recommendations.length > 5 && (
+                <button type="button" onClick={() => setShowAll(value => !value)} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
+                  {showAll ? "Show first 5" : "See more (+" + (recommendations.length - 5) + ")"}
+                </button>
+              )}
+
+              {recommendations.length === 0 && (
+                <div className="rounded-2xl border border-[#bec8ca] bg-white p-5 text-center">
+                  <p className="font-semibold text-[#191c1d]">No routed stores were found inside this travel limit.</p>
+                  <p className="mt-1 text-sm text-[#617069]">Try a larger limit, another transport mode, or remove the SARA candidate filter.</p>
+                  <button type="button" onClick={onBack} className="mt-3 min-h-11 px-3 font-bold text-[#00535b]">Change travel preferences</button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {!loading && !error && result && (
+          <details className="rounded-2xl border border-[#dce5e0] bg-white p-4 text-sm">
+            <summary className="cursor-pointer font-bold text-[#17362c]">How this recommendation is calculated</summary>
+            <p className="mt-3 leading-5 text-[#53635c]">{result.rankingMethod}</p>
+            <p className="mt-2 leading-5 text-[#53635c]">{result.costAssumptions[preferences.transportMode]}</p>
+            <p className="mt-2 leading-5 text-[#53635c]">Route distance and time are estimates from Google Maps. Straight-line distance is used only to limit paid route checks; SmartCart does not store your starting location.</p>
+          </details>
+        )}
       </div>
-
-      {/* Breakdown modal */}
-      {breakdown && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/50">
-          <div role="dialog" aria-modal="true" aria-labelledby="breakdown-title" className="screen-enter flex max-h-[85vh] w-full flex-col rounded-t-2xl bg-white">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#bec8ca]">
-              <h2 id="breakdown-title" className="text-[20px] font-bold text-[#191c1d]">Basket Price Breakdown</h2>
-              <button aria-label="Close price breakdown" onClick={() => setBreakdown(false)} className="flex h-11 w-11 items-center justify-center text-lg font-medium text-[#3e494a]">✕</button>
-            </div>
-            <div className="overflow-auto flex-1 scroll-x">
-              <table className="w-full min-w-[500px] text-sm">
-                <thead>
-                  <tr className="bg-[#f8f9fa] text-left border-b border-[#bec8ca]">
-                    <th className="px-4 py-3 text-xs font-semibold text-[#6f797a] sticky left-0 bg-[#f8f9fa] min-w-[110px]">Item</th>
-                    <th className="px-3 py-3 text-xs font-semibold text-[#6f797a] text-center">Qty</th>
-                    {visibleStores.map(s => (
-                      <th key={s.id} className="px-3 py-3 text-xs font-semibold text-[#6f797a] text-right min-w-[110px]">{s.name}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {basket.map((item, idx) => {
-                    const prices = visibleStores.map(s => {
-                      const p = s.items[item.id as keyof typeof s.items];
-                      return p != null ? p * item.qty : null;
-                    });
-                    const min = Math.min(...(prices.filter(p => p != null) as number[]));
-                    return (
-                      <tr key={item.id} className={idx % 2 === 0 ? "bg-white" : "bg-[#fafbfc]"}>
-                        <td className={`px-4 py-3 font-medium text-[#191c1d] sticky left-0 ${idx % 2 === 0 ? "bg-white" : "bg-[#fafbfc]"}`}>{item.name}</td>
-                        <td className="px-3 py-3 text-center text-[#3e494a]">{item.qty}</td>
-                        {prices.map((p, i) => (
-                          <td key={i} className="px-3 py-3 text-right">
-                            {p != null ? (
-                              <span className={p === min ? "font-bold text-[#286d67]" : "text-[#191c1d]"}>RM{p.toFixed(2)}</span>
-                            ) : <span className="text-[#bec8ca]">—</span>}
-                          </td>
-                        ))}
-                      </tr>
-                    );
-                  })}
-                  <tr className="bg-[#f8f9fa] border-t-2 border-[#bec8ca] font-bold">
-                    <td className="px-4 py-3 text-[#191c1d] sticky left-0 bg-[#f8f9fa]">Total</td>
-                    <td className="px-3 py-3" />
-                    {visibleStores.map(s => (
-                      <td key={s.id} className="px-3 py-3 text-right text-[#191c1d]">RM{s.total.toFixed(2)}</td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
-              <p className="text-xs text-[#6f797a] px-4 py-3">Bold green = cheapest for that item. — = Not available.</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -972,11 +1147,11 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("shop");
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [preferences, setPreferences] = useState<TravelPreferences>({
-    location: "Kota Bharu, Kelantan",
-    transport: "moto",
-    distanceKm: 5,
-    saraOnly: false,
-    saraCredit: 20,
+    origin: null,
+    transportMode: "motorcycle",
+    limitType: "distance",
+    limitValue: 5,
+    saraFilter: "any",
   });
 
   useEffect(() => {
@@ -987,7 +1162,19 @@ export default function App() {
     const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
     if (!savedPreferences) return;
     try {
-      setPreferences(JSON.parse(savedPreferences) as TravelPreferences);
+      const saved = JSON.parse(savedPreferences) as Record<string, unknown>;
+      const transportMode = ["walk", "public_transport", "motorcycle", "car"].includes(String(saved.transportMode))
+        ? saved.transportMode as TransportMode
+        : "motorcycle";
+      const limitType = saved.limitType === "time" ? "time" : "distance";
+      const candidateLimit = Number(saved.limitValue);
+      const limitValue = Number.isFinite(candidateLimit) && candidateLimit > 0
+        ? candidateLimit
+        : limitType === "distance" ? 5 : 20;
+      const saraFilter = ["any", "candidate", "verified"].includes(String(saved.saraFilter))
+        ? saved.saraFilter as SaraFilter
+        : "any";
+      setPreferences({ origin: null, transportMode, limitType, limitValue, saraFilter });
     } catch {
       window.localStorage.removeItem("smartcart-travel-preferences");
     }

@@ -49,6 +49,38 @@ addresses. The snapshot is joined by `premise_code` and cannot replace those
 official fields. Its SHA-256 is checked against the provenance file before any
 database connection is made.
 
+## Routing coordinate cache
+
+`premise.latitude`, `premise.longitude`, `location_provider`, and
+`location_refreshed_at` support a cheap straight-line prefilter before calling
+the route matrix. They are routing enrichment, not PriceCatcher fields. The
+ingestion upsert preserves them.
+
+When `location_provider = 'google'`, latitude and longitude are a temporary
+cache. The recommendation query uses only coordinates refreshed within the
+configured maximum age (29 days by default). Run the frontend maintenance
+commands from `SmartCart/frontend`:
+
+```powershell
+# Remove Google coordinate caches older than 30 days. Schedule this daily.
+pnpm cleanup:premise-locations
+
+# Remove expired values, then refresh at most 100 missing or stale premises.
+pnpm sync:premise-locations -- --limit=100
+
+# Deliberately refresh all missing or stale premises after checking API quota.
+# The sync defaults to 300 requests/minute and retries temporary quota errors.
+pnpm sync:premise-locations -- --all
+
+# Override the pacing only when the project's per-minute quota permits it.
+pnpm sync:premise-locations -- --all --requests-per-minute=600
+```
+
+The cleanup schedule is mandatory when Google-derived coordinates are cached.
+Place IDs may be retained, but cached Google latitude/longitude values must be
+removed after 30 consecutive days. The user's selected origin is never written
+to these columns or any other SmartCart table.
+
 ## Local setup
 
 Install Docker Desktop and Python 3.11 or later. From `SmartCart/database`:
