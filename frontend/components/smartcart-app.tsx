@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import { searchItems, type Item } from "@/lib/api";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -167,7 +168,7 @@ function IcoPriceCatcher({ color = "#3E494A" }: { color?: string }) {
   );
 }
 
-// ── Header ───────────────────────────────────────────────────────────────────
+// ── Header ──────────────────────────────────────────────────────────────────
 function Header({
   basketCount,
   onBasket,
@@ -254,6 +255,12 @@ function BasketScreen({
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
 
+  // ── Real database search (Step 6) ─────────────────────────────────────────
+  const [apiResults, setApiResults] = useState<Item[]>([]);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiSearched, setApiSearched] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null); // which card's store-price list is open
+
   const filtered = CATALOG.filter(item => {
     const matchesSearch = !search || `${item.name} ${item.brand}`.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = activeCategories.length === 0 || activeCategories.includes(item.category);
@@ -292,6 +299,29 @@ function BasketScreen({
 
   const removeItem = (id: string) => setBasket(basket.filter(b => b.id !== id));
 
+  // Convert a real database Item into a BasketItem and add it to the basket (Step 7).
+  // Only items with a known price can be added (basket total must not include unknown prices).
+  // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
+  const addRealItem = (item: Item) => {
+    if (item.price == null) return; // no price -> cannot add
+    const basketId = `db-${item.item_id}`;
+    const existing = basket.find(b => b.id === basketId);
+    if (existing) {
+      setBasket(basket.map(b => b.id === basketId ? { ...b, qty: b.qty + 1 } : b));
+    } else {
+      setBasket([...basket, {
+        id: basketId,
+        name: item.item_name ?? "Unknown item",
+        brand: item.item_category ?? "—",
+        size: item.unit ?? "—",
+        qty: 1,
+        price: item.price,
+        unitPrice: item.price,
+        saraEligible: null,
+      }]);
+    }
+  };
+
   const handleContinue = () => {
     if (basket.length === 0) { setEmptyError(true); return; }
     setEmptyError(false);
@@ -319,7 +349,7 @@ function BasketScreen({
         <ProgressIndicator step={1} />
       </div>
 
-      {/* Search */}
+      {/* Search —— now calls the real backend API (Step 6) */}
       <div className="sticky top-16 z-30 bg-[#f7f8f6]/95 px-4 pb-3 pt-2 backdrop-blur sm:px-6">
         <div className="relative h-14">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -328,9 +358,23 @@ function BasketScreen({
           <input
             type="text"
             aria-label="Search household essentials"
-            placeholder="Search household essentials"
+            placeholder="Search real products — try ayam, milk, beras..."
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => {
+              const q = e.target.value;
+              setSearch(q);
+              if (!q.trim()) {
+                setApiResults([]);
+                setApiSearched(false);
+                return;
+              }
+              setApiLoading(true);
+              setApiSearched(true);
+              searchItems(q, 20)
+                .then(data => setApiResults(data.items))
+                .catch(() => setApiResults([]))
+                .finally(() => setApiLoading(false));
+            }}
             className="h-14 w-full rounded-2xl border border-[#dce5e0] bg-white pl-12 pr-4 text-[16px] text-[#10231d] shadow-[0_3px_14px_rgba(16,35,29,0.07)] placeholder:text-[#718078] focus:border-[#087f5b] focus:outline-none"
           />
         </div>
@@ -380,70 +424,109 @@ function BasketScreen({
         )}
       </div>
 
-      {/* Matching items */}
+      {/* Matching items —— now shows real backend data with prices (Step 7) */}
       <div className="px-4 pb-7 sm:px-6">
         <div className="mb-3 flex items-end justify-between gap-3">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{search ? "Search results" : activeCategories.length > 0 ? "Selected categories" : "All essentials"}</h2>
-          <span className="text-sm font-medium text-[#718078]">{filtered.length} item{filtered.length === 1 ? "" : "s"}</span>
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">
+            {search ? "Search results" : "All essentials"}
+          </h2>
+          <span className="text-sm font-medium text-[#718078]">
+            {apiLoading ? "Searching..." : `${apiResults.length} item${apiResults.length === 1 ? "" : "s"}`}
+          </span>
         </div>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {filtered.length === 0 ? (
-            <p className="text-[16px] text-[#3e494a] text-center py-6">No items found. Try another keyword.</p>
-          ) : filtered.slice(0, 5).map(item => {
-            const basketItem = inBasket(item.id);
-            return (
-              <article key={item.id} className="grid grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
-                {/* Image */}
-                <div className="h-[84px] w-[84px] shrink-0 sm:h-[92px] sm:w-[92px]">
-                  {item.hasImg ? (
-                    <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#eef2ef]">
-                      <Image src={productImg} alt={item.name} fill sizes="92px" className="object-cover" />
-                    </div>
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center rounded-xl bg-[#eef2ef]">
-                      <svg width={24} height={24} viewBox="0 0 18 18" fill="none">
-                        <path d={svgPathsBasket.p1fe4bc00} fill="#6F797A" />
-                      </svg>
-                    </div>
-                  )}
+
+        {/* Not searched yet */}
+        {!apiSearched && (
+          <p className="text-[16px] text-[#3e494a] text-center py-6">
+            Type above to search 757 real products from the database 🛒
+          </p>
+        )}
+
+        {/* Loading */}
+        {apiLoading && (
+          <p className="text-[16px] text-[#718078] text-center py-6">Searching the database...</p>
+        )}
+
+        {/* Searched but no results */}
+        {!apiLoading && apiSearched && apiResults.length === 0 && (
+          <p className="text-[16px] text-[#3e494a] text-center py-6">
+            No items found for &quot;{search}&quot;. Try another keyword.
+          </p>
+        )}
+
+        {/* Real results list */}
+        {!apiLoading && apiResults.length > 0 && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {apiResults.map(item => (
+              <article key={item.item_id} className="grid grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
+                {/* Icon placeholder (real data has no image) */}
+                <div className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-xl bg-[#eef2ef] sm:h-[92px] sm:w-[92px]">
+                  <svg width={24} height={24} viewBox="0 0 18 18" fill="none">
+                    <path d={svgPathsBasket.p1fe4bc00} fill="#6F797A" />
+                  </svg>
                 </div>
-                {/* Info */}
+                {/* Item info */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-extrabold leading-5 text-[#10231d]">{item.name}</p>
-                  <p className="mt-0.5 text-[13px] leading-5 text-[#617069]">{item.brand} · {item.size}</p>
-                  <p className="mt-1 text-[15px] font-bold text-[#17362c]">From RM{item.price.toFixed(2)}</p>
-                  <p className="text-[12px] text-[#718078]">RM{item.unitPrice.toFixed(2)}/{item.unit}</p>
-                  {item.saraEligible === true && (
-                    <span className="mt-1 inline-flex rounded-md bg-[#e8f7ef] px-2 py-0.5 text-[11px] font-bold text-[#166534]">SARA eligible · verified</span>
+                  <p className="text-[16px] font-extrabold leading-5 text-[#10231d]">{item.item_name}</p>
+                  <p className="mt-0.5 text-[13px] leading-5 text-[#617069]">
+                    {item.item_category ?? "—"} · code {item.item_code}
+                  </p>
+                  {item.unit && (
+                    <p className="mt-1 text-[12px] text-[#718078]">Unit: {item.unit}</p>
                   )}
                 </div>
-                {/* Action */}
-                {basketItem ? (
-                  <div className="col-span-2 flex h-11 shrink-0 items-center justify-between rounded-xl bg-[#edf7f2] p-1">
+                {/* Price + all-store prices + Add to basket (Step 7 v2) */}
+                {item.price != null ? (
+                  <>
+                    <div className="col-span-2 flex items-end justify-between gap-2">
+                      <p className="text-[15px] font-bold text-[#17362c]">
+                        From RM{item.price.toFixed(2)}
+                        <span className="ml-2 text-[12px] font-medium text-[#718078]">
+                          · {item.prices.length} store{item.prices.length === 1 ? "" : "s"}
+                        </span>
+                      </p>
+                      {item.prices.length > 1 && (
+                        <button
+                          type="button"
+                          aria-expanded={expandedId === item.item_id}
+                          onClick={() => setExpandedId(expandedId === item.item_id ? null : item.item_id)}
+                          className="min-h-11 px-2 text-[13px] font-extrabold text-[#087f5b]"
+                        >
+                          {expandedId === item.item_id ? "Hide stores ⌃" : "All store prices ⌄"}
+                        </button>
+                      )}
+                    </div>
+                    {expandedId === item.item_id && (
+                      <ul className="col-span-2 rounded-xl bg-[#f2f6f3] p-2 text-[13px]">
+                        {item.prices.map((sp, i) => (
+                          <li key={i} className="flex justify-between gap-2 px-2 py-1">
+                            <span className="truncate text-[#3e494a]">{sp.premise_name ?? "Unknown store"}</span>
+                            <span className={`shrink-0 font-bold ${i === 0 ? "text-[#087f5b]" : "text-[#10231d]"}`}>
+                              RM{sp.price.toFixed(2)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                     <button
-                      aria-label={`Decrease ${item.name} quantity`}
-                      onClick={() => updateQty(item.id, -1)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-xl font-medium text-[#087f5b] shadow-sm"
-                    >−</button>
-                    <span aria-live="polite" className="w-8 text-center text-sm font-extrabold text-[#17362c]">{basketItem.qty}</span>
-                    <button
-                      aria-label={`Increase ${item.name} quantity`}
-                      onClick={() => updateQty(item.id, 1)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#087f5b] text-xl font-medium text-white shadow-sm"
-                    >+</button>
-                  </div>
+                      onClick={() => addRealItem(item)}
+                      className="col-span-2 h-11 w-full shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b] hover:bg-[#edf7f2]"
+                    >
+                      + Add to basket
+                    </button>
+                  </>
                 ) : (
                   <button
-                    onClick={() => addItem(item)}
-                    className="col-span-2 h-11 w-full shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b]"
+                    disabled
+                    className="col-span-2 h-11 w-full shrink-0 rounded-xl border border-[#cbd8d1] bg-[#f2f6f3] px-5 text-[14px] font-extrabold text-[#718078]"
                   >
-                    + Add to basket
+                    No price data
                   </button>
                 )}
               </article>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
         </>
