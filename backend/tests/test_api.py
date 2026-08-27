@@ -126,3 +126,16 @@ def test_item_name_parsing_returns_none_when_nothing_parseable() -> None:
     assert parse_package_size("TELUR AYAM GRED A (BERAT 65.0 GM HINGGA 69.9 GM SEBIJI)") is None
     assert parse_package_size("AYAM BERSIH - STANDARD") is None
     assert parse_package_size(None) is None
+
+
+def test_display_package_size_merges_parsed_size_and_unit() -> None:
+    from smartcart.catalogue import display_package_size
+
+    # Name-parsed size wins over the unit column.
+    assert display_package_size("MAGGI 2 MINUTE NOODLE CURRY FLAVOUR (5X79G)", "5 X 79g") == "5X79G"
+    # Without a parseable size, the unit is the quantity/pricing basis.
+    assert display_package_size("AYAM BERSIH - STANDARD", "1kg") == "1kg"
+    assert display_package_size("BERAS CAP JATI (SST5%)", "10 kg") == "10 kg"
+    # Only when both are absent does the column fall back to nothing.
+    assert display_package_size("AYAM BERSIH - STANDARD", None) is None
+    assert display_package_size(None, "  ") is None

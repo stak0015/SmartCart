@@ -1,13 +1,13 @@
 import type { Item } from "./api";
 
-// Display fields for a search result row: item name, brand, package size and
-// unit, in that order. Values that could not be parsed render as "—"; nothing
-// is invented.
+// Display fields for a search result row: item name, brand and package size,
+// in that order. Package size is the merged quantity/pricing-basis value from
+// the backend. Values that could not be parsed render as "—"; nothing is
+// invented.
 export interface ResultRowFields {
   name: string;
   brand: string;
   packageSize: string;
-  unit: string;
 }
 
 export function resultRowFields(item: Item): ResultRowFields {
@@ -15,7 +15,6 @@ export function resultRowFields(item: Item): ResultRowFields {
     name: item.item_name ?? "Unknown item",
     brand: item.brand ?? "—",
     packageSize: item.package_size ?? "—",
-    unit: item.unit ?? "—",
   };
 }
 
@@ -24,4 +23,11 @@ export const DEFAULT_QTY = 1;
 
 export function stepQty(qty: number, delta: number): number {
   return Math.max(1, qty + delta);
+}
+
+// A basket row must show the same attributes as the result row it came from;
+// both views read from this single mapping so they cannot drift apart.
+export function basketDetails(item: Item): { name: string; brand: string; size: string } {
+  const fields = resultRowFields(item);
+  return { name: fields.name, brand: fields.brand, size: fields.packageSize };
 }

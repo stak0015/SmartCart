@@ -42,6 +42,13 @@ def parse_package_size(item_name: str | None) -> str | None:
     return match.group(1).strip() if match else None
 
 
+def display_package_size(item_name: str | None, unit: str | None) -> str | None:
+    """Merged quantity/pricing-basis column: the parsed package size when the
+    name states one, otherwise the pricing unit (e.g. "1kg" for fresh goods).
+    None only when neither exists."""
+    return parse_package_size(item_name) or (unit.strip() if unit and unit.strip() else None)
+
+
 def count_items() -> int:
     with database_cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM item")
@@ -100,7 +107,7 @@ def search_catalogue(query: str, limit: int) -> list[dict[str, Any]]:
     for row in rows:
         row["price"] = float(row["price"]) if row["price"] is not None else None
         row["brand"] = parse_brand(row["item_name"])
-        row["package_size"] = parse_package_size(row["item_name"])
+        row["package_size"] = display_package_size(row["item_name"], row["unit"])
         row["prices"] = prices_by_item.get(row["item_id"], [])
     return rows
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { searchItems, type Item } from "@/lib/api";
-import { DEFAULT_QTY, resultRowFields, stepQty } from "@/lib/result-row";
+import { DEFAULT_QTY, basketDetails, resultRowFields, stepQty } from "@/lib/result-row";
 import {
   getRecommendations,
   resolveLocation,
@@ -286,7 +286,8 @@ function BasketScreen({
   // Convert a real database Item into a BasketItem and add it to the basket (Step 7).
   // Only items with a known price can be added (basket total must not include unknown prices).
   // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
-  // brand/size come from the parsed item_name fields; unparsed values show "—".
+  // brand/size come from the same mapping as the result row (basketDetails),
+  // so both views always show identical details; unparsed values show "—".
   const addRealItem = (item: Item, qty: number) => {
     if (item.price == null) return; // no price -> cannot add
     const basketId = `db-${item.item_id}`;
@@ -296,9 +297,7 @@ function BasketScreen({
     } else {
       setBasket([...basket, {
         id: basketId,
-        name: item.item_name ?? "Unknown item",
-        brand: item.brand ?? "—",
-        size: item.package_size ?? "—",
+        ...basketDetails(item),
         qty,
         price: item.price,
         unitPrice: item.price,
@@ -453,11 +452,11 @@ function BasketScreen({
                     <path d={svgPathsBasket.p1fe4bc00} fill="#6F797A" />
                   </svg>
                 </div>
-                {/* Item info: name | brand | package size | unit, all readable before Add */}
+                {/* Item info: name | brand | package size, all readable before Add */}
                 <div className="flex-1 min-w-0">
                   <p className="text-[15px] leading-6 text-[#617069]">
                     <span className="font-extrabold text-[#10231d]">{fields.name}</span>
-                    {" | "}{fields.brand}{" | "}{fields.packageSize}{" | "}{fields.unit}
+                    {" | "}{fields.brand}{" | "}{fields.packageSize}
                   </p>
                   <p className="mt-0.5 text-[12px] leading-5 text-[#718078]">
                     {item.item_category ?? "—"} · code {item.item_code}

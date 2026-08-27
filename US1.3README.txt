@@ -5,18 +5,18 @@ Search Result Rows: Item Details and Quantity Selector
 ------------------------------------------------------------
 1. 中文
 
-搜索结果行现在从左到右完整展示四个商品要素：商品名称 | 品牌 | 包装规格 | 单位，例如 "BERAS CAP JATI (SST5%) | JATI | — | 10 kg"。四个要素在点击 Add 之前全部直接可读，不隐藏在任何展开区域内；展开区仍然只用于展示各门店价格明细。
+搜索结果行从左到右展示三个商品要素：商品名称 | 品牌 | 包装规格，例如 "BERAS CAP FAIZA EMAS (SST5%) | FAIZA EMAS | 10 kg"。其中"包装规格"是合并列，语义为"数量/计价基准"：名称中标注了规格则展示规格；名称中没有规格时，直接展示数据库 unit 字段的原值（生鲜类商品多为 "1kg" 或 "1 KG"），因此绝大多数行都有实际内容。三个要素在点击 Add 之前全部直接可读，不隐藏在任何展开区域内；展开区仍然只用于展示各门店价格明细。
 
 English:
-Each search result row now shows four item attributes, left to right: Item name | Brand | Package size | Unit, e.g. "BERAS CAP JATI (SST5%) | JATI | — | 10 kg". All four attributes are directly readable before tapping Add and are never hidden inside any collapsible area; the expandable area remains reserved for per-store price details only.
+Each search result row shows three item attributes, left to right: Item name | Brand | Package size, e.g. "BERAS CAP FAIZA EMAS (SST5%) | FAIZA EMAS | 10 kg". The "Package size" column is a merged column whose meaning is "quantity / pricing basis": when the name states a size, that size is shown; otherwise the raw database unit value is shown instead (fresh items are typically "1kg" or "1 KG"), so the vast majority of rows carry real content. All three attributes are directly readable before tapping Add and are never hidden inside any collapsible area; the expandable area remains reserved for per-store price details only.
 
 ------------------------------------------------------------
 2. 中文
 
-品牌与包装规格由后端在查询时从商品名称中解析（backend/smartcart/catalogue.py 中的 parse_brand 与 parse_package_size）。解析只识别名称中明确标注的信息：品牌标记 CAP / JENAMA，以及显式规格（如 5X79G、850G、15CM、10S、8 PADS）。无法可靠解析的字段返回 null，前端统一显示 "—"，不会虚构任何品牌或规格。标注为多品牌混售（PELBAGAI JENAMA）的商品同样显示 "—"。数据库表结构未做改动。
+品牌与包装规格由后端在查询时生成（backend/smartcart/catalogue.py 中的 parse_brand 与 display_package_size）。品牌只识别名称中明确标注的 CAP / JENAMA 标记；包装规格列先尝试从名称解析显式规格（如 5X79G、850G、15CM、10S、8 PADS），解析不到则回退为 unit 列原值；两者都拿不到时返回 null，前端统一显示 "—"，不会虚构任何品牌或规格。标注为多品牌混售（PELBAGAI JENAMA）的商品品牌显示 "—"。数据库表结构未做改动。
 
 English:
-Brand and package size are parsed from the item name at query time by the backend (parse_brand and parse_package_size in backend/smartcart/catalogue.py). Parsing only recognizes information explicitly stated in the name: the brand markers CAP / JENAMA, and explicit sizes (e.g. 5X79G, 850G, 15CM, 10S, 8 PADS). Fields that cannot be parsed reliably are returned as null and shown as "—" in the frontend; no brand or size is ever invented. Items marked as sold under various brands (PELBAGAI JENAMA) also show "—". The database schema is unchanged.
+Brand and package size are produced by the backend at query time (parse_brand and display_package_size in backend/smartcart/catalogue.py). The brand only recognizes the explicit CAP / JENAMA markers in the name; the package size column first tries to parse an explicit size from the name (e.g. 5X79G, 850G, 15CM, 10S, 8 PADS), and falls back to the raw unit column value when nothing parses; when neither is available it returns null and the frontend shows "—" — no brand or size is ever invented. Items marked as sold under various brands (PELBAGAI JENAMA) show "—" for brand. The database schema is unchanged.
 
 ------------------------------------------------------------
 3. 中文
@@ -29,26 +29,26 @@ Every result row ends with a quantity stepper that defaults to 1; the − and + 
 ------------------------------------------------------------
 4. 中文
 
-购物篮内行显示的品牌与规格现在与结果行一致，取自解析后的真实字段，不再以商品类别占位。因此从结果行到购物篮，同一商品的品牌与规格展示完全相同。
+购物篮内行显示的名称、品牌与包装规格与结果行逐项一致，取自同一份展示映射（resultRowFields / basketDetails），两侧视图不可能出现不一致；缺省字段在两侧同样显示 "—"。因此从结果行到购物篮，购物者始终能确认自己加入的确切商品。
 
 English:
-The brand and size shown on basket rows now match the result rows, taken from the parsed fields instead of the item category that was previously used as a placeholder. An item's brand and size therefore read identically from the result row through to the basket.
+The item name, brand, and package size shown on basket rows are identical to the result rows, item by item. Both views read from the same display mapping (resultRowFields / basketDetails), so the two views cannot drift apart, and fields without a value show "—" on both sides alike. From the result row through to the basket, the shopper can always confirm exactly which product they added.
 
 ------------------------------------------------------------
 5. 中文
 
-改动点：后端 smartcart/catalogue.py 新增查询期解析并在搜索响应中返回 brand 与 package_size 两个字段；前端 lib/api.ts 的 Item 类型同步新增这两个字段，lib/result-row.ts 提供结果行四要素展示与步进器逻辑，components/smartcart-app.tsx 更新结果行布局、步进器与入篮映射。
+改动点：后端 smartcart/catalogue.py 新增查询期品牌解析与规格合并逻辑，并在搜索响应中返回 brand 与 package_size 两个字段；前端 lib/api.ts 的 Item 类型同步包含这两个字段，lib/result-row.ts 提供结果行三要素展示与步进器逻辑，components/smartcart-app.tsx 更新结果行布局、步进器与入篮映射。
 
 English:
-Changes: the backend smartcart/catalogue.py adds query-time parsing and returns two new fields, brand and package_size, in the search response; on the frontend, the Item type in lib/api.ts is updated to match, lib/result-row.ts provides the row display and stepper logic, and components/smartcart-app.tsx updates the result-row layout, the stepper, and the add-to-basket mapping.
+Changes: the backend smartcart/catalogue.py adds query-time brand parsing and the package-size merge logic, and returns two fields, brand and package_size, in the search response; on the frontend, the Item type in lib/api.ts includes these two fields, lib/result-row.ts provides the three-attribute row display and stepper logic, and components/smartcart-app.tsx updates the result-row layout, the stepper, and the add-to-basket mapping.
 
 ------------------------------------------------------------
 6. 中文
 
-测试与验证：后端 pytest 新增解析用例，覆盖名称含品牌/规格时正确拆出、以及名称不可解析时返回 null 而不报错，全部通过；前端 vitest 覆盖四要素的缺省值展示与步进器默认值、增减行为，全部通过；ESLint 与生产构建均通过。手动核对方式：启动本地数据库、后端与前端后，搜索真实关键词（如 beras），逐行确认四要素按 名称 | 品牌 | 规格 | 单位 顺序展示、不可解析字段显示 "—"、步进器默认为 1、Add 入篮数量与步进器一致、无价商品不可入篮。
+测试与验证：后端 pytest 覆盖品牌/规格解析的双向用例（名称含品牌/规格时正确拆出、不可解析时返回 null 而不报错），以及包装规格合并规则（名称解析优先、解析不到回退 unit 原值、两者皆无返回 null），全部通过；前端 vitest 覆盖三要素的缺省值展示与步进器默认值、增减行为，全部通过；ESLint 与生产构建均通过。手动核对方式：启动本地数据库、后端与前端后，搜索真实关键词（如 beras），逐行确认三要素按 名称 | 品牌 | 规格 顺序展示、名称无规格时规格列展示 unit 原值（生鲜为 "1kg"）、不可解析字段显示 "—"、步进器默认为 1、Add 入篮数量与步进器一致、无价商品不可入篮。
 
 English:
-Testing and verification: new backend pytest cases cover both directions of the parsing — names containing a brand/size are split out correctly, and names with nothing parseable return null without errors — all passing; frontend vitest cases cover the "—" fallbacks of the four attributes and the stepper's default value and increment/decrement behavior, all passing; ESLint and the production build pass. To verify manually: with the local database, backend, and frontend running, search a real keyword (e.g. beras) and check row by row that the four attributes appear in the order Item name | Brand | Package size | Unit, unparseable fields show "—", the stepper defaults to 1, the added quantity matches the stepper, and items without a price cannot be added.
+Testing and verification: backend pytest covers both directions of the brand/size parsing (names containing a brand/size are split out correctly; names with nothing parseable return null without errors) plus the package-size merge rule (name parsing wins, falls back to the raw unit value, returns null when neither exists) — all passing; frontend vitest covers the "—" fallbacks of the three attributes and the stepper's default value and increment/decrement behavior, all passing; ESLint and the production build pass. To verify manually: with the local database, backend, and frontend running, search a real keyword (e.g. beras) and check row by row that the three attributes appear in the order Item name | Brand | Package size, that rows whose name has no size show the raw unit value in the size column ("1kg" for fresh items), that unparseable fields show "—", that the stepper defaults to 1, the added quantity matches the stepper, and items without a price cannot be added.
 
 ------------------------------------------------------------
 7. 中文
