@@ -18,11 +18,24 @@ export function resultRowFields(item: Item): ResultRowFields {
   };
 }
 
-// Quantity stepper on result rows: starts at 1, plain increment/decrement.
+// Quantity on result rows: whole number 1–99, starts at 1 (AC-1.4.1).
 export const DEFAULT_QTY = 1;
+export const MAX_QTY = 99;
+
+// AC-1.4.1 inline error wording — verbatim, do not reword.
+export const QTY_ERROR = "Quantity must be a whole number between 1 and 99. Need to fill up.";
 
 export function stepQty(qty: number, delta: number): number {
-  return Math.max(1, qty + delta);
+  return Math.min(MAX_QTY, Math.max(DEFAULT_QTY, qty + delta));
+}
+
+// Parse a typed quantity (AC-1.4.1): only whole-number strings "1".."99"
+// are valid; 0, >99, decimals, letters, empty or negative input -> null.
+export function parseQty(raw: string): number | null {
+  if (!/^\d{1,2}$/.test(raw)) return null;
+  const value = Number(raw);
+  if (value < DEFAULT_QTY || value > MAX_QTY) return null;
+  return value;
 }
 
 // A basket row must show the same attributes as the result row it came from;

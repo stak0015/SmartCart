@@ -1,0 +1,51 @@
+US 1.4 Build Notes / 构建说明
+Quantity Selector: Typed Input, Bounds and Inline Validation
+数量选择器：手输、边界与行内校验
+
+------------------------------------------------------------
+1. 中文
+
+搜索结果行的数量选择器同时支持两种操作方式：点击 − 和 + 按钮步进，或直接在数量框中输入数字。数量始终是 1 到 99 之间的整数，默认为 1。两种方式操作的是同一个值：步进按钮在输入框当前值的基础上增减，输入框也实时反映步进结果，二者不会出现不一致。
+
+English:
+The quantity selector on each search result row supports two ways of working: tapping the − and + buttons to step the value, or typing a number directly into the quantity box. The quantity is always a whole number between 1 and 99 and defaults to 1. Both controls operate on the same value: the stepper buttons increment or decrement from whatever the box currently shows, and the box reflects stepper changes immediately, so the two can never drift apart.
+
+------------------------------------------------------------
+2. 中文
+
+步进器在边界处真正禁用：数量为 1 时 − 按钮禁用，数量为 99 时 + 按钮禁用，因此通过按钮得到的值必然落在 1–99 范围内，不可能越界。
+
+English:
+The stepper is genuinely disabled at its bounds: the − button is disabled at 1 and the + button is disabled at 99, so any value reached through the buttons is guaranteed to stay within 1–99 and can never go out of range.
+
+------------------------------------------------------------
+3. 中文
+
+手输校验在输入过程中即时生效。输入 0、大于 99 的数、小数或字母等非法值时，该行立即显示行内报错 "Quantity must be a whole number between 1 and 99. Need to fill up."，同时该行的 Add 按钮被禁用，非法数量无法入篮。把数值改回 1–99 的整数后，报错立即消失、Add 按钮恢复可用；在非法状态下直接点击步进按钮也可以恢复到合法值。
+
+English:
+Typed-input validation applies as you type. Entering an invalid value — 0, a number above 99, a decimal, or letters — immediately shows the inline error "Quantity must be a whole number between 1 and 99. Need to fill up." on that row and disables that row's Add button, so an invalid quantity can never reach the basket. Changing the value back to a whole number between 1 and 99 clears the error and re-enables Add at once; tapping a stepper button while the value is invalid also recovers to a valid value.
+
+------------------------------------------------------------
+4. 中文
+
+非法数量有双重防护：除了 Add 按钮被禁用外，入篮逻辑内部还会在校验未通过时直接拒绝执行，因此即使绕过按钮状态也无法把非法数量加入购物篮。点击 Add 仍然按数量框当前显示的合法数量入篮；重复添加同一商品时数量在购物篮中累加，该行为保持不变。
+
+English:
+Invalid quantities are guarded twice: besides the Add button being disabled, the add-to-basket logic itself refuses to run while validation fails, so an invalid quantity cannot enter the basket even if the button state were bypassed. Add still uses the valid quantity currently shown in the box; adding the same item again accumulates its quantity in the basket, and that behavior is unchanged.
+
+------------------------------------------------------------
+5. 中文
+
+改动点：前端 lib/result-row.ts 新增数量上限常量、手输解析函数与逐字报错文案常量，步进函数改为在 1–99 内钳制；components/smartcart-app.tsx 的结果行数量区域改为受控输入框加边界禁用与行内报错。后端与数据库未做改动。
+
+English:
+Changes: on the frontend, lib/result-row.ts adds the maximum-quantity constant, a typed-input parsing function, and the verbatim error-message constant, and the step function now clamps to 1–99; in components/smartcart-app.tsx, the result-row quantity area becomes a controlled input with boundary disabling and the inline error. The backend and the database are unchanged.
+
+------------------------------------------------------------
+6. 中文
+
+测试与验证：前端 vitest 覆盖手输解析的全部边界（1、99 合法；0、100、150、小数、字母、空串、负数非法）、步进钳制（不低于 1、不高于 99）以及报错文案与需求原文逐字一致，全部通过；ESLint 与生产构建均通过；后端 pytest 回归全部通过。手动核对方式：启动本地数据库、后端与前端后，搜索真实关键词（如 beras），确认数量框默认为 1 且 − 禁用、输入 0 或字母立即显示报错且 Add 禁用、输入 99 时 + 禁用、改回合法值后报错消失且 Add 恢复。
+
+English:
+Testing and verification: frontend vitest covers every boundary of typed-input parsing (1 and 99 valid; 0, 100, 150, decimals, letters, empty and negative values invalid), the stepper clamping (never below 1, never above 99), and that the error message matches the required wording verbatim — all passing; ESLint and the production build pass; the backend pytest suite passes as before. To verify manually: with the local database, backend, and frontend running, search a real keyword (e.g. beras) and check that the quantity box defaults to 1 with − disabled, that typing 0 or letters immediately shows the error and disables Add, that + is disabled at 99, and that returning to a valid value clears the error and re-enables Add.

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { searchItems, type Item } from "@/lib/api";
-import { DEFAULT_QTY, basketDetails, resultRowFields, stepQty } from "@/lib/result-row";
+import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, parseQty, resultRowFields, stepQty } from "@/lib/result-row";
 import {
   getRecommendations,
   resolveLocation,
@@ -259,10 +259,19 @@ function BasketScreen({
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null); // which card's store-price list is open
-  const [qtyById, setQtyById] = useState<Record<number, number>>({}); // result-row stepper values (default 1)
+  const [qtyById, setQtyById] = useState<Record<number, string>>({}); // result-row quantity raw input (default "1")
 
+  // AC-1.4.1: single source of truth is the raw string; the steppers also
+  // read/write through parseQty so typed and stepped values never drift.
   const stepResultQty = (itemId: number, delta: number) => {
-    setQtyById(current => ({ ...current, [itemId]: stepQty(current[itemId] ?? DEFAULT_QTY, delta) }));
+    setQtyById(current => {
+      const base = parseQty(current[itemId] ?? String(DEFAULT_QTY)) ?? DEFAULT_QTY;
+      return { ...current, [itemId]: String(stepQty(base, delta)) };
+    });
+  };
+
+  const typeResultQty = (itemId: number, raw: string) => {
+    setQtyById(current => ({ ...current, [itemId]: raw }));
   };
 
   const filtered = CATALOG.filter(item => {
@@ -443,7 +452,8 @@ function BasketScreen({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {apiResults.map(item => {
               const fields = resultRowFields(item);
-              const qty = qtyById[item.item_id] ?? DEFAULT_QTY;
+              const rawQty = qtyById[item.item_id] ?? String(DEFAULT_QTY);
+              const qty = parseQty(rawQty); // null while the typed value is invalid (AC-1.4.1)
               return (
               <article key={item.item_id} className="grid grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
                 {/* Icon placeholder (real data has no image) */}
@@ -495,19 +505,32 @@ function BasketScreen({
                         ))}
                       </ul>
                     )}
-                    {/* Quantity stepper (default 1) + Add: Add uses the stepper value */}
-                    <div className="col-span-2 flex items-center gap-2">
-                      <div className="flex shrink-0 items-center gap-1">
-                        <button type="button" aria-label={`Decrease ${fields.name} quantity`} onClick={() => stepResultQty(item.item_id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
-                        <span aria-label={`${qty} selected`} className="w-7 text-center text-sm font-bold">{qty}</span>
-                        <button type="button" aria-label={`Increase ${fields.name} quantity`} onClick={() => stepResultQty(item.item_id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
+                    {/* Quantity stepper (default 1, bounds 1–99) + typed input + Add (AC-1.4.1) */}
+                    <div className="col-span-2 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button type="button" aria-label={`Decrease ${fields.name} quantity`} disabled={qty === DEFAULT_QTY} onClick={() => stepResultQty(item.item_id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b] disabled:opacity-40">−</button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            aria-label={`${fields.name} quantity`}
+                            value={rawQty}
+                            onChange={e => typeResultQty(item.item_id, e.target.value)}
+                            className="h-11 w-12 rounded-xl border border-[#cbd8d1] text-center text-sm font-bold text-[#10231d] focus:border-[#087f5b] focus:outline-none"
+                          />
+                          <button type="button" aria-label={`Increase ${fields.name} quantity`} disabled={qty === MAX_QTY} onClick={() => stepResultQty(item.item_id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white disabled:opacity-40">+</button>
+                        </div>
+                        <button
+                          disabled={qty === null}
+                          onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
+                          className="h-11 flex-1 shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
+                        >
+                          + Add to basket
+                        </button>
                       </div>
-                      <button
-                        onClick={() => addRealItem(item, qty)}
-                        className="h-11 flex-1 shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b] hover:bg-[#edf7f2]"
-                      >
-                        + Add to basket
-                      </button>
+                      {qty === null && (
+                        <p role="alert" className="text-[13px] font-semibold text-[#c92a2a]">{QTY_ERROR}</p>
+                      )}
                     </div>
                   </>
                 ) : (
