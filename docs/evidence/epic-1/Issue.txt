@@ -1,0 +1,24 @@
+【Known Limitation / TODO】Price Coverage Gap for Some Items
+
+**Symptom:** Some item cards in search results display "No price data" and cannot be added to the cart.
+
+**Root Cause:** Item prices are sourced from the `current_status` table (PriceCatcher data source). An item is searchable as long as it exists in the `item` table, but it only has a price if at least one `(item_id, premise_id)` record exists in `current_status`. Freshly prepared food & beverage items (e.g., AIR SUAM, BARLI PANAS) and long-tail items often have no store-level pricing at all, resulting in missing prices.
+
+**Current Handling (Correct):** The backend uses a LEFT JOIN, so items without prices are still returned normally (with `price: null`). The frontend accurately displays a notice and disables the add-to-cart action — no prices are fabricated, and no items disappear from results. This is expected behavior, not a defect.
+
+**Impact Scope:** To be quantified (see SQL below). Preliminary observation indicates a long-tail distribution: popular items may have pricing from hundreds of stores, while niche items have zero.
+
+**Quantification SQL:**
+```sql
+SELECT
+  (SELECT COUNT(*) FROM item) AS total_items,
+  (SELECT COUNT(DISTINCT item_id) FROM current_status) AS items_with_price,
+  (SELECT COUNT(*) FROM item) - (SELECT COUNT(DISTINCT item_id) FROM current_status) AS items_without_price;
+```
+
+**Potential Future Directions (Out of Scope for This Epic):**
+-   **Improve data coverage:** Integrate additional price sources / increase PriceCatcher sync frequency.
+-   **Graceful degradation for unpriced items:** Display the average price range for the category as a reference (must be labeled as "estimated").
+-   **Manual budget input:** Allow users to manually enter a budget price for unpriced items to include them in cart estimates.
+
+**Conclusion:** Does not block completion of AC-1.1.1; logged as a data-layer TODO for future data/product iterations.

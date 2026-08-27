@@ -1,0 +1,19 @@
+# Python
+backend/pip_cache/
+pip_cache/
+**/pip_cache/
+**/.venv/
+**/__pycache__/
+*.pyc
+.env
+.env.local
+
+# Node
+node_modules/
+frontend/node_modules/
+.next/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db

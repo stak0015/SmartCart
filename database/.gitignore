@@ -9,3 +9,5 @@ data/archive/*
 !data/archive/.gitkeep
 !data/archive/lookup_premise_sara_one_to_one_2026-08-23.parquet
 !data/archive/lookup_premise_sara_one_to_one_2026-08-23_provenance.json
+data/raw/
+pip_cache/
