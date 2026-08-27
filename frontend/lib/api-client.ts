@@ -1,10 +1,25 @@
 import type {
+  ApiErrorBody,
   CatalogueItem,
+  LocationSearchResponse,
   RecommendationRequest,
   RecommendationResponse,
+  ResolvedLocation,
 } from "./contracts";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
+const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
+const API_BASE_URL = configuredBaseUrl || "/api";
+
+export class SmartCartApiError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = "SmartCartApiError";
+  }
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -16,7 +31,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`SmartCart API request failed with status ${response.status}`);
+    const body = await response.json().catch(() => null) as ApiErrorBody | null;
+    throw new SmartCartApiError(
+      body?.error.message ?? "SmartCart could not complete that request.",
+      body?.error.code ?? "REQUEST_FAILED",
+      response.status,
+    );
   }
 
   return response.json() as Promise<T>;
@@ -28,9 +48,32 @@ export function searchItems(query: string, category?: string): Promise<Catalogue
   return request<CatalogueItem[]>(`/items?${params.toString()}`);
 }
 
-export function getRecommendations(payload: RecommendationRequest): Promise<RecommendationResponse> {
+export function getRecommendations(
+  payload: RecommendationRequest,
+  signal?: AbortSignal,
+): Promise<RecommendationResponse> {
   return request<RecommendationResponse>("/recommendations", {
     method: "POST",
     body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function searchLocations(
+  query: string,
+  sessionToken: string,
+  signal?: AbortSignal,
+): Promise<LocationSearchResponse> {
+  const params = new URLSearchParams({ query, sessionToken });
+  return request<LocationSearchResponse>(`/locations/autocomplete?${params.toString()}`, { signal });
+}
+
+export function resolveLocation(
+  placeId: string,
+  sessionToken: string,
+): Promise<ResolvedLocation> {
+  return request<ResolvedLocation>("/locations/resolve", {
+    method: "POST",
+    body: JSON.stringify({ placeId, sessionToken }),
   });
 }

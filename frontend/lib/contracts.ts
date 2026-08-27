@@ -1,5 +1,9 @@
 export type VerificationStatus = "verified" | "unverified";
 
+export type TransportMode = "walk" | "public_transport" | "motorcycle" | "car";
+export type TravelLimitType = "distance" | "time";
+export type SaraFilter = "any" | "candidate" | "verified";
+
 export interface CatalogueItem {
   itemId: string;
   itemCode: string;
@@ -15,55 +19,77 @@ export interface BasketLineRequest {
   quantity: number;
 }
 
+export interface SelectedLocation {
+  label: string;
+  latitude: number;
+  longitude: number;
+  placeId?: string;
+  source: "device" | "search";
+}
+
 export interface TravelPreferencesRequest {
-  locationText: string;
-  latitude?: number;
-  longitude?: number;
-  transportMode: "walk" | "public_transport" | "motorcycle" | "car";
-  maximumDistanceKm: number;
-  verifiedSaraPartnersOnly: boolean;
-  saraCreditAvailable?: number;
+  origin: SelectedLocation;
+  transportMode: TransportMode;
+  limit: {
+    type: TravelLimitType;
+    value: number;
+  };
+  saraFilter: SaraFilter;
 }
 
 export interface RecommendationRequest {
-  basket: BasketLineRequest[];
+  basket?: BasketLineRequest[];
   travel: TravelPreferencesRequest;
-  limit: number;
-  offset: number;
 }
 
-export interface RecommendationItemPrice {
-  itemId: string;
-  unitPrice: number | null;
-  observedDate: string | null;
-  saraEligibility: VerificationStatus;
+export interface LocationSuggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  fullText: string;
 }
+
+export interface LocationSearchResponse {
+  suggestions: LocationSuggestion[];
+}
+
+export interface ResolvedLocation {
+  placeId: string;
+  label: string;
+  latitude: number;
+  longitude: number;
+}
+
+export type SaraStoreStatus = "verified" | "candidate" | "unverified";
 
 export interface StoreRecommendation {
   premiseId: string;
+  premiseCode: string;
   name: string;
-  distanceKm: number;
-  estimatedTravelMinutes: number | null;
-  completeBasket: boolean;
-  basketTotal: number | null;
-  verifiedSaraPartner: boolean;
-  prices: RecommendationItemPrice[];
-}
-
-export interface BudgetAlternative {
-  originalItemId: string;
-  alternativeItemId: string;
-  alternativeName: string;
-  immediatePrice: number;
-  pricePerUnit: number;
-  unit: string;
-  immediateSaving: number;
-  bestValuePerUnit: boolean;
+  address: string | null;
+  district: string | null;
+  state: string | null;
+  straightLineDistanceKm: number;
+  routeDistanceKm: number;
+  estimatedTravelMinutes: number;
+  estimatedRoundTripCostRm: number;
+  saraStatus: SaraStoreStatus;
 }
 
 export interface RecommendationResponse {
   recommendations: StoreRecommendation[];
-  alternatives: BudgetAlternative[];
-  totalResults: number;
-  priceDataRefreshedAt: string;
+  totalCandidatesEvaluated: number;
+  totalReachable: number;
+  generatedAt: string;
+  routeProvider: "google";
+  rankingMethod: string;
+  costAssumptions: Record<TransportMode, string>;
+  routeWarning: string | null;
+}
+
+export interface ApiErrorBody {
+  error: {
+    code: string;
+    message: string;
+  };
 }

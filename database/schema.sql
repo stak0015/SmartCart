@@ -21,8 +21,18 @@ CREATE TABLE IF NOT EXISTS premise (
     state VARCHAR(255),
     google_place_id VARCHAR(255),
     place_match_refreshed_at TIMESTAMPTZ,
+    latitude DOUBLE PRECISION,
+    longitude DOUBLE PRECISION,
+    location_provider VARCHAR(32),
+    location_refreshed_at TIMESTAMPTZ,
     sara_partner BOOLEAN,
-    sara_match_candidate BOOLEAN NOT NULL DEFAULT FALSE
+    sara_match_candidate BOOLEAN NOT NULL DEFAULT FALSE,
+    CONSTRAINT premise_latitude_range
+        CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90),
+    CONSTRAINT premise_longitude_range
+        CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+    CONSTRAINT premise_coordinate_pair
+        CHECK ((latitude IS NULL) = (longitude IS NULL))
 );
 
 -- Keep local databases aligned when this idempotent schema is reapplied.
@@ -33,10 +43,43 @@ ALTER TABLE premise
     DROP COLUMN IF EXISTS place_match_confidence,
     DROP COLUMN IF EXISTS sara_verified_date;
 ALTER TABLE premise
-    ADD COLUMN IF NOT EXISTS sara_match_candidate BOOLEAN NOT NULL DEFAULT FALSE;
+    ADD COLUMN IF NOT EXISTS sara_match_candidate BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS location_provider VARCHAR(32),
+    ADD COLUMN IF NOT EXISTS location_refreshed_at TIMESTAMPTZ;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'premise_latitude_range'
+    ) THEN
+        ALTER TABLE premise ADD CONSTRAINT premise_latitude_range
+            CHECK (latitude IS NULL OR latitude BETWEEN -90 AND 90);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'premise_longitude_range'
+    ) THEN
+        ALTER TABLE premise ADD CONSTRAINT premise_longitude_range
+            CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180);
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'premise_coordinate_pair'
+    ) THEN
+        ALTER TABLE premise ADD CONSTRAINT premise_coordinate_pair
+            CHECK ((latitude IS NULL) = (longitude IS NULL));
+    END IF;
+END
+$$;
 
 COMMENT ON COLUMN premise.google_place_id IS
     'Top candidate enrichment; PriceCatcher does not publish a Google Place ID.';
+COMMENT ON COLUMN premise.latitude IS
+    'Routing prefilter coordinate from location_provider; refresh or remove according to provider terms.';
+COMMENT ON COLUMN premise.longitude IS
+    'Routing prefilter coordinate from location_provider; refresh or remove according to provider terms.';
+COMMENT ON COLUMN premise.location_refreshed_at IS
+    'Time the provider coordinate was refreshed. The recommendation query excludes stale coordinates.';
 COMMENT ON COLUMN premise.sara_partner IS
     'NULL means not yet verified. Populate only from a documented SARA source.';
 COMMENT ON COLUMN premise.sara_match_candidate IS
@@ -72,6 +115,9 @@ COMMENT ON COLUMN current_status.out_of_stock_report_count IS
 
 CREATE INDEX IF NOT EXISTS premise_location_idx
     ON premise (state, district);
+CREATE INDEX IF NOT EXISTS premise_coordinates_idx
+    ON premise (latitude, longitude)
+    WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
 CREATE INDEX IF NOT EXISTS current_status_observed_date_idx
     ON current_status (price_observed_date DESC);
 CREATE INDEX IF NOT EXISTS current_status_premise_idx
