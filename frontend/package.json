@@ -8,8 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
-    "cleanup:premise-locations": "node --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs --cleanup-only",
-    "sync:premise-locations": "node --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs"
+    "cleanup:premise-locations": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs --cleanup-only",
+    "sync:premise-locations": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs"
   },
   "dependencies": {
     "next": "^15.5.2",

@@ -4,23 +4,23 @@ This is the Next.js development copy of the Iteration 1 React prototype. The mob
 
 ## Run locally
 
-1. Install Node.js 22 and pnpm.
-2. Copy `.env.example` to `.env.local`, set `DATABASE_URL`, and add a
-   server-side `GOOGLE_MAPS_API_KEY` with Places API (New) and Routes API
-   enabled.
-3. Run `pnpm install`.
-4. Reapply `../database/schema.sql` to the database.
-5. Prepare a small coordinate batch with
+1. Start the FastAPI service by following [`../backend/README.md`](../backend/README.md).
+2. Install Node.js 22 and pnpm.
+3. Copy `.env.example` to `.env.local`; its default points to the local FastAPI
+   service.
+4. Run `pnpm install`.
+5. Reapply `../database/schema.sql` to the database if needed.
+6. Prepare a small coordinate batch with
    `pnpm sync:premise-locations -- --limit=100`, or use `--all` for the full
-   premise set after reviewing quota.
-6. Run `pnpm dev` and open `http://localhost:3000`.
+   premise set after reviewing quota. This script reads server credentials from
+   `../backend/.env`.
+7. Run `pnpm dev` and open `http://localhost:3000`.
 
 ## Current implementation
 
-The item catalogue remains representative in-component data while the new
-location and recommendation flow uses Next.js route handlers and PostgreSQL.
-Typed request and response shapes are in `lib/contracts.ts`; browser calls are
-in `lib/api-client.ts`.
+The live item search and the location and recommendation flow all call the
+FastAPI service. Typed request and response shapes are in `lib/contracts.ts`;
+browser calls are in `lib/api.ts` and `lib/api-client.ts`.
 
 The UI covers:
 
@@ -35,8 +35,9 @@ The UI covers:
 - explicit verified, candidate, and unverified SARA store statuses without
   treating automated matches as verified.
 
-## Backend endpoints
+## FastAPI endpoints
 
+- `GET /api/items/search?q=&limit=` searches the live PriceCatcher catalogue.
 - `GET /api/locations/autocomplete?query=&sessionToken=` proxies Places
   Autocomplete (New) without exposing the API key.
 - `POST /api/locations/resolve` resolves a selected Place ID to an address and
@@ -45,7 +46,8 @@ The UI covers:
   requests a bounded Google route matrix, applies the chosen travel limit, and
   returns the transport-first ranking.
 
-Run `pnpm lint`, `pnpm test`, and `pnpm build` before handoff. See
+Run `pnpm lint` and `pnpm build` here and `python -m pytest` in `../backend`
+before handoff. See
 [`../docs/recommendation-engine.md`](../docs/recommendation-engine.md) for the
 algorithm, assumptions, provider costs, data preparation, and known limits.
 

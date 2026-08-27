@@ -110,13 +110,16 @@ not verified, never as false or ineligible.
 ## Setup
 
 1. Apply `database/schema.sql` to PostgreSQL.
-2. Copy `frontend/.env.example` to `frontend/.env.local` and configure the
-   database URL and Google key.
+2. Copy `backend/.env.example` to `backend/.env` and configure the database URL
+   and server-only Google key.
 3. Enable Places API (New) and Routes API for the key.
 4. From `frontend`, run `pnpm sync:premise-locations -- --limit=100` for a
    controlled test batch. Review quota, then use `--all` when ready.
-5. Run `pnpm dev`.
-6. Before handoff, run `pnpm lint`, `pnpm test`, and `pnpm build`.
+5. From `backend`, install `requirements-dev.txt` and run
+   `uvicorn main:app --reload --port 8000`.
+6. Copy `frontend/.env.example` to `frontend/.env.local`, then run `pnpm dev`.
+7. Before handoff, run `python -m pytest` in `backend`, then `pnpm lint` and
+   `pnpm build` in `frontend`.
 
 ## Known limits and next steps
 

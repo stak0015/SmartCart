@@ -1,14 +1,11 @@
 import type {
   ApiErrorBody,
-  CatalogueItem,
   LocationSearchResponse,
   RecommendationRequest,
   RecommendationResponse,
   ResolvedLocation,
 } from "./contracts";
-
-const configuredBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "");
-const API_BASE_URL = configuredBaseUrl || "/api";
+import { API_BASE_URL } from "./api-base";
 
 export class SmartCartApiError extends Error {
   constructor(
@@ -40,12 +37,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   return response.json() as Promise<T>;
-}
-
-export function searchItems(query: string, category?: string): Promise<CatalogueItem[]> {
-  const params = new URLSearchParams({ query });
-  if (category) params.set("category", category);
-  return request<CatalogueItem[]>(`/items?${params.toString()}`);
 }
 
 export function getRecommendations(

@@ -1,18 +1,6 @@
-export type VerificationStatus = "verified" | "unverified";
-
 export type TransportMode = "walk" | "public_transport" | "motorcycle" | "car";
 export type TravelLimitType = "distance" | "time";
 export type SaraFilter = "any" | "candidate" | "verified";
-
-export interface CatalogueItem {
-  itemId: string;
-  itemCode: string;
-  name: string;
-  brand?: string;
-  unit: string;
-  category: string;
-  saraEligibility: VerificationStatus;
-}
 
 export interface BasketLineRequest {
   itemId: string;

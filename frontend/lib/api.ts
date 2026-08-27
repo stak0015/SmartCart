@@ -1,6 +1,5 @@
-// Unified wrapper for backend calls. All frontend requests go through here.
-
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+// Epic 1 catalogue calls use the same FastAPI base as every other feature.
+import { API_BASE_URL } from "./api-base";
 
 // One store's price for an item (cheapest-first list comes from backend)
 export interface StorePrice {
@@ -36,7 +35,7 @@ export interface CategoriesResult {
  * Search items by keyword
  */
 export async function searchItems(q: string, limit = 20): Promise<SearchResult> {
-  const url = `${API_BASE}/api/items/search?q=${encodeURIComponent(q)}&limit=${limit}`;
+  const url = `${API_BASE_URL}/items/search?q=${encodeURIComponent(q)}&limit=${limit}`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Search failed: HTTP ${res.status}`);
@@ -48,7 +47,7 @@ export async function searchItems(q: string, limit = 20): Promise<SearchResult> 
  * Get all item categories
  */
 export async function listCategories(): Promise<CategoriesResult> {
-  const url = `${API_BASE}/api/items/categories`;
+  const url = `${API_BASE_URL}/items/categories`;
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`Failed to fetch categories: HTTP ${res.status}`);

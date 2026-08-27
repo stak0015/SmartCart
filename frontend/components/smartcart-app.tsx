@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import { searchItems, type Item } from "@/lib/api";
 import {
   getRecommendations,
@@ -21,8 +20,6 @@ import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
 import svgPathsSaved from "@/components/icons/saved";
-
-const productImg = "/rice-product.png";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type Screen = "shop" | "basket" | "location" | "compare";
@@ -272,26 +269,6 @@ function BasketScreen({
     setActiveCategories(current => current.includes(category)
       ? current.filter(selected => selected !== category)
       : [...current, category]);
-  };
-
-  const inBasket = (id: string) => basket.find(b => b.id === id);
-
-  const addItem = (c: typeof CATALOG[0]) => {
-    const existing = basket.find(b => b.id === c.id);
-    if (existing) {
-      setBasket(basket.map(b => b.id === c.id ? { ...b, qty: b.qty + 1 } : b));
-    } else {
-      setBasket([...basket, {
-        id: c.id,
-        name: c.name,
-        brand: c.brand,
-        size: c.size,
-        qty: 1,
-        price: c.price,
-        unitPrice: c.unitPrice,
-        saraEligible: c.saraEligible,
-      }]);
-    }
   };
 
   const updateQty = (id: string, delta: number) => {

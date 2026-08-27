@@ -70,7 +70,7 @@ export default function ItemSearch() {
 
       {/* Searched but no results */}
       {!loading && searched && results.length === 0 && !error && (
-        <div className="text-gray-500">No items found matching "{query}" 🙁</div>
+        <div className="text-gray-500">No items found matching &quot;{query}&quot; 🙁</div>
       )}
 
       {/* Results list */}
