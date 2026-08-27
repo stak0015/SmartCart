@@ -44,3 +44,35 @@ export function basketDetails(item: Item): { name: string; brand: string; size: 
   const fields = resultRowFields(item);
   return { name: fields.name, brand: fields.brand, size: fields.packageSize };
 }
+
+// ── Basket add & summary (AC-1.4.2) ─────────────────────────────────────────
+export interface BasketLine {
+  id: string;
+  qty: number;
+  price: number;
+}
+
+// Adding the same item again increases its quantity instead of creating a
+// duplicate row (AC-1.4.2).
+export function upsertBasketLine<T extends BasketLine>(basket: T[], line: T): T[] {
+  if (basket.some(b => b.id === line.id)) {
+    return basket.map(b => (b.id === line.id ? { ...b, qty: b.qty + line.qty } : b));
+  }
+  return [...basket, line];
+}
+
+// The basket summary (total units + estimated total) is derived from the
+// lines, so it recalculates immediately on every change (AC-1.4.2).
+export function basketSummary(basket: BasketLine[]): { itemCount: number; estimate: number } {
+  return {
+    itemCount: basket.reduce((count, item) => count + item.qty, 0),
+    estimate: basket.reduce((total, item) => total + item.price * item.qty, 0),
+  };
+}
+
+// Basket row price annotation: "5 × RM6.50 = RM32.50". Uses `price`
+// (price per pack/item as sold), which is consistent for both database
+// items and demo items; recomputed from the line on every render.
+export function linePriceLabel(line: BasketLine): string {
+  return `${line.qty} × RM${line.price.toFixed(2)} = RM${(line.price * line.qty).toFixed(2)}`;
+}

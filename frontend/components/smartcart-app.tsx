@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { searchItems, type Item } from "@/lib/api";
-import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, parseQty, resultRowFields, stepQty } from "@/lib/result-row";
+import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, basketSummary, linePriceLabel, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import {
   getRecommendations,
   resolveLocation,
@@ -299,20 +299,15 @@ function BasketScreen({
   // so both views always show identical details; unparsed values show "—".
   const addRealItem = (item: Item, qty: number) => {
     if (item.price == null) return; // no price -> cannot add
-    const basketId = `db-${item.item_id}`;
-    const existing = basket.find(b => b.id === basketId);
-    if (existing) {
-      setBasket(basket.map(b => b.id === basketId ? { ...b, qty: b.qty + qty } : b));
-    } else {
-      setBasket([...basket, {
-        id: basketId,
-        ...basketDetails(item),
-        qty,
-        price: item.price,
-        unitPrice: item.price,
-        saraEligible: null,
-      }]);
-    }
+    // AC-1.4.2: same item added again increases quantity, never duplicates.
+    setBasket(upsertBasketLine(basket, {
+      id: `db-${item.item_id}`,
+      ...basketDetails(item),
+      qty,
+      price: item.price,
+      unitPrice: item.price,
+      saraEligible: null,
+    }));
   };
 
   const handleContinue = () => {
@@ -321,8 +316,8 @@ function BasketScreen({
     onContinue();
   };
 
-  const itemCount = basket.reduce((count, item) => count + item.qty, 0);
-  const basketEstimate = basket.reduce((total, item) => total + item.price * item.qty, 0);
+  // AC-1.4.2: summary line derives from the lines, so it recalculates on every add.
+  const { itemCount, estimate: basketEstimate } = basketSummary(basket);
 
   return (
     <div className="screen-enter pb-32">
@@ -584,6 +579,9 @@ function BasketScreen({
                     <div className="min-w-0 pr-3">
                       <p className="text-[15px] font-bold leading-5 text-[#10231d]">{item.name}</p>
                       <p className="text-[13px] leading-5 text-[#617069]">{item.brand} · {item.size}</p>
+                      {/* Unit price + line subtotal so shoppers can compare and decide (优化第 1 章) */}
+                      <p className="text-[13px] leading-5 text-[#617069]">RM{item.price.toFixed(2)} each</p>
+                      <p className="text-[13px] leading-5 font-semibold text-[#17362c]">{linePriceLabel(item)}</p>
                       {item.saraEligible === true && <p className="text-xs font-medium text-[#166534] mt-1">SARA eligible · verified</p>}
                     </div>
                     <div className="flex shrink-0 items-center gap-1">

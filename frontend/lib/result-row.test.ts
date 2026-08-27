@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Item } from "./api";
-import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, parseQty, resultRowFields, stepQty } from "./result-row";
+import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, basketSummary, linePriceLabel, parseQty, resultRowFields, stepQty, upsertBasketLine } from "./result-row";
 
 const baseItem: Item = {
   item_id: 1,
@@ -100,5 +100,59 @@ describe("basketDetails", () => {
     const details = basketDetails(item);
     expect(details.brand).toBe("—");
     expect(details.size).toBe("—");
+  });
+});
+
+describe("upsertBasketLine (AC-1.4.2)", () => {
+  const line = (id: string, qty: number, price = 10) => ({ id, qty, price });
+
+  it("appends a new item as a new row with the chosen quantity", () => {
+    expect(upsertBasketLine([], line("db-1", 3))).toEqual([line("db-1", 3)]);
+  });
+
+  it("increases quantity instead of duplicating when the same item is added again", () => {
+    const basket = [line("db-1", 2), line("db-2", 1)];
+    const next = upsertBasketLine(basket, line("db-1", 3));
+    expect(next).toHaveLength(2);
+    expect(next[0]).toEqual(line("db-1", 5));
+    expect(next[1]).toEqual(line("db-2", 1));
+  });
+
+  it("keeps other rows untouched when merging", () => {
+    const basket = [line("db-1", 1), line("db-2", 1)];
+    const next = upsertBasketLine(basket, line("db-2", 4));
+    expect(next[0]).toEqual(line("db-1", 1));
+    expect(next[1]).toEqual(line("db-2", 5));
+  });
+});
+
+describe("basketSummary (AC-1.4.2)", () => {
+  it("recalculates total units and estimate from the lines", () => {
+    const basket = [
+      { id: "a", qty: 2, price: 6.5 },
+      { id: "b", qty: 1, price: 12.5 },
+    ];
+    expect(basketSummary(basket)).toEqual({ itemCount: 3, estimate: 25.5 });
+  });
+
+  it("changes immediately when a quantity changes", () => {
+    const before = [{ id: "a", qty: 1, price: 6.5 }];
+    const after = upsertBasketLine(before, { id: "a", qty: 2, price: 6.5 });
+    expect(basketSummary(before)).toEqual({ itemCount: 1, estimate: 6.5 });
+    expect(basketSummary(after)).toEqual({ itemCount: 3, estimate: 19.5 });
+  });
+
+  it("empty basket sums to zero", () => {
+    expect(basketSummary([])).toEqual({ itemCount: 0, estimate: 0 });
+  });
+});
+
+describe("linePriceLabel (basket unit-price annotation)", () => {
+  it("shows qty × unit price = subtotal with two decimals", () => {
+    expect(linePriceLabel({ id: "a", qty: 5, price: 6.5 })).toBe("5 × RM6.50 = RM32.50");
+  });
+
+  it("handles a single unit and whole-ringgit prices", () => {
+    expect(linePriceLabel({ id: "a", qty: 1, price: 13 })).toBe("1 × RM13.00 = RM13.00");
   });
 });
