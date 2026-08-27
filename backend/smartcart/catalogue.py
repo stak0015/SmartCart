@@ -1,8 +1,45 @@
 """Epic 1 catalogue database queries."""
 
+import re
 from typing import Any
 
 from .database import database_cursor
+
+# Query-time parsing of brand and package size from item_name (the item table
+# has no dedicated columns). Anything that cannot be parsed confidently is
+# returned as None so the frontend can show "—" instead of an invented value.
+_BRAND_MARKER = re.compile(r"\b(?:CAP|JENAMA)\s+(.+?)\s*(?:\(|$)", re.IGNORECASE)
+_PACKAGE_SIZE = re.compile(
+    r"(\d+\s?[Xx]\s?\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L)\b"  # multipack, e.g. 5X79G
+    r"|\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L|LITER|LITRE|CM)\b"  # e.g. 850G, 15CM
+    r"|\d+\s?(?:PADS|SHEETS|LOZENGES)\b"  # e.g. 8 PADS
+    r"|\d+S\b)",  # count pack, e.g. 10S
+    re.IGNORECASE,
+)
+_WEIGHT_RANGE = re.compile(r"BERAT\s+[\d.]+\s?GM\s+HINGGA", re.IGNORECASE)
+
+
+def parse_brand(item_name: str | None) -> str | None:
+    """Extract the brand after a CAP/JENAMA marker; None when unbranded."""
+    if not item_name:
+        return None
+    if "PELBAGAI JENAMA" in item_name.upper():
+        return None  # sold under various brands; no single brand to show
+    match = _BRAND_MARKER.search(item_name)
+    if not match:
+        return None
+    brand = match.group(1).strip(" '\"-")
+    return brand or None
+
+
+def parse_package_size(item_name: str | None) -> str | None:
+    """Extract an explicit package size from the name; None when absent."""
+    if not item_name:
+        return None
+    if _WEIGHT_RANGE.search(item_name):
+        return None  # grade weight range (e.g. egg grades), not a package size
+    match = _PACKAGE_SIZE.search(item_name)
+    return match.group(1).strip() if match else None
 
 
 def count_items() -> int:
@@ -24,7 +61,7 @@ def search_catalogue(query: str, limit: int) -> list[dict[str, Any]]:
             WHERE i.item_name ILIKE %s OR i.item_category ILIKE %s
             GROUP BY i.item_id, i.item_code, i.item_name, i.unit,
                      i.item_group, i.item_category
-            ORDER BY i.item_name
+            ORDER BY (MIN(cs.current_price) IS NULL), i.item_name
             LIMIT %s
             """,
             (keyword, keyword, limit),
@@ -62,6 +99,8 @@ def search_catalogue(query: str, limit: int) -> list[dict[str, Any]]:
 
     for row in rows:
         row["price"] = float(row["price"]) if row["price"] is not None else None
+        row["brand"] = parse_brand(row["item_name"])
+        row["package_size"] = parse_package_size(row["item_name"])
         row["prices"] = prices_by_item.get(row["item_id"], [])
     return rows
 

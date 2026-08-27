@@ -103,3 +103,26 @@ def test_location_resolve_returns_existing_contract_for_invalid_body() -> None:
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_LOCATION"
+
+
+def test_item_name_parsing_extracts_brand_and_package_size() -> None:
+    from smartcart.catalogue import parse_brand, parse_package_size
+
+    assert parse_brand("BERAS CAP JATI (SST5%)") == "JATI"
+    assert parse_brand("SARDIN CAP AYAM (SOS TOMATO)") == "AYAM"
+    assert parse_brand("SANTAN KELAPA JENAMA KARA") == "KARA"
+    assert parse_package_size("MAGGI 2 MINUTE NOODLE CURRY FLAVOUR (5X79G)") == "5X79G"
+    assert parse_package_size("PANADOL ACTIFAST 10S") == "10S"
+
+
+def test_item_name_parsing_returns_none_when_nothing_parseable() -> None:
+    from smartcart.catalogue import parse_brand, parse_package_size
+
+    # Various-brands and unbranded names must not invent a brand.
+    assert parse_brand("BERAS PULUT THAILAND (SUSU) PELBAGAI JENAMA") is None
+    assert parse_brand("AYAM BERSIH - STANDARD") is None
+    assert parse_brand(None) is None
+    # Grade weight ranges are not package sizes; plain names have none.
+    assert parse_package_size("TELUR AYAM GRED A (BERAT 65.0 GM HINGGA 69.9 GM SEBIJI)") is None
+    assert parse_package_size("AYAM BERSIH - STANDARD") is None
+    assert parse_package_size(None) is None

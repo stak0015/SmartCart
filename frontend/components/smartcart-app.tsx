@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { searchItems, type Item } from "@/lib/api";
+import { DEFAULT_QTY, resultRowFields, stepQty } from "@/lib/result-row";
 import {
   getRecommendations,
   resolveLocation,
@@ -258,6 +259,11 @@ function BasketScreen({
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null); // which card's store-price list is open
+  const [qtyById, setQtyById] = useState<Record<number, number>>({}); // result-row stepper values (default 1)
+
+  const stepResultQty = (itemId: number, delta: number) => {
+    setQtyById(current => ({ ...current, [itemId]: stepQty(current[itemId] ?? DEFAULT_QTY, delta) }));
+  };
 
   const filtered = CATALOG.filter(item => {
     const matchesSearch = !search || `${item.name} ${item.brand}`.toLowerCase().includes(search.toLowerCase());
@@ -280,19 +286,20 @@ function BasketScreen({
   // Convert a real database Item into a BasketItem and add it to the basket (Step 7).
   // Only items with a known price can be added (basket total must not include unknown prices).
   // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
-  const addRealItem = (item: Item) => {
+  // brand/size come from the parsed item_name fields; unparsed values show "—".
+  const addRealItem = (item: Item, qty: number) => {
     if (item.price == null) return; // no price -> cannot add
     const basketId = `db-${item.item_id}`;
     const existing = basket.find(b => b.id === basketId);
     if (existing) {
-      setBasket(basket.map(b => b.id === basketId ? { ...b, qty: b.qty + 1 } : b));
+      setBasket(basket.map(b => b.id === basketId ? { ...b, qty: b.qty + qty } : b));
     } else {
       setBasket([...basket, {
         id: basketId,
         name: item.item_name ?? "Unknown item",
-        brand: item.item_category ?? "—",
-        size: item.unit ?? "—",
-        qty: 1,
+        brand: item.brand ?? "—",
+        size: item.package_size ?? "—",
+        qty,
         price: item.price,
         unitPrice: item.price,
         saraEligible: null,
@@ -435,7 +442,10 @@ function BasketScreen({
         {/* Real results list */}
         {!apiLoading && apiResults.length > 0 && (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {apiResults.map(item => (
+            {apiResults.map(item => {
+              const fields = resultRowFields(item);
+              const qty = qtyById[item.item_id] ?? DEFAULT_QTY;
+              return (
               <article key={item.item_id} className="grid grid-cols-[84px_minmax(0,1fr)] items-center gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
                 {/* Icon placeholder (real data has no image) */}
                 <div className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-xl bg-[#eef2ef] sm:h-[92px] sm:w-[92px]">
@@ -443,15 +453,15 @@ function BasketScreen({
                     <path d={svgPathsBasket.p1fe4bc00} fill="#6F797A" />
                   </svg>
                 </div>
-                {/* Item info */}
+                {/* Item info: name | brand | package size | unit, all readable before Add */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-[16px] font-extrabold leading-5 text-[#10231d]">{item.item_name}</p>
-                  <p className="mt-0.5 text-[13px] leading-5 text-[#617069]">
+                  <p className="text-[15px] leading-6 text-[#617069]">
+                    <span className="font-extrabold text-[#10231d]">{fields.name}</span>
+                    {" | "}{fields.brand}{" | "}{fields.packageSize}{" | "}{fields.unit}
+                  </p>
+                  <p className="mt-0.5 text-[12px] leading-5 text-[#718078]">
                     {item.item_category ?? "—"} · code {item.item_code}
                   </p>
-                  {item.unit && (
-                    <p className="mt-1 text-[12px] text-[#718078]">Unit: {item.unit}</p>
-                  )}
                 </div>
                 {/* Price + all-store prices + Add to basket (Step 7 v2) */}
                 {item.price != null ? (
@@ -486,12 +496,20 @@ function BasketScreen({
                         ))}
                       </ul>
                     )}
-                    <button
-                      onClick={() => addRealItem(item)}
-                      className="col-span-2 h-11 w-full shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b] hover:bg-[#edf7f2]"
-                    >
-                      + Add to basket
-                    </button>
+                    {/* Quantity stepper (default 1) + Add: Add uses the stepper value */}
+                    <div className="col-span-2 flex items-center gap-2">
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button type="button" aria-label={`Decrease ${fields.name} quantity`} onClick={() => stepResultQty(item.item_id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
+                        <span aria-label={`${qty} selected`} className="w-7 text-center text-sm font-bold">{qty}</span>
+                        <button type="button" aria-label={`Increase ${fields.name} quantity`} onClick={() => stepResultQty(item.item_id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
+                      </div>
+                      <button
+                        onClick={() => addRealItem(item, qty)}
+                        className="h-11 flex-1 shrink-0 rounded-xl border border-[#087f5b] bg-white px-5 text-[14px] font-extrabold text-[#087f5b] hover:bg-[#edf7f2]"
+                      >
+                        + Add to basket
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <button
@@ -502,7 +520,8 @@ function BasketScreen({
                   </button>
                 )}
               </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

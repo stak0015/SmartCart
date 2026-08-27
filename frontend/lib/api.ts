@@ -15,6 +15,8 @@ export interface Item {
   unit: string | null;
   item_group: string | null;
   item_category: string | null;
+  brand: string | null;          // parsed from item_name; null = show "—"
+  package_size: string | null;   // parsed from item_name; null = show "—"
   price: number | null;   // lowest observed price (headline); null if not recorded
   prices: StorePrice[];   // ALL stores carrying this item, cheapest first
 }

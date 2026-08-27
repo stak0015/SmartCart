@@ -1,0 +1,59 @@
+US 1.3 Build Notes / 构建说明
+Search Result Rows: Item Details and Quantity Selector
+搜索结果行：商品要素展示与数量选择
+
+------------------------------------------------------------
+1. 中文
+
+搜索结果行现在从左到右完整展示四个商品要素：商品名称 | 品牌 | 包装规格 | 单位，例如 "BERAS CAP JATI (SST5%) | JATI | — | 10 kg"。四个要素在点击 Add 之前全部直接可读，不隐藏在任何展开区域内；展开区仍然只用于展示各门店价格明细。
+
+English:
+Each search result row now shows four item attributes, left to right: Item name | Brand | Package size | Unit, e.g. "BERAS CAP JATI (SST5%) | JATI | — | 10 kg". All four attributes are directly readable before tapping Add and are never hidden inside any collapsible area; the expandable area remains reserved for per-store price details only.
+
+------------------------------------------------------------
+2. 中文
+
+品牌与包装规格由后端在查询时从商品名称中解析（backend/smartcart/catalogue.py 中的 parse_brand 与 parse_package_size）。解析只识别名称中明确标注的信息：品牌标记 CAP / JENAMA，以及显式规格（如 5X79G、850G、15CM、10S、8 PADS）。无法可靠解析的字段返回 null，前端统一显示 "—"，不会虚构任何品牌或规格。标注为多品牌混售（PELBAGAI JENAMA）的商品同样显示 "—"。数据库表结构未做改动。
+
+English:
+Brand and package size are parsed from the item name at query time by the backend (parse_brand and parse_package_size in backend/smartcart/catalogue.py). Parsing only recognizes information explicitly stated in the name: the brand markers CAP / JENAMA, and explicit sizes (e.g. 5X79G, 850G, 15CM, 10S, 8 PADS). Fields that cannot be parsed reliably are returned as null and shown as "—" in the frontend; no brand or size is ever invented. Items marked as sold under various brands (PELBAGAI JENAMA) also show "—". The database schema is unchanged.
+
+------------------------------------------------------------
+3. 中文
+
+每个结果行尾部配有数量步进器，默认数量为 1，可通过 − 和 + 按钮减少或增加，数量最低为 1。点击 "Add to basket" 按步进器当前显示的数量入篮；重复添加同一商品时数量在购物篮中累加。没有价格数据的商品仍显示禁用的 "No price data" 按钮，无法入篮，该行为保持不变。
+
+English:
+Every result row ends with a quantity stepper that defaults to 1; the − and + buttons decrease or increase the quantity, which never goes below 1. "Add to basket" adds the quantity currently shown on the stepper, and adding the same item again accumulates its quantity in the basket. Items without price data still show a disabled "No price data" button and cannot be added; that behavior is unchanged.
+
+------------------------------------------------------------
+4. 中文
+
+购物篮内行显示的品牌与规格现在与结果行一致，取自解析后的真实字段，不再以商品类别占位。因此从结果行到购物篮，同一商品的品牌与规格展示完全相同。
+
+English:
+The brand and size shown on basket rows now match the result rows, taken from the parsed fields instead of the item category that was previously used as a placeholder. An item's brand and size therefore read identically from the result row through to the basket.
+
+------------------------------------------------------------
+5. 中文
+
+改动点：后端 smartcart/catalogue.py 新增查询期解析并在搜索响应中返回 brand 与 package_size 两个字段；前端 lib/api.ts 的 Item 类型同步新增这两个字段，lib/result-row.ts 提供结果行四要素展示与步进器逻辑，components/smartcart-app.tsx 更新结果行布局、步进器与入篮映射。
+
+English:
+Changes: the backend smartcart/catalogue.py adds query-time parsing and returns two new fields, brand and package_size, in the search response; on the frontend, the Item type in lib/api.ts is updated to match, lib/result-row.ts provides the row display and stepper logic, and components/smartcart-app.tsx updates the result-row layout, the stepper, and the add-to-basket mapping.
+
+------------------------------------------------------------
+6. 中文
+
+测试与验证：后端 pytest 新增解析用例，覆盖名称含品牌/规格时正确拆出、以及名称不可解析时返回 null 而不报错，全部通过；前端 vitest 覆盖四要素的缺省值展示与步进器默认值、增减行为，全部通过；ESLint 与生产构建均通过。手动核对方式：启动本地数据库、后端与前端后，搜索真实关键词（如 beras），逐行确认四要素按 名称 | 品牌 | 规格 | 单位 顺序展示、不可解析字段显示 "—"、步进器默认为 1、Add 入篮数量与步进器一致、无价商品不可入篮。
+
+English:
+Testing and verification: new backend pytest cases cover both directions of the parsing — names containing a brand/size are split out correctly, and names with nothing parseable return null without errors — all passing; frontend vitest cases cover the "—" fallbacks of the four attributes and the stepper's default value and increment/decrement behavior, all passing; ESLint and the production build pass. To verify manually: with the local database, backend, and frontend running, search a real keyword (e.g. beras) and check row by row that the four attributes appear in the order Item name | Brand | Package size | Unit, unparseable fields show "—", the stepper defaults to 1, the added quantity matches the stepper, and items without a price cannot be added.
+
+------------------------------------------------------------
+7. 中文
+
+搜索结果列表按价格可用性排序：有价格数据的商品排在前面，无价格数据的商品（显示禁用的 "No price data"）统一排在列表尾部；两组内部仍按商品名称字母序排列。排序在后端查询中完成（search_catalogue 的 ORDER BY），因此对任意搜索词和结果数量都生效。
+
+English:
+Search results are ordered by price availability: items with price data come first, and items without price data (showing the disabled "No price data" button) are placed at the end of the list; within each group, items remain ordered alphabetically by item name. The ordering is applied in the backend query (the ORDER BY in search_catalogue), so it holds for any search term and any result count.
