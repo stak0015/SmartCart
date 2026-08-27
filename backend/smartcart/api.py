@@ -29,8 +29,9 @@ def health() -> dict[str, object]:
 
 
 @router.get("/items/search")
-def search_items(q: str = "", limit: int = Query(default=20)) -> dict[str, object]:
-    safe_limit = max(1, min(limit, 100))
+def search_items(q: str = "", limit: int = Query(default=10)) -> dict[str, object]:
+    # AC-1.1.1: the basket search must never return more than 10 results.
+    safe_limit = max(1, min(limit, 10))
     items = search_catalogue(q, safe_limit)
     return {"count": len(items), "items": items}
 
