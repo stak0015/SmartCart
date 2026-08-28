@@ -167,7 +167,7 @@ function IcoPriceCatcher({ color = "#3E494A" }: { color?: string }) {
   );
 }
 
-// ── Header ──────────────────────────────────────────────────────────────────
+// ── Header ─────────────────────────────────────────────────────────────────
 function Header({
   basketCount,
   onBasket,
@@ -351,14 +351,16 @@ function BasketScreen({
             onChange={e => {
               const q = e.target.value;
               setSearch(q);
-              if (!q.trim()) {
+              // AC-1.1.1: only search when the shopper has typed 2 or more characters.
+              if (q.trim().length < 2) {
                 setApiResults([]);
                 setApiSearched(false);
                 return;
               }
               setApiLoading(true);
               setApiSearched(true);
-              searchItems(q, 20)
+              // AC-1.1.1: list up to 10 matching results (backend also enforces this cap).
+              searchItems(q, 10)
                 .then(data => setApiResults(data.items))
                 .catch(() => setApiResults([]))
                 .finally(() => setApiLoading(false));
@@ -426,7 +428,7 @@ function BasketScreen({
         {/* Not searched yet */}
         {!apiSearched && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
-            Type above to search 757 real products from the database 🛒
+            Type above to search 757 real products from the database 
           </p>
         )}
 
@@ -435,10 +437,10 @@ function BasketScreen({
           <p className="text-[16px] text-[#718078] text-center py-6">Searching the database...</p>
         )}
 
-        {/* Searched but no results */}
+        {/* Searched but no results — AC-1.1.1 exact wording */}
         {!apiLoading && apiSearched && apiResults.length === 0 && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
-            No items found for &quot;{search}&quot;. Try another keyword.
+            No items found. Try another keyword.
           </p>
         )}
 

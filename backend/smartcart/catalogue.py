@@ -59,19 +59,21 @@ def count_items() -> int:
 def search_catalogue(query: str, limit: int) -> list[dict[str, Any]]:
     keyword = f"%{query.strip()}%"
     with database_cursor() as cursor:
+        # AC-1.1.2: Strictly match only official item_name (case-insensitive partial match).
+        # Removed category matching to prevent false positives from category names.
         cursor.execute(
             """
             SELECT i.item_id, i.item_code, i.item_name, i.unit, i.item_group,
                    i.item_category, MIN(cs.current_price) AS price
             FROM item i
             LEFT JOIN current_status cs ON cs.item_id = i.item_id
-            WHERE i.item_name ILIKE %s OR i.item_category ILIKE %s
+            WHERE i.item_name ILIKE %s
             GROUP BY i.item_id, i.item_code, i.item_name, i.unit,
                      i.item_group, i.item_category
             ORDER BY (MIN(cs.current_price) IS NULL), i.item_name
             LIMIT %s
             """,
-            (keyword, keyword, limit),
+            (keyword, limit),
         )
         columns = [
             "item_id",
