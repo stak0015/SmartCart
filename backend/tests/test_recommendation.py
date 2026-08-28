@@ -1,4 +1,5 @@
 from smartcart.maps import RouteMatrixResult
+from smartcart.models import BasketItemPrice
 from smartcart.premises import PremiseCandidate
 from smartcart.recommendation import (
     TravelCostRate,
@@ -35,6 +36,18 @@ def route(index: int, distance: float, duration: float) -> RouteMatrixResult:
         destination_index=index,
         distance_meters=distance,
         duration_seconds=duration,
+    )
+
+
+def priced_line(item_id: str, unit_price: float, quantity: int = 1) -> BasketItemPrice:
+    return BasketItemPrice(
+        item_id=item_id,
+        item_name=f"Item {item_id}",
+        package_size=None,
+        quantity=quantity,
+        unit_price_rm=unit_price,
+        line_total_rm=unit_price * quantity,
+        price_observed_date=None,
     )
 
 
@@ -81,3 +94,92 @@ def test_sorts_by_cost_then_duration_and_distance() -> None:
         cost_rate=COST_RATE,
     )
     assert [store.premise_id for store in recommendations] == ["3", "2", "1"]
+
+
+def test_sorts_by_basket_plus_transport_cost() -> None:
+    recommendations = rank_reachable_stores(
+        candidates=[
+            candidate(premise_id="1", name="Nearby expensive"),
+            candidate(
+                premise_id="2",
+                name="Farther affordable",
+                google_place_id="place-2",
+            ),
+        ],
+        route_results=[route(0, 1_000, 300), route(1, 3_000, 600)],
+        limit_type="distance",
+        limit_value=10,
+        cost_rate=COST_RATE,
+        basket_prices_by_premise={
+            "1": [priced_line("10", 10, quantity=2)],
+            "2": [priced_line("10", 7, quantity=2)],
+        },
+    )
+
+    assert [store.premise_id for store in recommendations] == ["2", "1"]
+    assert recommendations[0].basket_cost_rm == 14
+    assert recommendations[0].estimated_round_trip_cost_rm == 3
+    assert recommendations[0].estimated_total_cost_rm == 17
+
+
+def test_ignores_missing_store_prices_in_basket_subtotal() -> None:
+    missing_line = BasketItemPrice(
+        item_id="11",
+        item_name="Unpriced item",
+        package_size=None,
+        quantity=3,
+        unit_price_rm=None,
+        line_total_rm=None,
+        price_observed_date=None,
+    )
+    recommendations = rank_reachable_stores(
+        candidates=[candidate()],
+        route_results=[route(0, 2_000, 600)],
+        limit_type="distance",
+        limit_value=10,
+        cost_rate=COST_RATE,
+        basket_prices_by_premise={
+            "1": [priced_line("10", 4, quantity=2), missing_line]
+        },
+    )
+
+    store = recommendations[0]
+    assert store.basket_cost_rm == 8
+    assert store.estimated_total_cost_rm == 10
+    assert store.priced_item_count == 1
+    assert store.basket_item_count == 2
+    assert store.is_complete_basket is False
+    assert store.basket_prices[1].unit_price_rm is None
+
+
+def test_ranks_complete_baskets_before_cheaper_incomplete_baskets() -> None:
+    missing_line = BasketItemPrice(
+        item_id="11",
+        item_name="Missing item",
+        package_size=None,
+        quantity=1,
+        unit_price_rm=None,
+        line_total_rm=None,
+        price_observed_date=None,
+    )
+    recommendations = rank_reachable_stores(
+        candidates=[
+            candidate(premise_id="1", name="Incomplete cheap"),
+            candidate(
+                premise_id="2",
+                name="Complete basket",
+                google_place_id="place-2",
+            ),
+        ],
+        route_results=[route(0, 1_000, 300), route(1, 1_000, 300)],
+        limit_type="distance",
+        limit_value=10,
+        cost_rate=COST_RATE,
+        basket_prices_by_premise={
+            "1": [priced_line("10", 1), missing_line],
+            "2": [priced_line("10", 5), priced_line("11", 5)],
+        },
+    )
+
+    assert [store.premise_id for store in recommendations] == ["2", "1"]
+    assert recommendations[0].is_complete_basket is True

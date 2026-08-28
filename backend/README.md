@@ -1,7 +1,7 @@
 # SmartCart FastAPI backend
 
 This is the single HTTP backend for Epic 1 item discovery, Google-backed
-location search, and transport-first store recommendations.
+location search, and basket-plus-transport store recommendations.
 
 ## Local setup
 
@@ -30,6 +30,12 @@ routes are:
 - `GET /api/locations/autocomplete?query=&sessionToken=`
 - `POST /api/locations/resolve`
 - `POST /api/recommendations`
+
+The recommendation response ranks reachable premises by the sum of the priced
+basket subtotal and estimated return transport cost. It includes quantity-aware
+unit and line prices for each basket item at each store; missing store prices are
+returned as null and excluded from the subtotal. Complete baskets rank before
+incomplete baskets, with an explicit completeness flag for UI separation.
 
 Run backend tests from this directory with:
 

@@ -22,6 +22,7 @@ from .models import (
     ResolvedLocation,
 )
 from .premises import find_nearest_premises, get_premise_location_coverage
+from .pricing import get_basket_prices_for_premises
 from .recommendation import get_travel_cost_model, rank_reachable_stores
 
 router = APIRouter(prefix="/api")
@@ -121,6 +122,11 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         [candidate.google_place_id for candidate in candidates],
         travel.transport_mode,
     )
+    basket_prices_by_premise = await run_in_threadpool(
+        get_basket_prices_for_premises,
+        premise_ids=[candidate.premise_id for candidate in candidates],
+        basket=payload.basket,
+    )
     cost_model = get_travel_cost_model(settings)
     recommendations = rank_reachable_stores(
         candidates=candidates,
@@ -128,6 +134,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         limit_type=travel.limit.type,
         limit_value=travel.limit.value,
         cost_rate=cost_model[travel.transport_mode],
+        basket_prices_by_premise=basket_prices_by_premise,
     )
     return RecommendationResponse(
         recommendations=recommendations,
@@ -135,8 +142,10 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         total_reachable=len(recommendations),
         generated_at=datetime.now(timezone.utc),
         ranking_method=(
-            "Lowest estimated return transport cost, then shortest travel time "
-            "and route distance."
+            "Stores with a price for every basket line are ranked first by priced "
+            "basket subtotal plus estimated return transport cost. Incomplete "
+            "baskets are separated and use the same cost ranking; missing prices "
+            "are excluded."
         ),
         cost_assumptions={mode: rate.description for mode, rate in cost_model.items()},
         route_warning=(

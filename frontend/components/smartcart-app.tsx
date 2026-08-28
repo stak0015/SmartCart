@@ -1139,6 +1139,8 @@ function CompareScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [expandedPricing, setExpandedPricing] = useState<Set<string>>(new Set());
+  const [activeBasketTab, setActiveBasketTab] = useState<"complete" | "incomplete">("complete");
 
   useEffect(() => {
     if (!preferences.origin) {
@@ -1152,7 +1154,12 @@ function CompareScreen({
     setError("");
 
     getRecommendations({
-      basket: basket.map(item => ({ itemId: item.id, quantity: item.qty })),
+      // UI basket IDs are prefixed with "db-" to avoid collisions with the
+      // legacy demo IDs; the backend contract expects the numeric DB ID.
+      basket: basket.map(item => ({
+        itemId: item.id.startsWith("db-") ? item.id.slice(3) : item.id,
+        quantity: item.qty,
+      })),
       travel: {
         origin: preferences.origin,
         transportMode: preferences.transportMode,
@@ -1160,7 +1167,11 @@ function CompareScreen({
         saraFilter: preferences.saraFilter,
       },
     }, controller.signal)
-      .then(setResult)
+      .then(response => {
+        setResult(response);
+        setActiveBasketTab("complete");
+        setShowAll(false);
+      })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
         setError(copy.recommendationsUnavailable);
@@ -1173,8 +1184,11 @@ function CompareScreen({
   }, [basket, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
   const recommendations = result?.recommendations ?? [];
-  const visibleStores = showAll ? recommendations : recommendations.slice(0, 5);
-  const recommendedStore = recommendations[0];
+  const completeStores = recommendations.filter(store => store.isCompleteBasket);
+  const incompleteStores = recommendations.filter(store => !store.isCompleteBasket);
+  const activeStores = activeBasketTab === "complete" ? completeStores : incompleteStores;
+  const visibleStores = showAll ? activeStores : activeStores.slice(0, 5);
+  const recommendedStore = completeStores[0];
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.source === "device"
     ? copy.currentLocation
@@ -1219,7 +1233,7 @@ function CompareScreen({
           </div>
         )}
 
-        {!loading && !error && recommendedStore && (
+        {!loading && !error && activeBasketTab === "complete" && recommendedStore && (
           <div className="flex gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4 sm:gap-4 sm:p-5">
             <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><IcoSavings /></div>
             <div className="flex flex-col gap-1">
@@ -1248,10 +1262,39 @@ function CompareScreen({
               <span className="text-right text-xs font-medium text-[#718078]">{copy.lowerTravelFirst}</span>
             </div>
 
-            <div className="flex flex-col gap-3">
+            {recommendations.length > 0 && (
+              <div>
+                <div role="tablist" aria-label={copy.reachablePremises} className="grid grid-cols-2 rounded-xl bg-[#e8efeb] p-1">
+                  {(["complete", "incomplete"] as const).map(tab => {
+                    const active = activeBasketTab === tab;
+                    const count = tab === "complete" ? completeStores.length : incompleteStores.length;
+                    return (
+                      <button
+                        key={tab}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => {
+                          setActiveBasketTab(tab);
+                          setShowAll(false);
+                        }}
+                        className={"min-h-12 rounded-lg px-2 text-sm font-bold " + (active ? "bg-white text-[#087f5b] shadow-sm" : "text-[#53635c]")}
+                      >
+                        {tab === "complete" ? copy.completeBasketsTab : copy.incompleteBasketsTab} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-sm leading-5 text-[#617069]">
+                  {activeBasketTab === "complete" ? copy.completeBasketsDescription : copy.incompleteBasketsDescription}
+                </p>
+              </div>
+            )}
+
+            <div role="tabpanel" className="flex flex-col gap-3">
               {visibleStores.map((store, index) => (
-                <article key={store.premiseId} className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
-                  {index === 0 && (
+                <article key={store.premiseId} className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (activeBasketTab === "complete" && index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
+                  {activeBasketTab === "complete" && index === 0 && (
                     <div className="bg-[#087f5b] px-3 py-2 text-center">
                       <span className="text-[13px] font-extrabold leading-5 text-white">{copy.recommendedStore}</span>
                     </div>
@@ -1271,7 +1314,24 @@ function CompareScreen({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-xl border border-[#b9e0d1] bg-[#f3faf7] p-3">
+                      <div className="flex items-end justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-semibold text-[#286d67]">{store.isCompleteBasket ? copy.estimatedTotal : copy.partialEstimatedTotal}</p>
+                          <p className="mt-1 text-2xl font-extrabold text-[#087f5b]">RM{store.estimatedTotalCostRm.toFixed(2)}</p>
+                        </div>
+                        <div className="text-right">
+                          {!store.isCompleteBasket && <p className="font-bold text-[#8a5f00]">{copy.incompleteBasket}</p>}
+                          <p className="text-xs text-[#53635c]">{copy.priceCoverage(store.pricedItemCount, store.basketItemCount)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="rounded-xl bg-[#f3faf7] p-3">
+                        <p className="text-xs text-[#617069]">{copy.basketSubtotal}</p>
+                        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.basketCostRm.toFixed(2)}</p>
+                      </div>
                       <div className="rounded-xl bg-[#f3faf7] p-3">
                         <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
                         <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
@@ -1286,6 +1346,56 @@ function CompareScreen({
                       </div>
                     </div>
 
+                    <button
+                      type="button"
+                      aria-expanded={expandedPricing.has(store.premiseId)}
+                      aria-controls={`pricing-${store.premiseId}`}
+                      onClick={() => setExpandedPricing(current => {
+                        const next = new Set(current);
+                        if (next.has(store.premiseId)) next.delete(store.premiseId);
+                        else next.add(store.premiseId);
+                        return next;
+                      })}
+                      className="min-h-11 w-full rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b]"
+                    >
+                      {expandedPricing.has(store.premiseId) ? copy.hidePriceList : copy.viewPriceList}
+                    </button>
+
+                    {expandedPricing.has(store.premiseId) && (
+                      <div id={`pricing-${store.premiseId}`} className="rounded-xl border border-[#dce5e0] bg-[#fafbf9] p-3">
+                        <h3 className="font-bold text-[#17362c]">{copy.priceListTitle}</h3>
+                        {store.pricedItemCount < store.basketItemCount && (
+                          <p className="mt-1 text-xs leading-5 text-[#6d5700]">{copy.ignoredPriceNote}</p>
+                        )}
+                        <div className="mt-3 divide-y divide-[#dce5e0]">
+                          {store.basketPrices.map(line => (
+                            <div key={line.itemId} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-3 first:pt-0 last:pb-0">
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold leading-5 text-[#17362c]">{line.itemName}</p>
+                                <p className="mt-0.5 text-xs text-[#617069]">
+                                  {[line.packageSize, `${copy.quantityShort}: ${line.quantity}`].filter(Boolean).join(" · ")}
+                                </p>
+                                {line.priceObservedDate && line.unitPriceRm !== null && (
+                                  <p className="mt-1 text-[11px] text-[#718078]">{copy.priceObserved(line.priceObservedDate)}</p>
+                                )}
+                              </div>
+                              {line.unitPriceRm !== null && line.lineTotalRm !== null ? (
+                                <div className="text-right">
+                                  <p className="text-sm font-extrabold text-[#087f5b]">RM{line.lineTotalRm.toFixed(2)}</p>
+                                  <p className="mt-0.5 text-[11px] text-[#617069]">RM{line.unitPriceRm.toFixed(2)} × {line.quantity}</p>
+                                </div>
+                              ) : (
+                                <p className="max-w-28 text-right text-xs font-semibold leading-4 text-[#8a5f00]">{copy.noStorePrice}</p>
+                              )}
+                            </div>
+                          ))}
+                          {store.basketPrices.length === 0 && (
+                            <p className="py-2 text-sm text-[#617069]">{copy.noStorePrice}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {store.saraStatus === "verified" ? (
                       <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>
                     ) : store.saraStatus === "candidate" ? (
@@ -1297,10 +1407,33 @@ function CompareScreen({
                 </article>
               ))}
 
-              {recommendations.length > 5 && (
+              {activeStores.length > 5 && (
                 <button type="button" onClick={() => setShowAll(value => !value)} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
-                  {showAll ? copy.showFirstFive : copy.seeMore(recommendations.length - 5)}
+                  {showAll ? copy.showFirstFive : copy.seeMore(activeStores.length - 5)}
                 </button>
+              )}
+
+              {activeBasketTab === "complete" && completeStores.length === 0 && incompleteStores.length > 0 && (
+                <div className="rounded-2xl border border-[#ead89d] bg-[#fff9e8] p-5 text-center">
+                  <p className="font-bold text-[#5f4b00]">{copy.noCompleteBaskets}</p>
+                  <p className="mt-1 text-sm leading-5 text-[#6d5700]">{copy.noCompleteBasketsHint}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveBasketTab("incomplete");
+                      setShowAll(false);
+                    }}
+                    className="mt-4 min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white"
+                  >
+                    {copy.viewIncompleteBaskets(incompleteStores.length)}
+                  </button>
+                </div>
+              )}
+
+              {activeBasketTab === "incomplete" && incompleteStores.length === 0 && recommendations.length > 0 && (
+                <div className="rounded-2xl border border-[#b9e0d1] bg-[#f3faf7] p-5 text-center font-semibold text-[#175f4b]">
+                  {copy.noIncompleteBaskets}
+                </div>
               )}
 
               {recommendations.length === 0 && (

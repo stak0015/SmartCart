@@ -28,8 +28,9 @@ The UI covers:
 - device geolocation or Malaysia-restricted Google location autocomplete;
 - distance- or time-based travel limits for walking, public transport,
   motorcycle, and car;
-- reachable single-premise recommendations ranked by estimated return travel
-  cost, then travel time and route distance;
+- reachable single-premise recommendations ranked by priced basket subtotal
+  plus estimated return travel cost, with complete and incomplete basket tabs
+  and per-store item-price breakdowns;
 - privacy-preserving preference storage that excludes the selected origin;
 - expensive-item flags, immediate-cost versus unit-value alternatives, applying an alternative, and potential savings;
 - explicit verified, candidate, and unverified SARA store statuses without
@@ -44,13 +45,16 @@ The UI covers:
   coordinates.
 - `POST /api/recommendations` queries PostgreSQL for nearby premise candidates,
   requests a bounded Google route matrix, applies the chosen travel limit, and
-  returns the transport-first ranking.
+  retrieves current store-level basket prices, and returns the combined-cost
+  ranking with transparent missing-price coverage.
 
 Run `pnpm lint` and `pnpm build` here and `python -m pytest` in `../backend`
 before handoff. See
 [`../docs/recommendation-engine.md`](../docs/recommendation-engine.md) for the
 algorithm, assumptions, provider costs, data preparation, and known limits.
 
-The current ranking intentionally excludes basket prices until the live item
-flow is connected. It must never convert missing SARA verification into an
-ineligible or non-partner claim.
+Missing store prices remain visible in each store's item-price list and are
+excluded from its basket subtotal. Any store missing at least one basket price
+is placed in the incomplete tab and cannot become the primary recommendation.
+The UI must never convert missing SARA verification into an ineligible or
+non-partner claim.

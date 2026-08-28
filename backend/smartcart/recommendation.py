@@ -6,7 +6,12 @@ from math import ceil
 
 from .config import Settings
 from .maps import RouteMatrixResult
-from .models import StoreRecommendation, TransportMode, TravelLimitType
+from .models import (
+    BasketItemPrice,
+    StoreRecommendation,
+    TransportMode,
+    TravelLimitType,
+)
 from .premises import PremiseCandidate
 
 
@@ -69,7 +74,9 @@ def rank_reachable_stores(
     limit_type: TravelLimitType,
     limit_value: float,
     cost_rate: TravelCostRate,
+    basket_prices_by_premise: dict[str, list[BasketItemPrice]] | None = None,
 ) -> list[StoreRecommendation]:
+    basket_prices_by_premise = basket_prices_by_premise or {}
     recommendations = []
     for route in route_results:
         if not 0 <= route.destination_index < len(candidates):
@@ -82,6 +89,20 @@ def rank_reachable_stores(
         if not within_limit:
             continue
         premise = candidates[route.destination_index]
+        basket_prices = basket_prices_by_premise.get(premise.premise_id, [])
+        basket_cost_rm = _round(
+            sum(
+                line.line_total_rm
+                for line in basket_prices
+                if line.line_total_rm is not None
+            ),
+            2,
+        )
+        travel_cost_rm = estimate_round_trip_cost_rm(route.distance_meters, cost_rate)
+        priced_item_count = sum(
+            line.unit_price_rm is not None for line in basket_prices
+        )
+        basket_item_count = len(basket_prices)
         recommendations.append(
             StoreRecommendation(
                 premise_id=premise.premise_id,
@@ -95,16 +116,21 @@ def rank_reachable_stores(
                 ),
                 route_distance_km=_round(route.distance_meters / 1000, 2),
                 estimated_travel_minutes=max(1, ceil(route.duration_seconds / 60)),
-                estimated_round_trip_cost_rm=estimate_round_trip_cost_rm(
-                    route.distance_meters, cost_rate
-                ),
+                estimated_round_trip_cost_rm=travel_cost_rm,
+                basket_cost_rm=basket_cost_rm,
+                estimated_total_cost_rm=_round(basket_cost_rm + travel_cost_rm, 2),
+                priced_item_count=priced_item_count,
+                basket_item_count=basket_item_count,
+                is_complete_basket=priced_item_count == basket_item_count,
+                basket_prices=basket_prices,
                 sara_status=premise.sara_status,
             )
         )
 
     recommendations.sort(
         key=lambda store: (
-            store.estimated_round_trip_cost_rm,
+            not store.is_complete_basket,
+            store.estimated_total_cost_rm,
             store.estimated_travel_minutes,
             store.route_distance_km,
             store.name,

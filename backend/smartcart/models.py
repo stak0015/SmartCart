@@ -1,7 +1,7 @@
 """Validated request and response contracts shared by FastAPI endpoints."""
 
-from datetime import datetime
-from typing import Any, Literal
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
@@ -56,10 +56,16 @@ class TravelPreferences(CamelModel):
     sara_filter: SaraFilter
 
 
+class BasketLineRequest(CamelModel):
+    # PostgreSQL stores item IDs as BIGINT. Keep values inside that range so
+    # malformed requests are rejected before the pricing query can fail with
+    # ``bigint out of range``.
+    item_id: int = Field(gt=0, le=2**63 - 1)
+    quantity: int = Field(ge=1, le=99)
+
+
 class RecommendationRequest(CamelModel):
-    # Basket values are accepted for forward compatibility but are not yet used
-    # in transport-first ranking.
-    basket: list[dict[str, Any]] | None = None
+    basket: list[BasketLineRequest] = Field(default_factory=list, max_length=100)
     travel: TravelPreferences
 
 
@@ -86,6 +92,16 @@ class ResolvedLocation(CamelModel):
     longitude: float
 
 
+class BasketItemPrice(CamelModel):
+    item_id: str
+    item_name: str
+    package_size: str | None
+    quantity: int
+    unit_price_rm: float | None
+    line_total_rm: float | None
+    price_observed_date: date | None
+
+
 class StoreRecommendation(CamelModel):
     premise_id: str
     premise_code: str
@@ -97,6 +113,12 @@ class StoreRecommendation(CamelModel):
     route_distance_km: float
     estimated_travel_minutes: int
     estimated_round_trip_cost_rm: float
+    basket_cost_rm: float
+    estimated_total_cost_rm: float
+    priced_item_count: int
+    basket_item_count: int
+    is_complete_basket: bool
+    basket_prices: list[BasketItemPrice]
     sara_status: SaraStoreStatus
 
 

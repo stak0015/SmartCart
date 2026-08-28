@@ -2,6 +2,7 @@ from fastapi.testclient import TestClient
 
 from main import create_app
 from smartcart.maps import RouteMatrixResult
+from smartcart.models import BasketItemPrice
 from smartcart.premises import PremiseCandidate
 
 
@@ -50,6 +51,23 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         ],
     )
     monkeypatch.setattr(api, "get_maps_provider", lambda: FakeMapsProvider())
+    monkeypatch.setattr(
+        api,
+        "get_basket_prices_for_premises",
+        lambda **_options: {
+            "1": [
+                BasketItemPrice(
+                    item_id="12",
+                    item_name="Beras Test",
+                    package_size="5 kg",
+                    quantity=2,
+                    unit_price_rm=8.5,
+                    line_total_rm=17,
+                    price_observed_date=None,
+                )
+            ]
+        },
+    )
 
     response = TestClient(create_app()).post("/api/recommendations", json=VALID_REQUEST)
 
@@ -70,6 +88,22 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "routeDistanceKm": 2.0,
         "estimatedTravelMinutes": 11,
         "estimatedRoundTripCostRm": 0.48,
+        "basketCostRm": 17.0,
+        "estimatedTotalCostRm": 17.48,
+        "pricedItemCount": 1,
+        "basketItemCount": 1,
+        "isCompleteBasket": True,
+        "basketPrices": [
+            {
+                "itemId": "12",
+                "itemName": "Beras Test",
+                "packageSize": "5 kg",
+                "quantity": 2,
+                "unitPriceRm": 8.5,
+                "lineTotalRm": 17.0,
+                "priceObservedDate": None,
+            }
+        ],
         "saraStatus": "candidate",
     }
 
@@ -85,6 +119,18 @@ def test_recommendation_endpoint_keeps_invalid_limit_error_code() -> None:
     response = TestClient(create_app()).post("/api/recommendations", json=payload)
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_TRAVEL_LIMIT"
+
+
+def test_recommendation_endpoint_rejects_item_ids_outside_database_range() -> None:
+    payload = {
+        **VALID_REQUEST,
+        "basket": [{"itemId": str(2**63), "quantity": 1}],
+    }
+
+    response = TestClient(create_app()).post("/api/recommendations", json=payload)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_REQUEST"
 
 
 def test_location_autocomplete_validates_before_calling_google() -> None:

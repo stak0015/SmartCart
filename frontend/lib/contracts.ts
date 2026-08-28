@@ -50,6 +50,16 @@ export interface ResolvedLocation {
 
 export type SaraStoreStatus = "verified" | "candidate" | "unverified";
 
+export interface BasketItemPrice {
+  itemId: string;
+  itemName: string;
+  packageSize: string | null;
+  quantity: number;
+  unitPriceRm: number | null;
+  lineTotalRm: number | null;
+  priceObservedDate: string | null;
+}
+
 export interface StoreRecommendation {
   premiseId: string;
   premiseCode: string;
@@ -61,6 +71,12 @@ export interface StoreRecommendation {
   routeDistanceKm: number;
   estimatedTravelMinutes: number;
   estimatedRoundTripCostRm: number;
+  basketCostRm: number;
+  estimatedTotalCostRm: number;
+  pricedItemCount: number;
+  basketItemCount: number;
+  isCompleteBasket: boolean;
+  basketPrices: BasketItemPrice[];
   saraStatus: SaraStoreStatus;
 }
 

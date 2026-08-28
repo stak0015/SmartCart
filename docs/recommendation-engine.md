@@ -1,7 +1,7 @@
-# SmartCart transport-first recommendation engine
+# SmartCart basket-and-transport recommendation engine
 
-Status: implemented for Iteration 1 on 25 August 2026. Basket-price comparison
-is deliberately out of scope until the live item flow is connected.
+Status: basket-price comparison added on 28 August 2026 after the live item flow
+was connected.
 
 ## Provider decision
 
@@ -43,8 +43,8 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    characters and selects a Malaysia-restricted Google autocomplete result.
 2. SmartCart keeps the origin in React state only. Remembered local preferences
    exclude all origin labels, coordinates, and Place IDs.
-3. `POST /api/recommendations` validates the origin, transport mode, travel
-   limit, and SARA filter.
+3. `POST /api/recommendations` validates the basket item IDs and quantities,
+   origin, transport mode, travel limit, and SARA filter.
 4. PostgreSQL computes Haversine distance over fresh premise coordinates and
    selects the nearest candidates. For a distance limit, premises whose
    straight-line distance already exceeds the limit are safely excluded.
@@ -52,8 +52,18 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    from the origin to at most 25 candidate Place IDs. The cap is configurable
    from 5 to 49. Transit stays below Google's 100-element request limit.
 6. SmartCart applies the user's limit to routed distance or exact route time.
-7. Reachable stores are ordered by estimated return travel cost, then shorter
-   time, route distance, name, and premise ID for deterministic ties.
+7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
+   at every candidate premise. Quantity is applied to produce line totals and
+   the store basket subtotal. Missing premise-item prices remain explicit nulls
+   and are excluded from the subtotal.
+8. A basket is complete only when every requested item has a price at that
+   premise. Complete baskets are ordered first by basket subtotal plus estimated
+   return travel cost, then shorter time, route distance, name, and premise ID
+   for deterministic ties. Incomplete baskets use the same ordering within a
+   separate UI tab and cannot become the main recommendation.
+9. The API returns the full basket price breakdown for the UI's per-store
+   "View item prices" control. If no complete store is available, the complete
+   tab offers a direct button to the incomplete options.
 
 At the default 25-candidate cap, one recommendation costs no more than 25 route
 matrix elements, so the current 10,000-element free cap supports about 400 full
@@ -78,6 +88,18 @@ vehicle cost model. They exclude parking, tolls, ownership costs, physical
 effort, accessibility barriers, and service reliability. Validate them with
 the target community before presenting the ranking as user-ready. Override
 them with the `TRAVEL_COST_*` environment variables.
+
+## Basket-price calculation
+
+For each store, `basket cost = sum(unit price x requested quantity)` for basket
+lines that have a `current_status` record at that premise. The combined ranking
+value is `basket cost + estimated return transport cost`. A missing store price
+is not treated as zero or fabricated: it is returned in the item breakdown with
+null price fields, labelled as unavailable in the UI, and omitted from the sum.
+The response includes priced and total basket-line counts plus an explicit
+completeness flag. The UI keeps incomplete baskets in their own tab, labels the
+combined value as a partial total, and never presents one as the recommended
+complete basket.
 
 ## SARA semantics
 
@@ -132,9 +154,9 @@ not verified, never as false or ineligible.
   or restrictions.
 - Store Place IDs are top-candidate enrichment, not PriceCatcher-published IDs;
   bad or stale matches can affect the result and need review monitoring.
-- Add basket completeness and current observed prices only after the live item
-  IDs are connected. The intended future ranking should expose the trade-off
-  between basket cost and return travel cost rather than hide it in one opaque
-  score.
+- Missing prices are ignored as requested. A store with fewer priced basket
+  lines may show a lower partial subtotal, so incomplete stores are separated
+  from complete recommendations and the UI shows the coverage count and every
+  missing line.
 - Before user testing, replace the default transport costs with validated local
   assumptions and define acceptance tests from the agreed LeanKit criteria.

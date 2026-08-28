@@ -1,4 +1,4 @@
-"""Premise candidate queries for transport-first recommendations."""
+"""Premise candidate queries for basket-plus-transport recommendations."""
 
 from dataclasses import dataclass
 
