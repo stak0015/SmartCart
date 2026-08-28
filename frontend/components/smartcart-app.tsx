@@ -255,6 +255,8 @@ function BasketScreen({
 
   // ── Real database search (Step 6) ─────────────────────────────────────────
   const [apiResults, setApiResults] = useState<Item[]>([]);
+  // AC-1.1.3: State to hold the last successful search results (Snapshot)
+  const [lastGoodResults, setLastGoodResults] = useState<Item[]>([]);
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null); // which card's store-price list is open
@@ -343,15 +345,23 @@ function BasketScreen({
               setSearch(q);
               // AC-1.1.1: only search when the shopper has typed 2 or more characters.
               if (q.trim().length < 2) {
-                setApiResults([]);
-                setApiSearched(false);
-                return;
-              }
+              // AC-1.1.3: Restore the snapshot instead of clearing to empty array
+              setApiResults(lastGoodResults); 
+              setApiSearched(false);
+              return;
+            }
               setApiLoading(true);
               setApiSearched(true);
               // AC-1.1.1: list up to 10 matching results (backend also enforces this cap).
               searchItems(q, 10)
-                .then(data => setApiResults(data.items))
+              // AC-1.1.1 & 1.1.3: Update results and save a snapshot if valid
+                .then((data) => {
+                    setApiResults(data.items);
+                    // Only update snapshot if we actually found something
+                    if (data.items && data.items.length > 0) {
+                        setLastGoodResults(data.items);
+                    }
+                })
                 .catch(() => setApiResults([]))
                 .finally(() => setApiLoading(false));
             }}
@@ -1292,3 +1302,4 @@ export default function App() {
     </div>
   );
 }
+
