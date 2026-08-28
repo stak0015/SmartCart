@@ -5,7 +5,12 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Query
 from starlette.concurrency import run_in_threadpool
 
-from .catalogue import count_items, list_catalogue_categories, search_catalogue
+from .catalogue import (
+    SARA_CATEGORY_SOURCE,
+    count_items,
+    list_catalogue_categories,
+    search_catalogue,
+)
 from .config import get_settings
 from .errors import AppError
 from .maps import get_maps_provider
@@ -21,6 +26,7 @@ from .recommendation import get_travel_cost_model, rank_reachable_stores
 
 router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
+CATALOGUE_PAGE_SIZE = 25
 
 
 @router.get("/health")
@@ -29,11 +35,22 @@ def health() -> dict[str, object]:
 
 
 @router.get("/items/search")
-def search_items(q: str = "", limit: int = Query(default=10)) -> dict[str, object]:
-    # AC-1.1.1: the basket search must never return more than 10 results.
-    safe_limit = max(1, min(limit, 10))
-    items = search_catalogue(q, safe_limit)
-    return {"count": len(items), "items": items}
+def search_items(
+    q: str = "",
+    page: int = Query(default=1, ge=1),
+    category: list[str] = Query(default=[]),
+) -> dict[str, object]:
+    items, total = search_catalogue(q, page, CATALOGUE_PAGE_SIZE, category)
+    total_pages = (total + CATALOGUE_PAGE_SIZE - 1) // CATALOGUE_PAGE_SIZE
+    return {
+        "count": len(items),
+        "total": total,
+        "page": page,
+        "page_size": CATALOGUE_PAGE_SIZE,
+        "total_pages": total_pages,
+        "sara_category_source": SARA_CATEGORY_SOURCE,
+        "items": items,
+    }
 
 
 @router.get("/items/categories")

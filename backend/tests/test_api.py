@@ -115,6 +115,81 @@ def test_item_name_parsing_extracts_brand_and_package_size() -> None:
     assert parse_package_size("PANADOL ACTIFAST 10S") == "10S"
 
 
+def test_item_search_passes_page_and_multiple_category_filters(monkeypatch) -> None:
+    from smartcart import api
+
+    captured = {}
+
+    def fake_search(query, page, page_size, categories):
+        captured.update(
+            query=query, page=page, page_size=page_size, categories=categories
+        )
+        return [], 0
+
+    monkeypatch.setattr(api, "search_catalogue", fake_search)
+    response = TestClient(create_app()).get(
+        "/api/items/search",
+        params=[
+            ("q", "milk"),
+            ("page", "3"),
+            ("category", "DAIRY"),
+            ("category", "DRINKS"),
+        ],
+    )
+
+    assert response.status_code == 200
+    assert captured == {
+        "query": "milk",
+        "page": 3,
+        "page_size": 25,
+        "categories": ["DAIRY", "DRINKS"],
+    }
+    assert response.json()["total_pages"] == 0
+
+
+def test_item_search_allows_empty_query_for_default_catalogue(monkeypatch) -> None:
+    from smartcart import api
+
+    captured = {}
+
+    def fake_search(query, page, page_size, categories):
+        captured.update(
+            query=query, page=page, page_size=page_size, categories=categories
+        )
+        return [{"item_id": 1}], 51
+
+    monkeypatch.setattr(api, "search_catalogue", fake_search)
+    response = TestClient(create_app()).get("/api/items/search")
+
+    assert response.status_code == 200
+    assert response.json()["count"] == 1
+    assert response.json()["total"] == 51
+    assert response.json()["page"] == 1
+    assert response.json()["page_size"] == 25
+    assert response.json()["total_pages"] == 3
+    assert response.json()["sara_category_source"] == {
+        "url": "https://sara.gov.my/en/home.html",
+        "programmeYear": 2026,
+        "reviewedAt": "2026-08-28",
+    }
+    assert captured == {
+        "query": "",
+        "page": 1,
+        "page_size": 25,
+        "categories": [],
+    }
+
+
+def test_sara_category_candidates_are_conservative() -> None:
+    from smartcart.catalogue import is_sara_category_candidate
+
+    assert is_sara_category_candidate("BERAS") is True
+    assert is_sara_category_candidate("TELUR") is True
+    assert is_sara_category_candidate("AYAM") is False
+    assert is_sara_category_candidate("LAIN-LAIN") is False
+    assert is_sara_category_candidate(None) is False
+
+
 def test_item_name_parsing_returns_none_when_nothing_parseable() -> None:
     from smartcart.catalogue import parse_brand, parse_package_size
 

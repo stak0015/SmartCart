@@ -1,26 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import type { Item } from "./api";
-import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, basketSummary, linePriceLabel, parseQty, resultRowFields, stepQty, upsertBasketLine } from "./result-row";
+import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "./result-row";
 
 const baseItem: Item = {
   item_id: 1,
-  item_code: "1",
   item_name: "BERAS CAP JATI (SST5%)",
   unit: "10 kg",
-  item_group: "BARANGAN ASAS",
   item_category: "BERAS",
-  brand: "JATI",
   package_size: "10 kg",
-  price: 32.5,
-  prices: [],
+  sara_eligible: true,
+  sara_category_candidate: true,
 };
 
 describe("resultRowFields", () => {
-  it("shows name, brand and merged package size in AC order", () => {
+  it("shows the name and merged package size", () => {
     expect(resultRowFields(baseItem)).toEqual({
       name: "BERAS CAP JATI (SST5%)",
-      brand: "JATI",
       packageSize: "10 kg",
     });
   });
@@ -29,10 +25,8 @@ describe("resultRowFields", () => {
     const fields = resultRowFields({
       ...baseItem,
       item_name: "MYSTERY ITEM",
-      brand: null,
       package_size: null,
     });
-    expect(fields.brand).toBe("—");
     expect(fields.packageSize).toBe("—");
   });
 });
@@ -90,21 +84,19 @@ describe("basketDetails", () => {
     const fields = resultRowFields(baseItem);
     expect(basketDetails(baseItem)).toEqual({
       name: fields.name,
-      brand: fields.brand,
       size: fields.packageSize,
     });
   });
 
-  it("uses the same — fallbacks as the result row", () => {
-    const item: Item = { ...baseItem, brand: null, package_size: null };
+  it("uses the same package-size fallback as the result row", () => {
+    const item: Item = { ...baseItem, package_size: null };
     const details = basketDetails(item);
-    expect(details.brand).toBe("—");
     expect(details.size).toBe("—");
   });
 });
 
 describe("upsertBasketLine (AC-1.4.2)", () => {
-  const line = (id: string, qty: number, price = 10) => ({ id, qty, price });
+  const line = (id: string, qty: number) => ({ id, qty });
 
   it("appends a new item as a new row with the chosen quantity", () => {
     expect(upsertBasketLine([], line("db-1", 3))).toEqual([line("db-1", 3)]);
@@ -127,32 +119,22 @@ describe("upsertBasketLine (AC-1.4.2)", () => {
 });
 
 describe("basketSummary (AC-1.4.2)", () => {
-  it("recalculates total units and estimate from the lines", () => {
+  it("recalculates total units from the lines", () => {
     const basket = [
-      { id: "a", qty: 2, price: 6.5 },
-      { id: "b", qty: 1, price: 12.5 },
+      { id: "a", qty: 2 },
+      { id: "b", qty: 1 },
     ];
-    expect(basketSummary(basket)).toEqual({ itemCount: 3, estimate: 25.5 });
+    expect(basketSummary(basket)).toEqual({ itemCount: 3 });
   });
 
   it("changes immediately when a quantity changes", () => {
-    const before = [{ id: "a", qty: 1, price: 6.5 }];
-    const after = upsertBasketLine(before, { id: "a", qty: 2, price: 6.5 });
-    expect(basketSummary(before)).toEqual({ itemCount: 1, estimate: 6.5 });
-    expect(basketSummary(after)).toEqual({ itemCount: 3, estimate: 19.5 });
+    const before = [{ id: "a", qty: 1 }];
+    const after = upsertBasketLine(before, { id: "a", qty: 2 });
+    expect(basketSummary(before)).toEqual({ itemCount: 1 });
+    expect(basketSummary(after)).toEqual({ itemCount: 3 });
   });
 
   it("empty basket sums to zero", () => {
-    expect(basketSummary([])).toEqual({ itemCount: 0, estimate: 0 });
-  });
-});
-
-describe("linePriceLabel (basket unit-price annotation)", () => {
-  it("shows qty × unit price = subtotal with two decimals", () => {
-    expect(linePriceLabel({ id: "a", qty: 5, price: 6.5 })).toBe("5 × RM6.50 = RM32.50");
-  });
-
-  it("handles a single unit and whole-ringgit prices", () => {
-    expect(linePriceLabel({ id: "a", qty: 1, price: 13 })).toBe("1 × RM13.00 = RM13.00");
+    expect(basketSummary([])).toEqual({ itemCount: 0 });
   });
 });

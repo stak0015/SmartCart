@@ -27,7 +27,7 @@ export default function ItemSearch() {
 
     setLoading(true);
     try {
-      const data = await searchItems(query, 20);
+      const data = await searchItems(query);
       setResults(data.items);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search error");

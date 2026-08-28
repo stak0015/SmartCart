@@ -18,6 +18,57 @@ _PACKAGE_SIZE = re.compile(
 )
 _WEIGHT_RANGE = re.compile(r"BERAT\s+[\d.]+\s?GM\s+HINGGA", re.IGNORECASE)
 
+# Conservative category-level candidates derived from the official SARA 2026
+# categories and examples. This is intentionally not item-level verification:
+# shoppers must still confirm the SARA shelf label or barcode in MyKasih.
+SARA_CATEGORY_SOURCE = {
+    "url": "https://sara.gov.my/en/home.html",
+    "programmeYear": 2026,
+    "reviewedAt": "2026-08-28",
+}
+SARA_CATEGORY_CANDIDATES = frozenset(
+    {
+        "ALAT TULIS DAN BAHAN BACAAN",
+        "BAHAN-BAHAN MINUMAN",
+        "BERAS",
+        "BERUS GIGI",
+        "BIHUN",
+        "BISKUT",
+        "CILI KERING",
+        "COKLAT",
+        "ESEN DAN RAGI",
+        "GULA",
+        "IKAN DALAM TIN",
+        "KELAPA",
+        "KICAP DAN SOS",
+        "KRIMER DAN SUSU TEPUNG",
+        "LAMPIN PAKAI BUANG",
+        "MEE / BIHUN / KUEY TEOW",
+        "MEE/KUETIAU",
+        "MENTEGA",
+        "MI SEGERA",
+        "MINUMAN",
+        "MINYAK DAN LEMAK",
+        "MOUTH WASH",
+        "PENJAGAAN DIRI",
+        "PENJAGAAN RUMAH",
+        "REMPAH RATUS (BERBUNGKUS)",
+        "REMPAH RATUS (TIDAK BERBUNGKUS)",
+        "ROTI",
+        "SABUN BADAN",
+        "SANTAN (KOTAK)",
+        "SAPUAN (SPREADS)",
+        "SUSU BAYI",
+        "SYAMPU",
+        "TELUR",
+        "TEPUNG",
+        "TERSEDIA MINUM",
+        "TUALA WANITA",
+        "UBAT GIGI",
+        "UBAT-UBATAN",
+    }
+)
+
 
 def parse_brand(item_name: str | None) -> str | None:
     """Extract the brand after a CAP/JENAMA marker; None when unbranded."""
@@ -49,6 +100,10 @@ def display_package_size(item_name: str | None, unit: str | None) -> str | None:
     return parse_package_size(item_name) or (unit.strip() if unit and unit.strip() else None)
 
 
+def is_sara_category_candidate(item_category: str | None) -> bool:
+    return bool(item_category and item_category.strip() in SARA_CATEGORY_CANDIDATES)
+
+
 def count_items() -> int:
     with database_cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM item")
@@ -56,62 +111,60 @@ def count_items() -> int:
     return int(row[0] if row else 0)
 
 
-def search_catalogue(query: str, limit: int) -> list[dict[str, Any]]:
+def search_catalogue(
+    query: str,
+    page: int,
+    page_size: int,
+    categories: list[str] | None = None,
+) -> tuple[list[dict[str, Any]], int]:
     keyword = f"%{query.strip()}%"
+    selected_categories = [
+        category.strip() for category in categories or [] if category.strip()
+    ]
+    offset = (page - 1) * page_size
     with database_cursor() as cursor:
-        # AC-1.1.2: Strictly match only official item_name (case-insensitive partial match).
-        # Removed category matching to prevent false positives from category names.
+        # AC-1.1.2: the keyword strictly matches official item_name. Category
+        # selections are a separate exact-match filter, not keyword matches.
         cursor.execute(
             """
-            SELECT i.item_id, i.item_code, i.item_name, i.unit, i.item_group,
-                   i.item_category, MIN(cs.current_price) AS price
+            SELECT COUNT(*)
             FROM item i
-            LEFT JOIN current_status cs ON cs.item_id = i.item_id
             WHERE i.item_name ILIKE %s
-            GROUP BY i.item_id, i.item_code, i.item_name, i.unit,
-                     i.item_group, i.item_category
-            ORDER BY (MIN(cs.current_price) IS NULL), i.item_name
-            LIMIT %s
+              AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
             """,
-            (keyword, limit),
+            (keyword, selected_categories, selected_categories),
+        )
+        total_row = cursor.fetchone()
+        total = int(total_row[0] if total_row else 0)
+
+        cursor.execute(
+            """
+            SELECT i.item_id, i.item_name, i.unit, i.item_category,
+                   i.sara_eligible
+            FROM item i
+            WHERE i.item_name ILIKE %s
+              AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+            ORDER BY i.item_name
+            LIMIT %s
+            OFFSET %s
+            """,
+            (keyword, selected_categories, selected_categories, page_size, offset),
         )
         columns = [
             "item_id",
-            "item_code",
             "item_name",
             "unit",
-            "item_group",
             "item_category",
-            "price",
+            "sara_eligible",
         ]
         rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
-        item_ids = [row["item_id"] for row in rows]
-        prices_by_item: dict[int, list[dict[str, object]]] = {
-            item_id: [] for item_id in item_ids
-        }
-        if item_ids:
-            cursor.execute(
-                """
-                SELECT cs.item_id, p.premise_name, cs.current_price
-                FROM current_status cs
-                JOIN premise p ON p.premise_id = cs.premise_id
-                WHERE cs.item_id = ANY(%s)
-                ORDER BY cs.current_price ASC, p.premise_name ASC
-                """,
-                (item_ids,),
-            )
-            for item_id, premise_name, price in cursor.fetchall():
-                prices_by_item[item_id].append(
-                    {"premise_name": premise_name, "price": float(price)}
-                )
-
     for row in rows:
-        row["price"] = float(row["price"]) if row["price"] is not None else None
-        row["brand"] = parse_brand(row["item_name"])
         row["package_size"] = display_package_size(row["item_name"], row["unit"])
-        row["prices"] = prices_by_item.get(row["item_id"], [])
-    return rows
+        row["sara_category_candidate"] = is_sara_category_candidate(
+            row["item_category"]
+        )
+    return rows, total
 
 
 def list_catalogue_categories() -> list[str]:

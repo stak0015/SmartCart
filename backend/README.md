@@ -25,7 +25,7 @@ FastAPI documentation is available at `http://localhost:8000/docs`. The main
 routes are:
 
 - `GET /api/health`
-- `GET /api/items/search?q=&limit=`
+- `GET /api/items/search?q=&page=&category=` (25 items per page)
 - `GET /api/items/categories`
 - `GET /api/locations/autocomplete?query=&sessionToken=`
 - `POST /api/locations/resolve`
