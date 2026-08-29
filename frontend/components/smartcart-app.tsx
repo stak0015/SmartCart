@@ -17,6 +17,7 @@ import type {
   TravelLimitType,
 } from "@/lib/contracts";
 import { toBasketLineRequests } from "@/lib/basket-lines";
+import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -1010,7 +1011,7 @@ function CompareScreen({
   const [result, setResult] = useState<RecommendationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
 
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
@@ -1028,6 +1029,8 @@ function CompareScreen({
     const controller = new AbortController();
     setLoading(true);
     setError("");
+    // AC 2.3.2: a fresh recommendation list starts again at the first five.
+    setVisibleCount(VISIBLE_STEP);
 
     getRecommendations({
       ...(hasBasket ? { basket: basketLines } : {}),
@@ -1055,7 +1058,7 @@ function CompareScreen({
   }, [basketLines, hasBasket, preferences]);
 
   const recommendations = result?.recommendations ?? [];
-  const visibleStores = showAll ? recommendations : recommendations.slice(0, 5);
+  const visibleStores = recommendations.slice(0, visibleCount);
   const recommendedStore = recommendations[0];
   const modeLabel = TRANSPORT_OPTS.find(option => option.id === preferences.transportMode)?.label ?? "Selected transport";
   const limitLabel = preferences.limitType === "distance"
@@ -1194,9 +1197,9 @@ function CompareScreen({
                 </article>
               ))}
 
-              {recommendations.length > 5 && (
-                <button type="button" onClick={() => setShowAll(value => !value)} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
-                  {showAll ? "Show first 5" : "See more (+" + (recommendations.length - 5) + ")"}
+              {hasMoreStores(visibleCount, recommendations.length) && (
+                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, recommendations.length))} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
+                  See More (+5)
                 </button>
               )}
 
