@@ -31,6 +31,65 @@ class FakeMapsProvider:
 
 def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> None:
     from smartcart import api
+    from smartcart.pricing import StoreBasketSummary
+
+    monkeypatch.setattr(
+        api,
+        "find_nearest_premises",
+        lambda **_options: [
+            PremiseCandidate(
+                premise_id="1",
+                premise_code="P1",
+                name="Kedai Test",
+                address="Jalan Test",
+                district="Kota Bharu",
+                state="Kelantan",
+                google_place_id="google-place-1",
+                straight_line_distance_km=1.5,
+                sara_status="candidate",
+            )
+        ],
+    )
+    monkeypatch.setattr(api, "get_maps_provider", lambda: FakeMapsProvider())
+    monkeypatch.setattr(
+        api,
+        "get_basket_pricing",
+        lambda premise_ids, basket: {
+            premise_id: StoreBasketSummary(total_rm=12.34)
+            for premise_id in premise_ids
+        },
+    )
+
+    response = TestClient(create_app()).post("/api/recommendations", json=VALID_REQUEST)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["totalCandidatesEvaluated"] == 1
+    assert body["totalReachable"] == 1
+    assert body["routeProvider"] == "google"
+    assert body["routeWarning"] is not None
+    assert "total basket price" in body["rankingMethod"]
+    assert body["recommendations"][0] == {
+        "premiseId": "1",
+        "premiseCode": "P1",
+        "name": "Kedai Test",
+        "address": "Jalan Test",
+        "district": "Kota Bharu",
+        "state": "Kelantan",
+        "straightLineDistanceKm": 1.5,
+        "routeDistanceKm": 2.0,
+        "estimatedTravelMinutes": 11,
+        "estimatedRoundTripCostRm": 0.48,
+        "saraStatus": "candidate",
+        "basketTotalRm": 12.34,
+        "missingItems": [],
+    }
+
+
+def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
+    monkeypatch,
+) -> None:
+    from smartcart import api
 
     monkeypatch.setattr(
         api,
@@ -51,27 +110,27 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
     )
     monkeypatch.setattr(api, "get_maps_provider", lambda: FakeMapsProvider())
 
-    response = TestClient(create_app()).post("/api/recommendations", json=VALID_REQUEST)
+    payload = {key: value for key, value in VALID_REQUEST.items() if key != "basket"}
+    response = TestClient(create_app()).post("/api/recommendations", json=payload)
 
     assert response.status_code == 200
     body = response.json()
-    assert body["totalCandidatesEvaluated"] == 1
-    assert body["totalReachable"] == 1
-    assert body["routeProvider"] == "google"
-    assert body["routeWarning"] is not None
-    assert body["recommendations"][0] == {
-        "premiseId": "1",
-        "premiseCode": "P1",
-        "name": "Kedai Test",
-        "address": "Jalan Test",
-        "district": "Kota Bharu",
-        "state": "Kelantan",
-        "straightLineDistanceKm": 1.5,
-        "routeDistanceKm": 2.0,
-        "estimatedTravelMinutes": 11,
-        "estimatedRoundTripCostRm": 0.48,
-        "saraStatus": "candidate",
-    }
+    assert "transport cost" in body["rankingMethod"]
+    store = body["recommendations"][0]
+    assert store["basketTotalRm"] is None
+    assert store["missingItems"] == []
+
+
+def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:
+    for bad_line in (
+        {"itemId": "db-12", "quantity": 1},
+        {"itemId": "12", "quantity": 0},
+        {"itemId": "12", "quantity": 100},
+    ):
+        payload = {**VALID_REQUEST, "basket": [bad_line]}
+        response = TestClient(create_app()).post("/api/recommendations", json=payload)
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "INVALID_REQUEST"
 
 
 def test_recommendation_endpoint_keeps_invalid_limit_error_code() -> None:

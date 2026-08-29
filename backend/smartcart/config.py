@@ -27,6 +27,8 @@ class Settings:
     database_url: str | None
     database_ssl: bool
     google_maps_api_key: str | None
+    google_places_api_key: str | None
+    google_routes_api_key: str | None
     cors_origins: tuple[str, ...]
     route_matrix_candidate_limit: int
     premise_location_max_age_days: int
@@ -47,6 +49,12 @@ def get_settings() -> Settings:
         database_url=os.getenv("DATABASE_URL") or None,
         database_ssl=os.getenv("DATABASE_SSL", "false").lower() == "true",
         google_maps_api_key=os.getenv("GOOGLE_MAPS_API_KEY") or None,
+        google_places_api_key=(
+            os.getenv("GOOGLE_PLACES_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY") or None
+        ),
+        google_routes_api_key=(
+            os.getenv("GOOGLE_ROUTES_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY") or None
+        ),
         cors_origins=origins,
         route_matrix_candidate_limit=_bounded_integer(
             "ROUTE_MATRIX_CANDIDATE_LIMIT", 25, 5, 49

@@ -17,7 +17,12 @@ from .models import (
     ResolvedLocation,
 )
 from .premises import find_nearest_premises, get_premise_location_coverage
-from .recommendation import get_travel_cost_model, rank_reachable_stores
+from .pricing import get_basket_pricing
+from .recommendation import (
+    apply_basket_pricing,
+    get_travel_cost_model,
+    rank_reachable_stores,
+)
 
 router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
@@ -111,15 +116,28 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         limit_value=travel.limit.value,
         cost_rate=cost_model[travel.transport_mode],
     )
+    ranking_method = (
+        "Lowest estimated return transport cost, then shortest travel time "
+        "and route distance."
+    )
+    if payload.basket:
+        pricing = await run_in_threadpool(
+            get_basket_pricing,
+            [store.premise_id for store in recommendations],
+            payload.basket,
+        )
+        recommendations = apply_basket_pricing(recommendations, pricing)
+        ranking_method = (
+            "Lowest total basket price among reachable stores with complete "
+            "prices, then lowest estimated return transport cost, travel time "
+            "and route distance. Stores missing basket prices are listed after."
+        )
     return RecommendationResponse(
         recommendations=recommendations,
         total_candidates_evaluated=len(candidates),
         total_reachable=len(recommendations),
         generated_at=datetime.now(timezone.utc),
-        ranking_method=(
-            "Lowest estimated return transport cost, then shortest travel time "
-            "and route distance."
-        ),
+        ranking_method=ranking_method,
         cost_assumptions={mode: rate.description for mode, rate in cost_model.items()},
         route_warning=(
             "Walking and motorcycle routes are beta estimates and may omit suitable "

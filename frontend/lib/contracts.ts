@@ -62,6 +62,10 @@ export interface StoreRecommendation {
   estimatedTravelMinutes: number;
   estimatedRoundTripCostRm: number;
   saraStatus: SaraStoreStatus;
+  // Null when the store misses a price for at least one basket line (or no
+  // basket was sent); missingItems then names the unpriced lines (AC 2.3.1).
+  basketTotalRm: number | null;
+  missingItems: string[];
 }
 
 export interface RecommendationResponse {

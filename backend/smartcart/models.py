@@ -1,7 +1,7 @@
 """Validated request and response contracts shared by FastAPI endpoints."""
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
@@ -56,10 +56,16 @@ class TravelPreferences(CamelModel):
     sara_filter: SaraFilter
 
 
+class BasketLineRequest(CamelModel):
+    # Numeric catalogue item id (frontend sends the "db-" prefix stripped).
+    item_id: str = Field(pattern=r"^\d+$")
+    quantity: int = Field(ge=1, le=99)
+
+
 class RecommendationRequest(CamelModel):
-    # Basket values are accepted for forward compatibility but are not yet used
-    # in transport-first ranking.
-    basket: list[dict[str, Any]] | None = None
+    # When present, reachable stores are ranked by total basket price; when
+    # omitted or empty, transport-first ranking applies (AC 2.3.1).
+    basket: list[BasketLineRequest] | None = None
     travel: TravelPreferences
 
 
@@ -98,6 +104,10 @@ class StoreRecommendation(CamelModel):
     estimated_travel_minutes: int
     estimated_round_trip_cost_rm: float
     sara_status: SaraStoreStatus
+    # None when the store lacks a price for at least one basket line (or no
+    # basket was sent); missing_items then names the unpriced lines.
+    basket_total_rm: float | None = None
+    missing_items: list[str] = Field(default_factory=list)
 
 
 class RecommendationResponse(CamelModel):

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { searchItems, type Item } from "@/lib/api";
 import {
   getRecommendations,
@@ -16,6 +16,7 @@ import type {
   TransportMode,
   TravelLimitType,
 } from "@/lib/contracts";
+import { toBasketLineRequests } from "@/lib/basket-lines";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -1011,6 +1012,12 @@ function CompareScreen({
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
 
+  // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
+  // filtered out. Empty after filtering -> request without a basket, keeping
+  // transport-first ranking.
+  const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
+  const hasBasket = basketLines.length > 0;
+
   useEffect(() => {
     if (!preferences.origin) {
       setError("Choose a starting location before requesting recommendations.");
@@ -1023,7 +1030,7 @@ function CompareScreen({
     setError("");
 
     getRecommendations({
-      basket: basket.map(item => ({ itemId: item.id, quantity: item.qty })),
+      ...(hasBasket ? { basket: basketLines } : {}),
       travel: {
         origin: preferences.origin,
         transportMode: preferences.transportMode,
@@ -1045,7 +1052,7 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [basket, preferences]);
+  }, [basketLines, hasBasket, preferences]);
 
   const recommendations = result?.recommendations ?? [];
   const visibleStores = showAll ? recommendations : recommendations.slice(0, 5);
@@ -1100,7 +1107,9 @@ function CompareScreen({
             <div className="flex flex-col gap-1">
               <p className="text-[20px] font-extrabold leading-7 text-[#175f4b]">{recommendedStore.name}</p>
               <p className="text-[14px] leading-5 text-[#286d67]">
-                Best match by estimated return transport cost, then travel time and route distance.
+                {hasBasket
+                  ? "Lowest total basket price among reachable stores with complete prices."
+                  : "Best match by estimated return transport cost, then travel time and route distance."}
               </p>
             </div>
           </div>
@@ -1120,12 +1129,12 @@ function CompareScreen({
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Reachable premises</h2>
                 <p className="mt-1 text-sm text-[#617069]">{result.totalReachable} reachable from {result.totalCandidatesEvaluated} nearby candidates checked.</p>
               </div>
-              <span className="text-right text-xs font-medium text-[#718078]">Lower travel cost first</span>
+              <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? "Lowest basket total first" : "Lower travel cost first"}</span>
             </div>
 
             <div className="flex flex-col gap-3">
               {visibleStores.map((store, index) => (
-                <article key={store.premiseId} className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
+                <article key={store.premiseId} className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]") + (store.missingItems.length > 0 ? " opacity-70" : "")}>
                   {index === 0 && (
                     <div className="bg-[#087f5b] px-3 py-2 text-center">
                       <span className="text-[13px] font-extrabold leading-5 text-white">Recommended reachable store</span>
@@ -1145,6 +1154,19 @@ function CompareScreen({
                         )}
                       </div>
                     </div>
+
+                    {/* AC 2.3.1: total basket price per store; stores missing
+                        any basket line price are greyed out and named here */}
+                    {store.missingItems.length > 0 ? (
+                      <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
+                        Basket total unavailable — missing prices for: {store.missingItems.join(", ")}
+                      </p>
+                    ) : store.basketTotalRm != null ? (
+                      <div className="rounded-xl bg-[#e7f7f0] p-3">
+                        <p className="text-xs text-[#286d67]">Total basket price</p>
+                        <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketTotalRm.toFixed(2)}</p>
+                      </div>
+                    ) : null}
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-xl bg-[#f3faf7] p-3">

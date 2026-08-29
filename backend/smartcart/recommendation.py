@@ -8,6 +8,7 @@ from .config import Settings
 from .maps import RouteMatrixResult
 from .models import StoreRecommendation, TransportMode, TravelLimitType
 from .premises import PremiseCandidate
+from .pricing import StoreBasketSummary
 
 
 @dataclass(frozen=True)
@@ -112,3 +113,34 @@ def rank_reachable_stores(
         )
     )
     return recommendations
+
+
+def apply_basket_pricing(
+    recommendations: list[StoreRecommendation],
+    pricing: dict[str, StoreBasketSummary],
+) -> list[StoreRecommendation]:
+    """Attach per-store basket totals and re-rank (AC 2.3.1): stores with a
+    complete basket price sort by lowest total first; stores missing any
+    basket line price are listed after, keeping the reachability order."""
+    complete = []
+    incomplete = []
+    for store in recommendations:
+        summary = pricing.get(store.premise_id)
+        if summary is not None and summary.total_rm is not None:
+            store.basket_total_rm = summary.total_rm
+            complete.append(store)
+        else:
+            store.basket_total_rm = None
+            store.missing_items = summary.missing_items if summary else []
+            incomplete.append(store)
+    complete.sort(
+        key=lambda store: (
+            store.basket_total_rm,
+            store.estimated_round_trip_cost_rm,
+            store.estimated_travel_minutes,
+            store.route_distance_km,
+            store.name,
+            int(store.premise_id),
+        )
+    )
+    return complete + incomplete
