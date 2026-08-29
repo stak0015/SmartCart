@@ -108,6 +108,11 @@ class StoreRecommendation(CamelModel):
     # basket was sent); missing_items then names the unpriced lines.
     basket_total_rm: float | None = None
     missing_items: list[str] = Field(default_factory=list)
+    # SARA Credit / Cash Needed split of the basket total (AC 2.3.3/2.3.4).
+    # Candidate-based estimate (item flag verified first, then official SARA
+    # category list); both are None whenever the basket total is unavailable.
+    sara_credit_rm: float | None = None
+    cash_needed_rm: float | None = None
 
 
 class RecommendationResponse(CamelModel):

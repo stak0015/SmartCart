@@ -55,7 +55,9 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         api,
         "get_basket_pricing",
         lambda premise_ids, basket: {
-            premise_id: StoreBasketSummary(total_rm=12.34)
+            premise_id: StoreBasketSummary(
+                total_rm=12.34, sara_credit_rm=5.0, cash_needed_rm=7.34
+            )
             for premise_id in premise_ids
         },
     )
@@ -83,6 +85,8 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "saraStatus": "candidate",
         "basketTotalRm": 12.34,
         "missingItems": [],
+        "saraCreditRm": 5.0,
+        "cashNeededRm": 7.34,
     }
 
 
@@ -119,6 +123,8 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
     store = body["recommendations"][0]
     assert store["basketTotalRm"] is None
     assert store["missingItems"] == []
+    assert store["saraCreditRm"] is None
+    assert store["cashNeededRm"] is None
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

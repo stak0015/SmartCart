@@ -17,6 +17,7 @@ import type {
   TravelLimitType,
 } from "@/lib/contracts";
 import { toBasketLineRequests } from "@/lib/basket-lines";
+import { formatRm } from "@/lib/format-rm";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
@@ -1168,6 +1169,14 @@ function CompareScreen({
                       <div className="rounded-xl bg-[#e7f7f0] p-3">
                         <p className="text-xs text-[#286d67]">Total basket price</p>
                         <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketTotalRm.toFixed(2)}</p>
+                        {/* AC 2.3.3/2.3.4: the SARA Credit line is always
+                            present, even when it is RM0; credit + cash
+                            equals the displayed total */}
+                        <div className="mt-2 flex flex-col gap-0.5 border-t border-[#bfe3d3] pt-2">
+                          <p className="text-[13px] font-semibold text-[#175f4b]">SARA Credit: {formatRm(store.saraCreditRm ?? 0)}</p>
+                          <p className="text-[13px] font-semibold text-[#17362c]">Cash Needed: {formatRm(store.cashNeededRm ?? store.basketTotalRm)}</p>
+                          <p className="text-[11px] text-[#5f7a6d]">estimated by category — verify SARA labels in store</p>
+                        </div>
                       </div>
                     ) : null}
 

@@ -66,6 +66,10 @@ export interface StoreRecommendation {
   // basket was sent); missingItems then names the unpriced lines (AC 2.3.1).
   basketTotalRm: number | null;
   missingItems: string[];
+  // SARA Credit / Cash Needed split of the basket total (AC 2.3.3/2.3.4);
+  // candidate-based estimate, both null whenever the total is unavailable.
+  saraCreditRm: number | null;
+  cashNeededRm: number | null;
 }
 
 export interface RecommendationResponse {
