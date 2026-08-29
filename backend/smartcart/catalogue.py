@@ -117,39 +117,75 @@ def search_catalogue(
     page_size: int,
     categories: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
-    keyword = f"%{query.strip()}%"
+    # 1. Preprocess parameters
     selected_categories = [
         category.strip() for category in categories or [] if category.strip()
     ]
     offset = (page - 1) * page_size
+    
+    # 2. Dynamically build SQL and parameters
+    # If query is empty, we skip the item_name filter condition
+    has_query = bool(query and query.strip())
+    keyword = f"%{query.strip()}%" if has_query else None
+
     with database_cursor() as cursor:
-        # AC-1.1.2: the keyword strictly matches official item_name. Category
-        # selections are a separate exact-match filter, not keyword matches.
-        cursor.execute(
-            """
-            SELECT COUNT(*)
-            FROM item i
-            WHERE i.item_name ILIKE %s
-              AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
-            """,
-            (keyword, selected_categories, selected_categories),
-        )
+        # --- Step 1: Get total count (COUNT) ---
+        if has_query:
+            # With keyword: filter by both name and category
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM item i
+                WHERE i.item_name ILIKE %s
+                  AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+                """,
+                (keyword, selected_categories, selected_categories),
+            )
+        else:
+            # Without keyword: filter by category only (if selected)
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM item i
+                WHERE (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+                """,
+                (selected_categories, selected_categories),
+            )
+        
         total_row = cursor.fetchone()
         total = int(total_row[0] if total_row else 0)
 
-        cursor.execute(
-            """
-            SELECT i.item_id, i.item_name, i.unit, i.item_category,
-                   i.sara_eligible
-            FROM item i
-            WHERE i.item_name ILIKE %s
-              AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
-            ORDER BY i.item_name
-            LIMIT %s
-            OFFSET %s
-            """,
-            (keyword, selected_categories, selected_categories, page_size, offset),
-        )
+        # --- Step 2: Get data list (SELECT) ---
+        if has_query:
+            # With keyword: filter by both name and category
+            cursor.execute(
+                """
+                SELECT i.item_id, i.item_name, i.unit, i.item_category,
+                       i.sara_eligible
+                FROM item i
+                WHERE i.item_name ILIKE %s
+                  AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+                ORDER BY i.item_name
+                LIMIT %s
+                OFFSET %s
+                """,
+                (keyword, selected_categories, selected_categories, page_size, offset),
+            )
+        else:
+            # Without keyword: filter by category only (if selected)
+            cursor.execute(
+                """
+                SELECT i.item_id, i.item_name, i.unit, i.item_category,
+                       i.sara_eligible
+                FROM item i
+                WHERE (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+                ORDER BY i.item_name
+                LIMIT %s
+                OFFSET %s
+                """,
+                (selected_categories, selected_categories, page_size, offset),
+            )
+
         columns = [
             "item_id",
             "item_name",
@@ -159,11 +195,13 @@ def search_catalogue(
         ]
         rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
+    # 3. Post-processing: add parsed fields (unchanged)
     for row in rows:
         row["package_size"] = display_package_size(row["item_name"], row["unit"])
         row["sara_category_candidate"] = is_sara_category_candidate(
             row["item_category"]
         )
+        
     return rows, total
 
 

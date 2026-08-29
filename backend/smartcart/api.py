@@ -27,6 +27,8 @@ from .recommendation import get_travel_cost_model, rank_reachable_stores
 router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
+# 每页最大条数，防止恶意请求拉取过多数据
+MAX_PAGE_SIZE = 100
 
 
 @router.get("/health")
@@ -38,15 +40,19 @@ def health() -> dict[str, object]:
 def search_items(
     q: str = "",
     page: int = Query(default=1, ge=1),
+    # 显式接收前端传入的 page_size，默认 25，最小 1，最大 100
+    page_size: int = Query(default=CATALOGUE_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE),
     category: list[str] = Query(default=[]),
 ) -> dict[str, object]:
-    items, total = search_catalogue(q, page, CATALOGUE_PAGE_SIZE, category)
-    total_pages = (total + CATALOGUE_PAGE_SIZE - 1) // CATALOGUE_PAGE_SIZE
+    # 使用前端传入的 page_size，而不是硬编码常量
+    items, total = search_catalogue(q, page, page_size, category)
+    # 用实际 page_size 计算总页数
+    total_pages = (total + page_size - 1) // page_size
     return {
         "count": len(items),
         "total": total,
         "page": page,
-        "page_size": CATALOGUE_PAGE_SIZE,
+        "page_size": page_size,
         "total_pages": total_pages,
         "sara_category_source": SARA_CATEGORY_SOURCE,
         "items": items,

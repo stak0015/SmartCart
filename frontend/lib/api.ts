@@ -35,6 +35,10 @@ export interface CategoriesResult {
 
 /**
  * Search items by keyword
+ * @param q - Search query
+ * @param page - Page number (starts from 1)
+ * @param categories - Optional category filters
+ * @param signal - AbortSignal for cancelling requests
  */
 export async function searchItems(
   q: string,
@@ -42,13 +46,23 @@ export async function searchItems(
   categories: string[] = [],
   signal?: AbortSignal,
 ): Promise<SearchResult> {
-  const params = new URLSearchParams({ q, page: String(page) });
+  // FIX: Explicitly set page_size to 25 to meet AC-1.1.2
+  const params = new URLSearchParams({ 
+    q, 
+    page: String(page),
+    page_size: "25" // <--- Added this line!
+  });
+  
   categories.forEach(category => params.append("category", category));
+  
   const url = `${API_BASE_URL}/items/search?${params.toString()}`;
+  
   const res = await fetch(url, { signal });
+  
   if (!res.ok) {
     throw new Error(`Search failed: HTTP ${res.status}`);
   }
+  
   return res.json();
 }
 
