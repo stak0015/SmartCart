@@ -19,6 +19,7 @@ import type {
 } from "@/lib/contracts";
 import { toBasketLineRequests } from "@/lib/basket-lines";
 import { coverageLabel, isCompleteBasket } from "@/lib/basket-coverage";
+import { overviewTotalRm, sumPricedLineTotals } from "@/lib/overview-totals";
 import { formatRm } from "@/lib/format-rm";
 import { isPriceStale } from "@/lib/price-freshness";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -1010,11 +1011,13 @@ function StoreCard({
   isRecommended,
   pricesExpanded,
   onTogglePrices,
+  onSelectStore,
 }: {
   store: StoreRecommendation;
   isRecommended: boolean;
   pricesExpanded: boolean;
   onTogglePrices: () => void;
+  onSelectStore: () => void;
 }) {
   return (
     <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]") + (store.missingItems.length > 0 ? " opacity-70" : "")}>
@@ -1165,10 +1168,241 @@ function StoreCard({
             )}
           </div>
         )}
+
+        {/* AC 2.4.1: primary "Select store" action — native button keeps
+            keyboard and screen-reader access; always visible on every card */}
+        <button
+          type="button"
+          onClick={onSelectStore}
+          aria-label={"Select store " + store.name}
+          className="min-h-11 w-full rounded-xl bg-[#087f5b] px-5 text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
+        >
+          Select store
+        </button>
       </div>
     </article>
   );
 }
+
+// AC 2.4.1: Recommendation overview for the selected premise. Step 2 renders
+// a skeleton (back action + heading); steps 3–5 fill in the store identity,
+// cost breakdown and item-level prices. Those props are declared now so
+// CompareScreen can already carry basket and travel preferences over.
+function RecommendationOverview({
+  store,
+  preferences,
+  rankingMethod,
+  costAssumptions,
+  routeWarning,
+  onBack,
+}: {
+  store: StoreRecommendation;
+  basket: BasketItem[];
+  preferences: TravelPreferences;
+  rankingMethod: string;
+  costAssumptions: Record<TransportMode, string> | undefined;
+  routeWarning: string | null;
+  onBack: () => void;
+}) {
+  // AC 2.4.2: labels for the selected travel preferences, written the same
+  // way as on the compare screen so both pages describe them identically.
+  const modeLabel = TRANSPORT_OPTS.find(option => option.id === preferences.transportMode)?.label ?? "Selected transport";
+  const limitLabel = preferences.limitType === "distance"
+    ? preferences.limitValue + " km"
+    : preferences.limitValue + " minutes";
+  // AC 2.4.2: combined total = priced basket subtotal + estimated return
+  // transport. The API only sends combinedTotalRm for complete baskets, so
+  // for incomplete ones it is recomputed from the partial subtotal
+  // (missing prices stay excluded).
+  const combinedTotal = store.combinedTotalRm ?? ((store.basketSubtotalRm ?? 0) + store.estimatedRoundTripCostRm);
+  const hasIncompleteBasket = store.missingItems.length > 0;
+
+  return (
+    <div className="screen-enter pb-8">
+      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
+        <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 self-start text-[14px] font-bold text-[#087f5b]">
+          <IcoArrowBack /> Back to recommendations
+        </button>
+        <p className="text-sm font-bold text-[#087f5b]">Recommendation overview</p>
+        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
+          Recommended store: {store.name}
+        </h1>
+
+        {/* AC 2.4.2: selected store identity - name, PriceCatcher premise
+            code, address when available, and the same three-state SARA
+            badge used on the store cards */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
+              <div className="mt-0.5 flex items-center gap-1">
+                <IcoPriceCatcher />
+                <span className="text-[13px] font-medium text-[#53635c]">PriceCatcher premise {store.premiseCode}</span>
+              </div>
+              {(store.address || store.district || store.state) && (
+                <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
+              )}
+            </div>
+          </div>
+
+          {store.saraStatus === "verified" ? (
+            <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">Verified SARA partner</span>
+          ) : store.saraStatus === "candidate" ? (
+            <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">SARA match candidate - requires verification</span>
+          ) : (
+            <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">SARA status not verified</span>
+          )}
+        </section>
+
+        {/* AC 2.4.2: cost + travel summary for the selected premise */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Basket and travel costs</h2>
+
+          {hasIncompleteBasket ? (
+            <div className="rounded-xl bg-[#f3f4f5] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[13px] font-semibold text-[#5f6368]">Incomplete basket</p>
+                {store.pricedCount != null && store.basketLineCount != null && (
+                  <p className="text-xs font-medium text-[#5f6368]">{coverageLabel(store.pricedCount, store.basketLineCount)}</p>
+                )}
+              </div>
+              {store.basketSubtotalRm != null && (
+                <div className="mt-2">
+                  <p className="text-xs text-[#5f6368]">Partial total</p>
+                  <p className="mt-0.5 text-xl font-extrabold text-[#3f4944]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+                </div>
+              )}
+              <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">
+                Missing item prices are excluded from the displayed subtotal and the combined total. No price at this store for: {store.missingItems.join(", ")}
+              </p>
+            </div>
+          ) : store.basketSubtotalRm != null ? (
+            <div className="rounded-xl bg-[#e7f7f0] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[#286d67]">Basket subtotal</p>
+                {store.pricedCount != null && store.basketLineCount != null && (
+                  <p className="text-xs font-medium text-[#286d67]">{coverageLabel(store.pricedCount, store.basketLineCount)}</p>
+                )}
+              </div>
+              <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+            </div>
+          ) : (
+            <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
+              No priced basket lines at this store, so no subtotal is available.
+            </p>
+          )}
+
+          {store.basketSubtotalRm != null && (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-[#087f5b] px-3 py-3">
+              <div>
+                <p className="text-[13px] font-semibold text-white">Basket + transport total</p>
+                {hasIncompleteBasket && (
+                  <p className="text-[11px] text-[#d3f0e4]">Priced items only - missing prices excluded</p>
+                )}
+              </div>
+              <p className="text-[18px] font-extrabold text-white">RM{combinedTotal.toFixed(2)}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-[#f3faf7] p-3">
+              <p className="text-xs text-[#617069]">Return travel</p>
+              <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl bg-[#f7f8f6] p-3">
+              <p className="text-xs text-[#617069]">One way</p>
+              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
+            </div>
+            <div className="rounded-xl bg-[#f7f8f6] p-3">
+              <p className="text-xs text-[#617069]">Route</p>
+              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex rounded-sm bg-[#edf3ef] px-2 py-1 text-xs font-semibold text-[#17362c]">Transport: {modeLabel}</span>
+            <span className="inline-flex rounded-sm bg-[#edf3ef] px-2 py-1 text-xs font-semibold text-[#17362c]">Travel limit: {limitLabel}</span>
+          </div>
+        </section>
+
+        {/* AC 2.4.3: item-level prices for every basket line at the
+            selected premise; unpriced lines stay visible and are never
+            shown as RM0.00 */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Item prices</h2>
+
+          {store.basketLines.length > 0 ? (
+            <>
+              <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
+                {store.basketLines.map(line => (
+                  <li key={line.itemId} className="border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
+                    <p className="text-[13px] font-semibold text-[#17362c]">
+                      {line.itemName ?? "Catalogue item"}{line.unit ? " (" + line.unit + ")" : ""}
+                    </p>
+                    {line.unitPriceRm != null && line.lineTotalRm != null ? (
+                      <>
+                        <p className="mt-0.5 text-[13px] text-[#53635c]">
+                          {line.quantity} × RM{line.unitPriceRm.toFixed(2)} = RM{line.lineTotalRm.toFixed(2)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#718078]">
+                          PriceCatcher observed: {line.observedDate ?? "date unavailable"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-0.5 text-[13px] font-medium text-[#5f6368]">
+                        No price available at this store - excluded from the subtotal.
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              {/* AC 2.4.3: displayed line totals must reconcile with the
+                  priced subtotal, and the overview total must equal the
+                  subtotal plus the estimated return travel cost */}
+              <div className="flex flex-col gap-1 rounded-xl bg-[#f2f6f3] p-3 text-[13px]">
+                <p className="flex justify-between text-[#3f4944]">
+                  <span>Sum of item line totals</span>
+                  <span className="font-bold">RM{sumPricedLineTotals(store.basketLines).toFixed(2)}</span>
+                </p>
+                <p className="flex justify-between text-[#3f4944]">
+                  <span>Priced basket subtotal</span>
+                  <span className="font-bold">RM{(store.basketSubtotalRm ?? 0).toFixed(2)}</span>
+                </p>
+                <p className="flex justify-between border-t border-[#d8ddd9] pt-1 text-[#17362c]">
+                  <span>Overview total (subtotal + return travel)</span>
+                  <span className="font-extrabold">RM{overviewTotalRm(store.basketSubtotalRm, store.estimatedRoundTripCostRm).toFixed(2)}</span>
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
+              No basket lines to price at this store.
+            </p>
+          )}
+        </section>
+
+        {/* AC 2.4.2: calculation and route notes - route values are
+            estimates and the ranking is subtotal + return transport; no
+            affordability or verified-stock claims */}
+        <section className="flex flex-col gap-2 rounded-2xl border border-[#dce5e0] bg-white p-4 text-sm">
+          <h2 className="text-[16px] font-extrabold leading-6 text-[#17362c]">How this recommendation is calculated</h2>
+          {rankingMethod && <p className="leading-5 text-[#53635c]">{rankingMethod}</p>}
+          {costAssumptions && (
+            <p className="leading-5 text-[#53635c]">{costAssumptions[preferences.transportMode]}</p>
+          )}
+          <p className="leading-5 text-[#53635c]">
+            Route distance and travel time are estimates. The ranking combines the priced basket subtotal with the estimated return transport cost. SmartCart does not verify affordability or in-store stock.
+          </p>
+          {routeWarning && (
+            <p className="leading-5 text-[#6d5700]">{routeWarning}</p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}     
 
 function CompareScreen({
   basket,
@@ -1187,7 +1421,10 @@ function CompareScreen({
   // per-line prices are expanded.
   const [activeTab, setActiveTab] = useState<"complete" | "incomplete">("complete");
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
-
+  // AC 2.4.1: snapshot of the store selected for the overview. The whole
+  // store object (not just the premise id) is kept so the overview can
+  // never silently switch to another premise when the list refreshes.
+  const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
@@ -1251,6 +1488,24 @@ function CompareScreen({
   const limitLabel = preferences.limitType === "distance"
     ? preferences.limitValue + " km"
     : preferences.limitValue + " minutes";
+
+  // AC 2.4.1: once a store is selected the overview replaces the list. It
+  // renders the saved snapshot, so a background refresh of the list can
+  // never swap the premise, basket or travel preferences underneath it;
+  // going back simply clears the snapshot and the list reappears as-is.
+  if (selectedStore) {
+    return (
+      <RecommendationOverview
+        store={selectedStore}
+        basket={basket}
+        preferences={preferences}
+        rankingMethod={result?.rankingMethod ?? ""}
+        costAssumptions={result?.costAssumptions}
+        routeWarning={result?.routeWarning ?? null}
+        onBack={() => setSelectedStore(null)}
+      />
+    );
+  }
 
   return (
     <div className="screen-enter pb-8">
@@ -1362,6 +1617,7 @@ function CompareScreen({
                   isRecommended={activeTab === "complete" && recommendedStore?.premiseId === store.premiseId}
                   pricesExpanded={expandedStoreId === store.premiseId}
                   onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
+                  onSelectStore={() => setSelectedStore(store)}
                 />
               ))}
 
