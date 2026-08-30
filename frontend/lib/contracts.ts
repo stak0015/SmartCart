@@ -70,6 +70,9 @@ export interface StoreRecommendation {
   // candidate-based estimate, both null whenever the total is unavailable.
   saraCreditRm: number | null;
   cashNeededRm: number | null;
+  // Age in days of the store's oldest basket-line price (AC 2.3.5); null
+  // when no basket line is priced at that store (or no basket was sent).
+  priceObservedDaysAgo: number | null;
 }
 
 export interface RecommendationResponse {

@@ -18,6 +18,7 @@ import type {
 } from "@/lib/contracts";
 import { toBasketLineRequests } from "@/lib/basket-lines";
 import { formatRm } from "@/lib/format-rm";
+import { isPriceStale } from "@/lib/price-freshness";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
@@ -1179,6 +1180,14 @@ function CompareScreen({
                         </div>
                       </div>
                     ) : null}
+
+                    {/* AC 2.3.5: warn when the store's oldest basket-line
+                        price is past the freshness threshold */}
+                    {isPriceStale(store.priceObservedDaysAgo) && (
+                      <p className="self-start rounded-md border border-[#ead89d] bg-[#fff9e8] px-2 py-1 text-xs font-semibold text-[#6d5700]">
+                        Prices updated {store.priceObservedDaysAgo} days ago
+                      </p>
+                    )}
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-xl bg-[#f3faf7] p-3">

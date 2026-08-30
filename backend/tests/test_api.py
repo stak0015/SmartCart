@@ -87,6 +87,7 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "missingItems": [],
         "saraCreditRm": 5.0,
         "cashNeededRm": 7.34,
+        "priceObservedDaysAgo": None,
     }
 
 

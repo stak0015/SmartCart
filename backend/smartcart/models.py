@@ -113,6 +113,9 @@ class StoreRecommendation(CamelModel):
     # category list); both are None whenever the basket total is unavailable.
     sara_credit_rm: float | None = None
     cash_needed_rm: float | None = None
+    # Age in days of the store's oldest basket-line price (AC 2.3.5); None
+    # when no basket line is priced at that store (or no basket was sent).
+    price_observed_days_ago: int | None = None
 
 
 class RecommendationResponse(CamelModel):

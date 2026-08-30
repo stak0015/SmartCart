@@ -127,6 +127,9 @@ def apply_basket_pricing(
     incomplete = []
     for store in recommendations:
         summary = pricing.get(store.premise_id)
+        store.price_observed_days_ago = (
+            summary.price_observed_days_ago if summary is not None else None
+        )
         if summary is not None and summary.total_rm is not None:
             store.basket_total_rm = summary.total_rm
             store.sara_credit_rm = summary.sara_credit_rm
