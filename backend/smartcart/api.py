@@ -128,9 +128,10 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         )
         recommendations = apply_basket_pricing(recommendations, pricing)
         ranking_method = (
-            "Lowest total basket price among reachable stores with complete "
-            "prices, then lowest estimated return transport cost, travel time "
-            "and route distance. Stores missing basket prices are listed after."
+            "Complete baskets ranked by lowest combined cost: priced basket "
+            "subtotal plus estimated return transport cost; ties by shortest "
+            "travel time, route distance, store name, then premise ID. "
+            "Incomplete baskets are listed after with their partial totals."
         )
     return RecommendationResponse(
         recommendations=recommendations,

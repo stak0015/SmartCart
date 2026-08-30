@@ -1,0 +1,43 @@
+US 2.3 Build Notes / 构建说明
+Recommendation Spec Alignment: Partial Totals, Tabs, Combined-Cost Ranking, Item Price Detail
+推荐规格对齐：部分小计、完整/缺货分组页签、综合成本排名、逐行价格明细
+
+------------------------------------------------------------
+1. 中文
+
+本次构建将推荐功能对齐到最新验收口径。商店卡上的商品金额一律为"已定价商品小计"：只把有有效正价格的篮子行计入金额，缺价的行不纳入金额、也绝不按 RM0.00 处理。缺任一商品价格的店归入 Incomplete baskets 页签，卡片标注 "Incomplete basket"、显示定价覆盖率（如 "1 of 2 items priced"），其金额一律标注为 "Partial total"，不会被当作整篮价格展示。
+
+English:
+This build aligns store recommendations with the latest acceptance criteria. Every basket amount on a store card is a priced-line subtotal: only basket lines with a valid positive price enter the amount, and lines without a price are excluded from it — never treated as RM0.00. A store missing any basket price appears under the Incomplete baskets tab; its card is labelled "Incomplete basket", shows priced-item coverage (e.g. "1 of 2 items priced"), and any amount shown is labelled "Partial total", never presented as the full basket cost.
+
+------------------------------------------------------------
+2. 中文
+
+推荐页结构：页面标题为 "Store recommendations"，标题下显示当前篮子与行程摘要（如 "Basket: 3 items" 与起点/交通方式/上限）。带篮子时列表分为 "Complete baskets" 与 "Incomplete baskets" 两个页签并各自计数；"See More (+5)" 只对 Complete 页签分页，Incomplete 页签一次列出全部。无可达店时仍显示原空态文案。
+
+English:
+Recommendation page structure: the heading reads "Store recommendations", followed by the active basket and travel summary (e.g. "Basket: 3 items" plus origin, transport mode and limit). With a basket, the list splits into "Complete baskets" and "Incomplete baskets" tabs with their counts; "See More (+5)" pages the Complete tab only, while the Incomplete tab lists everything at once. With zero reachable stores the existing empty-state text still appears.
+
+------------------------------------------------------------
+3. 中文
+
+排名与推荐店：完整店按综合成本升序排名——综合成本 = 商品小计 + 预估往返交通费；并列时依次按行程时间、路线距离、店名、门店 ID 决胜，缺货店保持可达性顺序列于其后。排名第一的完整店标注 "Recommended reachable store"，其卡片完整展示：店名、地址、Basket subtotal、Return travel、Combined total (incl. return travel)、One way 时间、Route 距离、定价覆盖率与 SARA 状态。
+
+English:
+Ranking and recommended store: complete baskets rank by lowest combined cost — priced basket subtotal plus the estimated return transport cost; ties resolve by shortest travel time, shortest route distance, store name, then premise ID, and incomplete stores follow in reachability order. The first complete store is labelled "Recommended reachable store" and its card shows the full set: store name, address, Basket subtotal, Return travel, Combined total (incl. return travel), One way time, Route distance, priced-item coverage and SARA status.
+
+------------------------------------------------------------
+4. 中文
+
+逐行价格明细：每张带篮子的店卡提供 "View item prices" 展开区，逐行显示商品名、单位/包装、数量、单价、行小计（如 "2 × RM9.65 = RM19.30"）与 PriceCatcher 价格观察日期。无价格的行保持可见，逐字显示 "No price available at this store"，不显示任何金额。
+
+English:
+Item-level price detail: every basket-priced store card offers a "View item prices" expansion listing each line's item name, unit/package, quantity, unit price and line total (e.g. "2 × RM9.65 = RM19.30") with the PriceCatcher observation date. Lines without a price stay visible with the verbatim label "No price available at this store" and show no amount.
+
+------------------------------------------------------------
+5. 中文
+
+改动点：后端 pricing.py 重写小计聚合（有效正价格行才计入、行级明细、覆盖率）；models.py 响应字段 basketSubtotalRm/pricedCount/basketLineCount/combinedTotalRm/basketLines；recommendation.py 按综合成本重排并接线；api.py 更新排名说明文案。前端 contracts.ts 同步契约；新增 lib/basket-coverage.ts（覆盖率文案与完整性判定）；smartcart-app.tsx 抽取店卡组件 StoreCard，新增页签、摘要行、综合成本行与明细展开。测试与验证：后端 pytest 29 项全过（部分小计、非正价格无效、恒等式、明细、综合排名与平局决胜）；前端 vitest 17 项全过，ESLint 与生产构建通过。手动核对：起点 Kota Bharu、Car + 15 km，篮子为沙丁鱼罐头×2 + 鸡蛋×1，可见 8 家完整店与 17 家缺货店分列两个页签，首家完整店 TESCO KOTA BHARU 显示 Basket subtotal RM33.49 + Return travel RM1.75 = Combined total RM35.24。
+
+English:
+Changes: on the backend, pricing.py rewrites subtotal aggregation (only valid positive priced lines count, per-line detail, coverage); the response model gains basketSubtotalRm / pricedCount / basketLineCount / combinedTotalRm / basketLines; recommendation.py re-ranks by combined cost and wires the fields through; api.py updates the ranking description. On the frontend, contracts.ts mirrors the contract; a new lib/basket-coverage.ts holds the coverage label and completeness check; smartcart-app.tsx extracts the StoreCard component and adds the tabs, the summary line, the combined-total row and the detail expansion. Testing and verification: 29 backend pytest cases pass (partial subtotals, non-positive prices invalid, the credit/cash identity, line detail, combined ranking and tie-breaks); 17 frontend vitest cases pass, ESLint and the production build pass. To verify manually: start from Kota Bharu with Car + 15 km and a basket of canned sardines ×2 plus eggs ×1 — 8 complete and 17 incomplete stores appear under the two tabs, and the first complete store TESCO KOTA BHARU shows Basket subtotal RM33.49 + Return travel RM1.75 = Combined total RM35.24.

@@ -56,7 +56,8 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "get_basket_pricing",
         lambda premise_ids, basket: {
             premise_id: StoreBasketSummary(
-                total_rm=12.34, sara_credit_rm=5.0, cash_needed_rm=7.34
+                subtotal_rm=12.34, priced_count=1, basket_line_count=1,
+                sara_credit_rm=5.0, cash_needed_rm=7.34,
             )
             for premise_id in premise_ids
         },
@@ -70,7 +71,7 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
     assert body["totalReachable"] == 1
     assert body["routeProvider"] == "google"
     assert body["routeWarning"] is not None
-    assert "total basket price" in body["rankingMethod"]
+    assert "basket subtotal" in body["rankingMethod"]
     assert body["recommendations"][0] == {
         "premiseId": "1",
         "premiseCode": "P1",
@@ -83,10 +84,14 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "estimatedTravelMinutes": 11,
         "estimatedRoundTripCostRm": 0.48,
         "saraStatus": "candidate",
-        "basketTotalRm": 12.34,
+        "basketSubtotalRm": 12.34,
         "missingItems": [],
+        "pricedCount": 1,
+        "basketLineCount": 1,
         "saraCreditRm": 5.0,
         "cashNeededRm": 7.34,
+        "combinedTotalRm": 12.82,
+        "basketLines": [],
         "priceObservedDaysAgo": None,
     }
 
@@ -122,10 +127,11 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
     body = response.json()
     assert "transport cost" in body["rankingMethod"]
     store = body["recommendations"][0]
-    assert store["basketTotalRm"] is None
+    assert store["basketSubtotalRm"] is None
     assert store["missingItems"] == []
     assert store["saraCreditRm"] is None
     assert store["cashNeededRm"] is None
+    assert store["pricedCount"] is None
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

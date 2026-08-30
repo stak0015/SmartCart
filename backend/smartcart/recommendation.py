@@ -6,7 +6,12 @@ from math import ceil
 
 from .config import Settings
 from .maps import RouteMatrixResult
-from .models import StoreRecommendation, TransportMode, TravelLimitType
+from .models import (
+    BasketLineDetail,
+    StoreRecommendation,
+    TransportMode,
+    TravelLimitType,
+)
 from .premises import PremiseCandidate
 from .pricing import StoreBasketSummary
 
@@ -119,32 +124,53 @@ def apply_basket_pricing(
     recommendations: list[StoreRecommendation],
     pricing: dict[str, StoreBasketSummary],
 ) -> list[StoreRecommendation]:
-    """Attach per-store basket totals with their SARA Credit / Cash Needed
-    split and re-rank (AC 2.3.1): stores with a complete basket price sort by
-    lowest total first; stores missing any basket line price are listed
-    after, keeping the reachability order."""
+    """Attach per-store basket subtotals with their SARA Credit / Cash
+    Needed split, combined total and per-line detail, then re-rank
+    (AC 2.3.4): complete baskets sort by lowest combined cost (priced
+    subtotal + estimated return transport), ties by shortest travel time,
+    shortest route distance, store name, then premise ID; incomplete
+    baskets are listed after, keeping the reachability order."""
     complete = []
     incomplete = []
     for store in recommendations:
         summary = pricing.get(store.premise_id)
-        store.price_observed_days_ago = (
-            summary.price_observed_days_ago if summary is not None else None
-        )
-        if summary is not None and summary.total_rm is not None:
-            store.basket_total_rm = summary.total_rm
-            store.sara_credit_rm = summary.sara_credit_rm
-            store.cash_needed_rm = summary.cash_needed_rm
+        if summary is None:
+            incomplete.append(store)
+            continue
+        store.basket_subtotal_rm = summary.subtotal_rm
+        store.priced_count = summary.priced_count
+        store.basket_line_count = summary.basket_line_count
+        store.missing_items = summary.missing_items
+        store.sara_credit_rm = summary.sara_credit_rm
+        store.cash_needed_rm = summary.cash_needed_rm
+        store.price_observed_days_ago = summary.price_observed_days_ago
+        store.basket_lines = [
+            BasketLineDetail(
+                item_id=line.item_id,
+                item_name=line.item_name,
+                unit=line.unit,
+                quantity=line.quantity,
+                unit_price_rm=line.unit_price_rm,
+                line_total_rm=line.line_total_rm,
+                observed_date=line.observed_date,
+            )
+            for line in summary.lines
+        ]
+        if summary.is_complete:
+            # Money math stays in Decimal so the displayed combined total
+            # reconciles to the cent with the subtotal and transport figures.
+            store.combined_total_rm = float(
+                (
+                    Decimal(str(summary.subtotal_rm))
+                    + Decimal(str(store.estimated_round_trip_cost_rm))
+                ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            )
             complete.append(store)
         else:
-            store.basket_total_rm = None
-            store.sara_credit_rm = None
-            store.cash_needed_rm = None
-            store.missing_items = summary.missing_items if summary else []
             incomplete.append(store)
     complete.sort(
         key=lambda store: (
-            store.basket_total_rm,
-            store.estimated_round_trip_cost_rm,
+            store.combined_total_rm,
             store.estimated_travel_minutes,
             store.route_distance_km,
             store.name,
