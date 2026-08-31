@@ -21,10 +21,10 @@ The stepper is genuinely disabled at its bounds: the − button is disabled at 1
 ------------------------------------------------------------
 3. 中文
 
-手输校验在输入过程中即时生效。输入 0、大于 99 的数、小数或字母等非法值时，该行立即显示行内报错 "Quantity must be a whole number between 1 and 99. Need to fill up."，同时该行的 Add 按钮被禁用，非法数量无法入篮。把数值改回 1–99 的整数后，报错立即消失、Add 按钮恢复可用；在非法状态下直接点击步进按钮也可以恢复到合法值。
+手输校验在输入过程中即时生效。输入 0、大于 99 的数、小数或字母等非法值时，该行立即显示行内报错 "Quantity must be a whole number between 1 and 99."，同时该行的 Add 按钮被禁用，非法数量无法入篮。把数值改回 1–99 的整数后，报错立即消失、Add 按钮恢复可用；在非法状态下直接点击步进按钮也可以恢复到合法值。
 
 English:
-Typed-input validation applies as you type. Entering an invalid value — 0, a number above 99, a decimal, or letters — immediately shows the inline error "Quantity must be a whole number between 1 and 99. Need to fill up." on that row and disables that row's Add button, so an invalid quantity can never reach the basket. Changing the value back to a whole number between 1 and 99 clears the error and re-enables Add at once; tapping a stepper button while the value is invalid also recovers to a valid value.
+Typed-input validation applies as you type. Entering an invalid value — 0, a number above 99, a decimal, or letters — immediately shows the inline error "Quantity must be a whole number between 1 and 99." on that row and disables that row's Add button, so an invalid quantity can never reach the basket. Changing the value back to a whole number between 1 and 99 clears the error and re-enables Add at once; tapping a stepper button while the value is invalid also recovers to a valid value.
 
 ------------------------------------------------------------
 4. 中文

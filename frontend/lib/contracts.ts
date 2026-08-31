@@ -73,6 +73,33 @@ export interface BasketLineDetail {
   observedDate: string | null;
 }
 
+export interface AlternativePriceItem {
+  itemId: string;
+  itemName: string | null;
+  unit: string | null;
+  packageSize: string | null;
+  unitPriceRm: number | null;
+  lineTotalRm: number | null;
+  observedDate: string | null;
+  priceObservedDaysAgo: number | null;
+  saraEligible: boolean | null;
+  saraCategoryCandidate: boolean;
+  isSaraCreditCandidate: boolean;
+}
+
+export interface BasketAlternativeLine {
+  quantity: number;
+  source: AlternativePriceItem;
+  alternative: AlternativePriceItem | null;
+  savingsRm: number | null;
+}
+
+export interface BasketAlternativesResponse {
+  premiseId: string;
+  lines: BasketAlternativeLine[];
+  generatedAt: string;
+}
+
 export interface StoreRecommendation {
   premiseId: string;
   premiseCode: string;
@@ -119,7 +146,7 @@ export interface RecommendationResponse {
   totalCandidatesEvaluated: number;
   totalReachable: number;
   generatedAt: string;
-  routeProvider: "google";
+  routeProvider: "google" | "straight_line";
   rankingMethod: string;
   costAssumptions: Record<TransportMode, string>;
   routeWarning: string | null;

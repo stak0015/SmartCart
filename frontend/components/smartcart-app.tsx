@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import {
   getRecommendations,
+  getBasketAlternatives,
   resolveLocation,
   searchLocations,
 } from "@/lib/api-client";
@@ -15,12 +16,18 @@ import type {
   SaraFilter,
   SelectedLocation,
   StoreRecommendation,
+  BasketAlternativeLine,
   TransportMode,
   TravelLimitType,
 } from "@/lib/contracts";
 import { toBasketLineRequests } from "@/lib/basket-lines";
+import {
+  applyBasketSwap,
+  currentSwapSavingRm,
+  undoBasketSwap,
+  type BasketItem,
+} from "@/lib/basket-state";
 import { coverageLabel, isCompleteBasket } from "@/lib/basket-coverage";
-import { overviewTotalRm, sumPricedLineTotals } from "@/lib/overview-totals";
 import { formatRm } from "@/lib/format-rm";
 import { isPriceStale } from "@/lib/price-freshness";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -31,15 +38,6 @@ import svgPathsSaved from "@/components/icons/saved";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type Screen = "shop" | "basket" | "location" | "compare";
-
-interface BasketItem {
-  id: string;
-  name: string;
-  size: string;
-  qty: number;
-  saraEligible: boolean | null;
-  saraCategoryCandidate: boolean;
-}
 
 interface TravelPreferences {
   origin: SelectedLocation | null;
@@ -455,18 +453,18 @@ function BasketScreen({
     <div className="screen-enter pb-32">
       {view === "shop" && (
         <>
+      {/* Progress */}
+      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
+        <ProgressIndicator step={1} copy={copy} />
+      </div>
+
       {/* Page header */}
-      <div className="px-4 pb-5 pt-6 sm:px-6 sm:pt-8">
+      <div className="px-4 pb-5 pt-1 sm:px-6 sm:pt-0">
         <p className="mb-1 text-sm font-bold text-[#087f5b]">{copy.shopEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.shopTitle}</h1>
         <p className="mt-2 max-w-[580px] text-[16px] leading-6 text-[#53635c]">
           {copy.shopDescription}
         </p>
-      </div>
-
-      {/* Progress */}
-      <div className="px-4 pb-5 sm:px-6">
-        <ProgressIndicator step={1} copy={copy} />
       </div>
 
       {/* Search —— now calls the real backend API (Step 6) */}
@@ -587,29 +585,31 @@ function BasketScreen({
                   <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
                 </div>
 
-                <div className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
-                  <div className="flex shrink-0 items-center gap-1">
+                <div className="flex min-w-0 flex-col gap-2 sm:items-end">
+                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
                     <button type="button" aria-label={copy.decreaseQuantity(fields.name)} disabled={qty === DEFAULT_QTY} onClick={() => stepResultQty(item.item_id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b] disabled:opacity-40">−</button>
                     <input
                       type="text"
                       inputMode="numeric"
                       aria-label={copy.quantityFor(fields.name)}
+                      aria-invalid={qty === null}
+                      aria-describedby={qty === null ? `quantity-error-${item.item_id}` : undefined}
                       value={rawQty}
                       onChange={e => typeResultQty(item.item_id, e.target.value)}
-                      className="h-11 w-12 rounded-xl border border-[#cbd8d1] text-center text-sm font-bold text-[#10231d] focus:border-[#087f5b] focus:outline-none"
+                      className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10231d] focus:border-[#087f5b]"}`}
                     />
                     <button type="button" aria-label={copy.increaseQuantity(fields.name)} disabled={qty === MAX_QTY} onClick={() => stepResultQty(item.item_id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white disabled:opacity-40">+</button>
+                    <button
+                      disabled={qty === null}
+                      onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
+                      aria-label={`${copy.addToBasket}: ${fields.name}`}
+                      className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
+                    >
+                      {copy.addShort}
+                    </button>
                   </div>
-                  <button
-                    disabled={qty === null}
-                    onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
-                    aria-label={`${copy.addToBasket}: ${fields.name}`}
-                    className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
-                  >
-                    {copy.addShort}
-                  </button>
                   {qty === null && (
-                    <p role="alert" className="basis-full break-words text-[13px] font-semibold text-[#c92a2a]">{copy.quantityError}</p>
+                    <p id={`quantity-error-${item.item_id}`} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{copy.quantityError}</p>
                   )}
                 </div>
               </article>
@@ -695,9 +695,18 @@ function BasketScreen({
                 <div key={item.id}>
                   <div className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-col gap-1.5 sm:pr-3">
-                      <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{item.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{item.name}</p>
+                        {item.swap && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{copy.swapped}</span>}
+                      </div>
                       <p className="break-words text-[13px] leading-5 text-[#617069]">{item.size}</p>
                       <SaraEligibilityFlag status={item.saraEligible} categoryCandidate={item.saraCategoryCandidate} copy={copy} />
+                      {item.swap && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
+                          <span>{copy.swappedAt(item.swap.premiseName)} · {copy.saveAmount(formatRm(currentSwapSavingRm(item)))}</span>
+                          <button type="button" onClick={() => setBasket(undoBasketSwap(basket, item.id))} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
+                        </div>
+                      )}
                     </div>
                     <div className="flex shrink-0 items-center gap-1 self-start sm:self-auto">
                       <button aria-label={copy.decreaseQuantity(item.name)} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
@@ -1313,18 +1322,19 @@ function StoreCard({
   );
 }
 
-// AC 2.4.1: Recommendation overview for the selected premise. Step 2 renders
-// a skeleton (back action + heading); steps 3–5 fill in the store identity,
-// cost breakdown and item-level prices. Those props are declared now so
-// CompareScreen can already carry basket and travel preferences over.
+// AC 2.4.1: Recommendation overview for the selected premise. The detail
+// view keeps store identity, totals, item prices and savings actions together
+// so the shopper can compare and swap without jumping between sections.
 function RecommendationOverview({
   store,
+  basket,
   preferences,
   copy,
   rankingMethod,
   costAssumptions,
   routeWarning,
-  onBack,
+  routeProvider,
+  onSetBasket,
 }: {
   store: StoreRecommendation;
   basket: BasketItem[];
@@ -1333,202 +1343,246 @@ function RecommendationOverview({
   rankingMethod: string;
   costAssumptions: Record<TransportMode, string> | undefined;
   routeWarning: string | null;
-  onBack: () => void;
+  routeProvider: "google" | "straight_line";
+  onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
 }) {
   // AC 2.4.2: labels for the selected travel preferences, written the same
   // way as on the compare screen so both pages describe them identically.
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
+  const routeEstimateNote = routeProvider === "straight_line"
+    ? copy.straightLineFallbackNote
+    : copy.routeEstimateNote;
   const limitLabel = preferences.limitType === "distance"
     ? preferences.limitValue + " km"
-    : preferences.limitValue + " minutes";
+    : preferences.limitValue + " " + copy.minutes;
   // AC 2.4.2: combined total = priced basket subtotal + estimated return
   // transport. The API only sends combinedTotalRm for complete baskets, so
   // for incomplete ones it is recomputed from the partial subtotal
   // (missing prices stay excluded).
-  const combinedTotal = store.combinedTotalRm ?? ((store.basketSubtotalRm ?? 0) + store.estimatedRoundTripCostRm);
   const hasIncompleteBasket = store.missingItems.length > 0;
+  const initialBasket = useRef(basket);
+  const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
+  const [alternativesLoading, setAlternativesLoading] = useState(true);
+  const [alternativesError, setAlternativesError] = useState(false);
+  const [appliedSwaps, setAppliedSwaps] = useState<Record<string, BasketAlternativeLine>>({});
+
+  useEffect(() => {
+    const requestedBasket = toBasketLineRequests(initialBasket.current.filter(item => !item.swap));
+    if (requestedBasket.length === 0) {
+      setAlternativeLines([]);
+      setAlternativesLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setAlternativesLoading(true);
+    setAlternativesError(false);
+    getBasketAlternatives(store.premiseId, requestedBasket, controller.signal)
+      .then(response => setAlternativeLines(response.lines))
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setAlternativeLines([]);
+        setAlternativesError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAlternativesLoading(false);
+      });
+    return () => controller.abort();
+  }, [store.premiseId]);
+
+  const appliedLines = Object.values(appliedSwaps);
+  const persistedSwapByItemId = new Map(
+    basket
+      .filter(item => item.swap)
+      .map(item => [item.id.replace(/^db-/, ""), item] as const),
+  );
+  const appliedSavings = appliedLines.reduce((total, line) => total + (line.savingsRm ?? 0), 0);
+  const remainingSavings = alternativeLines.reduce((total, line) => {
+    const alternativeId = line.alternative?.itemId;
+    if (!alternativeId || appliedSwaps[line.source.itemId] || basket.some(item => item.id === `db-${alternativeId}`)) return total;
+    return total + (line.savingsRm ?? 0);
+  }, 0);
+  const adjustedSubtotal = store.basketSubtotalRm == null ? null : Math.max(0, Number((store.basketSubtotalRm - appliedSavings).toFixed(2)));
+  const creditAdjustment = appliedLines.reduce((total, line) => {
+    const sourceCredit = line.source.isSaraCreditCandidate ? (line.source.lineTotalRm ?? 0) : 0;
+    const alternativeCredit = line.alternative?.isSaraCreditCandidate ? (line.alternative.lineTotalRm ?? 0) : 0;
+    return total + alternativeCredit - sourceCredit;
+  }, 0);
+  const adjustedCredit = store.saraCreditRm == null || adjustedSubtotal == null ? null : Math.max(0, Number((store.saraCreditRm + creditAdjustment).toFixed(2)));
+  const adjustedCash = adjustedSubtotal == null || adjustedCredit == null ? null : Math.max(0, Number((adjustedSubtotal - adjustedCredit).toFixed(2)));
+  const adjustedCombinedTotal = adjustedSubtotal == null ? null : Number((adjustedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
+
+  const applyAlternative = (line: BasketAlternativeLine) => {
+    const next = applyBasketSwap(basket, line, { id: store.premiseId, name: store.name });
+    if (next === basket || !line.alternative) return;
+    onSetBasket(next);
+    setAppliedSwaps(current => ({ ...current, [line.source.itemId]: line }));
+  };
+
+  const undoAlternative = (line: BasketAlternativeLine) => {
+    onSetBasket(undoBasketSwap(basket, `db-${line.alternative?.itemId ?? ""}`));
+    setAppliedSwaps(current => {
+      const next = { ...current };
+      delete next[line.source.itemId];
+      return next;
+    });
+  };
+
+  const alternativeBySourceId = new Map(
+    alternativeLines.map(line => [line.source.itemId, line] as const),
+  );
 
   return (
     <div className="screen-enter pb-8">
       <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
-        <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 self-start text-[14px] font-bold text-[#087f5b]">
-          <IcoArrowBack /> Back to recommendations
-        </button>
-        <p className="text-sm font-bold text-[#087f5b]">Recommendation overview</p>
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
-          Recommended store: {store.name}
-        </h1>
-
-        {/* AC 2.4.2: selected store identity - name, PriceCatcher premise
-            code, address when available, and the same three-state SARA
-            badge used on the store cards */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
+        <section className="rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <header className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
             <div className="min-w-0 flex-1">
-              <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
-              <div className="mt-0.5 flex items-center gap-1">
-                <IcoPriceCatcher />
-                <span className="text-[13px] font-medium text-[#53635c]">PriceCatcher premise {store.premiseCode}</span>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h1 className="break-words text-[23px] font-extrabold leading-7 tracking-[-0.4px] text-[#10231d] sm:text-[27px]">{store.name}</h1>
+                  <div className="mt-0.5 flex items-center gap-1">
+                    <IcoPriceCatcher />
+                    <span className="text-xs font-medium text-[#53635c]">{copy.priceCatcherPremise} {store.premiseCode}</span>
+                  </div>
+                </div>
+                {store.saraStatus === "verified" ? (
+                  <span className="inline-flex rounded-md bg-[#e5f5ed] px-2 py-1 text-[11px] font-semibold text-[#166534]">{copy.verifiedSara}</span>
+                ) : store.saraStatus === "candidate" ? (
+                  <span className="inline-flex rounded-md bg-[#fff4ce] px-2 py-1 text-[11px] font-semibold text-[#755b00]">{copy.candidateSara}</span>
+                ) : (
+                  <span className="inline-flex rounded-md bg-[#f3f4f5] px-2 py-1 text-[11px] font-medium text-[#5f6368]">{copy.unverifiedSara}</span>
+                )}
               </div>
               {(store.address || store.district || store.state) && (
-                <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
+                <p className="mt-1 truncate text-xs text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
               )}
             </div>
-          </div>
+          </header>
 
-          {store.saraStatus === "verified" ? (
-            <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">Verified SARA partner</span>
-          ) : store.saraStatus === "candidate" ? (
-            <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">SARA match candidate - requires verification</span>
-          ) : (
-            <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">SARA status not verified</span>
-          )}
-        </section>
-
-        {/* AC 2.4.2: cost + travel summary for the selected premise */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Basket and travel costs</h2>
-
-          {hasIncompleteBasket ? (
-            <div className="rounded-xl bg-[#f3f4f5] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[13px] font-semibold text-[#5f6368]">Incomplete basket</p>
-                {store.pricedCount != null && store.basketLineCount != null && (
-                  <p className="text-xs font-medium text-[#5f6368]">{coverageLabel(store.pricedCount, store.basketLineCount)}</p>
-                )}
-              </div>
-              {store.basketSubtotalRm != null && (
-                <div className="mt-2">
-                  <p className="text-xs text-[#5f6368]">Partial total</p>
-                  <p className="mt-0.5 text-xl font-extrabold text-[#3f4944]">RM{store.basketSubtotalRm.toFixed(2)}</p>
-                </div>
-              )}
-              <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">
-                Missing item prices are excluded from the displayed subtotal and the combined total. No price at this store for: {store.missingItems.join(", ")}
-              </p>
-            </div>
-          ) : store.basketSubtotalRm != null ? (
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded-xl bg-[#e7f7f0] p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs text-[#286d67]">Basket subtotal</p>
-                {store.pricedCount != null && store.basketLineCount != null && (
-                  <p className="text-xs font-medium text-[#286d67]">{coverageLabel(store.pricedCount, store.basketLineCount)}</p>
-                )}
-              </div>
-              <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+              <p className="text-[11px] text-[#286d67]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}</p>
+              <p className="mt-1 text-lg font-extrabold text-[#175f4b]">{adjustedSubtotal == null ? "—" : formatRm(adjustedSubtotal)}</p>
             </div>
-          ) : (
-            <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
-              No priced basket lines at this store, so no subtotal is available.
-            </p>
-          )}
-
-          {store.basketSubtotalRm != null && (
-            <div className="flex items-center justify-between gap-2 rounded-xl bg-[#087f5b] px-3 py-3">
-              <div>
-                <p className="text-[13px] font-semibold text-white">Basket + transport total</p>
-                {hasIncompleteBasket && (
-                  <p className="text-[11px] text-[#d3f0e4]">Priced items only - missing prices excluded</p>
-                )}
-              </div>
-              <p className="text-[18px] font-extrabold text-white">RM{combinedTotal.toFixed(2)}</p>
+            <div className="rounded-xl bg-[#087f5b] p-3 text-white">
+              <p className="text-[11px] text-[#d3f0e4]">{copy.estimatedTotal}</p>
+              <p className="mt-1 text-lg font-extrabold">{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</p>
             </div>
-          )}
-
-          <div className="grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-[#f3faf7] p-3">
-              <p className="text-xs text-[#617069]">Return travel</p>
-              <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
+              <p className="text-[11px] text-[#617069]">{copy.returnTravel}</p>
+              <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
             </div>
             <div className="rounded-xl bg-[#f7f8f6] p-3">
-              <p className="text-xs text-[#617069]">One way</p>
-              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
-            </div>
-            <div className="rounded-xl bg-[#f7f8f6] p-3">
-              <p className="text-xs text-[#617069]">Route</p>
-              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+              <p className="text-[11px] text-[#617069]">{copy.oneWay} · {copy.route}</p>
+              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} {copy.minutes}</p>
+              <p className="text-[11px] text-[#718078]">{store.routeDistanceKm.toFixed(1)} km</p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex rounded-sm bg-[#edf3ef] px-2 py-1 text-xs font-semibold text-[#17362c]">Transport: {modeLabel}</span>
-            <span className="inline-flex rounded-sm bg-[#edf3ef] px-2 py-1 text-xs font-semibold text-[#17362c]">Travel limit: {limitLabel}</span>
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#53635c]">
+            <span>{copy.transportMode}: {modeLabel} · {copy.travelLimit}: {limitLabel}</span>
+            {store.pricedCount != null && store.basketLineCount != null && <span>{coverageLabel(store.pricedCount, store.basketLineCount)}</span>}
           </div>
-        </section>
+          {hasIncompleteBasket && store.missingItems.length > 0 && (
+            <p className="mt-1 text-xs text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
+          )}
+          {isPriceStale(store.priceObservedDaysAgo) && (
+            <p className="mt-2 rounded-md border border-[#ead89d] bg-[#fff9e8] px-2 py-1 text-xs font-semibold text-[#6d5700]">{copy.stalePrice(store.priceObservedDaysAgo!)}</p>
+          )}
+          {adjustedCredit != null && adjustedCash != null && (
+            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[#e2e9e5] pt-3 text-xs">
+              <span className="font-semibold text-[#286d67]">{copy.saraCreditLabel}: {formatRm(adjustedCredit)}</span>
+              <span className="font-semibold text-[#17362c]">{copy.cashNeededLabel}: {formatRm(adjustedCash)}</span>
+            </div>
+          )}
 
-        {/* AC 2.4.3: item-level prices for every basket line at the
-            selected premise; unpriced lines stay visible and are never
-            shown as RM0.00 */}
-        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Item prices</h2>
-
-          {store.basketLines.length > 0 ? (
-            <>
-              <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
-                {store.basketLines.map(line => (
-                  <li key={line.itemId} className="border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
-                    <p className="text-[13px] font-semibold text-[#17362c]">
-                      {line.itemName ?? "Catalogue item"}{line.unit ? " (" + line.unit + ")" : ""}
-                    </p>
-                    {line.unitPriceRm != null && line.lineTotalRm != null ? (
-                      <>
-                        <p className="mt-0.5 text-[13px] text-[#53635c]">
-                          {line.quantity} × RM{line.unitPriceRm.toFixed(2)} = RM{line.lineTotalRm.toFixed(2)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#718078]">
-                          PriceCatcher observed: {line.observedDate ?? "date unavailable"}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="mt-0.5 text-[13px] font-medium text-[#5f6368]">
-                        No price available at this store - excluded from the subtotal.
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-
-              {/* AC 2.4.3: displayed line totals must reconcile with the
-                  priced subtotal, and the overview total must equal the
-                  subtotal plus the estimated return travel cost */}
-              <div className="flex flex-col gap-1 rounded-xl bg-[#f2f6f3] p-3 text-[13px]">
-                <p className="flex justify-between text-[#3f4944]">
-                  <span>Sum of item line totals</span>
-                  <span className="font-bold">RM{sumPricedLineTotals(store.basketLines).toFixed(2)}</span>
-                </p>
-                <p className="flex justify-between text-[#3f4944]">
-                  <span>Priced basket subtotal</span>
-                  <span className="font-bold">RM{(store.basketSubtotalRm ?? 0).toFixed(2)}</span>
-                </p>
-                <p className="flex justify-between border-t border-[#d8ddd9] pt-1 text-[#17362c]">
-                  <span>Overview total (subtotal + return travel)</span>
-                  <span className="font-extrabold">RM{overviewTotalRm(store.basketSubtotalRm, store.estimatedRoundTripCostRm).toFixed(2)}</span>
-                </p>
+          <div className="mt-4 border-t border-[#e2e9e5] pt-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-[18px] font-extrabold leading-6 text-[#10231d]">{copy.basketItemsAndSavings}</h2>
+              <div className="text-right text-xs font-bold text-[#286d67]">
+                {appliedSavings > 0 && <span>{copy.appliedSavings(formatRm(Number(appliedSavings.toFixed(2))))}</span>}
+                {appliedSavings > 0 && remainingSavings > 0 && <span> · </span>}
+                {remainingSavings > 0 && <span>{copy.potentialSavings(formatRm(Number(remainingSavings.toFixed(2))))}</span>}
               </div>
-            </>
-          ) : (
-            <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
-              No basket lines to price at this store.
-            </p>
-          )}
-        </section>
+            </div>
+            {alternativesLoading && <p role="status" className="mt-2 text-xs text-[#617069]">{copy.alternativesLoading}</p>}
+            {alternativesError && <p role="alert" className="mt-2 text-xs text-[#93000a]">{copy.alternativesUnavailable}</p>}
 
-        {/* AC 2.4.2: calculation and route notes - route values are
-            estimates and the ranking is subtotal + return transport; no
-            affordability or verified-stock claims */}
-        <section className="flex flex-col gap-2 rounded-2xl border border-[#dce5e0] bg-white p-4 text-sm">
-          <h2 className="text-[16px] font-extrabold leading-6 text-[#17362c]">How this recommendation is calculated</h2>
-          {rankingMethod && <p className="leading-5 text-[#53635c]">{rankingMethod}</p>}
-          {costAssumptions && (
-            <p className="leading-5 text-[#53635c]">{costAssumptions[preferences.transportMode]}</p>
-          )}
-          <p className="leading-5 text-[#53635c]">
-            Route distance and travel time are estimates. The ranking combines the priced basket subtotal with the estimated return transport cost. SmartCart does not verify affordability or in-store stock.
-          </p>
-          {routeWarning && (
-            <p className="leading-5 text-[#6d5700]">{routeWarning}</p>
-          )}
+            {store.basketLines.length > 0 ? (
+              <ul className="mt-2 flex flex-col">
+                {store.basketLines.map(line => {
+                  const applied = appliedSwaps[line.itemId];
+                  const persisted = persistedSwapByItemId.get(line.itemId);
+                  const suggestion = alternativeBySourceId.get(line.itemId);
+                  const replacement = applied?.alternative;
+                  const displayLine = replacement
+                    ? { ...line, itemId: replacement.itemId, itemName: replacement.itemName, unit: replacement.unit, unitPriceRm: replacement.unitPriceRm, lineTotalRm: replacement.lineTotalRm, observedDate: replacement.observedDate }
+                    : line;
+                  const hasSuggestion = Boolean(suggestion?.alternative && suggestion.savingsRm != null && suggestion.source.lineTotalRm != null);
+                  const targetAlreadyInBasket = suggestion?.alternative
+                    ? basket.some(item => item.id === `db-${suggestion.alternative!.itemId}`)
+                    : false;
+                  return (
+                    <li key={line.itemId} className="border-b border-[#e2e9e5] py-3 last:border-b-0 last:pb-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="break-words text-[13px] font-bold text-[#17362c]">{displayLine.itemName ?? "Catalogue item"}</p>
+                            {(applied || persisted) && <span className="rounded-md bg-[#e7f7f0] px-2 py-0.5 text-[10px] font-extrabold text-[#17634f]">{copy.swapped}</span>}
+                          </div>
+                          <p className="mt-0.5 text-xs text-[#718078]">{displayLine.unit ?? "—"}{persisted?.swap ? ` · ${copy.originally(persisted.swap.original.name)}` : ""}</p>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          {displayLine.unitPriceRm != null && displayLine.lineTotalRm != null ? (
+                            <>
+                              <p className="text-[15px] font-extrabold text-[#17362c]">{formatRm(displayLine.lineTotalRm)}</p>
+                              <p className="text-[11px] text-[#718078]">{displayLine.quantity} × {formatRm(displayLine.unitPriceRm)}</p>
+                            </>
+                          ) : (
+                            <p className="text-lg font-extrabold text-[#718078]">—</p>
+                          )}
+                        </div>
+                      </div>
+
+                      {hasSuggestion && !applied && !persisted && suggestion?.alternative && suggestion.savingsRm != null && (
+                        <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#f3faf7] px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-[#286d67]">{copy.lowerCostMatch}</p>
+                            <p className="break-words text-xs font-semibold text-[#17362c]">{suggestion.alternative.itemName ?? "Catalogue item"}</p>
+                            <p className="text-[11px] text-[#53635c]">{copy.saveAmount(formatRm(suggestion.savingsRm))} · {formatRm(suggestion.alternative.unitPriceRm ?? 0)} each</p>
+                            <SaraEligibilityFlag status={suggestion.alternative.saraEligible} categoryCandidate={suggestion.alternative.saraCategoryCandidate} copy={copy} />
+                            {isPriceStale(suggestion.alternative.priceObservedDaysAgo) && <p className="mt-1 text-[11px] font-semibold text-[#6d5700]">{copy.stalePrice(suggestion.alternative.priceObservedDaysAgo!)}</p>}
+                          </div>
+                          <button type="button" disabled={targetAlreadyInBasket} onClick={() => applyAlternative(suggestion)} aria-label={`${copy.swapAndSave}: ${suggestion.alternative.itemName ?? "Catalogue item"}`} className="min-h-10 shrink-0 rounded-lg bg-[#087f5b] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]">{targetAlreadyInBasket ? copy.swapped : copy.swapAndSave}</button>
+                        </div>
+                      )}
+
+                      {(applied || persisted) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
+                          {applied && <span>{copy.saveAmount(formatRm(applied.savingsRm ?? 0))}</span>}
+                          <button type="button" onClick={() => {
+                            if (applied) undoAlternative(applied);
+                            else if (persisted) onSetBasket(undoBasketSwap(basket, persisted.id));
+                          }} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-2 text-xs text-[#617069]">{copy.noPricedBasketLines}</p>
+            )}
+          </div>
+
+          <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
+            <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>
+            {rankingMethod && <p className="mt-2 leading-5 text-[#53635c]">{rankingMethod}</p>}
+            {costAssumptions && <p className="mt-2 leading-5 text-[#53635c]">{costAssumptions[preferences.transportMode]}</p>}
+            <p className="mt-2 leading-5 text-[#53635c]">{routeEstimateNote} {copy.stockNotVerified}</p>
+            {routeWarning && <p className="mt-2 leading-5 text-[#6d5700]">{routeWarning}</p>}
+          </details>
         </section>
       </div>
     </div>
@@ -1537,11 +1591,17 @@ function RecommendationOverview({
 
 function CompareScreen({
   basket,
+  setBasket,
+  selectedStore,
+  setSelectedStore,
   preferences,
   onBack,
   copy,
 }: {
   basket: BasketItem[];
+  setBasket: Dispatch<SetStateAction<BasketItem[]>>;
+  selectedStore: StoreRecommendation | null;
+  setSelectedStore: Dispatch<SetStateAction<StoreRecommendation | null>>;
   preferences: TravelPreferences;
   onBack: () => void;
   copy: AppCopy;
@@ -1554,15 +1614,27 @@ function CompareScreen({
   // per-line prices are expanded.
   const [activeTab, setActiveTab] = useState<"complete" | "incomplete">("complete");
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
-  // AC 2.4.1: snapshot of the store selected for the overview. The whole
-  // store object (not just the premise id) is kept so the overview can
-  // never silently switch to another premise when the list refreshes.
-  const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
-  const hasBasket = basketLines.length > 0;
+  const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
+  const hasBasket = requestBasketLines.length > 0;
+  const previousSelectedStore = useRef(selectedStore);
+
+  useEffect(() => {
+    if (previousSelectedStore.current && !selectedStore) {
+      const nextBasketLines = toBasketLineRequests(basket);
+      const basketChanged = JSON.stringify(nextBasketLines) !== JSON.stringify(requestBasketLines);
+      // Returning without changing the basket can reuse the existing list;
+      // only swaps require a fresh recommendation request.
+      if (basketChanged) {
+        setLoading(true);
+        setRequestBasketLines(nextBasketLines);
+      }
+    }
+    previousSelectedStore.current = selectedStore;
+  }, [basket, requestBasketLines, selectedStore]);
 
   useEffect(() => {
     if (!preferences.origin) {
@@ -1580,7 +1652,7 @@ function CompareScreen({
     setExpandedStoreId(null);
 
     getRecommendations({
-      ...(hasBasket ? { basket: basketLines } : {}),
+      ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
       travel: {
         origin: preferences.origin,
         transportMode: preferences.transportMode,
@@ -1593,7 +1665,6 @@ function CompareScreen({
         setActiveTab("complete");
         setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
-        setSelectedStore(null);
       })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -1604,7 +1675,7 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [basketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, hasBasket, preferences]);
+  }, [requestBasketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
   const recommendations = result?.recommendations ?? [];
   // AC 2.3.2/2.3.3: with a priced basket the list splits into Complete and
@@ -1618,7 +1689,7 @@ function CompareScreen({
   const visibleStores = activeTab === "complete" ? completeStores.slice(0, visibleCount) : incompleteStores;
   // AC 2.3.2: the summary counts basket units (matching the header badge),
   // not line rows.
-  const basketItemCount = basketLines.reduce((count, line) => count + line.quantity, 0);
+  const basketItemCount = requestBasketLines.reduce((count, line) => count + line.quantity, 0);
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.source === "device"
     ? copy.currentLocation
@@ -1636,12 +1707,13 @@ function CompareScreen({
       <RecommendationOverview
         store={selectedStore}
         basket={basket}
+        onSetBasket={setBasket}
         preferences={preferences}
         copy={copy}
         rankingMethod={result?.rankingMethod ?? ""}
         costAssumptions={result?.costAssumptions}
         routeWarning={result?.routeWarning ?? null}
-        onBack={() => setSelectedStore(null)}
+        routeProvider={result?.routeProvider ?? "google"}
       />
     );
   }
@@ -1786,7 +1858,7 @@ function CompareScreen({
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>
             <p className="mt-3 leading-5 text-[#53635c]">{copy.rankingMethod}</p>
             <p className="mt-2 leading-5 text-[#53635c]">{copy.costAssumptions[preferences.transportMode]}</p>
-            <p className="mt-2 leading-5 text-[#53635c]">{copy.routeEstimateNote}</p>
+            <p className="mt-2 leading-5 text-[#53635c]">{result.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.routeEstimateNote}</p>
           </details>
         )}
       </div>
@@ -1798,6 +1870,7 @@ function CompareScreen({
 export default function App() {
   const [screen, setScreen] = useState<Screen>("shop");
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
+  const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
     origin: null,
@@ -1809,6 +1882,10 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, [screen]);
+
+  useEffect(() => {
+    if (screen !== "compare") setSelectedStore(null);
   }, [screen]);
 
   useEffect(() => {
@@ -1851,7 +1928,10 @@ export default function App() {
     : screen === "location"
       ? () => setScreen("basket")
       : screen === "compare"
-        ? () => setScreen("location")
+        ? () => {
+            if (selectedStore) setSelectedStore(null);
+            else setScreen("location");
+          }
         : undefined;
 
   return (
@@ -1901,7 +1981,15 @@ export default function App() {
           />
         )}
         {screen === "compare" && (
-          <CompareScreen basket={basket} preferences={preferences} onBack={() => setScreen("location")} copy={copy} />
+          <CompareScreen
+            basket={basket}
+            setBasket={setBasket}
+            selectedStore={selectedStore}
+            setSelectedStore={setSelectedStore}
+            preferences={preferences}
+            onBack={() => setScreen("location")}
+            copy={copy}
+          />
         )}
       </main>
     </div>

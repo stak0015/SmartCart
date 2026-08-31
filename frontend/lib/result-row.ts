@@ -20,7 +20,7 @@ export const DEFAULT_QTY = 1;
 export const MAX_QTY = 99;
 
 // AC-1.4.1 inline error wording — verbatim, do not reword.
-export const QTY_ERROR = "Quantity must be a whole number between 1 and 99. Need to fill up.";
+export const QTY_ERROR = "Quantity must be a whole number between 1 and 99.";
 
 export function stepQty(qty: number, delta: number): number {
   return Math.min(MAX_QTY, Math.max(DEFAULT_QTY, qty + delta));

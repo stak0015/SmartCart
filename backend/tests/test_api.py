@@ -1,6 +1,9 @@
+from dataclasses import replace
+
 from fastapi.testclient import TestClient
 
 from main import create_app
+from smartcart.config import get_settings
 from smartcart.maps import RouteMatrixResult
 from smartcart.premises import PremiseCandidate
 
@@ -32,6 +35,12 @@ class FakeMapsProvider:
 def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> None:
     from smartcart import api
     from smartcart.pricing import StoreBasketSummary
+
+    monkeypatch.setattr(
+        api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+    )
 
     monkeypatch.setattr(
         api,
@@ -109,6 +118,12 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
 
     monkeypatch.setattr(
         api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+    )
+
+    monkeypatch.setattr(
+        api,
         "find_nearest_premises",
         lambda **_options: [
             PremiseCandidate(
@@ -137,6 +152,54 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
     assert store["saraCreditRm"] is None
     assert store["cashNeededRm"] is None
     assert store["pricedCount"] is None
+
+
+def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch) -> None:
+    from smartcart import api
+
+    settings = replace(get_settings(), google_routes_api_key=None)
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    captured: dict[str, object] = {}
+
+    def fake_find(**options):
+        captured.update(options)
+        return [
+            PremiseCandidate(
+                premise_id=str(index),
+                premise_code=f"P{index}",
+                name=f"Kedai {index}",
+                address=None,
+                district=None,
+                state=None,
+                google_place_id=f"google-place-{index}",
+                straight_line_distance_km=float(index),
+                sara_status="unverified",
+            )
+            for index in range(1, 31)
+        ]
+
+    class NoRouteProvider:
+        async def compute_route_matrix(self, *_args, **_kwargs):
+            raise AssertionError("Routes API must not be called without a key")
+
+    monkeypatch.setattr(api, "find_nearest_premises", fake_find)
+    monkeypatch.setattr(api, "get_maps_provider", lambda: NoRouteProvider())
+    payload = {key: value for key, value in VALID_REQUEST.items() if key != "basket"}
+
+    response = TestClient(create_app()).post("/api/recommendations", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["routeProvider"] == "straight_line"
+    assert body["totalCandidatesEvaluated"] == 25
+    assert body["totalReachable"] == 25
+    assert [store["premiseId"] for store in body["recommendations"]] == [
+        str(index) for index in range(1, 26)
+    ]
+    assert body["recommendations"][0]["routeDistanceKm"] == 1.0
+    assert "25 nearest stores" in body["routeWarning"]
+    assert captured["limit"] == 25
+    assert captured["maximum_straight_line_km"] is None
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

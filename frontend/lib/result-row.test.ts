@@ -75,7 +75,7 @@ describe("parseQty (AC-1.4.1 typed input)", () => {
 
 describe("QTY_ERROR wording (AC-1.4.1)", () => {
   it("matches the AC text verbatim", () => {
-    expect(QTY_ERROR).toBe("Quantity must be a whole number between 1 and 99. Need to fill up.");
+    expect(QTY_ERROR).toBe("Quantity must be a whole number between 1 and 99.");
   });
 });
 

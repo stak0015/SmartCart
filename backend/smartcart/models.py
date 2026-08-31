@@ -117,6 +117,41 @@ class BasketLineDetail(CamelModel):
     observed_date: str | None
 
 
+class AlternativePriceItem(CamelModel):
+    """One priced item used by the selected-store alternative comparison."""
+
+    item_id: str
+    item_name: str | None
+    unit: str | None
+    package_size: str | None
+    unit_price_rm: float | None
+    line_total_rm: float | None
+    observed_date: date | None
+    price_observed_days_ago: int | None
+    sara_eligible: bool | None
+    sara_category_candidate: bool = False
+    is_sara_credit_candidate: bool = False
+
+
+class BasketAlternativeLine(CamelModel):
+    quantity: int
+    source: AlternativePriceItem
+    alternative: AlternativePriceItem | None = None
+    savings_rm: float | None = None
+
+
+class BasketAlternativesRequest(CamelModel):
+    basket: list[BasketLineRequest] = Field(
+        min_length=1, max_length=100
+    )
+
+
+class BasketAlternativesResponse(CamelModel):
+    premise_id: str
+    lines: list[BasketAlternativeLine]
+    generated_at: datetime
+
+
 class StoreRecommendation(CamelModel):
     premise_id: str
     premise_code: str
@@ -168,7 +203,7 @@ class RecommendationResponse(CamelModel):
     total_candidates_evaluated: int
     total_reachable: int
     generated_at: datetime
-    route_provider: Literal["google"] = "google"
+    route_provider: Literal["google", "straight_line"] = "google"
     ranking_method: str
     cost_assumptions: dict[TransportMode, str]
     route_warning: str | None

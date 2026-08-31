@@ -1,5 +1,7 @@
 import type {
   ApiErrorBody,
+  BasketAlternativesResponse,
+  BasketLineRequest,
   LocationSearchResponse,
   RecommendationRequest,
   RecommendationResponse,
@@ -48,6 +50,21 @@ export function getRecommendations(
     body: JSON.stringify(payload),
     signal,
   });
+}
+
+export function getBasketAlternatives(
+  premiseId: string,
+  basket: BasketLineRequest[],
+  signal?: AbortSignal,
+): Promise<BasketAlternativesResponse> {
+  return request<BasketAlternativesResponse>(
+    `/premises/${encodeURIComponent(premiseId)}/basket-alternatives`,
+    {
+      method: "POST",
+      body: JSON.stringify({ basket }),
+      signal,
+    },
+  );
 }
 
 export function searchLocations(

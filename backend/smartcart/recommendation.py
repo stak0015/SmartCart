@@ -18,6 +18,18 @@ from .premises import PremiseCandidate
 from .pricing import StoreBasketSummary
 
 
+# Used only when Google Routes is not configured. These are deliberately
+# labelled as planning estimates in the API response; they are not route or
+# traffic data and do not prove that a store is reachable within the user's
+# selected travel limit.
+FALLBACK_TRAVEL_SPEED_KMH: dict[TransportMode, float] = {
+    "walk": 5.0,
+    "public_transport": 25.0,
+    "motorcycle": 30.0,
+    "car": 30.0,
+}
+
+
 @dataclass(frozen=True)
 class TravelCostRate:
     base_fare_per_leg_rm: float
@@ -68,6 +80,32 @@ def estimate_round_trip_cost_rm(
     return_distance_km = max(0, one_way_distance_meters) * 2 / 1000
     value = rate.base_fare_per_leg_rm * 2 + return_distance_km * rate.per_kilometre_rm
     return _round(value, 2)
+
+
+def straight_line_route_results(
+    candidates: list[PremiseCandidate], mode: TransportMode
+) -> list[RouteMatrixResult]:
+    """Create deterministic route-shaped values for the no-key fallback.
+
+    The normal ranking pipeline can therefore still calculate transport-cost
+    estimates and populate the existing response contract. Callers must not
+    apply the user's route limit to these synthetic values: straight-line
+    distance is only a nearest-store fallback, not a routability check.
+    """
+
+    speed_kmh = FALLBACK_TRAVEL_SPEED_KMH[mode]
+    results = []
+    for destination_index, premise in enumerate(candidates):
+        distance_meters = max(0.0, premise.straight_line_distance_km) * 1000
+        duration_seconds = distance_meters / speed_kmh * 3600
+        results.append(
+            RouteMatrixResult(
+                destination_index=destination_index,
+                distance_meters=distance_meters,
+                duration_seconds=duration_seconds,
+            )
+        )
+    return results
 
 
 def rank_reachable_stores(

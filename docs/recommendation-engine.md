@@ -8,6 +8,13 @@ was connected.
 Use Google Places API (New) for location autocomplete and Place Details, and
 Google Routes API `computeRouteMatrix` for routes.
 
+For environments without a Google Routes key, the API has a deliberate local
+fallback: it returns the 25 nearest premises with fresh coordinates, uses
+straight-line distance for the displayed distance and transport-cost estimate,
+and marks travel time, travel limits, and route feasibility as unverified. This
+keeps the recommendation flow usable without silently presenting approximate
+values as Google routes.
+
 This is the best initial cost-to-capability fit because one provider supports
 all four required modes in Malaysia: walking, public transit, car, and
 motorised two-wheeler. Google's two-wheeler coverage list explicitly includes
@@ -48,10 +55,15 @@ Provider pricing and terms can change. Recheck these sources before deployment.
 4. PostgreSQL computes Haversine distance over fresh premise coordinates and
    selects the nearest candidates. For a distance limit, premises whose
    straight-line distance already exceeds the limit are safely excluded.
-5. One Google route-matrix request calculates one-way route distance and time
-   from the origin to at most 25 candidate Place IDs. The cap is configurable
-   from 5 to 49. Transit stays below Google's 100-element request limit.
-6. SmartCart applies the user's limit to routed distance or exact route time.
+5. When `GOOGLE_ROUTES_API_KEY` is configured, one Google route-matrix request
+   calculates one-way route distance and time from the origin to at most 25
+   candidate Place IDs. The cap is configurable from 5 to 49. Transit stays
+   below Google's 100-element request limit. When the key is absent, SmartCart
+   skips Google Routes and keeps the 25 nearest fresh premises using
+   straight-line distance plus mode-based planning speeds; the user's route
+   limit is not treated as verified reachability.
+6. SmartCart applies the user's limit to routed distance or exact route time
+   only when Google route results are available.
 7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
    at every candidate premise. Quantity is applied to produce line totals and
    the store basket subtotal. Missing premise-item prices remain explicit nulls
@@ -115,7 +127,9 @@ not verified, never as false or ineligible.
   or the legacy single `GOOGLE_MAPS_API_KEY` fallback) are server-only and must
   never use a `NEXT_PUBLIC_` prefix. Restrict each key to its own API (Places
   API (New) or Routes API), and restrict its use to the deployed backend where
-  the hosting platform allows it.
+  the hosting platform allows it. `GOOGLE_ROUTES_API_KEY` may be omitted for
+  local development; the API then returns the documented nearest-premises
+  fallback.
 - The selected origin is sent to Google for search or route calculation, but
   SmartCart does not persist it in PostgreSQL or local storage and does not log
   request bodies.
@@ -149,6 +163,10 @@ not verified, never as false or ineligible.
 
 - Time-limit searches evaluate only the nearest configured candidate count by
   straight-line distance, so they are bounded rather than exhaustive.
+- When Google Routes is not configured, recommendations are the 25 nearest
+  fresh premises by straight-line distance. The fallback estimates travel time
+  and cost using mode speeds, does not verify the selected travel limit, and
+  does not establish that a route or store is reachable.
 - Public transit depends on Google's available schedule coverage at request
   time. A missing route is skipped, not treated as proof that transit is
   impossible.

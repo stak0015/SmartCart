@@ -44,9 +44,15 @@ The UI covers:
 - `POST /api/locations/resolve` resolves a selected Place ID to an address and
   coordinates.
 - `POST /api/recommendations` queries PostgreSQL for nearby premise candidates,
-  requests a bounded Google route matrix, applies the chosen travel limit, and
-  retrieves current store-level basket prices, and returns the combined-cost
-  ranking with transparent missing-price coverage.
+  requests a bounded Google route matrix when configured, or falls back to the
+  25 nearest premises using straight-line planning estimates when the Routes
+  key is absent. It retrieves current store-level basket prices and returns the
+  combined-cost ranking with transparent missing-price coverage; fallback
+  responses explain that travel limits and route feasibility are unverified.
+- `POST /api/premises/{premiseId}/basket-alternatives` checks the selected
+  premise for one cheaper strict equivalent per basket line. Applying an
+  alternative updates the in-memory basket, exposes the saving, and keeps an
+  Undo action available in both the store overview and basket.
 
 Run `pnpm lint` and `pnpm build` here and `python -m pytest` in `../backend`
 before handoff. See
