@@ -11,8 +11,9 @@ from the ingest-time columns ``item.quantity_value`` / ``item.quantity_unit``
 (D3.2-A); rows without a parsed quantity are not comparable and silently stay
 out of the comparison. KG and L families never mix.
 
-All money maths uses Decimal: comparisons and the best-value pick (batch 2)
-run on full precision, only display values are rounded to cents.
+All money maths uses Decimal: comparisons, the best-value pick (batch 2) and
+the trade-off differences (batch 3) run on full precision, only display
+values are rounded to cents.
 """
 
 from dataclasses import dataclass, replace
@@ -38,6 +39,11 @@ class PackSizeOption:
     # never serialised (display uses the rounded price_per_unit_rm).
     _ratio: Decimal | None = None
     is_best_value: bool = False
+    # AC 3.2.3: trade-off versus the Best value option (null on that card).
+    upfront_diff_rm: float | None = None
+    per_unit_diff_rm: float | None = None
+    # Full-precision pack price for the trade-off maths; never serialised.
+    _price: Decimal | None = None
 
 
 def _source_rows(item_ids: list[int]) -> list[tuple]:
@@ -86,6 +92,7 @@ def _option_from_row(row: tuple) -> PackSizeOption:
         unit_kind=quantity_unit,
         observed_date=observed,
         _ratio=ratio,
+        _price=Decimal(price),
     )
 
 
@@ -146,5 +153,17 @@ def get_pack_options(
         # price, then name, then item id (the ranking is already in that
         # order, so the head of the list is the pick).
         ranked[0] = replace(ranked[0], is_best_value=True)
+        # AC 3.2.3: every other card shows its trade-off against the Best
+        # value card — how much more/less it costs upfront and per unit —
+        # computed in full-precision Decimal and rounded only for display.
+        best = ranked[0]
+        ranked[1:] = [
+            replace(
+                option,
+                upfront_diff_rm=_money(option._price - best._price),
+                per_unit_diff_rm=_money(option._ratio - best._ratio),
+            )
+            for option in ranked[1:]
+        ]
         options[item_id] = ranked
     return options

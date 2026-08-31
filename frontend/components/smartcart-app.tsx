@@ -1574,6 +1574,19 @@ function RecommendationOverview({
                                 </span>
                                 <p className="mt-1 text-[13px] font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
                                 <p className="text-[10px] text-[#53635c]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
+                                {pack.isBestValue ? (
+                                  <p className="mt-0.5 text-[9px] leading-3 text-[#087f5b]">{copy.bestValueBaseline}</p>
+                                ) : pack.upfrontDiffRm != null && pack.perUnitDiffRm != null ? (
+                                  <p className="mt-0.5 text-[9px] leading-3 text-[#53635c]">
+                                    {copy.packTradeoff(
+                                      formatRm(Math.abs(pack.upfrontDiffRm)),
+                                      pack.upfrontDiffRm > 0 ? "more" : pack.upfrontDiffRm < 0 ? "less" : "same",
+                                      formatRm(Math.abs(pack.perUnitDiffRm)),
+                                      pack.perUnitDiffRm > 0 ? "more" : pack.perUnitDiffRm < 0 ? "less" : "same",
+                                      pack.unitKind,
+                                    )}
+                                  </p>
+                                ) : null}
                               </div>
                             ))}
                           </div>

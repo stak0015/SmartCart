@@ -152,6 +152,12 @@ class PackSizeOption(CamelModel):
     # unit price at full precision (ties: newest observed price, then name,
     # then item id).
     is_best_value: bool = False
+    # AC 3.2.3: trade-off versus the Best value option, computed server-side
+    # in Decimal (total-price difference and unit-price difference). Both are
+    # null on the Best value card itself, which the client labels as the
+    # baseline of the comparison.
+    upfront_diff_rm: float | None = None
+    per_unit_diff_rm: float | None = None
 
 
 class BasketAlternativeLine(CamelModel):

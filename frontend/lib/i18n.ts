@@ -166,6 +166,24 @@ export const COPY = {
       `${amount} per ${kind === "L" ? "litre" : "kg"}`,
     currentPack: "Current pack",
     bestValue: "Best value",
+    // AC 3.2.3: trade-off line under each pack card, measured against the
+    // Best value option; amounts arrive signed from the API, the client only
+    // formats their absolute value and picks the direction word.
+    bestValueBaseline: "Lowest price per unit — the baseline",
+    packTradeoff: (
+      upfront: string,
+      upfrontDir: "more" | "less" | "same",
+      perUnit: string,
+      perUnitDir: "more" | "less" | "same",
+      kind: string | null,
+    ) => {
+      const unit = kind === "L" ? "litre" : "kg";
+      const upfrontText =
+        upfrontDir === "same" ? "same total price" : `${upfront} ${upfrontDir} now`;
+      const perUnitText =
+        perUnitDir === "same" ? `same per ${unit}` : `${perUnit}/${unit} ${perUnitDir}`;
+      return `${upfrontText} · ${perUnitText}`;
+    },
     potentialSavings: (amount: string) => `Potential savings: ${amount}`,
     appliedSavings: (amount: string) => `Applied savings: ${amount}`,
     remainingSavings: (amount: string) => `${amount} more available`,
@@ -356,6 +374,22 @@ export const COPY = {
       `${amount} setiap ${kind === "L" ? "liter" : "kg"}`,
     currentPack: "Bungkusan semasa",
     bestValue: "Nilai terbaik",
+    bestValueBaseline: "Harga seunit terendah — penanda aras",
+    packTradeoff: (
+      upfront: string,
+      upfrontDir: "more" | "less" | "same",
+      perUnit: string,
+      perUnitDir: "more" | "less" | "same",
+      kind: string | null,
+    ) => {
+      const unit = kind === "L" ? "liter" : "kg";
+      const dir = (d: "more" | "less") => (d === "more" ? "lebih" : "kurang");
+      const upfrontText =
+        upfrontDir === "same" ? "jumlah harga sama" : `${upfront} ${dir(upfrontDir)} kini`;
+      const perUnitText =
+        perUnitDir === "same" ? `sama setiap ${unit}` : `${perUnit}/${unit} ${dir(perUnitDir)}`;
+      return `${upfrontText} · ${perUnitText}`;
+    },
     potentialSavings: (amount: string) => `Potensi penjimatan: ${amount}`,
     appliedSavings: (amount: string) => `Penjimatan digunakan: ${amount}`,
     remainingSavings: (amount: string) => `${amount} lagi tersedia`,

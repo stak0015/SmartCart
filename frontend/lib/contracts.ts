@@ -102,6 +102,11 @@ export interface PackSizeOption {
   // AC 3.2.2: exactly one option per comparison carries the "Best value"
   // label (lowest unit price, deterministic tie-break).
   isBestValue?: boolean;
+  // AC 3.2.3: signed trade-off versus the Best value option (total-price and
+  // unit-price differences), computed server-side; null on the Best value
+  // card itself, which the UI marks as the comparison baseline.
+  upfrontDiffRm?: number | null;
+  perUnitDiffRm?: number | null;
 }
 
 export interface BasketAlternativeLine {

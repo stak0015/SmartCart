@@ -56,3 +56,23 @@ describe("best value copy (AC 3.2.2)", () => {
     expect(COPY.ms.bestValue.trim().length).toBeGreaterThan(0);
   });
 });
+
+describe("value trade-off copy (AC 3.2.3)", () => {
+  it("shows the upfront and per-unit differences with direction words", () => {
+    expect(COPY.en.packTradeoff("RM 3.00", "more", "RM 0.40", "more", "KG"))
+      .toBe("RM 3.00 more now · RM 0.40/kg more");
+    expect(COPY.en.packTradeoff("RM 8.50", "less", "RM 0.50", "more", "KG"))
+      .toBe("RM 8.50 less now · RM 0.50/kg more");
+    expect(COPY.en.packTradeoff("RM 3.00", "more", "RM 0.40", "more", "L"))
+      .toContain("/litre more");
+    expect(COPY.en.packTradeoff("RM 0.00", "same", "RM 0.00", "same", "KG"))
+      .toBe("same total price · same per kg");
+  });
+
+  it("provides a Malay translation and a baseline note in both languages", () => {
+    expect(COPY.ms.packTradeoff("RM 3.00", "more", "RM 0.40", "more", "KG"))
+      .toContain("lebih");
+    expect(COPY.en.bestValueBaseline.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.bestValueBaseline.trim().length).toBeGreaterThan(0);
+  });
+});

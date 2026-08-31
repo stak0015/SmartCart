@@ -73,6 +73,32 @@ def test_multi_size_family_lists_every_priced_pack(monkeypatch) -> None:
     assert [pack.is_best_value for pack in packs] == [True, False, False, False]
 
 
+def test_tradeoff_diffs_measured_against_best_value(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "smartcart.pack_ratios.database_cursor",
+        fake_cursor_factory(SOURCE_ROWS, PREMISE_ROWS),
+    )
+    packs = get_pack_options("10", basket(1))["1"]
+
+    # Best value card (item 3: RM 18.00, RM 9.00/kg) is the baseline itself.
+    assert packs[0].is_best_value
+    assert packs[0].upfront_diff_rm is None
+    assert packs[0].per_unit_diff_rm is None
+    # Every other card: upfront diff = own total - best total; per-unit diff =
+    # own ratio - best ratio. Best value is the cheapest per unit, so the
+    # per-unit diff is never negative.
+    assert [(p.upfront_diff_rm, p.per_unit_diff_rm) for p in packs[1:]] == [
+        (-8.50, 0.50),  # item 2: RM 9.50, RM 9.50/kg
+        (1.00, 0.50),   # item 4: RM 19.00, RM 9.50/kg
+        (-8.00, 1.00),  # item 1: RM 10.00, RM 10.00/kg
+    ]
+    for pack in packs[1:]:
+        assert pack.per_unit_diff_rm >= 0
+        # Money identity: the displayed upfront diff reconciles with the
+        # displayed totals to the sen (no separate rounding path).
+        assert pack.total_price_rm - packs[0].total_price_rm == pack.upfront_diff_rm
+
+
 def test_best_value_tie_prefers_newest_observed_price(monkeypatch) -> None:
     old, new = date(2026, 8, 1), date(2026, 8, 27)
     sources = [(20, "MARJERIN PLANTA", "240 g", Decimal("0.24"), "KG")]
