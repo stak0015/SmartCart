@@ -11,6 +11,7 @@ import {
   searchLocations,
 } from "@/lib/api-client";
 import type {
+  BasketItemPrice,
   LocationSuggestion,
   RecommendationResponse,
   SaraFilter,
@@ -29,7 +30,6 @@ import {
 } from "@/lib/basket-state";
 import { coverageLabel, isCompleteBasket } from "@/lib/basket-coverage";
 import { formatRm } from "@/lib/format-rm";
-import { isPriceStale } from "@/lib/price-freshness";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
@@ -142,14 +142,6 @@ function IcoCheckbox({ color = "white" }: { color?: string }) {
     </svg>
   );
 }
-function IcoPriceCatcher({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={14.667} height={14} viewBox="0 0 14.6667 14" fill="none">
-      <path d={svgPathsCompare.p3c0a9100} fill={color} />
-    </svg>
-  );
-}
-
 // ── Header ─────────────────────────────────────────────────────────────────
 function SaraEligibilityFlag({
   status,
@@ -176,6 +168,72 @@ function SaraEligibilityFlag({
         : copy.saraEligibilityUnknown;
 
   return <span className={`inline-flex max-w-full self-start whitespace-normal break-words rounded-md px-2 py-1 text-xs font-semibold leading-5 ${styles}`}>{label}</span>;
+}
+
+function SaraStoreTag({ status, copy }: { status: StoreRecommendation["saraStatus"]; copy: AppCopy }) {
+  if (status === "verified") {
+    return <span className="inline-flex self-start rounded-md bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>;
+  }
+  if (status === "candidate") {
+    return <span className="inline-flex self-start rounded-md bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>;
+  }
+  return <span className="inline-flex self-start rounded-md bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>;
+}
+
+function formatPriceDate(date: string | null | undefined): string {
+  if (!date) return "—";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : date;
+}
+
+function latestPriceDate(prices: BasketItemPrice[]): string | null {
+  return prices
+    .map(price => price.priceObservedDate)
+    .filter((date): date is string => Boolean(date))
+    .sort()
+    .at(-1) ?? null;
+}
+
+function TripDetails({ store, copy }: { store: StoreRecommendation; copy: AppCopy }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <div className="rounded-xl bg-[#f3faf7] p-3">
+        <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
+        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
+      </div>
+      <div className="rounded-xl bg-[#f7f8f6] p-3">
+        <p className="text-xs text-[#617069]">{copy.oneWay}</p>
+        <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} {copy.minutes}</p>
+      </div>
+      <div className="rounded-xl bg-[#f7f8f6] p-3">
+        <p className="text-xs text-[#617069]">{copy.route}</p>
+        <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+      </div>
+    </div>
+  );
+}
+
+function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; copy: AppCopy }) {
+  return (
+    <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
+      {prices.map(price => (
+        <li key={price.itemId} className="flex items-start justify-between gap-3 border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
+          <div className="min-w-0">
+            <p className="break-words text-[13px] font-semibold text-[#17362c]">{price.itemName}</p>
+            {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{price.packageSize}</p>}
+          </div>
+          {price.unitPriceRm != null && price.lineTotalRm != null ? (
+            <div className="shrink-0 text-right">
+              <p className="text-[13px] font-extrabold text-[#17362c]">{formatRm(price.lineTotalRm)}</p>
+              <p className="text-[11px] text-[#718078]">{price.quantity} × {formatRm(price.unitPriceRm)}</p>
+            </div>
+          ) : (
+            <p className="shrink-0 text-[13px] font-medium text-[#5f6368]">{copy.noStorePrice}</p>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 type PaginationEntry = number | `ellipsis-${number}`;
@@ -1163,141 +1221,62 @@ function StoreCard({
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
           <div className="min-w-0 flex-1">
             <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
-            <div className="mt-0.5 flex items-center gap-1">
-              <IcoPriceCatcher />
-              <span className="text-[13px] font-medium text-[#53635c]">{copy.priceCatcherPremise} {store.premiseCode}</span>
-            </div>
+            <div className="mt-2"><SaraStoreTag status={store.saraStatus} copy={copy} /></div>
             {(store.address || store.district || store.state) && (
               <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
             )}
           </div>
         </div>
 
-        {/* AC 2.3.1/2.3.3: every card shows the priced-basket
-            subtotal; an incomplete basket is labelled, shows its
-            coverage, and its amount is always "Partial total" —
-            never presented as the full basket cost */}
-        {store.missingItems.length > 0 ? (
-          <div className="rounded-xl bg-[#f3f4f5] p-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[13px] font-semibold text-[#5f6368]">{copy.incompleteBasket}</p>
-              {store.pricedCount != null && store.basketLineCount != null && (
-                <p className="text-xs font-medium text-[#5f6368]">{copy.priceCoverage(store.pricedCount, store.basketLineCount)}</p>
-              )}
-            </div>
-            {store.basketSubtotalRm != null && (
-              <div className="mt-2">
-                <p className="text-xs text-[#5f6368]">Partial total</p>
-                <p className="mt-0.5 text-xl font-extrabold text-[#3f4944]">RM{store.basketSubtotalRm.toFixed(2)}</p>
-                {/* AC 2.3.7/2.3.8: the credit/cash lines split the
-                    displayed partial total and are always present */}
-                <div className="mt-2 flex flex-col gap-0.5 border-t border-[#d8ddd9] pt-2">
-                  <p className="text-[13px] font-semibold text-[#3f4944]">SARA Credit: {formatRm(store.saraCreditRm ?? 0)}</p>
-                  <p className="text-[13px] font-semibold text-[#3f4944]">Cash Needed: {formatRm(store.cashNeededRm ?? store.basketSubtotalRm)}</p>
-                  <p className="text-[11px] text-[#5f7a6d]">estimated by category — verify SARA labels in store</p>
-                </div>
+        {/* Keep the card order compact: store details, trip details, basket
+            subtotal, then the strongest visual emphasis on combined cost. */}
+        <TripDetails store={store} copy={copy} />
+
+        {(store.basketLineCount ?? 0) > 0 && (
+          <div className={"rounded-xl p-3 " + (store.missingItems.length > 0 ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className={"text-xs " + (store.missingItems.length > 0 ? "text-[#5f6368]" : "text-[#286d67]")}>
+                  {store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal}
+                </p>
+                <p className={"mt-0.5 text-xl font-extrabold " + (store.missingItems.length > 0 ? "text-[#3f4944]" : "text-[#175f4b]")}>
+                  {store.basketSubtotalRm == null ? "—" : formatRm(store.basketSubtotalRm)}
+                </p>
               </div>
-            )}
-            <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">
-              No price at this store for: {store.missingItems.join(", ")}
-            </p>
-          </div>
-        ) : store.basketSubtotalRm != null ? (
-          <div className="rounded-xl bg-[#e7f7f0] p-3">
-            <div className="flex items-center justify-between gap-2">
-              {/* AC 2.3.5: the card shows the basket subtotal and the
-                  priced-item coverage */}
-              <p className="text-xs text-[#286d67]">Basket subtotal</p>
               {store.pricedCount != null && store.basketLineCount != null && (
-                <p className="text-xs font-medium text-[#286d67]">{copy.priceCoverage(store.pricedCount, store.basketLineCount)}</p>
+                <p className={"text-right text-xs font-medium " + (store.missingItems.length > 0 ? "text-[#5f6368]" : "text-[#286d67]")}>
+                  {copy.priceCoverage(store.pricedCount, store.basketLineCount)}
+                </p>
               )}
             </div>
-            <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketSubtotalRm.toFixed(2)}</p>
-            {/* AC 2.3.7/2.3.8: the SARA Credit line is always
-                present, even when it is RM0; credit + cash
-                equals the displayed subtotal */}
-            <div className="mt-2 flex flex-col gap-0.5 border-t border-[#bfe3d3] pt-2">
-              <p className="text-[13px] font-semibold text-[#175f4b]">SARA Credit: {formatRm(store.saraCreditRm ?? 0)}</p>
-              <p className="text-[13px] font-semibold text-[#17362c]">Cash Needed: {formatRm(store.cashNeededRm ?? store.basketSubtotalRm)}</p>
-              <p className="text-[11px] text-[#5f7a6d]">estimated by category — verify SARA labels in store</p>
-            </div>
-            {/* AC 2.3.4/2.3.5: combined ranking total = basket subtotal +
-                estimated return transport cost */}
-            {store.combinedTotalRm != null && (
-              <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#bfe3d3] pt-2">
-                <p className="text-[13px] font-semibold text-[#175f4b]">Combined total (incl. return travel)</p>
-                <p className="text-[15px] font-extrabold text-[#175f4b]">RM{store.combinedTotalRm.toFixed(2)}</p>
+            {store.missingItems.length > 0 && (
+              <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
+            )}
+            {store.basketPrices.length > 0 && (
+              <div className="mt-3 border-t border-[#bfe3d3] pt-3">
+                <button
+                  type="button"
+                  onClick={onTogglePrices}
+                  aria-expanded={pricesExpanded}
+                  className="min-h-10 w-full rounded-xl border border-[#cbd8d1] bg-white text-sm font-bold text-[#087f5b]"
+                >
+                  {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
+                </button>
+                {pricesExpanded && <div className="mt-2"><CompactBasketPriceList prices={store.basketPrices} copy={copy} /></div>}
               </div>
             )}
           </div>
-        ) : null}
-
-        {/* AC 2.3.5: warn when the store's oldest basket-line
-            price is past the freshness threshold */}
-        {isPriceStale(store.priceObservedDaysAgo) && (
-          <p className="self-start rounded-md border border-[#ead89d] bg-[#fff9e8] px-2 py-1 text-xs font-semibold text-[#6d5700]">
-            Prices updated {store.priceObservedDaysAgo} days ago
-          </p>
         )}
 
-        <div className="grid grid-cols-3 gap-2">
-          <div className="rounded-xl bg-[#f3faf7] p-3">
-            <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
-            <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
-          </div>
-          <div className="rounded-xl bg-[#f7f8f6] p-3">
-            <p className="text-xs text-[#617069]">{copy.oneWay}</p>
-            <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
-          </div>
-          <div className="rounded-xl bg-[#f7f8f6] p-3">
-            <p className="text-xs text-[#617069]">{copy.route}</p>
-            <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
-          </div>
-        </div>
-
-        {store.saraStatus === "verified" ? (
-          <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>
-        ) : store.saraStatus === "candidate" ? (
-          <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>
-        ) : (
-          <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>
-        )}
-
-        {/* AC 2.3.9: per-line prices behind "View item prices"; lines without
-            a valid price stay visible and are never shown as RM0.00 */}
-        {store.basketLines.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={onTogglePrices}
-              aria-expanded={pricesExpanded}
-              className="min-h-11 rounded-xl border border-[#cbd8d1] bg-white text-sm font-bold text-[#087f5b]"
-            >
-              {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
-            </button>
-            {pricesExpanded && (
-              <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
-                {store.basketLines.map(line => (
-                  <li key={line.itemId} className="border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
-                    <p className="text-[13px] font-semibold text-[#17362c]">
-                      {line.itemName ?? "Catalogue item"}{line.unit ? " (" + line.unit + ")" : ""}
-                    </p>
-                    {line.unitPriceRm != null && line.lineTotalRm != null ? (
-                      <>
-                        <p className="mt-0.5 text-[13px] text-[#53635c]">
-                          {line.quantity} × RM{line.unitPriceRm.toFixed(2)} = RM{line.lineTotalRm.toFixed(2)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-[#718078]">
-                          PriceCatcher observed: {line.observedDate ?? "date unavailable"}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="mt-0.5 text-[13px] font-medium text-[#5f6368]">{copy.noStorePrice}</p>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
+        {store.combinedTotalRm != null && (
+          <div className="rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{copy.combinedTotal}</p>
+                <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.combinedTotalRm)}</p>
+              </div>
+              <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.basketSubtotal} + {copy.returnTravel}</p>
+            </div>
           </div>
         )}
 
@@ -1422,6 +1401,7 @@ function RecommendationOverview({
   const alternativeBySourceId = new Map(
     alternativeLines.map(line => [line.source.itemId, line] as const),
   );
+  const lastPriceDate = latestPriceDate(store.basketPrices);
 
   return (
     <div className="screen-enter pb-8">
@@ -1433,18 +1413,8 @@ function RecommendationOverview({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h1 className="break-words text-[23px] font-extrabold leading-7 tracking-[-0.4px] text-[#10231d] sm:text-[27px]">{store.name}</h1>
-                  <div className="mt-0.5 flex items-center gap-1">
-                    <IcoPriceCatcher />
-                    <span className="text-xs font-medium text-[#53635c]">{copy.priceCatcherPremise} {store.premiseCode}</span>
-                  </div>
+                  <div className="mt-2"><SaraStoreTag status={store.saraStatus} copy={copy} /></div>
                 </div>
-                {store.saraStatus === "verified" ? (
-                  <span className="inline-flex rounded-md bg-[#e5f5ed] px-2 py-1 text-[11px] font-semibold text-[#166534]">{copy.verifiedSara}</span>
-                ) : store.saraStatus === "candidate" ? (
-                  <span className="inline-flex rounded-md bg-[#fff4ce] px-2 py-1 text-[11px] font-semibold text-[#755b00]">{copy.candidateSara}</span>
-                ) : (
-                  <span className="inline-flex rounded-md bg-[#f3f4f5] px-2 py-1 text-[11px] font-medium text-[#5f6368]">{copy.unverifiedSara}</span>
-                )}
               </div>
               {(store.address || store.district || store.state) && (
                 <p className="mt-1 truncate text-xs text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
@@ -1452,46 +1422,46 @@ function RecommendationOverview({
             </div>
           </header>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-xl bg-[#e7f7f0] p-3">
-              <p className="text-[11px] text-[#286d67]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}</p>
-              <p className="mt-1 text-lg font-extrabold text-[#175f4b]">{adjustedSubtotal == null ? "—" : formatRm(adjustedSubtotal)}</p>
-            </div>
-            <div className="rounded-xl bg-[#087f5b] p-3 text-white">
-              <p className="text-[11px] text-[#d3f0e4]">{copy.estimatedTotal}</p>
-              <p className="mt-1 text-lg font-extrabold">{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</p>
-            </div>
-            <div className="rounded-xl bg-[#f3faf7] p-3">
-              <p className="text-[11px] text-[#617069]">{copy.returnTravel}</p>
-              <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
-            </div>
-            <div className="rounded-xl bg-[#f7f8f6] p-3">
-              <p className="text-[11px] text-[#617069]">{copy.oneWay} · {copy.route}</p>
-              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} {copy.minutes}</p>
-              <p className="text-[11px] text-[#718078]">{store.routeDistanceKm.toFixed(1)} km</p>
-            </div>
+          <div className="mt-4">
+            <TripDetails store={store} copy={copy} />
           </div>
 
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#53635c]">
             <span>{copy.transportMode}: {modeLabel} · {copy.travelLimit}: {limitLabel}</span>
             {store.pricedCount != null && store.basketLineCount != null && <span>{coverageLabel(store.pricedCount, store.basketLineCount)}</span>}
           </div>
-          {hasIncompleteBasket && store.missingItems.length > 0 && (
-            <p className="mt-1 text-xs text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
-          )}
-          {isPriceStale(store.priceObservedDaysAgo) && (
-            <p className="mt-2 rounded-md border border-[#ead89d] bg-[#fff9e8] px-2 py-1 text-xs font-semibold text-[#6d5700]">{copy.stalePrice(store.priceObservedDaysAgo!)}</p>
-          )}
-          {adjustedCredit != null && adjustedCash != null && (
-            <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[#e2e9e5] pt-3 text-xs">
-              <span className="font-semibold text-[#286d67]">{copy.saraCreditLabel}: {formatRm(adjustedCredit)}</span>
-              <span className="font-semibold text-[#17362c]">{copy.cashNeededLabel}: {formatRm(adjustedCash)}</span>
+          <div className={"mt-4 rounded-xl p-3 " + (hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className={"text-[18px] font-extrabold leading-6 " + (hasIncompleteBasket ? "text-[#3f4944]" : "text-[#175f4b]")}>
+                  {hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}
+                </h2>
+                <p className={"mt-1 text-xl font-extrabold " + (hasIncompleteBasket ? "text-[#3f4944]" : "text-[#175f4b]")}>
+                  {adjustedSubtotal == null ? "—" : formatRm(adjustedSubtotal)}
+                </p>
+              </div>
+              {store.pricedCount != null && store.basketLineCount != null && (
+                <p className={"text-right text-xs font-medium " + (hasIncompleteBasket ? "text-[#5f6368]" : "text-[#286d67]")}>
+                  {copy.priceCoverage(store.pricedCount, store.basketLineCount)}
+                </p>
+              )}
             </div>
-          )}
+            {hasIncompleteBasket && store.missingItems.length > 0 && (
+              <p className="mt-2 text-xs leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
+            )}
+            {lastPriceDate && (
+              <p className="mt-2 text-xs text-[#617069]">{copy.lastUpdated}: {formatPriceDate(lastPriceDate)}</p>
+            )}
+            {adjustedCredit != null && adjustedCash != null && (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[#bfe3d3] pt-3 text-xs">
+                <span className="font-semibold text-[#286d67]">{copy.saraCreditLabel}: {formatRm(adjustedCredit)}</span>
+                <span className="font-semibold text-[#17362c]">{copy.cashNeededLabel}: {formatRm(adjustedCash)}</span>
+              </div>
+            )}
 
-          <div className="mt-4 border-t border-[#e2e9e5] pt-4">
+          <div className="mt-4 border-t border-[#bfe3d3] pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-[18px] font-extrabold leading-6 text-[#10231d]">{copy.basketItemsAndSavings}</h2>
+              <h3 className="text-[16px] font-extrabold leading-6 text-[#10231d]">{copy.basketItemsAndSavings}</h3>
               <div className="text-right text-xs font-bold text-[#286d67]">
                 {appliedSavings > 0 && <span>{copy.appliedSavings(formatRm(Number(appliedSavings.toFixed(2))))}</span>}
                 {appliedSavings > 0 && remainingSavings > 0 && <span> · </span>}
@@ -1508,6 +1478,8 @@ function RecommendationOverview({
                   const persisted = persistedSwapByItemId.get(line.itemId);
                   const suggestion = alternativeBySourceId.get(line.itemId);
                   const replacement = applied?.alternative;
+                  const sourcePrice = store.basketPrices.find(price => price.itemId === line.itemId);
+                  const displayPackageSize = replacement?.packageSize ?? sourcePrice?.packageSize ?? line.unit;
                   const displayLine = replacement
                     ? { ...line, itemId: replacement.itemId, itemName: replacement.itemName, unit: replacement.unit, unitPriceRm: replacement.unitPriceRm, lineTotalRm: replacement.lineTotalRm, observedDate: replacement.observedDate }
                     : line;
@@ -1523,13 +1495,14 @@ function RecommendationOverview({
                             <p className="break-words text-[13px] font-bold text-[#17362c]">{displayLine.itemName ?? "Catalogue item"}</p>
                             {(applied || persisted) && <span className="rounded-md bg-[#e7f7f0] px-2 py-0.5 text-[10px] font-extrabold text-[#17634f]">{copy.swapped}</span>}
                           </div>
-                          <p className="mt-0.5 text-xs text-[#718078]">{displayLine.unit ?? "—"}{persisted?.swap ? ` · ${copy.originally(persisted.swap.original.name)}` : ""}</p>
+                          <p className="mt-0.5 text-xs text-[#718078]">{displayPackageSize ?? "—"}{persisted?.swap ? ` · ${copy.originally(persisted.swap.original.name)}` : ""}</p>
                         </div>
                         <div className="shrink-0 text-right">
                           {displayLine.unitPriceRm != null && displayLine.lineTotalRm != null ? (
                             <>
                               <p className="text-[15px] font-extrabold text-[#17362c]">{formatRm(displayLine.lineTotalRm)}</p>
                               <p className="text-[11px] text-[#718078]">{displayLine.quantity} × {formatRm(displayLine.unitPriceRm)}</p>
+                              <p className="text-[11px] text-[#718078]">{copy.priceCatcherUpdated}: {formatPriceDate(displayLine.observedDate)}</p>
                             </>
                           ) : (
                             <p className="text-lg font-extrabold text-[#718078]">—</p>
@@ -1542,9 +1515,10 @@ function RecommendationOverview({
                           <div className="min-w-0">
                             <p className="text-[11px] font-bold text-[#286d67]">{copy.lowerCostMatch}</p>
                             <p className="break-words text-xs font-semibold text-[#17362c]">{suggestion.alternative.itemName ?? "Catalogue item"}</p>
+                            <p className="text-[11px] text-[#718078]">{suggestion.alternative.packageSize ?? suggestion.alternative.unit ?? "—"}</p>
                             <p className="text-[11px] text-[#53635c]">{copy.saveAmount(formatRm(suggestion.savingsRm))} · {formatRm(suggestion.alternative.unitPriceRm ?? 0)} each</p>
                             <SaraEligibilityFlag status={suggestion.alternative.saraEligible} categoryCandidate={suggestion.alternative.saraCategoryCandidate} copy={copy} />
-                            {isPriceStale(suggestion.alternative.priceObservedDaysAgo) && <p className="mt-1 text-[11px] font-semibold text-[#6d5700]">{copy.stalePrice(suggestion.alternative.priceObservedDaysAgo!)}</p>}
+                            <p className="text-[11px] text-[#718078]">{copy.priceCatcherUpdated}: {formatPriceDate(suggestion.alternative.observedDate)}</p>
                           </div>
                           <button type="button" disabled={targetAlreadyInBasket} onClick={() => applyAlternative(suggestion)} aria-label={`${copy.swapAndSave}: ${suggestion.alternative.itemName ?? "Catalogue item"}`} className="min-h-10 shrink-0 rounded-lg bg-[#087f5b] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]">{targetAlreadyInBasket ? copy.swapped : copy.swapAndSave}</button>
                         </div>
@@ -1567,6 +1541,19 @@ function RecommendationOverview({
               <p className="mt-2 text-xs text-[#617069]">{copy.noPricedBasketLines}</p>
             )}
           </div>
+          </div>
+
+          {adjustedCombinedTotal != null && (
+            <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{copy.combinedTotal}</p>
+                  <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(adjustedCombinedTotal)}</p>
+                </div>
+                <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.basketSubtotal} + {copy.returnTravel}</p>
+              </div>
+            </div>
+          )}
 
           <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>
