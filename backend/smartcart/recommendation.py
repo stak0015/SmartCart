@@ -224,6 +224,8 @@ def apply_basket_pricing(
                 unit_price_rm=line.unit_price_rm,
                 line_total_rm=line.line_total_rm,
                 price_observed_date=line.observed_date,
+                sara_eligible=line.sara_eligible,
+                sara_category_candidate=line.sara_category_candidate,
             )
             for line in summary.lines
         ]

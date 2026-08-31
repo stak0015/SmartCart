@@ -30,6 +30,8 @@ class BasketLinePrice:
     unit_price_rm: float | None
     line_total_rm: float | None
     observed_date: str | None
+    sara_eligible: bool | None
+    sara_category_candidate: bool
 
 
 @dataclass(frozen=True)
@@ -125,6 +127,10 @@ def summarize_basket_prices(
                 unit_price_rm=_money(Decimal(current_price)) if priced else None,
                 line_total_rm=_money(line_total) if priced else None,
                 observed_date=observed.isoformat() if priced and observed else None,
+                sara_eligible=sara_eligible,
+                sara_category_candidate=bool(
+                    item_category and is_sara_credit_line(False, item_category)
+                ),
             )
         )
 
