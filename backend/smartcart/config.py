@@ -6,6 +6,11 @@ from math import isfinite
 import os
 
 
+DEFAULT_DEMO_DATABASE_URL = (
+    "postgresql://smartcart:smartcart_dev_password@127.0.0.1:5434/smartcart_demo"
+)
+
+
 def _bounded_integer(name: str, fallback: int, minimum: int, maximum: int) -> int:
     try:
         value = int(os.getenv(name, ""))
@@ -25,6 +30,8 @@ def _non_negative_number(name: str, fallback: float) -> float:
 @dataclass(frozen=True)
 class Settings:
     database_url: str | None
+    demo_database_url: str | None
+    demo_mode: bool
     database_ssl: bool
     google_maps_api_key: str | None
     google_places_api_key: str | None
@@ -47,6 +54,9 @@ def get_settings() -> Settings:
     )
     return Settings(
         database_url=os.getenv("DATABASE_URL") or None,
+        demo_database_url=os.getenv("DEMO_DATABASE_URL") or DEFAULT_DEMO_DATABASE_URL,
+        demo_mode=os.getenv("SMARTCART_DEMO_MODE", "false").lower()
+        in {"1", "true", "yes", "on"},
         database_ssl=os.getenv("DATABASE_SSL", "false").lower() == "true",
         google_maps_api_key=os.getenv("GOOGLE_MAPS_API_KEY") or None,
         google_places_api_key=(

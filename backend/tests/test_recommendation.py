@@ -1,3 +1,5 @@
+import pytest
+
 from smartcart.maps import RouteMatrixResult
 from smartcart.models import BasketItemPrice
 from smartcart.premises import PremiseCandidate
@@ -5,6 +7,7 @@ from smartcart.recommendation import (
     TravelCostRate,
     estimate_round_trip_cost_rm,
     rank_reachable_stores,
+    straight_line_route_results,
 )
 
 
@@ -53,6 +56,13 @@ def priced_line(item_id: str, unit_price: float, quantity: int = 1) -> BasketIte
 
 def test_calculates_return_trip_cost_from_one_way_route() -> None:
     assert estimate_round_trip_cost_rm(2_000, COST_RATE) == 2
+
+
+def test_straight_line_fallback_converts_speed_to_realistic_duration() -> None:
+    result = straight_line_route_results([candidate(straight_line_distance_km=0.5)], "car")
+
+    assert result[0].distance_meters == 500
+    assert result[0].duration_seconds == pytest.approx(60)
 
 
 def test_filters_using_routed_distance_not_straight_line_distance() -> None:

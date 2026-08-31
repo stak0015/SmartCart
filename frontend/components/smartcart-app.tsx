@@ -798,6 +798,7 @@ function LocationScreen({
   const [remember, setRemember] = useState(true);
   const [sessionToken, setSessionToken] = useState(createLocationSessionToken);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
+  const [locationProvider, setLocationProvider] = useState<"google" | "demo">("google");
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [searchState, setSearchState] = useState<"idle" | "searching" | "resolving" | "locating">("idle");
   const [locationError, setLocationError] = useState("");
@@ -823,6 +824,7 @@ function LocationScreen({
       searchLocations(query, sessionToken, controller.signal)
         .then(result => {
           setSuggestions(result.suggestions);
+          setLocationProvider(result.provider ?? "google");
           setActiveSuggestion(-1);
         })
         .catch(error => {
@@ -1012,7 +1014,7 @@ function LocationScreen({
                     {suggestion.secondaryText && <span className="mt-0.5 block text-xs text-[#617069]">{suggestion.secondaryText}</span>}
                   </button>
                 ))}
-                <p className="bg-[#fafbf9] px-4 py-2 text-right text-[11px] font-semibold text-[#718078]">{copy.poweredByGoogle}</p>
+                <p className="bg-[#fafbf9] px-4 py-2 text-right text-[11px] font-semibold text-[#718078]">{locationProvider === "demo" ? copy.demoDataSource : copy.poweredByGoogle}</p>
               </div>
             )}
           </div>
@@ -1566,6 +1568,10 @@ function RecommendationOverview({
                             else if (persisted) onSetBasket(undoBasketSwap(basket, persisted.id));
                           }} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
                         </div>
+                      )}
+
+                      {!alternativesLoading && !alternativesError && suggestion && !hasSuggestion && !applied && !persisted && (
+                        <p className="mt-2 text-[11px] text-[#718078]">{copy.noCheaperAlternative}</p>
                       )}
                     </li>
                   );

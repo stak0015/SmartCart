@@ -12,16 +12,21 @@ from .errors import AppError
 
 def get_connection() -> connection:
     settings = get_settings()
-    if not settings.database_url:
+    database_url = settings.demo_database_url if settings.demo_mode else settings.database_url
+    if not database_url:
         raise AppError(
-            "DATABASE_NOT_CONFIGURED",
-            "The SmartCart database connection has not been configured.",
+            "DEMO_DATABASE_NOT_CONFIGURED" if settings.demo_mode else "DATABASE_NOT_CONFIGURED",
+            (
+                "Demo mode is enabled but its database connection has not been configured."
+                if settings.demo_mode
+                else "The SmartCart database connection has not been configured."
+            ),
             503,
         )
     options: dict[str, object] = {"connect_timeout": 5}
     if settings.database_ssl:
         options["sslmode"] = "require"
-    return psycopg2.connect(settings.database_url, **options)
+    return psycopg2.connect(database_url, **options)
 
 
 @contextmanager

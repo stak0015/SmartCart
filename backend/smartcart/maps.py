@@ -24,12 +24,66 @@ TRAVEL_MODE: dict[TransportMode, str] = {
     "car": "DRIVE",
 }
 
+DEMO_ORIGIN_PLACE_ID = "smartcart-demo-origin"
+DEMO_ORIGIN_LABEL = "SmartCart Demo Centre, Kuala Lumpur"
+DEMO_ORIGIN_LATITUDE = 3.1390
+DEMO_ORIGIN_LONGITUDE = 101.6869
+
 
 @dataclass(frozen=True)
 class RouteMatrixResult:
     destination_index: int
     distance_meters: float
     duration_seconds: float
+
+
+class DemoMapsProvider:
+    """Deterministic location adapter used by the local demo environment.
+
+    Demo recommendations deliberately use the backend's straight-line route
+    fallback, so this provider only needs to supply one selectable origin and
+    never makes a network request.
+    """
+
+    async def autocomplete(
+        self, input_value: str, session_token: str
+    ) -> list[LocationSuggestion]:
+        if not input_value.strip():
+            return []
+        return [
+            LocationSuggestion(
+                place_id=DEMO_ORIGIN_PLACE_ID,
+                main_text="SmartCart Demo Centre",
+                secondary_text="Kuala Lumpur · seeded demo data",
+                full_text=DEMO_ORIGIN_LABEL,
+            )
+        ]
+
+    async def resolve_place(
+        self, place_id: str, session_token: str
+    ) -> ResolvedLocation:
+        if place_id != DEMO_ORIGIN_PLACE_ID:
+            raise AppError(
+                "LOCATION_NOT_RESOLVED",
+                "That demo location could not be resolved. Please choose the demo suggestion.",
+                422,
+            )
+        return ResolvedLocation(
+            place_id=DEMO_ORIGIN_PLACE_ID,
+            label=DEMO_ORIGIN_LABEL,
+            latitude=DEMO_ORIGIN_LATITUDE,
+            longitude=DEMO_ORIGIN_LONGITUDE,
+        )
+
+    async def compute_route_matrix(
+        self,
+        origin: dict[str, float],
+        destination_place_ids: list[str],
+        mode: TransportMode,
+    ) -> list[RouteMatrixResult]:
+        # Demo mode is forced through straight_line_route_results in the API;
+        # keep this method safe if a caller invokes the provider directly.
+        return []
 
 
 def _parse_duration_seconds(duration: object) -> float | None:
@@ -237,7 +291,8 @@ class GoogleMapsProvider:
 
 
 _provider = GoogleMapsProvider()
+_demo_provider = DemoMapsProvider()
 
 
-def get_maps_provider() -> GoogleMapsProvider:
-    return _provider
+def get_maps_provider() -> GoogleMapsProvider | DemoMapsProvider:
+    return _demo_provider if get_settings().demo_mode else _provider

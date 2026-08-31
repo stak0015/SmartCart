@@ -26,6 +26,29 @@ start the API:
 uvicorn main:app --reload --port 8000
 ```
 
+## Demo mode
+
+For a repeatable walkthrough, start the isolated seeded database from the
+repository's `database` folder:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d
+```
+
+Then set these values in `backend/.env` before starting the API:
+
+```dotenv
+SMARTCART_DEMO_MODE=true
+DEMO_DATABASE_URL=postgresql://smartcart:smartcart_dev_password@127.0.0.1:5434/smartcart_demo
+```
+
+Demo mode selects the separate demo database, provides the mock `SmartCart Demo
+Centre` location, forces deterministic straight-line recommendations, and does
+not call Google. Its small fixture set includes complete and incomplete
+baskets, verified/candidate/unverified SARA premises, stale and missing prices,
+and cheaper/non-cheaper equivalents. Prices are illustrative only. See
+`database/demo/README.md` for reset instructions.
+
 FastAPI documentation is available at `http://localhost:8000/docs`. The main
 routes are:
 

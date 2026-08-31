@@ -85,6 +85,7 @@ class LocationSuggestion(CamelModel):
 
 class LocationSearchResponse(CamelModel):
     suggestions: list[LocationSuggestion]
+    provider: Literal["google", "demo"] = "google"
 
 
 class ResolvedLocation(CamelModel):

@@ -16,6 +16,8 @@ snapshot so every developer gets the same candidate Place IDs.
 - `schema.sql` — idempotent PostgreSQL schema.
 - `SETUP_GUIDE.md` — beginner-friendly local setup and troubleshooting guide.
 - `docker-compose.yml` — local PostgreSQL 16 service.
+- `docker-compose.demo.yml` — isolated PostgreSQL 16 service with seeded demo data.
+- `demo/002_demo_seed.sql` — small deterministic fixture set for feature walkthroughs.
 - `ingest_pricecatcher.py` — PriceCatcher download, validation, transformation,
   and idempotent database upserts.
 - `verify_database.py` — post-ingestion integrity checks.
@@ -29,6 +31,22 @@ snapshot so every developer gets the same candidate Place IDs.
 
 Downloaded PriceCatcher files are reproducible local cache files under
 `data/raw/` and are not committed.
+
+## Repeatable demo data
+
+The demo database is separate from the normal `smartcart` database and is safe
+to reset. From this directory run:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d
+```
+
+Point the backend at it with `SMARTCART_DEMO_MODE=true` and the
+`DEMO_DATABASE_URL` shown in [`demo/README.md`](demo/README.md). The backend
+then uses the seeded Kuala Lumpur premises and mock location, bypasses Google,
+and keeps the normal API contracts. The fixture data intentionally covers
+cheaper alternatives, no alternative, missing prices, stale prices, basket
+completeness, and SARA status variations.
 
 ## Enrichment status
 

@@ -160,6 +160,27 @@ python3 -m venv .venv
 The commands intentionally use Python inside `.venv`; you do not need to
 activate the environment. Package installation may take a few minutes.
 
+## Optional: repeatable demo mode
+
+If you only need to demonstrate SmartCart without downloading live data or
+configuring Google, use the isolated demo database instead of the normal
+database. From `SmartCart/database` run:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d
+```
+
+In `SmartCart/backend/.env`, set:
+
+```dotenv
+SMARTCART_DEMO_MODE=true
+DEMO_DATABASE_URL=postgresql://smartcart:smartcart_dev_password@127.0.0.1:5434/smartcart_demo
+```
+
+Skip the ingestion step, start the backend and frontend normally, and choose
+the seeded `SmartCart Demo Centre` location. The fixture data and reset command
+are documented in [`demo/README.md`](demo/README.md).
+
 ## Step 5: Ingest the data
 
 An internet connection is required because the loader downloads official

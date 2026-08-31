@@ -39,6 +39,7 @@ export interface LocationSuggestion {
 
 export interface LocationSearchResponse {
   suggestions: LocationSuggestion[];
+  provider?: "google" | "demo";
 }
 
 export interface ResolvedLocation {

@@ -97,7 +97,8 @@ def straight_line_route_results(
     results = []
     for destination_index, premise in enumerate(candidates):
         distance_meters = max(0.0, premise.straight_line_distance_km) * 1000
-        duration_seconds = distance_meters / speed_kmh * 3600
+        # Convert kilometres/hour to metres/second before deriving seconds.
+        duration_seconds = distance_meters / (speed_kmh * 1000 / 3600)
         results.append(
             RouteMatrixResult(
                 destination_index=destination_index,

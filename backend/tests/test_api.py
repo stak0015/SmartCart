@@ -39,7 +39,9 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
     monkeypatch.setattr(
         api,
         "get_settings",
-        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+        lambda: replace(
+            get_settings(), demo_mode=False, google_routes_api_key="test-routes-key"
+        ),
     )
 
     monkeypatch.setattr(
@@ -119,7 +121,9 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
     monkeypatch.setattr(
         api,
         "get_settings",
-        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+        lambda: replace(
+            get_settings(), demo_mode=False, google_routes_api_key="test-routes-key"
+        ),
     )
 
     monkeypatch.setattr(
@@ -157,7 +161,7 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
 def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch) -> None:
     from smartcart import api
 
-    settings = replace(get_settings(), google_routes_api_key=None)
+    settings = replace(get_settings(), demo_mode=False, google_routes_api_key=None)
     monkeypatch.setattr(api, "get_settings", lambda: settings)
     captured: dict[str, object] = {}
 
@@ -200,6 +204,54 @@ def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch)
     assert "25 nearest stores" in body["routeWarning"]
     assert captured["limit"] == 25
     assert captured["maximum_straight_line_km"] is None
+
+
+def test_demo_mode_uses_deterministic_fallback_even_with_routes_key(monkeypatch) -> None:
+    from smartcart import api
+
+    settings = replace(
+        get_settings(), demo_mode=True, google_routes_api_key="would-not-be-used"
+    )
+    monkeypatch.setattr(api, "get_settings", lambda: settings)
+    captured: dict[str, object] = {}
+
+    def fake_find(**options):
+        captured.update(options)
+        return [
+            PremiseCandidate(
+                premise_id="101",
+                premise_code="DEMO-P101",
+                name="Demo Mart Central",
+                address=None,
+                district="Bukit Bintang",
+                state="W.P. Kuala Lumpur",
+                google_place_id="demo-place-101",
+                straight_line_distance_km=0.0,
+                sara_status="verified",
+            )
+        ]
+
+    monkeypatch.setattr(
+        api,
+        "find_nearest_premises",
+        fake_find,
+    )
+
+    class NoRouteProvider:
+        async def compute_route_matrix(self, *_args, **_kwargs):
+            raise AssertionError("Demo mode must not call Google Routes")
+
+    monkeypatch.setattr(api, "get_maps_provider", lambda: NoRouteProvider())
+    payload = {key: value for key, value in VALID_REQUEST.items() if key != "basket"}
+
+    response = TestClient(create_app()).post("/api/recommendations", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["routeProvider"] == "straight_line"
+    assert "Demo mode is active" in body["routeWarning"]
+    assert "seeded premises" in body["rankingMethod"]
+    assert captured["maximum_coordinate_age_days"] == api.DEMO_COORDINATE_MAX_AGE_DAYS
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

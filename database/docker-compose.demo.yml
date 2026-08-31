@@ -1,0 +1,23 @@
+services:
+  postgres-demo:
+    image: postgres:16-alpine
+    container_name: smartcart-postgres-demo
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DEMO_POSTGRES_DB:-smartcart_demo}
+      POSTGRES_USER: ${DEMO_POSTGRES_USER:-smartcart}
+      POSTGRES_PASSWORD: ${DEMO_POSTGRES_PASSWORD:-smartcart_dev_password}
+    ports:
+      - "127.0.0.1:${DEMO_POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - smartcart_demo_postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ./demo/002_demo_seed.sql:/docker-entrypoint-initdb.d/002_demo_seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-smartcart} -d $${POSTGRES_DB:-smartcart_demo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  smartcart_demo_postgres_data:

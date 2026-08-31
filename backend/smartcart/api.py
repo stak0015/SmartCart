@@ -39,11 +39,16 @@ router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
 FALLBACK_NEAREST_LIMIT = 25
+DEMO_COORDINATE_MAX_AGE_DAYS = 36500
 
 
 @router.get("/health")
 def health() -> dict[str, object]:
-    return {"status": "ok", "item_rows": count_items()}
+    return {
+        "status": "ok",
+        "item_rows": count_items(),
+        "demo_mode": get_settings().demo_mode,
+    }
 
 
 @router.get("/items/search")
@@ -85,8 +90,12 @@ async def autocomplete_location(
         raise AppError(
             "INVALID_SESSION_TOKEN", "The location search session is invalid.", 400
         )
+    settings = get_settings()
     suggestions = await get_maps_provider().autocomplete(query, session_token)
-    return LocationSearchResponse(suggestions=suggestions)
+    return LocationSearchResponse(
+        suggestions=suggestions,
+        provider="demo" if settings.demo_mode else "google",
+    )
 
 
 @router.post("/locations/resolve", response_model=ResolvedLocation)
@@ -138,7 +147,12 @@ async def basket_alternatives(
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
     settings = get_settings()
     travel = payload.travel
-    use_straight_line_fallback = not settings.google_routes_api_key
+    use_straight_line_fallback = settings.demo_mode or not settings.google_routes_api_key
+    coordinate_max_age_days = (
+        DEMO_COORDINATE_MAX_AGE_DAYS
+        if settings.demo_mode
+        else settings.premise_location_max_age_days
+    )
     maximum_straight_line_km = (
         travel.limit.value if travel.limit.type == "distance" else None
     )
@@ -155,7 +169,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         sara_filter=travel.sara_filter,
         maximum_straight_line_km=maximum_straight_line_km,
         limit=(FALLBACK_NEAREST_LIMIT if use_straight_line_fallback else settings.route_matrix_candidate_limit),
-        maximum_coordinate_age_days=settings.premise_location_max_age_days,
+        maximum_coordinate_age_days=coordinate_max_age_days,
     )
 
     if use_straight_line_fallback:
@@ -167,7 +181,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     if not candidates:
         routable, fresh = await run_in_threadpool(
             get_premise_location_coverage,
-            settings.premise_location_max_age_days,
+            coordinate_max_age_days,
         )
         if routable > 0 and fresh == 0:
             raise AppError(
@@ -200,11 +214,16 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         cost_rate=cost_model[travel.transport_mode],
     )
     ranking_method = (
-        "Nearest premises by straight-line distance; travel times and costs "
-        "are rough planning estimates because Google Routes is not configured."
-        if use_straight_line_fallback
-        else "Lowest estimated return transport cost, then shortest travel time "
-        "and route distance."
+        "Demo mode uses seeded premises and deterministic straight-line travel "
+        "estimates; basket prices still determine the complete-basket order."
+        if settings.demo_mode
+        else (
+            "Nearest premises by straight-line distance; travel times and costs "
+            "are rough planning estimates because Google Routes is not configured."
+            if use_straight_line_fallback
+            else "Lowest estimated return transport cost, then shortest travel time "
+            "and route distance."
+        )
     )
     if payload.basket:
         pricing = await run_in_threadpool(
@@ -214,18 +233,29 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         )
         recommendations = apply_basket_pricing(recommendations, pricing)
         ranking_method = (
-            "Nearest 25 premises by straight-line distance; complete baskets are "
-            "then ranked by estimated combined cost using rough travel estimates. "
-            "Google Routes is not configured, so travel limits and route feasibility "
-            "are not verified."
-            if use_straight_line_fallback
-            else "Complete baskets ranked by lowest combined cost: priced basket "
-            "subtotal plus estimated return transport cost; ties by shortest "
-            "travel time, route distance, store name, then premise ID. "
-            "Incomplete baskets are listed after with their partial totals."
+            "Demo mode uses seeded premises and deterministic straight-line travel "
+            "estimates; complete baskets are ranked by estimated combined cost, "
+            "with incomplete baskets listed after."
+            if settings.demo_mode
+            else (
+                "Nearest 25 premises by straight-line distance; complete baskets are "
+                "then ranked by estimated combined cost using rough travel estimates. "
+                "Google Routes is not configured, so travel limits and route feasibility "
+                "are not verified."
+                if use_straight_line_fallback
+                else "Complete baskets ranked by lowest combined cost: priced basket "
+                "subtotal plus estimated return transport cost; ties by shortest "
+                "travel time, route distance, store name, then premise ID. "
+                "Incomplete baskets are listed after with their partial totals."
+            )
         )
     route_warning_parts = []
-    if use_straight_line_fallback:
+    if settings.demo_mode:
+        route_warning_parts.append(
+            "Demo mode is active. Recommendations use seeded mock data and "
+            "deterministic straight-line travel estimates; prices are examples only."
+        )
+    elif use_straight_line_fallback:
         route_warning_parts.append(
             "Google Routes is not configured. Showing the 25 nearest stores by "
             "straight-line distance with approximate travel times; the selected "

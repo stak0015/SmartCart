@@ -15,6 +15,13 @@ and marks travel time, travel limits, and route feasibility as unverified. This
 keeps the recommendation flow usable without silently presenting approximate
 values as Google routes.
 
+For demonstrations, `SMARTCART_DEMO_MODE=true` selects a separate seeded
+PostgreSQL database configured by `DEMO_DATABASE_URL`. Demo mode also provides
+one deterministic Kuala Lumpur location suggestion and forces the same
+straight-line route path, so the catalogue, basket pricing, SARA, incomplete
+basket, stale-price, and cheaper-alternative flows work without Google or live
+PriceCatcher data. See `database/demo/README.md` for the repeatable setup.
+
 This is the best initial cost-to-capability fit because one provider supports
 all four required modes in Malaysia: walking, public transit, car, and
 motorised two-wheeler. Google's two-wheeler coverage list explicitly includes
@@ -62,6 +69,8 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    skips Google Routes and keeps the 25 nearest fresh premises using
    straight-line distance plus mode-based planning speeds; the user's route
    limit is not treated as verified reachability.
+   Demo mode always takes this deterministic path, even if Google keys are
+   present.
 6. SmartCart applies the user's limit to routed distance or exact route time
    only when Google route results are available.
 7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
@@ -158,6 +167,11 @@ not verified, never as false or ineligible.
 6. Copy `frontend/.env.example` to `frontend/.env.local`, then run `pnpm dev`.
 7. Before handoff, run `python -m pytest` in `backend`, then `pnpm lint` and
    `pnpm build` in `frontend`.
+
+For a no-key walkthrough, start `database/docker-compose.demo.yml`, set
+`SMARTCART_DEMO_MODE=true` and `DEMO_DATABASE_URL` in `backend/.env`, then
+start the backend and frontend as usual. Choose the `SmartCart Demo Centre`
+location and add the seeded items to exercise each fixture scenario.
 
 ## Known limits and next steps
 
