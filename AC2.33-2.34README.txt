@@ -1,0 +1,51 @@
+US 2.3 Build Notes / 构建说明
+SARA Credit & Cash Needed Split on Store Cards
+商店卡上的 SARA Credit 与 Cash Needed 拆分
+
+------------------------------------------------------------
+1. 中文
+
+每张可算全篮总价的商店卡，在篮子总价下方恒显两行："SARA Credit: RM[X]" 与 "Cash Needed: RM[Y]"。X + Y 始终等于卡片显示的篮子总价，分位精确——后端用定点小数计算各行金额，Cash 按"总价 − Credit"推导，杜绝浮点舍入误差。缺货店（缺任一篮内商品价格）不显示这两行，维持原有灰显与缺货商品标注。
+
+English:
+Every store card with a complete basket price shows two lines under the total: "SARA Credit: RM[X]" and "Cash Needed: RM[Y]". X + Y always equals the displayed basket total to the cent — line amounts are computed with fixed-point decimals on the backend and Cash is derived as total minus credit, so no floating-point drift is possible. Stores missing any basket line price do not show the two lines and keep the existing greyed-out treatment with the missing-item note.
+
+------------------------------------------------------------
+2. 中文
+
+资格判定口径：一行商品计入 SARA Credit 的条件是——商品级标记 sara_eligible 为 TRUE（未来人工核实数据就绪后自动生效，逻辑无需改动）；否则该商品的品类命中官方 SARA 2026 品类清单（38 个候选品类，与商品库品类值逐字一致）。其余商品（标记为 false 或未核实、且品类不在清单内）计入 Cash Needed。
+
+English:
+Eligibility rule: a basket line counts toward SARA Credit when the item-level flag sara_eligible is TRUE (this branch takes effect automatically once manually verified data is loaded, with no code change); otherwise when the item's category is on the official SARA 2026 category list (38 candidate categories, matched verbatim against the catalogue values). Everything else (flag false or unverified, and category not listed) counts toward Cash Needed.
+
+------------------------------------------------------------
+3. 中文
+
+该拆分是品类级候选估计值，并非逐商品核实结果。两行下方附小字标注 "estimated by category — verify SARA labels in store"，提示购物者需在店内核对 SARA 标签/条码后才能按 Credit 实付。
+
+English:
+The split is a category-level candidate estimate, not a per-item verified result. A caption under the two lines reads "estimated by category — verify SARA labels in store", reminding shoppers to confirm the SARA label/barcode in store before paying with credit.
+
+------------------------------------------------------------
+4. 中文
+
+无资格商品的边界：篮内没有任何资格商品时，每张完整店卡仍显示 "SARA Credit: RM0"（零值逐字渲染为 RM0）与 "Cash Needed: RM[总价]"，credit 行恒在、不消失，各卡口径一致。
+
+English:
+No-eligible-items boundary: when the basket contains no eligible items, every complete store card still shows "SARA Credit: RM0" (zero renders verbatim as RM0) and "Cash Needed: RM[total]". The credit line never disappears, keeping every card consistent.
+
+------------------------------------------------------------
+5. 中文
+
+改动点：后端新建 smartcart/sara.py（候选品类集与行级判定函数）；pricing.py 的聚合查询增取 sara_eligible 与 item_category，并按行拆分 Credit/Cash 小计；models.py 响应新增 saraCreditRm 与 cashNeededRm 两个字段（只增不改，既有字段语义不动）；recommendation.py 负责接线。前端 lib/contracts.ts 同步两个字段；新建 lib/format-rm.ts 金额格式化（零值显示 RM0，其余两位小数）；components/smartcart-app.tsx 店卡总价块新增两行与 estimated 标注。数据库未做改动。
+
+English:
+Changes: on the backend, a new smartcart/sara.py module holds the candidate category set and the per-line eligibility function; the pricing aggregation query additionally reads sara_eligible and item_category and splits each line into Credit/Cash subtotals; the response model gains two fields, saraCreditRm and cashNeededRm (additive only, existing fields unchanged); recommendation.py wires the values through. On the frontend, lib/contracts.ts mirrors the two fields; a new lib/format-rm.ts formats amounts (zero as RM0, otherwise two decimals); the store-card total block in components/smartcart-app.tsx adds the two lines plus the estimated caption. The database is unchanged.
+
+------------------------------------------------------------
+6. 中文
+
+测试与验证：后端 pytest 覆盖判定三态（核实标记优先 / 品类命中 / 落入 Cash）、Credit+Cash=总价恒等式、全现金边界与缺货店两字段为空，全部通过；前端 vitest 覆盖金额格式化（零值 RM0、两位小数）与拆分对账；ESLint 与生产构建均通过。手动核对方式：以沙丁鱼罐头（IKAN DALAM TIN，候选品类）+ 鸡蛋（TELUR，候选品类）+ 鲜鸡（AYAM，非候选品类）组篮比较，店卡 Credit 与 Cash 均非零且合计等于总价；仅以鲜鸡组篮比较，店卡显示 "SARA Credit: RM0"。
+
+English:
+Testing and verification: backend pytest covers the three eligibility states (verified flag wins / category candidate / falls to Cash), the credit + cash = total identity, the all-cash boundary, and null split fields for incomplete stores — all passing; frontend vitest covers amount formatting (zero as RM0, two decimals otherwise) and the split reconciliation; ESLint and the production build pass. To verify manually: compare a basket of canned sardines (IKAN DALAM TIN, candidate) + eggs (TELUR, candidate) + fresh chicken (AYAM, not listed) and check that both Credit and Cash are non-zero and sum to the total; compare a chicken-only basket and check the card shows "SARA Credit: RM0".

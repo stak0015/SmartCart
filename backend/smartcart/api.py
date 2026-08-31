@@ -22,8 +22,12 @@ from .models import (
     ResolvedLocation,
 )
 from .premises import find_nearest_premises, get_premise_location_coverage
-from .pricing import get_basket_prices_for_premises
-from .recommendation import get_travel_cost_model, rank_reachable_stores
+from .pricing import get_basket_pricing
+from .recommendation import (
+    apply_basket_pricing,
+    get_travel_cost_model,
+    rank_reachable_stores,
+)
 
 router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
@@ -122,11 +126,6 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         [candidate.google_place_id for candidate in candidates],
         travel.transport_mode,
     )
-    basket_prices_by_premise = await run_in_threadpool(
-        get_basket_prices_for_premises,
-        premise_ids=[candidate.premise_id for candidate in candidates],
-        basket=payload.basket,
-    )
     cost_model = get_travel_cost_model(settings)
     recommendations = rank_reachable_stores(
         candidates=candidates,
@@ -134,19 +133,30 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         limit_type=travel.limit.type,
         limit_value=travel.limit.value,
         cost_rate=cost_model[travel.transport_mode],
-        basket_prices_by_premise=basket_prices_by_premise,
     )
+    ranking_method = (
+        "Lowest estimated return transport cost, then shortest travel time "
+        "and route distance."
+    )
+    if payload.basket:
+        pricing = await run_in_threadpool(
+            get_basket_pricing,
+            [store.premise_id for store in recommendations],
+            payload.basket,
+        )
+        recommendations = apply_basket_pricing(recommendations, pricing)
+        ranking_method = (
+            "Complete baskets ranked by lowest combined cost: priced basket "
+            "subtotal plus estimated return transport cost; ties by shortest "
+            "travel time, route distance, store name, then premise ID. "
+            "Incomplete baskets are listed after with their partial totals."
+        )
     return RecommendationResponse(
         recommendations=recommendations,
         total_candidates_evaluated=len(candidates),
         total_reachable=len(recommendations),
         generated_at=datetime.now(timezone.utc),
-        ranking_method=(
-            "Stores with a price for every basket line are ranked first by priced "
-            "basket subtotal plus estimated return transport cost. Incomplete "
-            "baskets are separated and use the same cost ranking; missing prices "
-            "are excluded."
-        ),
+        ranking_method=ranking_method,
         cost_assumptions={mode: rate.description for mode, rate in cost_model.items()},
         route_warning=(
             "Walking and motorcycle routes are beta estimates and may omit suitable "

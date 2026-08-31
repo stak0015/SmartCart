@@ -1,0 +1,35 @@
+US 2.3 Build Notes / 构建说明
+Price Staleness Warning on Store Cards
+商店卡上的价格鲜度警告标签
+
+------------------------------------------------------------
+1. 中文
+
+推荐列表中的每张商店卡都会评估价格鲜度：取该店篮内商品中最旧一条价格的观察日期，计算其距今天数 X。当 X 超过鲜度阈值 7 天时，卡片在价格区域下方显示琥珀色警告标签 "Prices updated [X] days ago"（X 代入实际天数），提示购物者该店总价可能过时、需自行判断是否采信。
+
+English:
+Every store card in the recommendation list is checked for price freshness: the system takes the oldest observed price date among the basket lines at that store and computes its age in days, X. When X exceeds the 7-day freshness threshold, the card shows an amber warning tag below the price block reading "Prices updated [X] days ago" (with X substituted), so the shopper can judge whether to trust that store's total.
+
+------------------------------------------------------------
+2. 中文
+
+边界口径：恰好 7 天不显示警告，从第 8 天起才显示；天数为该店篮内"最旧"一条商品价格的年龄，而非平均或最新。未发送篮子、或该店没有任何篮内商品价格记录时，不计算天数、不显示标签。缺货店（缺任一篮内价格）按其已有价格照常计算天数，标签同样可能出现。
+
+English:
+Boundary rules: exactly 7 days old shows no warning; the tag appears from day 8 onwards. The age comes from the store's oldest priced basket line, not an average or the newest one. When no basket was sent, or the store has no price for any basket line, no age is computed and no tag appears. Stores missing some basket prices still report the age of the prices they do have, so the tag can appear on greyed-out cards too.
+
+------------------------------------------------------------
+3. 中文
+
+改动点：后端 smartcart/pricing.py 新增鲜度阈值常量（7 天），聚合查询增取价格观察日期并逐店计算最旧价格的天数；models.py 响应新增 priceObservedDaysAgo 字段（只增不改，既有字段语义不动）；recommendation.py 负责接线。前端 lib/contracts.ts 同步该字段；新建 lib/price-freshness.ts（阈值常量与超期判定）；components/smartcart-app.tsx 店卡新增警告标签。数据库未做改动。
+
+English:
+Changes: on the backend, smartcart/pricing.py adds the freshness threshold constant (7 days), the aggregation query additionally reads the price observed date, and each store's oldest basket-line price age is computed; the response model gains the priceObservedDaysAgo field (additive only, existing fields unchanged); recommendation.py wires it through. On the frontend, lib/contracts.ts mirrors the field; a new lib/price-freshness.ts holds the threshold constant and the staleness check; the store card in components/smartcart-app.tsx gains the warning tag. The database is unchanged.
+
+------------------------------------------------------------
+4. 中文
+
+测试与验证：后端 pytest 覆盖最旧行驱动天数、恰好 7 天不告警与第 8 天告警的边界、缺货店仍报告价格年龄、无价格时为空，全部通过；前端 vitest 覆盖阈值常量与判定边界（7 天 false、8 天 true、空值 false）；ESLint 与生产构建均通过。手动核对方式：以沙丁鱼罐头 + 鸡蛋组篮，起点选 Kota Bharu、Car + 15 km 比较，可见价格较新的店（如 TESCO，6 天）无标签，而价格过旧的店（如 PANTAI TIMOR MART BEREK 12，83 天）显示 "Prices updated 83 days ago"。
+
+English:
+Testing and verification: backend pytest covers the oldest line driving the age, the boundary where exactly 7 days shows no warning and day 8 does, incomplete stores still reporting a price age, and a null age when nothing is priced — all passing; frontend vitest covers the threshold constant and the decision boundaries (7 days false, 8 days true, null false); ESLint and the production build pass. To verify manually: compare a basket of canned sardines and eggs starting from Kota Bharu with Car + 15 km, and check that stores with recent prices (e.g. TESCO, 6 days) show no tag while stores with old prices (e.g. PANTAI TIMOR MART BEREK 12, 83 days) show "Prices updated 83 days ago".

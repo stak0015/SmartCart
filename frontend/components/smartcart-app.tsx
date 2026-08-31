@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
@@ -14,9 +14,16 @@ import type {
   RecommendationResponse,
   SaraFilter,
   SelectedLocation,
+  StoreRecommendation,
   TransportMode,
   TravelLimitType,
 } from "@/lib/contracts";
+import { toBasketLineRequests } from "@/lib/basket-lines";
+import { coverageLabel, isCompleteBasket } from "@/lib/basket-coverage";
+import { overviewTotalRm, sumPricedLineTotals } from "@/lib/overview-totals";
+import { formatRm } from "@/lib/format-rm";
+import { isPriceStale } from "@/lib/price-freshness";
+import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -1124,6 +1131,410 @@ function LocationScreen({
   );
 }
 
+// AC 2.3.3/2.3.5/2.3.9: one reachable-store card — priced-basket amounts,
+// travel estimates, SARA status and the expandable per-line price detail.
+function StoreCard({
+  store,
+  isRecommended,
+  pricesExpanded,
+  onTogglePrices,
+  onSelectStore,
+  copy,
+}: {
+  store: StoreRecommendation;
+  isRecommended: boolean;
+  pricesExpanded: boolean;
+  onTogglePrices: () => void;
+  onSelectStore: () => void;
+  copy: AppCopy;
+}) {
+  return (
+    <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]") + (store.missingItems.length > 0 ? " opacity-70" : "")}>
+      {isRecommended && (
+        <div className="bg-[#087f5b] px-3 py-2 text-center">
+          <span className="text-[13px] font-extrabold leading-5 text-white">{copy.recommendedStore}</span>
+        </div>
+      )}
+      <div className="flex flex-col gap-4 px-4 pb-5 pt-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
+            <div className="mt-0.5 flex items-center gap-1">
+              <IcoPriceCatcher />
+              <span className="text-[13px] font-medium text-[#53635c]">{copy.priceCatcherPremise} {store.premiseCode}</span>
+            </div>
+            {(store.address || store.district || store.state) && (
+              <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
+            )}
+          </div>
+        </div>
+
+        {/* AC 2.3.1/2.3.3: every card shows the priced-basket
+            subtotal; an incomplete basket is labelled, shows its
+            coverage, and its amount is always "Partial total" —
+            never presented as the full basket cost */}
+        {store.missingItems.length > 0 ? (
+          <div className="rounded-xl bg-[#f3f4f5] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[13px] font-semibold text-[#5f6368]">{copy.incompleteBasket}</p>
+              {store.pricedCount != null && store.basketLineCount != null && (
+                <p className="text-xs font-medium text-[#5f6368]">{copy.priceCoverage(store.pricedCount, store.basketLineCount)}</p>
+              )}
+            </div>
+            {store.basketSubtotalRm != null && (
+              <div className="mt-2">
+                <p className="text-xs text-[#5f6368]">Partial total</p>
+                <p className="mt-0.5 text-xl font-extrabold text-[#3f4944]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+                {/* AC 2.3.7/2.3.8: the credit/cash lines split the
+                    displayed partial total and are always present */}
+                <div className="mt-2 flex flex-col gap-0.5 border-t border-[#d8ddd9] pt-2">
+                  <p className="text-[13px] font-semibold text-[#3f4944]">SARA Credit: {formatRm(store.saraCreditRm ?? 0)}</p>
+                  <p className="text-[13px] font-semibold text-[#3f4944]">Cash Needed: {formatRm(store.cashNeededRm ?? store.basketSubtotalRm)}</p>
+                  <p className="text-[11px] text-[#5f7a6d]">estimated by category — verify SARA labels in store</p>
+                </div>
+              </div>
+            )}
+            <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">
+              No price at this store for: {store.missingItems.join(", ")}
+            </p>
+          </div>
+        ) : store.basketSubtotalRm != null ? (
+          <div className="rounded-xl bg-[#e7f7f0] p-3">
+            <div className="flex items-center justify-between gap-2">
+              {/* AC 2.3.5: the card shows the basket subtotal and the
+                  priced-item coverage */}
+              <p className="text-xs text-[#286d67]">Basket subtotal</p>
+              {store.pricedCount != null && store.basketLineCount != null && (
+                <p className="text-xs font-medium text-[#286d67]">{copy.priceCoverage(store.pricedCount, store.basketLineCount)}</p>
+              )}
+            </div>
+            <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+            {/* AC 2.3.7/2.3.8: the SARA Credit line is always
+                present, even when it is RM0; credit + cash
+                equals the displayed subtotal */}
+            <div className="mt-2 flex flex-col gap-0.5 border-t border-[#bfe3d3] pt-2">
+              <p className="text-[13px] font-semibold text-[#175f4b]">SARA Credit: {formatRm(store.saraCreditRm ?? 0)}</p>
+              <p className="text-[13px] font-semibold text-[#17362c]">Cash Needed: {formatRm(store.cashNeededRm ?? store.basketSubtotalRm)}</p>
+              <p className="text-[11px] text-[#5f7a6d]">estimated by category — verify SARA labels in store</p>
+            </div>
+            {/* AC 2.3.4/2.3.5: combined ranking total = basket subtotal +
+                estimated return transport cost */}
+            {store.combinedTotalRm != null && (
+              <div className="mt-2 flex items-center justify-between gap-2 border-t border-[#bfe3d3] pt-2">
+                <p className="text-[13px] font-semibold text-[#175f4b]">Combined total (incl. return travel)</p>
+                <p className="text-[15px] font-extrabold text-[#175f4b]">RM{store.combinedTotalRm.toFixed(2)}</p>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* AC 2.3.5: warn when the store's oldest basket-line
+            price is past the freshness threshold */}
+        {isPriceStale(store.priceObservedDaysAgo) && (
+          <p className="self-start rounded-md border border-[#ead89d] bg-[#fff9e8] px-2 py-1 text-xs font-semibold text-[#6d5700]">
+            Prices updated {store.priceObservedDaysAgo} days ago
+          </p>
+        )}
+
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl bg-[#f3faf7] p-3">
+            <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
+            <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
+          </div>
+          <div className="rounded-xl bg-[#f7f8f6] p-3">
+            <p className="text-xs text-[#617069]">{copy.oneWay}</p>
+            <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
+          </div>
+          <div className="rounded-xl bg-[#f7f8f6] p-3">
+            <p className="text-xs text-[#617069]">{copy.route}</p>
+            <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+          </div>
+        </div>
+
+        {store.saraStatus === "verified" ? (
+          <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>
+        ) : store.saraStatus === "candidate" ? (
+          <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>
+        ) : (
+          <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>
+        )}
+
+        {/* AC 2.3.9: per-line prices behind "View item prices"; lines without
+            a valid price stay visible and are never shown as RM0.00 */}
+        {store.basketLines.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={onTogglePrices}
+              aria-expanded={pricesExpanded}
+              className="min-h-11 rounded-xl border border-[#cbd8d1] bg-white text-sm font-bold text-[#087f5b]"
+            >
+              {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
+            </button>
+            {pricesExpanded && (
+              <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
+                {store.basketLines.map(line => (
+                  <li key={line.itemId} className="border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
+                    <p className="text-[13px] font-semibold text-[#17362c]">
+                      {line.itemName ?? "Catalogue item"}{line.unit ? " (" + line.unit + ")" : ""}
+                    </p>
+                    {line.unitPriceRm != null && line.lineTotalRm != null ? (
+                      <>
+                        <p className="mt-0.5 text-[13px] text-[#53635c]">
+                          {line.quantity} × RM{line.unitPriceRm.toFixed(2)} = RM{line.lineTotalRm.toFixed(2)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#718078]">
+                          PriceCatcher observed: {line.observedDate ?? "date unavailable"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-0.5 text-[13px] font-medium text-[#5f6368]">{copy.noStorePrice}</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {/* AC 2.4.1: primary "Select store" action — native button keeps
+            keyboard and screen-reader access; always visible on every card */}
+        <button
+          type="button"
+          onClick={onSelectStore}
+          aria-label={"Select store " + store.name}
+          className="min-h-11 w-full rounded-xl bg-[#087f5b] px-5 text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
+        >
+          Select store
+        </button>
+      </div>
+    </article>
+  );
+}
+
+// AC 2.4.1: Recommendation overview for the selected premise. Step 2 renders
+// a skeleton (back action + heading); steps 3–5 fill in the store identity,
+// cost breakdown and item-level prices. Those props are declared now so
+// CompareScreen can already carry basket and travel preferences over.
+function RecommendationOverview({
+  store,
+  preferences,
+  copy,
+  rankingMethod,
+  costAssumptions,
+  routeWarning,
+  onBack,
+}: {
+  store: StoreRecommendation;
+  basket: BasketItem[];
+  preferences: TravelPreferences;
+  copy: AppCopy;
+  rankingMethod: string;
+  costAssumptions: Record<TransportMode, string> | undefined;
+  routeWarning: string | null;
+  onBack: () => void;
+}) {
+  // AC 2.4.2: labels for the selected travel preferences, written the same
+  // way as on the compare screen so both pages describe them identically.
+  const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
+  const limitLabel = preferences.limitType === "distance"
+    ? preferences.limitValue + " km"
+    : preferences.limitValue + " minutes";
+  // AC 2.4.2: combined total = priced basket subtotal + estimated return
+  // transport. The API only sends combinedTotalRm for complete baskets, so
+  // for incomplete ones it is recomputed from the partial subtotal
+  // (missing prices stay excluded).
+  const combinedTotal = store.combinedTotalRm ?? ((store.basketSubtotalRm ?? 0) + store.estimatedRoundTripCostRm);
+  const hasIncompleteBasket = store.missingItems.length > 0;
+
+  return (
+    <div className="screen-enter pb-8">
+      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
+        <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 self-start text-[14px] font-bold text-[#087f5b]">
+          <IcoArrowBack /> Back to recommendations
+        </button>
+        <p className="text-sm font-bold text-[#087f5b]">Recommendation overview</p>
+        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
+          Recommended store: {store.name}
+        </h1>
+
+        {/* AC 2.4.2: selected store identity - name, PriceCatcher premise
+            code, address when available, and the same three-state SARA
+            badge used on the store cards */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
+              <div className="mt-0.5 flex items-center gap-1">
+                <IcoPriceCatcher />
+                <span className="text-[13px] font-medium text-[#53635c]">PriceCatcher premise {store.premiseCode}</span>
+              </div>
+              {(store.address || store.district || store.state) && (
+                <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
+              )}
+            </div>
+          </div>
+
+          {store.saraStatus === "verified" ? (
+            <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">Verified SARA partner</span>
+          ) : store.saraStatus === "candidate" ? (
+            <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">SARA match candidate - requires verification</span>
+          ) : (
+            <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">SARA status not verified</span>
+          )}
+        </section>
+
+        {/* AC 2.4.2: cost + travel summary for the selected premise */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Basket and travel costs</h2>
+
+          {hasIncompleteBasket ? (
+            <div className="rounded-xl bg-[#f3f4f5] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[13px] font-semibold text-[#5f6368]">Incomplete basket</p>
+                {store.pricedCount != null && store.basketLineCount != null && (
+                  <p className="text-xs font-medium text-[#5f6368]">{coverageLabel(store.pricedCount, store.basketLineCount)}</p>
+                )}
+              </div>
+              {store.basketSubtotalRm != null && (
+                <div className="mt-2">
+                  <p className="text-xs text-[#5f6368]">Partial total</p>
+                  <p className="mt-0.5 text-xl font-extrabold text-[#3f4944]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+                </div>
+              )}
+              <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">
+                Missing item prices are excluded from the displayed subtotal and the combined total. No price at this store for: {store.missingItems.join(", ")}
+              </p>
+            </div>
+          ) : store.basketSubtotalRm != null ? (
+            <div className="rounded-xl bg-[#e7f7f0] p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs text-[#286d67]">Basket subtotal</p>
+                {store.pricedCount != null && store.basketLineCount != null && (
+                  <p className="text-xs font-medium text-[#286d67]">{coverageLabel(store.pricedCount, store.basketLineCount)}</p>
+                )}
+              </div>
+              <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">RM{store.basketSubtotalRm.toFixed(2)}</p>
+            </div>
+          ) : (
+            <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
+              No priced basket lines at this store, so no subtotal is available.
+            </p>
+          )}
+
+          {store.basketSubtotalRm != null && (
+            <div className="flex items-center justify-between gap-2 rounded-xl bg-[#087f5b] px-3 py-3">
+              <div>
+                <p className="text-[13px] font-semibold text-white">Basket + transport total</p>
+                {hasIncompleteBasket && (
+                  <p className="text-[11px] text-[#d3f0e4]">Priced items only - missing prices excluded</p>
+                )}
+              </div>
+              <p className="text-[18px] font-extrabold text-white">RM{combinedTotal.toFixed(2)}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-[#f3faf7] p-3">
+              <p className="text-xs text-[#617069]">Return travel</p>
+              <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
+            </div>
+            <div className="rounded-xl bg-[#f7f8f6] p-3">
+              <p className="text-xs text-[#617069]">One way</p>
+              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
+            </div>
+            <div className="rounded-xl bg-[#f7f8f6] p-3">
+              <p className="text-xs text-[#617069]">Route</p>
+              <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <span className="inline-flex rounded-sm bg-[#edf3ef] px-2 py-1 text-xs font-semibold text-[#17362c]">Transport: {modeLabel}</span>
+            <span className="inline-flex rounded-sm bg-[#edf3ef] px-2 py-1 text-xs font-semibold text-[#17362c]">Travel limit: {limitLabel}</span>
+          </div>
+        </section>
+
+        {/* AC 2.4.3: item-level prices for every basket line at the
+            selected premise; unpriced lines stay visible and are never
+            shown as RM0.00 */}
+        <section className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+          <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">Item prices</h2>
+
+          {store.basketLines.length > 0 ? (
+            <>
+              <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
+                {store.basketLines.map(line => (
+                  <li key={line.itemId} className="border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
+                    <p className="text-[13px] font-semibold text-[#17362c]">
+                      {line.itemName ?? "Catalogue item"}{line.unit ? " (" + line.unit + ")" : ""}
+                    </p>
+                    {line.unitPriceRm != null && line.lineTotalRm != null ? (
+                      <>
+                        <p className="mt-0.5 text-[13px] text-[#53635c]">
+                          {line.quantity} × RM{line.unitPriceRm.toFixed(2)} = RM{line.lineTotalRm.toFixed(2)}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[#718078]">
+                          PriceCatcher observed: {line.observedDate ?? "date unavailable"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-0.5 text-[13px] font-medium text-[#5f6368]">
+                        No price available at this store - excluded from the subtotal.
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+
+              {/* AC 2.4.3: displayed line totals must reconcile with the
+                  priced subtotal, and the overview total must equal the
+                  subtotal plus the estimated return travel cost */}
+              <div className="flex flex-col gap-1 rounded-xl bg-[#f2f6f3] p-3 text-[13px]">
+                <p className="flex justify-between text-[#3f4944]">
+                  <span>Sum of item line totals</span>
+                  <span className="font-bold">RM{sumPricedLineTotals(store.basketLines).toFixed(2)}</span>
+                </p>
+                <p className="flex justify-between text-[#3f4944]">
+                  <span>Priced basket subtotal</span>
+                  <span className="font-bold">RM{(store.basketSubtotalRm ?? 0).toFixed(2)}</span>
+                </p>
+                <p className="flex justify-between border-t border-[#d8ddd9] pt-1 text-[#17362c]">
+                  <span>Overview total (subtotal + return travel)</span>
+                  <span className="font-extrabold">RM{overviewTotalRm(store.basketSubtotalRm, store.estimatedRoundTripCostRm).toFixed(2)}</span>
+                </p>
+              </div>
+            </>
+          ) : (
+            <p className="rounded-xl bg-[#f3f4f5] p-3 text-[13px] leading-5 text-[#5f6368]">
+              No basket lines to price at this store.
+            </p>
+          )}
+        </section>
+
+        {/* AC 2.4.2: calculation and route notes - route values are
+            estimates and the ranking is subtotal + return transport; no
+            affordability or verified-stock claims */}
+        <section className="flex flex-col gap-2 rounded-2xl border border-[#dce5e0] bg-white p-4 text-sm">
+          <h2 className="text-[16px] font-extrabold leading-6 text-[#17362c]">How this recommendation is calculated</h2>
+          {rankingMethod && <p className="leading-5 text-[#53635c]">{rankingMethod}</p>}
+          {costAssumptions && (
+            <p className="leading-5 text-[#53635c]">{costAssumptions[preferences.transportMode]}</p>
+          )}
+          <p className="leading-5 text-[#53635c]">
+            Route distance and travel time are estimates. The ranking combines the priced basket subtotal with the estimated return transport cost. SmartCart does not verify affordability or in-store stock.
+          </p>
+          {routeWarning && (
+            <p className="leading-5 text-[#6d5700]">{routeWarning}</p>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function CompareScreen({
   basket,
   preferences,
@@ -1138,9 +1549,20 @@ function CompareScreen({
   const [result, setResult] = useState<RecommendationResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [showAll, setShowAll] = useState(false);
-  const [expandedPricing, setExpandedPricing] = useState<Set<string>>(new Set());
-  const [activeBasketTab, setActiveBasketTab] = useState<"complete" | "incomplete">("complete");
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
+  // AC 2.3.2: which completeness tab is active; AC 2.3.9: which card's
+  // per-line prices are expanded.
+  const [activeTab, setActiveTab] = useState<"complete" | "incomplete">("complete");
+  const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
+  // AC 2.4.1: snapshot of the store selected for the overview. The whole
+  // store object (not just the premise id) is kept so the overview can
+  // never silently switch to another premise when the list refreshes.
+  const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
+  // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
+  // filtered out. Empty after filtering -> request without a basket, keeping
+  // transport-first ranking.
+  const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
+  const hasBasket = basketLines.length > 0;
 
   useEffect(() => {
     if (!preferences.origin) {
@@ -1152,14 +1574,13 @@ function CompareScreen({
     const controller = new AbortController();
     setLoading(true);
     setError("");
+    // AC 2.3.2: a fresh recommendation list starts again at the first five.
+    setVisibleCount(VISIBLE_STEP);
+    setActiveTab("complete");
+    setExpandedStoreId(null);
 
     getRecommendations({
-      // UI basket IDs are prefixed with "db-" to avoid collisions with the
-      // legacy demo IDs; the backend contract expects the numeric DB ID.
-      basket: basket.map(item => ({
-        itemId: item.id.startsWith("db-") ? item.id.slice(3) : item.id,
-        quantity: item.qty,
-      })),
+      ...(hasBasket ? { basket: basketLines } : {}),
       travel: {
         origin: preferences.origin,
         transportMode: preferences.transportMode,
@@ -1169,8 +1590,10 @@ function CompareScreen({
     }, controller.signal)
       .then(response => {
         setResult(response);
-        setActiveBasketTab("complete");
-        setShowAll(false);
+        setActiveTab("complete");
+        setVisibleCount(VISIBLE_STEP);
+        setExpandedStoreId(null);
+        setSelectedStore(null);
       })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -1181,14 +1604,21 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [basket, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [basketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, hasBasket, preferences]);
 
   const recommendations = result?.recommendations ?? [];
-  const completeStores = recommendations.filter(store => store.isCompleteBasket);
-  const incompleteStores = recommendations.filter(store => !store.isCompleteBasket);
-  const activeStores = activeBasketTab === "complete" ? completeStores : incompleteStores;
-  const visibleStores = showAll ? activeStores : activeStores.slice(0, 5);
+  // AC 2.3.2/2.3.3: with a priced basket the list splits into Complete and
+  // Incomplete basket tabs (complete baskets first, as ranked by the API);
+  // without a basket there is nothing to price, so the flat transport-first
+  // list is kept and the tabs are hidden.
+  const completeStores = hasBasket ? recommendations.filter(isCompleteBasket) : recommendations;
+  const incompleteStores = hasBasket ? recommendations.filter(store => !isCompleteBasket(store)) : [];
+  // AC 2.3.5: the recommended store is the first complete basket.
   const recommendedStore = completeStores[0];
+  const visibleStores = activeTab === "complete" ? completeStores.slice(0, visibleCount) : incompleteStores;
+  // AC 2.3.2: the summary counts basket units (matching the header badge),
+  // not line rows.
+  const basketItemCount = basketLines.reduce((count, line) => count + line.quantity, 0);
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.source === "device"
     ? copy.currentLocation
@@ -1196,6 +1626,25 @@ function CompareScreen({
   const limitLabel = preferences.limitType === "distance"
     ? preferences.limitValue + " km"
     : preferences.limitValue + " " + copy.minutes;
+
+  // AC 2.4.1: once a store is selected the overview replaces the list. It
+  // renders the saved snapshot, so a background refresh of the list can
+  // never swap the premise, basket or travel preferences underneath it;
+  // going back simply clears the snapshot and the list reappears as-is.
+  if (selectedStore) {
+    return (
+      <RecommendationOverview
+        store={selectedStore}
+        basket={basket}
+        preferences={preferences}
+        copy={copy}
+        rankingMethod={result?.rankingMethod ?? ""}
+        costAssumptions={result?.costAssumptions}
+        routeWarning={result?.routeWarning ?? null}
+        onBack={() => setSelectedStore(null)}
+      />
+    );
+  }
 
   return (
     <div className="screen-enter pb-8">
@@ -1209,6 +1658,11 @@ function CompareScreen({
           <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
             {copy.recommendationTitle}
           </h1>
+          {hasBasket && (
+            <p className="text-[15px] font-semibold leading-6 text-[#17362c]">
+              Basket: {basketItemCount} {basketItemCount === 1 ? "item" : "items"}
+            </p>
+          )}
           <p className="text-[15px] leading-6 text-[#53635c]">
             {copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
@@ -1233,13 +1687,15 @@ function CompareScreen({
           </div>
         )}
 
-        {!loading && !error && activeBasketTab === "complete" && recommendedStore && (
+        {!loading && !error && activeTab === "complete" && recommendedStore && (
           <div className="flex gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4 sm:gap-4 sm:p-5">
             <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><IcoSavings /></div>
             <div className="flex flex-col gap-1">
               <p className="text-[20px] font-extrabold leading-7 text-[#175f4b]">{recommendedStore.name}</p>
               <p className="text-[14px] leading-5 text-[#286d67]">
-                {copy.bestMatch}
+                {hasBasket
+                  ? copy.bestMatch
+                  : "Best match by estimated return transport cost, then travel time and route distance."}
               </p>
             </div>
           </div>
@@ -1259,181 +1715,59 @@ function CompareScreen({
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.reachablePremises}</h2>
                 <p className="mt-1 text-sm text-[#617069]">{copy.reachableSummary(result.totalReachable, result.totalCandidatesEvaluated)}</p>
               </div>
-              <span className="text-right text-xs font-medium text-[#718078]">{copy.lowerTravelFirst}</span>
+              <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</span>
             </div>
 
-            {recommendations.length > 0 && (
-              <div>
-                <div role="tablist" aria-label={copy.reachablePremises} className="grid grid-cols-2 rounded-xl bg-[#e8efeb] p-1">
-                  {(["complete", "incomplete"] as const).map(tab => {
-                    const active = activeBasketTab === tab;
-                    const count = tab === "complete" ? completeStores.length : incompleteStores.length;
-                    return (
-                      <button
-                        key={tab}
-                        type="button"
-                        role="tab"
-                        aria-selected={active}
-                        onClick={() => {
-                          setActiveBasketTab(tab);
-                          setShowAll(false);
-                        }}
-                        className={"min-h-12 rounded-lg px-2 text-sm font-bold " + (active ? "bg-white text-[#087f5b] shadow-sm" : "text-[#53635c]")}
-                      >
-                        {tab === "complete" ? copy.completeBasketsTab : copy.incompleteBasketsTab} ({count})
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-sm leading-5 text-[#617069]">
-                  {activeBasketTab === "complete" ? copy.completeBasketsDescription : copy.incompleteBasketsDescription}
-                </p>
+            {/* AC 2.3.2/2.3.3: with a priced basket the shopper switches
+                between the Complete and Incomplete basket tabs */}
+            {hasBasket && (
+              <div className="grid grid-cols-2 gap-2" role="tablist" aria-label={`${copy.completeBasketsTab} / ${copy.incompleteBasketsTab}`}>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "complete"}
+                  onClick={() => setActiveTab("complete")}
+                  className={"min-h-11 rounded-xl border text-sm font-bold " + (activeTab === "complete" ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#cbd8d1] bg-white text-[#087f5b]")}
+                >
+                  {copy.completeBasketsTab} ({completeStores.length})
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === "incomplete"}
+                  onClick={() => setActiveTab("incomplete")}
+                  className={"min-h-11 rounded-xl border text-sm font-bold " + (activeTab === "incomplete" ? "border-[#5f6368] bg-[#5f6368] text-white" : "border-[#cbd8d1] bg-white text-[#5f6368]")}
+                >
+                  {copy.incompleteBasketsTab} ({incompleteStores.length})
+                </button>
               </div>
             )}
 
-            <div role="tabpanel" className="flex flex-col gap-3">
-              {visibleStores.map((store, index) => (
-                <article key={store.premiseId} className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (activeBasketTab === "complete" && index === 0 ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
-                  {activeBasketTab === "complete" && index === 0 && (
-                    <div className="bg-[#087f5b] px-3 py-2 text-center">
-                      <span className="text-[13px] font-extrabold leading-5 text-white">{copy.recommendedStore}</span>
-                    </div>
-                  )}
-                  <div className="flex flex-col gap-4 px-4 pb-5 pt-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
-                        <div className="mt-0.5 flex items-center gap-1">
-                          <IcoPriceCatcher />
-                          <span className="text-[13px] font-medium text-[#53635c]">{copy.priceCatcherPremise} {store.premiseCode}</span>
-                        </div>
-                        {(store.address || store.district || store.state) && (
-                          <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl border border-[#b9e0d1] bg-[#f3faf7] p-3">
-                      <div className="flex items-end justify-between gap-3">
-                        <div>
-                          <p className="text-xs font-semibold text-[#286d67]">{store.isCompleteBasket ? copy.estimatedTotal : copy.partialEstimatedTotal}</p>
-                          <p className="mt-1 text-2xl font-extrabold text-[#087f5b]">RM{store.estimatedTotalCostRm.toFixed(2)}</p>
-                        </div>
-                        <div className="text-right">
-                          {!store.isCompleteBasket && <p className="font-bold text-[#8a5f00]">{copy.incompleteBasket}</p>}
-                          <p className="text-xs text-[#53635c]">{copy.priceCoverage(store.pricedItemCount, store.basketItemCount)}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                      <div className="rounded-xl bg-[#f3faf7] p-3">
-                        <p className="text-xs text-[#617069]">{copy.basketSubtotal}</p>
-                        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.basketCostRm.toFixed(2)}</p>
-                      </div>
-                      <div className="rounded-xl bg-[#f3faf7] p-3">
-                        <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
-                        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">RM{store.estimatedRoundTripCostRm.toFixed(2)}</p>
-                      </div>
-                      <div className="rounded-xl bg-[#f7f8f6] p-3">
-                        <p className="text-xs text-[#617069]">{copy.oneWay}</p>
-                        <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} min</p>
-                      </div>
-                      <div className="rounded-xl bg-[#f7f8f6] p-3">
-                        <p className="text-xs text-[#617069]">{copy.route}</p>
-                        <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      aria-expanded={expandedPricing.has(store.premiseId)}
-                      aria-controls={`pricing-${store.premiseId}`}
-                      onClick={() => setExpandedPricing(current => {
-                        const next = new Set(current);
-                        if (next.has(store.premiseId)) next.delete(store.premiseId);
-                        else next.add(store.premiseId);
-                        return next;
-                      })}
-                      className="min-h-11 w-full rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b]"
-                    >
-                      {expandedPricing.has(store.premiseId) ? copy.hidePriceList : copy.viewPriceList}
-                    </button>
-
-                    {expandedPricing.has(store.premiseId) && (
-                      <div id={`pricing-${store.premiseId}`} className="rounded-xl border border-[#dce5e0] bg-[#fafbf9] p-3">
-                        <h3 className="font-bold text-[#17362c]">{copy.priceListTitle}</h3>
-                        {store.pricedItemCount < store.basketItemCount && (
-                          <p className="mt-1 text-xs leading-5 text-[#6d5700]">{copy.ignoredPriceNote}</p>
-                        )}
-                        <div className="mt-3 divide-y divide-[#dce5e0]">
-                          {store.basketPrices.map(line => (
-                            <div key={line.itemId} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 py-3 first:pt-0 last:pb-0">
-                              <div className="min-w-0">
-                                <p className="text-sm font-bold leading-5 text-[#17362c]">{line.itemName}</p>
-                                <p className="mt-0.5 text-xs text-[#617069]">
-                                  {[line.packageSize, `${copy.quantityShort}: ${line.quantity}`].filter(Boolean).join(" · ")}
-                                </p>
-                                {line.priceObservedDate && line.unitPriceRm !== null && (
-                                  <p className="mt-1 text-[11px] text-[#718078]">{copy.priceObserved(line.priceObservedDate)}</p>
-                                )}
-                              </div>
-                              {line.unitPriceRm !== null && line.lineTotalRm !== null ? (
-                                <div className="text-right">
-                                  <p className="text-sm font-extrabold text-[#087f5b]">RM{line.lineTotalRm.toFixed(2)}</p>
-                                  <p className="mt-0.5 text-[11px] text-[#617069]">RM{line.unitPriceRm.toFixed(2)} × {line.quantity}</p>
-                                </div>
-                              ) : (
-                                <p className="max-w-28 text-right text-xs font-semibold leading-4 text-[#8a5f00]">{copy.noStorePrice}</p>
-                              )}
-                            </div>
-                          ))}
-                          {store.basketPrices.length === 0 && (
-                            <p className="py-2 text-sm text-[#617069]">{copy.noStorePrice}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {store.saraStatus === "verified" ? (
-                      <span className="inline-flex self-start rounded-sm bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>
-                    ) : store.saraStatus === "candidate" ? (
-                      <span className="inline-flex self-start rounded-sm bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>
-                    ) : (
-                      <span className="inline-flex self-start rounded-sm bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>
-                    )}
-                  </div>
-                </article>
+            <div className="flex flex-col gap-3">
+              {visibleStores.map(store => (
+                <StoreCard
+                  key={store.premiseId}
+                  store={store}
+                  isRecommended={activeTab === "complete" && recommendedStore?.premiseId === store.premiseId}
+                  pricesExpanded={expandedStoreId === store.premiseId}
+                  onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
+                  onSelectStore={() => setSelectedStore(store)}
+                  copy={copy}
+                />
               ))}
 
-              {activeStores.length > 5 && (
-                <button type="button" onClick={() => setShowAll(value => !value)} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
-                  {showAll ? copy.showFirstFive : copy.seeMore(activeStores.length - 5)}
+              {/* AC 2.3.2: See More pages the Complete baskets tab only; the
+                  Incomplete tab lists every incomplete basket at once */}
+              {activeTab === "complete" && hasMoreStores(visibleCount, completeStores.length) && (
+                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, completeStores.length))} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
+                  See More (+5)
                 </button>
               )}
 
-              {activeBasketTab === "complete" && completeStores.length === 0 && incompleteStores.length > 0 && (
-                <div className="rounded-2xl border border-[#ead89d] bg-[#fff9e8] p-5 text-center">
-                  <p className="font-bold text-[#5f4b00]">{copy.noCompleteBaskets}</p>
-                  <p className="mt-1 text-sm leading-5 text-[#6d5700]">{copy.noCompleteBasketsHint}</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveBasketTab("incomplete");
-                      setShowAll(false);
-                    }}
-                    className="mt-4 min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white"
-                  >
-                    {copy.viewIncompleteBaskets(incompleteStores.length)}
-                  </button>
-                </div>
-              )}
-
-              {activeBasketTab === "incomplete" && incompleteStores.length === 0 && recommendations.length > 0 && (
-                <div className="rounded-2xl border border-[#b9e0d1] bg-[#f3faf7] p-5 text-center font-semibold text-[#175f4b]">
-                  {copy.noIncompleteBaskets}
-                </div>
+              {recommendations.length > 0 && visibleStores.length === 0 && (
+                <p className="rounded-xl border border-[#e2e9e5] bg-white p-4 text-center text-sm text-[#617069]">
+                  {activeTab === "complete" ? copy.noCompleteBaskets : copy.noIncompleteBaskets}
+                </p>
               )}
 
               {recommendations.length === 0 && (

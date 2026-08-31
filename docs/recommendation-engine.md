@@ -111,9 +111,11 @@ not verified, never as false or ineligible.
 
 ## Privacy, security, and provider terms
 
-- `GOOGLE_MAPS_API_KEY` is server-only and must never use a `NEXT_PUBLIC_`
-  prefix. Restrict it to Places API (New) and Routes API, and restrict its use
-  to the deployed backend where the hosting platform allows it.
+- The Google API keys (`GOOGLE_PLACES_API_KEY` and `GOOGLE_ROUTES_API_KEY`,
+  or the legacy single `GOOGLE_MAPS_API_KEY` fallback) are server-only and must
+  never use a `NEXT_PUBLIC_` prefix. Restrict each key to its own API (Places
+  API (New) or Routes API), and restrict its use to the deployed backend where
+  the hosting platform allows it.
 - The selected origin is sent to Google for search or route calculation, but
   SmartCart does not persist it in PostgreSQL or local storage and does not log
   request bodies.

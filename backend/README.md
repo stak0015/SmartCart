@@ -14,7 +14,9 @@ python -m pip install -r requirements-dev.txt
 Copy-Item .env.example .env
 ```
 
-Set `DATABASE_URL` and the server-only `GOOGLE_MAPS_API_KEY` in `.env`, then
+Set `DATABASE_URL` and the server-only keys `GOOGLE_PLACES_API_KEY` and
+`GOOGLE_ROUTES_API_KEY` in `.env` (a single `GOOGLE_MAPS_API_KEY` works as a
+fallback for both), then
 start the API:
 
 ```powershell

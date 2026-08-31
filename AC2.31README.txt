@@ -1,0 +1,59 @@
+AC 2.3.1 Build Notes / 构建说明
+Store Ranking by Total Basket Price
+按购物篮总价排序可达门店
+
+------------------------------------------------------------
+1. 中文
+
+当购物篮中存在真实商品时，比价结果按购物篮总价排序：所有篮子行均有价的门店按总价从低到高排列，并展示该店的 Total basket price；缺少任一篮子行价格的门店整体列在后面，保持原有可达性顺序，卡片灰显并逐行列出缺少价格的商品名。购物篮为空或仅含演示商品时，排序行为不变，仍按往返交通费用、时间、路线距离排序。
+
+English:
+When the basket contains real catalogue items, comparison results are ranked by total basket price: stores with a price for every basket line sort by lowest total first and display their Total basket price; stores missing a price for any basket line are listed after, keep their original reachability order, and are greyed out with the unpriced item names listed. When the basket is empty or holds only demo items, ranking is unchanged: estimated return transport cost, then travel time, then route distance.
+
+------------------------------------------------------------
+2. 中文
+
+接口契约：请求中的篮子行 itemId 必须是纯数字字符串，quantity 必须是 1 到 99 的整数，非法行直接返回 400 INVALID_REQUEST；未知的 itemId 不会导致报错，而是计入该店的 missingItems 并以 "Unknown item <id>" 命名。响应中每家门店新增 basketTotalRm（缺价时为 null）与 missingItems（无缺价时为空数组）两个字段，无篮子请求时两者分别为 null 与空数组，与旧客户端完全兼容。
+
+English:
+Contract: each basket line in the request must carry a digits-only itemId and a quantity between 1 and 99; an invalid line is rejected with 400 INVALID_REQUEST. An unknown itemId does not fail the request — it is counted in that store's missingItems as "Unknown item <id>". Every store in the response gains two fields: basketTotalRm (null when any line is unpriced) and missingItems (empty when nothing is missing); without a basket they are null and an empty array, staying fully compatible with older clients.
+
+------------------------------------------------------------
+3. 中文
+
+价格计算：每家可达门店对整个购物篮独立计价，不跨店凑单。后端用一条 SQL 按（门店 × 篮子行）取当前价，未命中的行即缺价行；金额全程使用 Decimal 并以 ROUND_HALF_UP 保留两位小数，展示总价始终精确到分。
+
+English:
+Pricing: every reachable store is priced independently for the whole basket — items are never mixed across stores. The backend fetches current prices with one SQL query per (store × basket line); a row without a match is an unpriced line. All money math uses Decimal with ROUND_HALF_UP to two decimal places, so displayed totals always reconcile to the cent.
+
+------------------------------------------------------------
+4. 中文
+
+前端：只把真实商品（id 形如 db-<itemId>）剥去前缀后发给后端，演示商品行会被过滤，不会污染各店总价；过滤后为空则请求不携带篮子字段。比价页在篮子非空时显示 "Lowest total basket price among reachable stores with complete prices." 横幅与 "Lowest basket total first" 标注；完整门店卡片显示绿底总价块，缺价门店卡片降低透明度并显示灰底缺价清单。
+
+English:
+Frontend: only real catalogue items (ids shaped as db-<itemId>) are sent to the backend with the prefix stripped; demo rows are filtered out so they cannot pollute per-store totals, and if nothing remains the request is sent without a basket field. With a non-empty basket the compare screen shows the banner "Lowest total basket price among reachable stores with complete prices." and a "Lowest basket total first" label; complete stores show a green total-price block, while stores with unpriced lines are dimmed and show a grey list of the missing items.
+
+------------------------------------------------------------
+5. 中文
+
+改动点：后端 smartcart/pricing.py 新增篮子计价聚合（SQL 取价与纯函数汇总），smartcart/recommendation.py 新增按总价重排的 apply_basket_pricing，smartcart/models.py 新增 BasketLineRequest 校验与两个响应字段，smartcart/api.py 在篮子非空时接入计价并切换排序说明文案；前端新增 lib/basket-lines.ts 负责过滤与映射篮子行，lib/contracts.ts 补充两个字段，components/smartcart-app.tsx 的比价页渲染总价块、缺价灰显与文案切换。数据库结构未做改动。
+
+English:
+Changes: on the backend, smartcart/pricing.py adds basket price aggregation (SQL fetch plus a pure summariser), smartcart/recommendation.py adds apply_basket_pricing for total-price re-ranking, smartcart/models.py adds BasketLineRequest validation and the two response fields, and smartcart/api.py wires pricing in when the basket is non-empty and switches the ranking-method wording; on the frontend, lib/basket-lines.ts filters and maps basket rows, lib/contracts.ts adds the two fields, and the compare screen in components/smartcart-app.tsx renders the total-price block, the dimmed unpriced cards, and the wording switch. The database schema is unchanged.
+
+------------------------------------------------------------
+6. 中文
+
+配套基建：Google 服务端密钥拆分为 GOOGLE_PLACES_API_KEY 与 GOOGLE_ROUTES_API_KEY 两个变量（分别对应地点与算路服务），旧的 GOOGLE_MAPS_API_KEY 仍可作为两者的兜底；门店坐标同步脚本 sync-premise-locations.mjs 新增 --district= 定向过滤参数，并优先读取 GOOGLE_PLACES_API_KEY。密钥只存放于本地 .env（已被 .gitignore 忽略），不进入版本库。
+
+English:
+Supporting infrastructure: the server-side Google key is split into GOOGLE_PLACES_API_KEY and GOOGLE_ROUTES_API_KEY (one per service), with the legacy GOOGLE_MAPS_API_KEY still accepted as a fallback for both; the premise-location sync script sync-premise-locations.mjs gains a --district= targeting filter and reads GOOGLE_PLACES_API_KEY first. Keys live only in the local .env (covered by .gitignore) and never enter the repository.
+
+------------------------------------------------------------
+7. 中文
+
+测试与验证：后端 pytest 15 项全部通过（含篮子计价聚合、缺价判定、重排顺序与契约校验），前端 vitest 3 项通过，ESLint 与生产构建通过。真实环境验证：同步 Kota Bharu 全部 105 家门店坐标后，以 Kota Bharu 为起点、驾车、15 km 上限、篮子含沙丁鱼罐头 ×2 与 B 级鸡蛋 ×1 实测，返回 25 家可达门店，其中 8 家完整计价并按总价升序（最低 RM33.49），17 家缺价后置且最近门店（0.4 km）正确让位；结果截图存于 docs/evidence/epic2.3screenshot-Zhihao/。手动核对方式：启动本地数据库、后端与前端后，搜索 sardin 与 telur ayam gred b 各加入购物篮，起点搜索 kota bharu 并选 Car 与 15 km，确认首页门店按 Total basket price 升序、缺价门店灰显且列出缺价商品名。
+
+English:
+Testing and verification: the backend pytest suite passes 15 tests (basket aggregation, unpriced-line detection, re-ranking order, and contract validation), frontend vitest passes 3 tests, and ESLint plus the production build pass. Verified against live services: after syncing coordinates for all 105 Kota Bharu premises, a real request from Kota Bharu by car with a 15 km limit and a basket of sardines ×2 and grade B eggs ×1 returned 25 reachable stores — 8 fully priced and sorted by ascending total (lowest RM33.49) and 17 listed after with the nearest store (0.4 km) correctly demoted; result screenshots are stored in docs/evidence/epic2.3screenshot-Zhihao/. To verify manually: with the local database, backend, and frontend running, add sardin and telur ayam gred b to the basket, search kota bharu as the starting point with Car and 15 km, and confirm stores sort by Total basket price with unpriced stores dimmed and naming their missing items.

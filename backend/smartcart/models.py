@@ -65,6 +65,8 @@ class BasketLineRequest(CamelModel):
 
 
 class RecommendationRequest(CamelModel):
+    # An omitted or empty basket keeps transport-first ranking. The bounded
+    # list preserves the E2 request contract and prevents oversized queries.
     basket: list[BasketLineRequest] = Field(default_factory=list, max_length=100)
     travel: TravelPreferences
 
@@ -102,6 +104,19 @@ class BasketItemPrice(CamelModel):
     price_observed_date: date | None
 
 
+class BasketLineDetail(CamelModel):
+    """One basket line's priced detail at a store (AC 2.3.9); price fields
+    are None when the store has no valid price for the line."""
+
+    item_id: str
+    item_name: str | None
+    unit: str | None
+    quantity: int
+    unit_price_rm: float | None
+    line_total_rm: float | None
+    observed_date: str | None
+
+
 class StoreRecommendation(CamelModel):
     premise_id: str
     premise_code: str
@@ -113,13 +128,39 @@ class StoreRecommendation(CamelModel):
     route_distance_km: float
     estimated_travel_minutes: int
     estimated_round_trip_cost_rm: float
-    basket_cost_rm: float
-    estimated_total_cost_rm: float
-    priced_item_count: int
-    basket_item_count: int
-    is_complete_basket: bool
-    basket_prices: list[BasketItemPrice]
     sara_status: SaraStoreStatus
+    # E2 compatibility fields. They mirror the richer pricing fields below so
+    # existing clients keep working while the store-detail menu uses the new
+    # subtotal, SARA split, freshness and line-detail contract.
+    basket_cost_rm: float = 0.0
+    estimated_total_cost_rm: float = 0.0
+    priced_item_count: int = 0
+    basket_item_count: int = 0
+    is_complete_basket: bool = True
+    basket_prices: list[BasketItemPrice] = Field(default_factory=list)
+    # Priced-basket subtotal (AC 2.3.1): sum of the valid positive priced
+    # lines; partial when the store misses prices and then never presented
+    # as the full basket cost (AC 2.3.3). None when no basket was sent or
+    # no basket line is priced; priced_count / basket_line_count give the
+    # coverage ("X of N items priced").
+    basket_subtotal_rm: float | None = None
+    missing_items: list[str] = Field(default_factory=list)
+    priced_count: int | None = None
+    basket_line_count: int | None = None
+    # SARA Credit / Cash Needed split of the displayed subtotal
+    # (AC 2.3.7/2.3.8). Candidate-based estimate (item flag verified first,
+    # then official SARA category list); both are None whenever the subtotal
+    # is unavailable.
+    sara_credit_rm: float | None = None
+    cash_needed_rm: float | None = None
+    # Combined ranking total (AC 2.3.4/2.3.5): priced basket subtotal plus
+    # estimated return transport cost; set for complete baskets only.
+    combined_total_rm: float | None = None
+    # Per-line priced detail behind "View item prices" (AC 2.3.9).
+    basket_lines: list[BasketLineDetail] = Field(default_factory=list)
+    # Age in days of the store's oldest basket-line price (AC 2.3.5); None
+    # when no basket line is priced at that store (or no basket was sent).
+    price_observed_days_ago: int | None = None
 
 
 class RecommendationResponse(CamelModel):

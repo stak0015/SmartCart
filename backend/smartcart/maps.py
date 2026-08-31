@@ -43,14 +43,22 @@ def _parse_duration_seconds(duration: object) -> float | None:
 
 
 class GoogleMapsProvider:
-    def _headers(self, field_mask: str) -> dict[str, str]:
-        api_key = get_settings().google_maps_api_key
+    def _api_key_for(self, service: str) -> str:
+        settings = get_settings()
+        api_key = (
+            settings.google_places_api_key
+            if service == "places"
+            else settings.google_routes_api_key
+        )
         if not api_key:
             raise AppError(
                 "MAPS_NOT_CONFIGURED",
                 "Location and route services have not been configured yet.",
                 503,
             )
+        return api_key
+
+    def _headers(self, field_mask: str, api_key: str) -> dict[str, str]:
         return {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": api_key,
@@ -62,6 +70,7 @@ class GoogleMapsProvider:
         method: str,
         url: str,
         field_mask: str,
+        service: str,
         *,
         json: dict[str, Any] | None = None,
     ) -> Any:
@@ -70,7 +79,7 @@ class GoogleMapsProvider:
             request = Request(
                 url,
                 data=body,
-                headers=self._headers(field_mask),
+                headers=self._headers(field_mask, self._api_key_for(service)),
                 method=method,
             )
             try:
@@ -103,6 +112,7 @@ class GoogleMapsProvider:
                     "suggestions.placePrediction.structuredFormat.secondaryText.text",
                 ]
             ),
+            "places",
             json={
                 "input": input_value,
                 "sessionToken": session_token,
@@ -141,6 +151,7 @@ class GoogleMapsProvider:
             "GET",
             f"{PLACES_BASE_URL}/places/{quote(place_id, safe='')}?{query}",
             "id,formattedAddress,location",
+            "places",
         )
         location = response.get("location") or {} if isinstance(response, dict) else {}
         latitude = location.get("latitude")
@@ -182,6 +193,7 @@ class GoogleMapsProvider:
             "POST",
             ROUTES_MATRIX_URL,
             "originIndex,destinationIndex,status,condition,distanceMeters,duration",
+            "routes",
             json={
                 "origins": [{"waypoint": {"location": {"latLng": origin}}}],
                 "destinations": [
