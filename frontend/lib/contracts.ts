@@ -89,11 +89,26 @@ export interface AlternativePriceItem {
   isSaraCreditCandidate: boolean;
 }
 
+// One pack size of the same product family priced at the selected store
+// (AC 3.2.1); pricePerUnitRm is display-rounded, unitKind is "KG" or "L".
+export interface PackSizeOption {
+  itemId: string;
+  itemName: string | null;
+  packageSize: string | null;
+  totalPriceRm: number | null;
+  pricePerUnitRm: number | null;
+  unitKind: string | null;
+  observedDate: string | null;
+}
+
 export interface BasketAlternativeLine {
   quantity: number;
   source: AlternativePriceItem;
   alternative: AlternativePriceItem | null;
   savingsRm: number | null;
+  // AC 3.2.1: comparable pack sizes at the selected store, cheapest unit
+  // price first; empty when the item has no comparable multi-size family.
+  packOptions?: PackSizeOption[];
 }
 
 export interface BasketAlternativesResponse {

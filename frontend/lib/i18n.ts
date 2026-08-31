@@ -161,6 +161,10 @@ export const COPY = {
     alternativesLoading: "Checking cheaper equivalents...",
     alternativesUnavailable: "Cheaper alternatives are unavailable right now.",
     noCheaperAlternative: "No cheaper close equivalent found at this store.",
+    packSizeOptions: "Pack size options",
+    packUnitPrice: (amount: string, kind: string | null) =>
+      `${amount} per ${kind === "L" ? "litre" : "kg"}`,
+    currentPack: "Current pack",
     potentialSavings: (amount: string) => `Potential savings: ${amount}`,
     appliedSavings: (amount: string) => `Applied savings: ${amount}`,
     remainingSavings: (amount: string) => `${amount} more available`,
@@ -346,6 +350,10 @@ export const COPY = {
     alternativesLoading: "Menyemak padanan setara lebih murah...",
     alternativesUnavailable: "Alternatif lebih murah tidak tersedia sekarang.",
     noCheaperAlternative: "Tiada padanan setara lebih murah ditemui di kedai ini.",
+    packSizeOptions: "Pilihan saiz bungkusan",
+    packUnitPrice: (amount: string, kind: string | null) =>
+      `${amount} setiap ${kind === "L" ? "liter" : "kg"}`,
+    currentPack: "Bungkusan semasa",
     potentialSavings: (amount: string) => `Potensi penjimatan: ${amount}`,
     appliedSavings: (amount: string) => `Penjimatan digunakan: ${amount}`,
     remainingSavings: (amount: string) => `${amount} lagi tersedia`,

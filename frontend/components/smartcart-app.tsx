@@ -1556,6 +1556,25 @@ function RecommendationOverview({
                         </div>
                       )}
 
+                      {!applied && !persisted && (suggestion?.packOptions?.length ?? 0) > 0 && (
+                        <div className="mt-2 rounded-xl border border-[#e2e9e5] bg-white px-3 py-2">
+                          <p className="text-[11px] font-bold text-[#286d67]">{copy.packSizeOptions}</p>
+                          <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
+                            {suggestion!.packOptions!.map(pack => (
+                              <div key={pack.itemId} className="w-36 shrink-0 rounded-lg bg-[#f3faf7] px-2.5 py-2">
+                                <p className="break-words text-[11px] font-semibold leading-4 text-[#17362c]">{pack.itemName ?? "Catalogue item"}</p>
+                                <p className="mt-0.5 text-[10px] text-[#718078]">{pack.packageSize ?? "—"}</p>
+                                {pack.itemId === line.itemId && (
+                                  <span className="mt-0.5 inline-block rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>
+                                )}
+                                <p className="mt-1 text-[13px] font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
+                                <p className="text-[10px] text-[#53635c]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {(applied || persisted) && (
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
                           {applied && <span>{copy.saveAmount(formatRm(applied.savingsRm ?? 0))}</span>}
