@@ -48,6 +48,7 @@ interface TravelPreferences {
 }
 
 const INIT_BASKET: BasketItem[] = [];
+const HIDDEN_RECOMMENDATION_NAMES = new Set(["TESCO PUCHONG"]);
 
 // ── Shared SVG icons (from imports) ─────────────────────────────────────────
 function IcoBasket({ color = "#3E494A", size = 22 }: { color?: string; size?: number }) {
@@ -103,13 +104,6 @@ function IcoWarn({ color = "#93000A" }: { color?: string }) {
   return (
     <svg width={12.833} height={11.083} viewBox="0 0 12.8333 11.0833" fill="none">
       <path d={svgPathsCompare.p2e0ed180} fill={color} />
-    </svg>
-  );
-}
-function IcoSavings({ color = "#286D67" }: { color?: string }) {
-  return (
-    <svg width={20} height={23} viewBox="0 0 20 23" fill="none">
-      <path d={svgPathsCompare.p11fe5d80} fill={color} />
     </svg>
   );
 }
@@ -1332,7 +1326,6 @@ function RecommendationOverview({
   copy,
   rankingMethod,
   costAssumptions,
-  routeWarning,
   routeProvider,
   onSetBasket,
 }: {
@@ -1342,7 +1335,6 @@ function RecommendationOverview({
   copy: AppCopy;
   rankingMethod: string;
   costAssumptions: Record<TransportMode, string> | undefined;
-  routeWarning: string | null;
   routeProvider: "google" | "straight_line";
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
 }) {
@@ -1581,7 +1573,6 @@ function RecommendationOverview({
             {rankingMethod && <p className="mt-2 leading-5 text-[#53635c]">{rankingMethod}</p>}
             {costAssumptions && <p className="mt-2 leading-5 text-[#53635c]">{costAssumptions[preferences.transportMode]}</p>}
             <p className="mt-2 leading-5 text-[#53635c]">{routeEstimateNote} {copy.stockNotVerified}</p>
-            {routeWarning && <p className="mt-2 leading-5 text-[#6d5700]">{routeWarning}</p>}
           </details>
         </section>
       </div>
@@ -1677,7 +1668,9 @@ function CompareScreen({
     return () => controller.abort();
   }, [requestBasketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
-  const recommendations = result?.recommendations ?? [];
+  const recommendations = (result?.recommendations ?? []).filter(
+    store => !HIDDEN_RECOMMENDATION_NAMES.has(store.name.trim().toUpperCase()),
+  );
   // AC 2.3.2/2.3.3: with a priced basket the list splits into Complete and
   // Incomplete basket tabs (complete baskets first, as ranked by the API);
   // without a basket there is nothing to price, so the flat transport-first
@@ -1712,7 +1705,6 @@ function CompareScreen({
         copy={copy}
         rankingMethod={result?.rankingMethod ?? ""}
         costAssumptions={result?.costAssumptions}
-        routeWarning={result?.routeWarning ?? null}
         routeProvider={result?.routeProvider ?? "google"}
       />
     );
@@ -1759,33 +1751,12 @@ function CompareScreen({
           </div>
         )}
 
-        {!loading && !error && activeTab === "complete" && recommendedStore && (
-          <div className="flex gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4 sm:gap-4 sm:p-5">
-            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white"><IcoSavings /></div>
-            <div className="flex flex-col gap-1">
-              <p className="text-[20px] font-extrabold leading-7 text-[#175f4b]">{recommendedStore.name}</p>
-              <p className="text-[14px] leading-5 text-[#286d67]">
-                {hasBasket
-                  ? copy.bestMatch
-                  : "Best match by estimated return transport cost, then travel time and route distance."}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {!loading && !error && result?.routeWarning && (
-          <div className="flex items-start gap-2 rounded-xl border border-[#ead89d] bg-[#fff9e8] p-4 text-sm leading-5 text-[#6d5700]">
-            <IcoWarn color="#6d5700" />
-            <span>{copy.routeWarning}</span>
-          </div>
-        )}
-
         {!loading && !error && result && (
           <section className="flex flex-col gap-4">
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.reachablePremises}</h2>
-                <p className="mt-1 text-sm text-[#617069]">{copy.reachableSummary(result.totalReachable, result.totalCandidatesEvaluated)}</p>
+                <p className="mt-1 text-sm text-[#617069]">{copy.reachableSummary(recommendations.length, result.totalCandidatesEvaluated)}</p>
               </div>
               <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</span>
             </div>
