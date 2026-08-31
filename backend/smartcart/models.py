@@ -102,6 +102,8 @@ class BasketItemPrice(CamelModel):
     unit_price_rm: float | None
     line_total_rm: float | None
     price_observed_date: date | None
+    sara_eligible: bool | None = None
+    sara_category_candidate: bool = False
 
 
 class BasketLineDetail(CamelModel):

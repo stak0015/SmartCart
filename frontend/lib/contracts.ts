@@ -58,6 +58,8 @@ export interface BasketItemPrice {
   unitPriceRm: number | null;
   lineTotalRm: number | null;
   priceObservedDate: string | null;
+  saraEligible?: boolean | null;
+  saraCategoryCandidate?: boolean;
 }
 
 // One basket line's priced detail at a store (AC 2.3.9), shown behind

@@ -28,7 +28,7 @@ import {
   undoBasketSwap,
   type BasketItem,
 } from "@/lib/basket-state";
-import { coverageLabel, isCompleteBasket } from "@/lib/basket-coverage";
+import { isCompleteBasket } from "@/lib/basket-coverage";
 import { formatRm } from "@/lib/format-rm";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
@@ -194,9 +194,23 @@ function latestPriceDate(prices: BasketItemPrice[]): string | null {
     .at(-1) ?? null;
 }
 
-function TripDetails({ store, copy }: { store: StoreRecommendation; copy: AppCopy }) {
+function TripDetails({
+  store,
+  copy,
+  basketSubtotal,
+  basketLineCount,
+  incomplete = false,
+}: {
+  store: StoreRecommendation;
+  copy: AppCopy;
+  basketSubtotal?: number | null;
+  basketLineCount?: number | null;
+  incomplete?: boolean;
+}) {
+  const hasBasket = (basketLineCount ?? 0) > 0;
+
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={"grid grid-cols-2 gap-2 " + (hasBasket ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
       <div className="rounded-xl bg-[#f3faf7] p-3">
         <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
         <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
@@ -209,6 +223,21 @@ function TripDetails({ store, copy }: { store: StoreRecommendation; copy: AppCop
         <p className="text-xs text-[#617069]">{copy.route}</p>
         <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
       </div>
+      {hasBasket && (
+        <div className={"rounded-xl p-3 " + (incomplete ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
+          <p className={"text-xs " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
+            {incomplete ? copy.partialTotal : copy.basketSubtotal}
+          </p>
+          <p className={"mt-1 text-lg font-extrabold " + (incomplete ? "text-[#3f4944]" : "text-[#175f4b]")}>
+            {basketSubtotal == null ? "—" : formatRm(basketSubtotal)}
+          </p>
+          {store.pricedCount != null && basketLineCount != null && (
+            <p className={"mt-1 text-[11px] font-medium " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
+              {copy.priceCoverage(store.pricedCount ?? 0, basketLineCount)}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -221,6 +250,9 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
           <div className="min-w-0">
             <p className="break-words text-[13px] font-semibold text-[#17362c]">{price.itemName}</p>
             {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{price.packageSize}</p>}
+            <div className="mt-1">
+              <SaraEligibilityFlag status={price.saraEligible ?? null} categoryCandidate={price.saraCategoryCandidate ?? false} copy={copy} />
+            </div>
           </div>
           {price.unitPriceRm != null && price.lineTotalRm != null ? (
             <div className="shrink-0 text-right">
@@ -1228,44 +1260,37 @@ function StoreCard({
           </div>
         </div>
 
-        {/* Keep the card order compact: store details, trip details, basket
-            subtotal, then the strongest visual emphasis on combined cost. */}
-        <TripDetails store={store} copy={copy} />
+        {/* Keep travel details and basket subtotal together, then place the
+            optional item-price disclosure directly below that row. */}
+        <TripDetails
+          store={store}
+          copy={copy}
+          basketSubtotal={store.basketSubtotalRm}
+          basketLineCount={store.basketLineCount}
+          incomplete={store.missingItems.length > 0}
+        />
 
-        {(store.basketLineCount ?? 0) > 0 && (
-          <div className={"rounded-xl p-3 " + (store.missingItems.length > 0 ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className={"text-xs " + (store.missingItems.length > 0 ? "text-[#5f6368]" : "text-[#286d67]")}>
-                  {store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal}
-                </p>
-                <p className={"mt-0.5 text-xl font-extrabold " + (store.missingItems.length > 0 ? "text-[#3f4944]" : "text-[#175f4b]")}>
-                  {store.basketSubtotalRm == null ? "—" : formatRm(store.basketSubtotalRm)}
-                </p>
-              </div>
-              {store.pricedCount != null && store.basketLineCount != null && (
-                <p className={"text-right text-xs font-medium " + (store.missingItems.length > 0 ? "text-[#5f6368]" : "text-[#286d67]")}>
-                  {copy.priceCoverage(store.pricedCount, store.basketLineCount)}
-                </p>
-              )}
+        {(store.basketLineCount ?? 0) > 0 && store.basketPrices.length > 0 && (
+          <>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onTogglePrices}
+                aria-expanded={pricesExpanded}
+                className="min-h-8 w-full rounded-lg border border-[#cbd8d1] bg-white px-2 text-[9px] font-bold text-[#087f5b]"
+              >
+                {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
+              </button>
             </div>
-            {store.missingItems.length > 0 && (
-              <p className="mt-2 text-[13px] leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
-            )}
-            {store.basketPrices.length > 0 && (
-              <div className="mt-3 border-t border-[#bfe3d3] pt-3">
-                <button
-                  type="button"
-                  onClick={onTogglePrices}
-                  aria-expanded={pricesExpanded}
-                  className="min-h-10 w-full rounded-xl border border-[#cbd8d1] bg-white text-sm font-bold text-[#087f5b]"
-                >
-                  {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
-                </button>
-                {pricesExpanded && <div className="mt-2"><CompactBasketPriceList prices={store.basketPrices} copy={copy} /></div>}
+            {pricesExpanded && (
+              <div className="-mt-2">
+                {store.missingItems.length > 0 && (
+                  <p className="mb-3 text-[13px] leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
+                )}
+                <CompactBasketPriceList prices={store.basketPrices} copy={copy} />
               </div>
             )}
-          </div>
+          </>
         )}
 
         {store.combinedTotalRm != null && (
@@ -1336,6 +1361,7 @@ function RecommendationOverview({
   const [alternativesLoading, setAlternativesLoading] = useState(true);
   const [alternativesError, setAlternativesError] = useState(false);
   const [appliedSwaps, setAppliedSwaps] = useState<Record<string, BasketAlternativeLine>>({});
+  const [pricesExpanded, setPricesExpanded] = useState(true);
 
   useEffect(() => {
     const requestedBasket = toBasketLineRequests(initialBasket.current.filter(item => !item.swap));
@@ -1422,30 +1448,33 @@ function RecommendationOverview({
             </div>
           </header>
 
-          <div className="mt-4">
-            <TripDetails store={store} copy={copy} />
-          </div>
-
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#53635c]">
             <span>{copy.transportMode}: {modeLabel} · {copy.travelLimit}: {limitLabel}</span>
-            {store.pricedCount != null && store.basketLineCount != null && <span>{coverageLabel(store.pricedCount, store.basketLineCount)}</span>}
           </div>
-          <div className={"mt-4 rounded-xl p-3 " + (hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className={"text-[18px] font-extrabold leading-6 " + (hasIncompleteBasket ? "text-[#3f4944]" : "text-[#175f4b]")}>
-                  {hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}
-                </h2>
-                <p className={"mt-1 text-xl font-extrabold " + (hasIncompleteBasket ? "text-[#3f4944]" : "text-[#175f4b]")}>
-                  {adjustedSubtotal == null ? "—" : formatRm(adjustedSubtotal)}
-                </p>
+          <div className="mt-4">
+            <TripDetails
+              store={store}
+              copy={copy}
+              basketSubtotal={adjustedSubtotal}
+              basketLineCount={store.basketLineCount}
+              incomplete={hasIncompleteBasket}
+            />
+          </div>
+
+          {store.basketLines.length > 0 && (
+            <>
+              <div className="mt-2 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPricesExpanded(expanded => !expanded)}
+                  aria-expanded={pricesExpanded}
+                  className="min-h-8 w-full rounded-lg border border-[#cbd8d1] bg-white px-2 text-[9px] font-bold text-[#087f5b]"
+                >
+                  {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
+                </button>
               </div>
-              {store.pricedCount != null && store.basketLineCount != null && (
-                <p className={"text-right text-xs font-medium " + (hasIncompleteBasket ? "text-[#5f6368]" : "text-[#286d67]")}>
-                  {copy.priceCoverage(store.pricedCount, store.basketLineCount)}
-                </p>
-              )}
-            </div>
+              {pricesExpanded && (
+                <div className={"mt-3 rounded-xl p-3 " + (hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
             {hasIncompleteBasket && store.missingItems.length > 0 && (
               <p className="mt-2 text-xs leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
             )}
@@ -1480,6 +1509,8 @@ function RecommendationOverview({
                   const replacement = applied?.alternative;
                   const sourcePrice = store.basketPrices.find(price => price.itemId === line.itemId);
                   const displayPackageSize = replacement?.packageSize ?? sourcePrice?.packageSize ?? line.unit;
+                  const displaySaraEligible = replacement?.saraEligible ?? sourcePrice?.saraEligible ?? null;
+                  const displaySaraCandidate = replacement?.saraCategoryCandidate ?? sourcePrice?.saraCategoryCandidate ?? false;
                   const displayLine = replacement
                     ? { ...line, itemId: replacement.itemId, itemName: replacement.itemName, unit: replacement.unit, unitPriceRm: replacement.unitPriceRm, lineTotalRm: replacement.lineTotalRm, observedDate: replacement.observedDate }
                     : line;
@@ -1496,6 +1527,7 @@ function RecommendationOverview({
                             {(applied || persisted) && <span className="rounded-md bg-[#e7f7f0] px-2 py-0.5 text-[10px] font-extrabold text-[#17634f]">{copy.swapped}</span>}
                           </div>
                           <p className="mt-0.5 text-xs text-[#718078]">{displayPackageSize ?? "—"}{persisted?.swap ? ` · ${copy.originally(persisted.swap.original.name)}` : ""}</p>
+                          <div className="mt-1"><SaraEligibilityFlag status={displaySaraEligible} categoryCandidate={displaySaraCandidate} copy={copy} /></div>
                         </div>
                         <div className="shrink-0 text-right">
                           {displayLine.unitPriceRm != null && displayLine.lineTotalRm != null ? (
@@ -1539,9 +1571,12 @@ function RecommendationOverview({
               </ul>
             ) : (
               <p className="mt-2 text-xs text-[#617069]">{copy.noPricedBasketLines}</p>
-            )}
+           )}
           </div>
           </div>
+              )}
+            </>
+          )}
 
           {adjustedCombinedTotal != null && (
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
