@@ -49,3 +49,10 @@ describe("pack size comparison copy (AC 3.2.1)", () => {
     expect(COPY.ms.packUnitPrice("RM 9.00", "L")).toBe("RM 9.00 setiap liter");
   });
 });
+
+describe("best value copy (AC 3.2.2)", () => {
+  it("keeps the English label verbatim and provides a Malay translation", () => {
+    expect(COPY.en.bestValue).toBe("Best value");
+    expect(COPY.ms.bestValue.trim().length).toBeGreaterThan(0);
+  });
+});

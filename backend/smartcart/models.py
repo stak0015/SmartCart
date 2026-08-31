@@ -148,6 +148,10 @@ class PackSizeOption(CamelModel):
     price_per_unit_rm: float | None
     unit_kind: str | None
     observed_date: date | None
+    # AC 3.2.2: true for exactly one option per comparison — the cheapest
+    # unit price at full precision (ties: newest observed price, then name,
+    # then item id).
+    is_best_value: bool = False
 
 
 class BasketAlternativeLine(CamelModel):

@@ -15,7 +15,7 @@ All money maths uses Decimal: comparisons and the best-value pick (batch 2)
 run on full precision, only display values are rounded to cents.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
 
@@ -37,6 +37,7 @@ class PackSizeOption:
     # Full-precision ratio kept server-side for ordering and best-value picks;
     # never serialised (display uses the rounded price_per_unit_rm).
     _ratio: Decimal | None = None
+    is_best_value: bool = False
 
 
 def _source_rows(item_ids: list[int]) -> list[tuple]:
@@ -140,5 +141,10 @@ def get_pack_options(
                 int(option.item_id),
             ),
         )
+        # AC 3.2.2: exactly one "Best value" per comparison — the cheapest
+        # unit price at full precision; ties break on the newest observed
+        # price, then name, then item id (the ranking is already in that
+        # order, so the head of the list is the pick).
+        ranked[0] = replace(ranked[0], is_best_value=True)
         options[item_id] = ranked
     return options

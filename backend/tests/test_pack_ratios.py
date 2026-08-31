@@ -69,6 +69,28 @@ def test_multi_size_family_lists_every_priced_pack(monkeypatch) -> None:
     assert packs[0].price_per_unit_rm == 9.0  # RM 18.00 / 2 kg, full precision
     assert packs[1].price_per_unit_rm == 9.5
     assert packs[0].unit_kind == "KG"
+    # AC 3.2.2: exactly one Best value pick, the cheapest unit price.
+    assert [pack.is_best_value for pack in packs] == [True, False, False, False]
+
+
+def test_best_value_tie_prefers_newest_observed_price(monkeypatch) -> None:
+    old, new = date(2026, 8, 1), date(2026, 8, 27)
+    sources = [(20, "MARJERIN PLANTA", "240 g", Decimal("0.24"), "KG")]
+    premise_rows = [
+        (20, "MARJERIN PLANTA", "240 g", Decimal("0.24"), "KG", Decimal("2.40"), old),
+        (21, "MARJERIN PLANTA", "480 g", Decimal("0.48"), "KG", Decimal("4.80"), old),
+        (22, "MARJERIN PLANTA", "480 g", Decimal("0.48"), "KG", Decimal("4.80"), new),
+    ]
+    monkeypatch.setattr(
+        "smartcart.pack_ratios.database_cursor",
+        fake_cursor_factory(sources, premise_rows),
+    )
+    options = get_pack_options("10", basket(20))
+
+    packs = options["20"]
+    # All three ratio to 10.00/kg; the newest observed 480 g pack wins.
+    assert [pack.item_id for pack in packs] == ["22", "20", "21"]
+    assert [pack.is_best_value for pack in packs] == [True, False, False]
 
 
 def test_unparseable_source_gets_no_comparison(monkeypatch) -> None:

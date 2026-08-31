@@ -165,6 +165,7 @@ export const COPY = {
     packUnitPrice: (amount: string, kind: string | null) =>
       `${amount} per ${kind === "L" ? "litre" : "kg"}`,
     currentPack: "Current pack",
+    bestValue: "Best value",
     potentialSavings: (amount: string) => `Potential savings: ${amount}`,
     appliedSavings: (amount: string) => `Applied savings: ${amount}`,
     remainingSavings: (amount: string) => `${amount} more available`,
@@ -354,6 +355,7 @@ export const COPY = {
     packUnitPrice: (amount: string, kind: string | null) =>
       `${amount} setiap ${kind === "L" ? "liter" : "kg"}`,
     currentPack: "Bungkusan semasa",
+    bestValue: "Nilai terbaik",
     potentialSavings: (amount: string) => `Potensi penjimatan: ${amount}`,
     appliedSavings: (amount: string) => `Penjimatan digunakan: ${amount}`,
     remainingSavings: (amount: string) => `${amount} lagi tersedia`,

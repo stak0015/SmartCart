@@ -1561,12 +1561,17 @@ function RecommendationOverview({
                           <p className="text-[11px] font-bold text-[#286d67]">{copy.packSizeOptions}</p>
                           <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
                             {suggestion!.packOptions!.map(pack => (
-                              <div key={pack.itemId} className="w-36 shrink-0 rounded-lg bg-[#f3faf7] px-2.5 py-2">
+                              <div key={pack.itemId} className={"w-36 shrink-0 rounded-lg px-2.5 py-2 " + (pack.isBestValue ? "bg-[#e7f7f0] ring-2 ring-[#087f5b]" : "bg-[#f3faf7]")}>
                                 <p className="break-words text-[11px] font-semibold leading-4 text-[#17362c]">{pack.itemName ?? "Catalogue item"}</p>
                                 <p className="mt-0.5 text-[10px] text-[#718078]">{pack.packageSize ?? "—"}</p>
-                                {pack.itemId === line.itemId && (
-                                  <span className="mt-0.5 inline-block rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>
-                                )}
+                                <span className="mt-0.5 flex flex-wrap gap-1">
+                                  {pack.isBestValue && (
+                                    <span className="inline-block rounded-md bg-[#087f5b] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestValue}</span>
+                                  )}
+                                  {pack.itemId === line.itemId && (
+                                    <span className="inline-block rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>
+                                  )}
+                                </span>
                                 <p className="mt-1 text-[13px] font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
                                 <p className="text-[10px] text-[#53635c]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
                               </div>
