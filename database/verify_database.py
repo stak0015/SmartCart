@@ -39,6 +39,27 @@ def main() -> int:
     ) as connection, connection.cursor() as cursor:
         cursor.execute("SELECT COUNT(*) FROM item")
         item_count = cursor.fetchone()[0]
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'item'
+              AND column_name IN ('quantity_value', 'quantity_unit')
+            """
+        )
+        pack_quantity_columns = cursor.fetchone()[0]
+        pack_quantity_count = None
+        if pack_quantity_columns == 2:
+            cursor.execute(
+                """
+                SELECT COUNT(*)
+                FROM item
+                WHERE quantity_value IS NOT NULL
+                  AND quantity_unit IS NOT NULL
+                """
+            )
+            pack_quantity_count = cursor.fetchone()[0]
         cursor.execute("SELECT COUNT(*) FROM premise")
         premise_count = cursor.fetchone()[0]
         cursor.execute(
@@ -80,6 +101,13 @@ def main() -> int:
         ) = cursor.fetchone()
 
     print(f"item rows: {item_count:,}")
+    if pack_quantity_count is None:
+        print("items with parsed pack quantities: unavailable (columns missing)")
+    else:
+        print(
+            "items with parsed pack quantities: "
+            f"{pack_quantity_count:,} / {item_count:,}"
+        )
     print(f"premise rows: {premise_count:,}")
     print(f"current_status rows: {status_count:,}")
     print(f"price observation range: {min_date} to {max_date}")
@@ -92,6 +120,11 @@ def main() -> int:
     failures = []
     if not item_count or not premise_count or not status_count:
         failures.append("one or more required tables are empty")
+    if pack_quantity_columns != 2:
+        failures.append(
+            "item quantity_value/quantity_unit columns are missing; "
+            "run migrate_pack_quantities.py"
+        )
     if invalid_prices:
         failures.append("current_status contains non-positive prices")
     if orphan_count:

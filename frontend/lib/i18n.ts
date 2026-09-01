@@ -156,14 +156,59 @@ export const COPY = {
     applySwap: "Apply swap",
     swapAndSave: "Swap & save",
     lowerCostMatch: "Lower-cost match",
+    lowerPriceNow: "Lower price now",
     alternativesTitle: "Cheaper equivalent",
     compareCloseEquivalents: (store: string) => `Compare close equivalents at ${store}.`,
     alternativesLoading: "Checking cheaper equivalents...",
     alternativesUnavailable: "Cheaper alternatives are unavailable right now.",
     noCheaperAlternative: "No cheaper close equivalent found at this store.",
+    packSizeOptions: "Pack size options",
+    comparePackSizes: (count: number) => `Compare ${count} pack sizes`,
+    packUnitPrice: (amount: string, kind: string | null) =>
+      `${amount} per ${kind === "L" ? "litre" : "kg"}`,
+    currentPack: "Current pack",
+    bestValue: "Best value",
+    bestUnitValue: "Best unit value",
+    currentPackBestValue: "Your current pack has the best unit value",
+    choosePack: "Choose pack",
+    packChanged: "Pack changed",
+    alreadyInBasket: "Already in basket",
+    lessNow: (amount: string) => `${amount} less now`,
+    moreNow: (amount: string) => `${amount} more now`,
+    sameCostNow: "Same cost now",
+    // AC 3.2.3: trade-off line under each pack card, measured against the
+    // Best value option; amounts arrive signed from the API, the client only
+    // formats their absolute value and picks the direction word.
+    bestValueBaseline: "Lowest price per unit — the baseline",
+    packTradeoff: (
+      upfront: string,
+      upfrontDir: "more" | "less" | "same",
+      perUnit: string,
+      perUnitDir: "more" | "less" | "same",
+      kind: string | null,
+    ) => {
+      const unit = kind === "L" ? "litre" : "kg";
+      const upfrontText =
+        upfrontDir === "same" ? "same total price" : `${upfront} ${upfrontDir} now`;
+      const perUnitText =
+        perUnitDir === "same" ? `same per ${unit}` : `${perUnit}/${unit} ${perUnitDir}`;
+      return `${upfrontText} · ${perUnitText}`;
+    },
     potentialSavings: (amount: string) => `Potential savings: ${amount}`,
     appliedSavings: (amount: string) => `Applied savings: ${amount}`,
+    // English block 
     remainingSavings: (amount: string) => `${amount} more available`,
+    // AC 3.4.1/3.4.2: savings summary copy.
+    savingsTitle: "Your savings",
+    basketCostChange: "Basket cost change",
+    savingsOriginalTotal: "Original total",
+    savingsNewTotal: "New total",
+    youSave: (amount: string) => `You save ${amount}`,
+    costsMoreNow: (amount: string) => `Costs ${amount} more now`,
+    noBasketCostChange: "No change in basket cost",
+    affectedItemsTotal: "Changed items",
+    savingsUnavailable: "Cost change unavailable because a comparison price is missing.",
+    savingsBreakdownTitle: "Saving per replaced item",
     ignoredPriceNote: "Items without a price at this store are shown below but excluded from the basket subtotal and combined cost.",
     oneWay: "One way",
     route: "Route",
@@ -341,14 +386,57 @@ export const COPY = {
     applySwap: "Guna pertukaran",
     swapAndSave: "Tukar & jimat",
     lowerCostMatch: "Padanan kos lebih rendah",
+    lowerPriceNow: "Harga lebih rendah sekarang",
     alternativesTitle: "Padanan setara lebih murah",
     compareCloseEquivalents: (store: string) => `Bandingkan padanan hampir setara di ${store}.`,
     alternativesLoading: "Menyemak padanan setara lebih murah...",
     alternativesUnavailable: "Alternatif lebih murah tidak tersedia sekarang.",
     noCheaperAlternative: "Tiada padanan setara lebih murah ditemui di kedai ini.",
+    packSizeOptions: "Pilihan saiz bungkusan",
+    comparePackSizes: (count: number) => `Bandingkan ${count} saiz bungkusan`,
+    packUnitPrice: (amount: string, kind: string | null) =>
+      `${amount} setiap ${kind === "L" ? "liter" : "kg"}`,
+    currentPack: "Bungkusan semasa",
+    bestValue: "Nilai terbaik",
+    bestUnitValue: "Nilai seunit terbaik",
+    currentPackBestValue: "Bungkusan semasa anda mempunyai nilai seunit terbaik",
+    choosePack: "Pilih bungkusan",
+    packChanged: "Bungkusan ditukar",
+    alreadyInBasket: "Sudah dalam bakul",
+    lessNow: (amount: string) => `${amount} kurang sekarang`,
+    moreNow: (amount: string) => `${amount} lebih sekarang`,
+    sameCostNow: "Kos sama sekarang",
+    bestValueBaseline: "Harga seunit terendah — penanda aras",
+    packTradeoff: (
+      upfront: string,
+      upfrontDir: "more" | "less" | "same",
+      perUnit: string,
+      perUnitDir: "more" | "less" | "same",
+      kind: string | null,
+    ) => {
+      const unit = kind === "L" ? "liter" : "kg";
+      const dir = (d: "more" | "less") => (d === "more" ? "lebih" : "kurang");
+      const upfrontText =
+        upfrontDir === "same" ? "jumlah harga sama" : `${upfront} ${dir(upfrontDir)} kini`;
+      const perUnitText =
+        perUnitDir === "same" ? `sama setiap ${unit}` : `${perUnit}/${unit} ${dir(perUnitDir)}`;
+      return `${upfrontText} · ${perUnitText}`;
+    },
     potentialSavings: (amount: string) => `Potensi penjimatan: ${amount}`,
     appliedSavings: (amount: string) => `Penjimatan digunakan: ${amount}`,
+    // Malay block
     remainingSavings: (amount: string) => `${amount} lagi tersedia`,
+    // AC 3.4.1/3.4.2: savings summary copy.
+    savingsTitle: "Penjimatan anda",
+    basketCostChange: "Perubahan kos bakul",
+    savingsOriginalTotal: "Jumlah asal",
+    savingsNewTotal: "Jumlah baharu",
+    youSave: (amount: string) => `Anda jimat ${amount}`,
+    costsMoreNow: (amount: string) => `Kos ${amount} lebih sekarang`,
+    noBasketCostChange: "Tiada perubahan pada kos bakul",
+    affectedItemsTotal: "Item yang ditukar",
+    savingsUnavailable: "Perubahan kos tidak tersedia kerana harga perbandingan tiada.",
+    savingsBreakdownTitle: "Penjimatan bagi setiap item yang diganti",
     ignoredPriceNote: "Item tanpa harga di kedai ini dipaparkan di bawah tetapi dikecualikan daripada jumlah kecil bakul dan kos gabungan.",
     oneWay: "Sehala",
     route: "Laluan",

@@ -68,6 +68,48 @@ PREMISE_DATABASE_ENRICHMENT_COLUMNS = [
     "sara_match_candidate",
 ]
 
+# US 3.2 ingest-time pack-quantity parsing (D3.2-A). The unit column carries
+# the package size for most items (e.g. "10 kg"); the item name is only a
+# fallback. Values are stored in the base unit (kg / litre) so pack ratios are
+# directly comparable within a unit family. Unparseable rows stay NULL, which
+# downstream code treats as "not comparable".
+PACK_MULTIPACK_TOKEN = re.compile(
+    r"(\d+)\s?[xX]\s?(\d+(?:\.\d+)?)\s*(kg|g|gm|ml|l|litre|liter)\b",
+    re.IGNORECASE,
+)
+PACK_UNIT_QTY_TOKEN = re.compile(
+    r"(\d+(?:\.\d+)?)\s*(kg|g|gm|ml|l|litre|liter)\b",
+    re.IGNORECASE,
+)
+
+
+def parse_pack_quantity(
+    item_name: object, unit: object
+) -> tuple[float, str] | None:
+    """Return (quantity in base unit, 'KG'|'L') or None when not comparable."""
+
+    for text in (unit, item_name):
+        if not isinstance(text, str) or not text.strip():
+            continue
+        multipack = PACK_MULTIPACK_TOKEN.search(text)
+        if multipack:
+            total = float(multipack.group(1)) * float(multipack.group(2))
+            kind = multipack.group(3).lower()
+        else:
+            single = PACK_UNIT_QTY_TOKEN.search(text)
+            if not single:
+                continue
+            total = float(single.group(1))
+            kind = single.group(2).lower()
+        if kind in ("g", "gm"):
+            return total / 1000.0, "KG"
+        if kind == "ml":
+            return total / 1000.0, "L"
+        if kind == "kg":
+            return total, "KG"
+        return total, "L"
+    return None
+
 
 @dataclass(frozen=True)
 class PreparedData:
@@ -370,6 +412,15 @@ def prepare_data(
     ]
 
     prepared_items = items.rename(columns={"item": "item_name"})
+    pack_quantities = prepared_items.apply(
+        lambda row: parse_pack_quantity(row["item_name"], row["unit"]), axis=1
+    )
+    prepared_items["quantity_value"] = [
+        value[0] if value else pd.NA for value in pack_quantities
+    ]
+    prepared_items["quantity_unit"] = [
+        value[1] if value else pd.NA for value in pack_quantities
+    ]
     prepared_premises = premises.rename(columns={"premise": "premise_name"})
 
     return PreparedData(
@@ -456,7 +507,9 @@ def upsert_data(connection: psycopg.Connection, data: PreparedData) -> dict[str,
                 item_name TEXT,
                 unit TEXT,
                 item_group TEXT,
-                item_category TEXT
+                item_category TEXT,
+                quantity_value NUMERIC(12, 4),
+                quantity_unit TEXT
             ) ON COMMIT DROP;
             CREATE TEMP TABLE stage_premise (
                 premise_code TEXT,
@@ -483,15 +536,19 @@ def upsert_data(connection: psycopg.Connection, data: PreparedData) -> dict[str,
         cursor.execute(
             """
             INSERT INTO item (
-                item_code, item_name, unit, item_group, item_category
+                item_code, item_name, unit, item_group, item_category,
+                quantity_value, quantity_unit
             )
-            SELECT item_code, item_name, unit, item_group, item_category
+            SELECT item_code, item_name, unit, item_group, item_category,
+                   quantity_value, quantity_unit
             FROM stage_item
             ON CONFLICT (item_code) DO UPDATE SET
                 item_name = EXCLUDED.item_name,
                 unit = EXCLUDED.unit,
                 item_group = EXCLUDED.item_group,
-                item_category = EXCLUDED.item_category;
+                item_category = EXCLUDED.item_category,
+                quantity_value = EXCLUDED.quantity_value,
+                quantity_unit = EXCLUDED.quantity_unit;
             """
         )
         item_rows = cursor.rowcount
