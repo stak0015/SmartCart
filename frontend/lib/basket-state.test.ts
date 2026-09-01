@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { BasketAlternativeLine } from "./contracts";
-import { applyBasketSwap, currentSwapSavingRm, undoBasketSwap, type BasketItem } from "./basket-state";
+import type { BasketAlternativeLine, PackSizeOption } from "./contracts";
+import {
+  applyBasketReplacement,
+  currentReplacementImpactRm,
+  lowerCostReplacementChoice,
+  packReplacementChoice,
+  undoBasketReplacement,
+  type BasketItem,
+} from "./basket-state";
 
 const basket: BasketItem[] = [{
   id: "db-1",
@@ -27,23 +34,56 @@ const suggestion: BasketAlternativeLine = {
   savingsRm: 6,
 };
 
-describe("basket swaps", () => {
+const pack: PackSizeOption = {
+  itemId: "3",
+  itemName: "Sardines Family Pack 850g",
+  packageSize: "850 g",
+  totalPriceRm: 12,
+  pricePerUnitRm: 14.12,
+  unitKind: "KG",
+  observedDate: "2026-08-31",
+  saraEligible: true,
+  saraCategoryCandidate: true,
+  isSaraCreditCandidate: true,
+  isBestValue: true,
+};
+
+describe("basket replacements", () => {
   it("replaces the source, preserves quantity, and records provenance", () => {
-    const swapped = applyBasketSwap(basket, suggestion, { id: "10", name: "Test Store" });
+    const choice = lowerCostReplacementChoice(suggestion)!;
+    const swapped = applyBasketReplacement(basket, choice, { id: "10", name: "Test Store" });
     expect(swapped[0].id).toBe("db-2");
     expect(swapped[0].qty).toBe(2);
-    expect(swapped[0].swap?.original.id).toBe("db-1");
-    expect(currentSwapSavingRm(swapped[0])).toBe(6);
+    expect(swapped[0].replacement?.original.id).toBe("db-1");
+    expect(swapped[0].replacement?.kind).toBe("lower_cost");
+    expect(currentReplacementImpactRm(swapped[0])).toBe(6);
   });
 
   it("restores the original item and quantity on undo", () => {
-    const swapped = applyBasketSwap(basket, suggestion, { id: "10", name: "Test Store" });
-    const restored = undoBasketSwap(swapped, "db-2");
+    const swapped = applyBasketReplacement(basket, lowerCostReplacementChoice(suggestion)!, { id: "10", name: "Test Store" });
+    const restored = undoBasketReplacement(swapped, "db-2");
     expect(restored).toEqual(basket);
+  });
+
+  it("allows a higher-cost pack, retains pack count, and records a signed impact", () => {
+    const choice = packReplacementChoice(suggestion, pack)!;
+    const changed = applyBasketReplacement(basket, choice, { id: "10", name: "Test Store" });
+    expect(changed[0].id).toBe("db-3");
+    expect(changed[0].qty).toBe(2);
+    expect(changed[0].replacement?.kind).toBe("pack");
+    expect(currentReplacementImpactRm(changed[0])).toBe(-8);
+  });
+
+  it("changes an active choice without losing the original baseline", () => {
+    const swapped = applyBasketReplacement(basket, lowerCostReplacementChoice(suggestion)!, { id: "10", name: "Test Store" });
+    const changed = applyBasketReplacement(swapped, packReplacementChoice(suggestion, pack)!, { id: "10", name: "Test Store" });
+    expect(changed[0].id).toBe("db-3");
+    expect(changed[0].replacement?.original.id).toBe("db-1");
+    expect(undoBasketReplacement(changed, "db-3")).toEqual(basket);
   });
 
   it("does not create a duplicate target item", () => {
     const withTarget = [...basket, { ...basket[0], id: "db-2", name: "Already selected" }];
-    expect(applyBasketSwap(withTarget, suggestion, { id: "10", name: "Test Store" })).toBe(withTarget);
+    expect(applyBasketReplacement(withTarget, lowerCostReplacementChoice(suggestion)!, { id: "10", name: "Test Store" })).toBe(withTarget);
   });
 });

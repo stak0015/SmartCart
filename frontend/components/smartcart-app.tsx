@@ -21,14 +21,22 @@ import type {
   TransportMode,
   TravelLimitType,
 } from "@/lib/contracts";
-import { toBasketLineRequests } from "@/lib/basket-lines";
+import { toAlternativeLineRequests, toBasketLineRequests } from "@/lib/basket-lines";
 import {
-  applyBasketSwap,
-  currentSwapSavingRm,
-  undoBasketSwap,
+  applyBasketReplacement,
+  currentReplacementImpactRm,
+  lowerCostReplacementChoice,
+  packReplacementChoice,
+  undoBasketReplacement,
   type BasketItem,
 } from "@/lib/basket-state";
 import { basketSavingsSummary } from "@/lib/savings-summary";
+import {
+  buildRecommendationDetailRows,
+  recommendationDetailTotals,
+  targetAlreadyInBasket,
+  type RecommendationDetailRow,
+} from "@/lib/recommendation-detail";
 import { isCompleteBasket } from "@/lib/basket-coverage";
 import { formatRm } from "@/lib/format-rm";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -201,14 +209,16 @@ function TripDetails({
   basketSubtotal,
   basketLineCount,
   incomplete = false,
+  showBasketSubtotal = true,
 }: {
   store: StoreRecommendation;
   copy: AppCopy;
   basketSubtotal?: number | null;
   basketLineCount?: number | null;
   incomplete?: boolean;
+  showBasketSubtotal?: boolean;
 }) {
-  const hasBasket = (basketLineCount ?? 0) > 0;
+  const hasBasket = showBasketSubtotal && (basketLineCount ?? 0) > 0;
 
   return (
     <div className={"grid grid-cols-2 gap-2 " + (hasBasket ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
@@ -269,67 +279,64 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
   );
 }
 
-// AC 3.4.1/3.4.2: savings summary for applied alternatives. When
-// store-level totals are provided (recommendation overview), they frame
-// the original/new amounts; otherwise the swapped-line totals are used.
-// Per-item savings always come from the basket swap records, so their sum
-// equals the displayed "You save" amount (AC 3.4.2).
-function SavingsSummary({
-  basket,
+function CompactSavingsFooter({
   copy,
-  storeOriginalTotalRm,
-  storeNewTotalRm,
+  hasReplacements,
+  showWhenUnchanged = false,
+  comparable,
+  originalRm,
+  newRm,
+  netSavingRm,
+  totalsLabel,
 }: {
-  basket: BasketItem[];
   copy: AppCopy;
-  storeOriginalTotalRm?: number | null;
-  storeNewTotalRm?: number | null;
+  hasReplacements: boolean;
+  showWhenUnchanged?: boolean;
+  comparable: boolean;
+  originalRm: number | null;
+  newRm: number | null;
+  netSavingRm: number | null;
+  totalsLabel: string;
 }) {
-  const summary = basketSavingsSummary(basket);
-
-  if (!summary.hasSavings) {
-    // Savings are only meaningful after a selected-store swap has been
-    // applied. Keep the basket and store views free of a redundant empty card.
-    return null;
-  }
-
-  const originalRm = storeOriginalTotalRm ?? summary.originalRm;
-  const newRm = storeNewTotalRm ?? summary.newRm;
+  if (!hasReplacements && !showWhenUnchanged) return null;
+  const isSaving = comparable && netSavingRm != null && netSavingRm > 0;
+  const isIncrease = comparable && netSavingRm != null && netSavingRm < 0;
+  const theme = isSaving
+    ? "border-[#b9e0d1] bg-[#e7f7f0] text-[#175f4b]"
+    : isIncrease
+      ? "border-[#efd3a6] bg-[#fff7e8] text-[#7a4d00]"
+      : "border-[#d9e1dd] bg-[#f3f5f4] text-[#405149]";
+  const message = !comparable || netSavingRm == null
+    ? copy.savingsUnavailable
+    : isSaving
+      ? copy.youSave(formatRm(netSavingRm))
+      : isIncrease
+        ? copy.costsMoreNow(formatRm(Math.abs(netSavingRm)))
+        : copy.noBasketCostChange;
 
   return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[16px] font-extrabold leading-6 text-[#175f4b]">{copy.savingsTitle}</h3>
-        <p className="text-[15px] font-extrabold text-[#175f4b]">{copy.youSave(formatRm(summary.totalSavedRm))}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-xl bg-white/70 p-3">
-          <p className="text-xs text-[#286d67]">{copy.savingsOriginalTotal}</p>
-          <p className="mt-1 text-lg font-extrabold text-[#17362c]">{formatRm(originalRm)}</p>
+    <footer className={`border-t px-4 py-3 ${theme}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <div>
+          <p className="text-xs font-bold">{isSaving ? copy.savingsTitle : copy.basketCostChange}</p>
+          <p className="text-[15px] font-extrabold">{message}</p>
         </div>
-        <div className="rounded-xl bg-white/70 p-3">
-          <p className="text-xs text-[#286d67]">{copy.savingsNewTotal}</p>
-          <p className="mt-1 text-lg font-extrabold text-[#175f4b]">{formatRm(newRm)}</p>
-        </div>
+        {comparable && originalRm != null && newRm != null && (
+          <p className="text-right text-xs font-semibold">
+            <span className="block opacity-75">{totalsLabel}</span>
+            <span>{formatRm(originalRm)} → {formatRm(newRm)}</span>
+          </p>
+        )}
       </div>
-
-      <div className="rounded-xl bg-white/70 p-3">
-        <p className="text-xs font-bold text-[#286d67]">{copy.savingsBreakdownTitle}</p>
-        <ul className="mt-2 flex flex-col gap-2">
-          {summary.items.map(line => (
-            <li key={line.id} className="flex items-start justify-between gap-3 border-b border-[#bfe3d3] pb-2 last:border-b-0 last:pb-0">
-              <p className="min-w-0 break-words text-[13px] font-semibold text-[#17362c]">{line.name}</p>
-              <div className="shrink-0 text-right">
-                <p className="text-[13px] font-extrabold text-[#175f4b]">{copy.saveAmount(formatRm(line.savedRm))}</p>
-                <p className="text-[11px] text-[#617069]">{formatRm(line.originalLineRm)} 鈫?{formatRm(line.newLineRm)}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </section>
+    </footer>
   );
+}
+
+function replacementImpactText(copy: AppCopy, impactRm: number | null): string {
+  if (impactRm == null) return copy.savingsUnavailable;
+  if (impactRm > 0) return copy.saveAmount(formatRm(impactRm));
+  if (impactRm < 0) return copy.moreNow(formatRm(Math.abs(impactRm)));
+  return copy.sameCostNow;
 }
 
 type PaginationEntry = number | `ellipsis-${number}`;
@@ -456,7 +463,7 @@ function BasketScreen({
 }: {
   view: "shop" | "basket";
   basket: BasketItem[];
-  setBasket: (b: BasketItem[]) => void;
+  setBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onViewBasket: () => void;
   onContinue: () => void;
   copy: AppCopy;
@@ -596,6 +603,7 @@ function BasketScreen({
   };
 
   const { itemCount } = basketSummary(basket);
+  const basketCostSummary = basketSavingsSummary(basket);
 
   return (
     <div className="screen-enter pb-32">
@@ -845,14 +853,14 @@ function BasketScreen({
                     <div className="flex min-w-0 flex-col gap-1.5 sm:pr-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{item.name}</p>
-                        {item.swap && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{copy.swapped}</span>}
+                        {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
                       </div>
                       <p className="break-words text-[13px] leading-5 text-[#617069]">{item.size}</p>
                       <SaraEligibilityFlag status={item.saraEligible} categoryCandidate={item.saraCategoryCandidate} copy={copy} />
-                      {item.swap && (
+                      {item.replacement && (
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
-                          <span>{copy.swappedAt(item.swap.premiseName)} · {copy.saveAmount(formatRm(currentSwapSavingRm(item)))}</span>
-                          <button type="button" onClick={() => setBasket(undoBasketSwap(basket, item.id))} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
+                          <span>{copy.originally(item.replacement.original.name)} · {replacementImpactText(copy, currentReplacementImpactRm(item))}</span>
+                          <button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
                         </div>
                       )}
                     </div>
@@ -872,13 +880,16 @@ function BasketScreen({
           )}
 
           </div>
+          <CompactSavingsFooter
+            copy={copy}
+            hasReplacements={basketCostSummary.hasReplacements}
+            comparable={basketCostSummary.comparable}
+            originalRm={basketCostSummary.originalRm}
+            newRm={basketCostSummary.newRm}
+            netSavingRm={basketCostSummary.netSavingRm}
+            totalsLabel={copy.affectedItemsTotal}
+          />
         </div>
-        {/* Show the savings summary only after an alternative has been applied. */}
-        {basket.length > 0 && basketSavingsSummary(basket).hasSavings && (
-          <div className="mt-4">
-            <SavingsSummary basket={basket} copy={copy} />
-          </div>
-        )}
       </div>
         </>
       )}
@@ -1390,6 +1401,167 @@ function StoreCard({
   );
 }
 
+function RecommendationBasketRow({
+  row,
+  basket,
+  copy,
+  onApplyAlternative,
+  onApplyPack,
+  onUndo,
+}: {
+  row: RecommendationDetailRow;
+  basket: BasketItem[];
+  copy: AppCopy;
+  onApplyAlternative: (line: BasketAlternativeLine) => void;
+  onApplyPack: (row: RecommendationDetailRow, packItemId: string) => void;
+  onUndo: (row: RecommendationDetailRow) => void;
+}) {
+  const suggestion = row.alternatives;
+  const alternative = suggestion.alternative;
+  const lowerCostAvailable = Boolean(
+    alternative
+    && suggestion.savingsRm != null
+    && suggestion.savingsRm > 0
+    && alternative.itemId !== row.current.itemId,
+  );
+  const lowerCostDuplicate = alternative
+    ? targetAlreadyInBasket(basket, row.source.itemId, alternative.itemId)
+    : false;
+  const eligibilityChanges = alternative ? (
+    alternative.saraEligible !== row.current.saraEligible
+    || alternative.saraCategoryCandidate !== row.current.saraCategoryCandidate
+  ) : false;
+  const packOptions = suggestion.packOptions ?? [];
+  const bestPack = packOptions.find(pack => pack.isBestValue) ?? packOptions[0];
+  const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
+
+  return (
+    <li className="border-b border-[#e2e9e5] py-4 last:border-b-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="break-words text-[14px] font-bold text-[#17362c]">{row.current.itemName}</p>
+            {row.replacement && (
+              <span className="rounded-md bg-[#e7f7f0] px-2 py-0.5 text-[10px] font-extrabold text-[#17634f]">
+                {row.replacement.kind === "pack" ? copy.packChanged : copy.swapped}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-[#718078]">
+            {row.current.packageSize ?? "—"}
+            {row.replacement ? ` · ${copy.originally(row.replacement.original.name)}` : ""}
+          </p>
+          <div className="mt-1">
+            <SaraEligibilityFlag status={row.current.saraEligible} categoryCandidate={row.current.saraCategoryCandidate} copy={copy} />
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          {row.current.lineTotalRm != null && row.current.unitPriceRm != null ? (
+            <>
+              <p className="text-[16px] font-extrabold text-[#17362c]">{formatRm(row.current.lineTotalRm)}</p>
+              <p className="text-[11px] text-[#718078]">{row.current.quantity} × {formatRm(row.current.unitPriceRm)}</p>
+            </>
+          ) : (
+            <p className="max-w-28 text-xs font-semibold text-[#5f6368]">{copy.noStorePrice}</p>
+          )}
+        </div>
+      </div>
+
+      {row.replacement && row.basketItem && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#f3faf7] px-3 py-2 text-xs text-[#286d67]">
+          <span className="font-semibold">{replacementImpactText(copy, impactRm)}</span>
+          <button type="button" onClick={() => onUndo(row)} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
+        </div>
+      )}
+
+      {lowerCostAvailable && alternative && suggestion.savingsRm != null && (
+        <div className="mt-2 flex flex-col gap-2 rounded-xl bg-[#f3faf7] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
+            <p className="mt-0.5 break-words text-xs font-semibold text-[#17362c]">{alternative.itemName ?? "Catalogue item"}</p>
+            <p className="text-[11px] text-[#718078]">{alternative.packageSize ?? alternative.unit ?? "—"}</p>
+            <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
+            {eligibilityChanges && (
+              <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} categoryCandidate={alternative.saraCategoryCandidate} copy={copy} /></div>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={lowerCostDuplicate}
+            onClick={() => onApplyAlternative(suggestion)}
+            aria-label={`${copy.swapAndSave}: ${alternative.itemName ?? "Catalogue item"}`}
+            className="min-h-11 shrink-0 rounded-lg bg-[#087f5b] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]"
+          >
+            {lowerCostDuplicate ? copy.alreadyInBasket : copy.swapAndSave}
+          </button>
+        </div>
+      )}
+
+      {packOptions.length > 0 && bestPack && (
+        <details className="mt-2 rounded-xl border border-[#dce5e0] bg-white">
+          <summary className="cursor-pointer list-none px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-extrabold text-[#17362c]">{copy.comparePackSizes(packOptions.length)}</p>
+                <p className="mt-0.5 break-words text-[11px] text-[#617069]">
+                  {bestPack.itemId === row.current.itemId
+                    ? copy.currentPackBestValue
+                    : `${copy.bestUnitValue}: ${bestPack.packageSize ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
+                </p>
+              </div>
+              <span aria-hidden="true" className="shrink-0 text-lg font-bold text-[#087f5b]">⌄</span>
+            </div>
+          </summary>
+          <div className="grid gap-2 border-t border-[#e2e9e5] p-2 sm:grid-cols-2">
+            {packOptions.map(pack => {
+              const isCurrent = pack.itemId === row.current.itemId;
+              const duplicate = targetAlreadyInBasket(basket, row.source.itemId, pack.itemId);
+              const unitDifference = pack.totalPriceRm != null && row.current.unitPriceRm != null
+                ? Number(((pack.totalPriceRm - row.current.unitPriceRm) * row.current.quantity).toFixed(2))
+                : null;
+              const upfrontText = unitDifference == null
+                ? null
+                : unitDifference > 0
+                  ? copy.moreNow(formatRm(unitDifference))
+                  : unitDifference < 0
+                    ? copy.lessNow(formatRm(Math.abs(unitDifference)))
+                    : copy.sameCostNow;
+              return (
+                <div key={pack.itemId} className={`flex min-w-0 flex-col rounded-lg p-3 ${pack.isBestValue ? "bg-[#e7f7f0] ring-1 ring-[#087f5b]" : "bg-[#f7f8f6]"}`}>
+                  <div className="flex flex-wrap gap-1">
+                    {pack.isBestValue && <span className="rounded-md bg-[#087f5b] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestUnitValue}</span>}
+                    {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>}
+                  </div>
+                  <p className="mt-1 break-words text-xs font-bold leading-4 text-[#17362c]">{pack.itemName ?? "Catalogue item"}</p>
+                  <p className="text-[11px] text-[#718078]">{pack.packageSize ?? "—"}</p>
+                  <div className="mt-2 flex items-end justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
+                      <p className="text-[10px] text-[#53635c]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
+                      {upfrontText && !isCurrent && <p className="mt-0.5 text-[10px] font-semibold text-[#617069]">{upfrontText}</p>}
+                    </div>
+                    {!isCurrent && (
+                      <button
+                        type="button"
+                        disabled={duplicate}
+                        onClick={() => onApplyPack(row, pack.itemId)}
+                        aria-label={`${copy.choosePack}: ${pack.itemName ?? "Catalogue item"}`}
+                        className="min-h-11 shrink-0 rounded-lg border border-[#087f5b] bg-white px-2.5 text-[11px] font-extrabold text-[#087f5b] disabled:cursor-not-allowed disabled:border-[#9db5ac] disabled:text-[#718078]"
+                      >
+                        {duplicate ? copy.alreadyInBasket : copy.choosePack}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+    </li>
+  );
+}
+
 // AC 2.4.1: Recommendation overview for the selected premise. The detail
 // view keeps store identity, totals, item prices and savings actions together
 // so the shopper can compare and swap without jumping between sections.
@@ -1421,20 +1593,13 @@ function RecommendationOverview({
   const limitLabel = preferences.limitType === "distance"
     ? preferences.limitValue + " km"
     : preferences.limitValue + " " + copy.minutes;
-  // AC 2.4.2: combined total = priced basket subtotal + estimated return
-  // transport. The API only sends combinedTotalRm for complete baskets, so
-  // for incomplete ones it is recomputed from the partial subtotal
-  // (missing prices stay excluded).
-  const hasIncompleteBasket = store.missingItems.length > 0;
-  const initialBasket = useRef(basket);
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(true);
   const [alternativesError, setAlternativesError] = useState(false);
-  const [appliedSwaps, setAppliedSwaps] = useState<Record<string, BasketAlternativeLine>>({});
-  const [pricesExpanded, setPricesExpanded] = useState(true);
+  const alternativeRequestKey = JSON.stringify(toAlternativeLineRequests(basket));
 
   useEffect(() => {
-    const requestedBasket = toBasketLineRequests(initialBasket.current.filter(item => !item.swap));
+    const requestedBasket = JSON.parse(alternativeRequestKey) as Array<{ itemId: string; quantity: number }>;
     if (requestedBasket.length === 0) {
       setAlternativeLines([]);
       setAlternativesLoading(false);
@@ -1454,50 +1619,42 @@ function RecommendationOverview({
         if (!controller.signal.aborted) setAlternativesLoading(false);
       });
     return () => controller.abort();
-  }, [store.premiseId]);
+  }, [alternativeRequestKey, store.premiseId]);
 
-  const appliedLines = Object.values(appliedSwaps);
-  const persistedSwapByItemId = new Map(
-    basket
-      .filter(item => item.swap)
-      .map(item => [item.id.replace(/^db-/, ""), item] as const),
+  const detailRows = useMemo(
+    () => buildRecommendationDetailRows(basket, store, alternativeLines),
+    [alternativeLines, basket, store],
   );
-  const appliedSavings = appliedLines.reduce((total, line) => total + (line.savingsRm ?? 0), 0);
-  const remainingSavings = alternativeLines.reduce((total, line) => {
-    const alternativeId = line.alternative?.itemId;
-    if (!alternativeId || appliedSwaps[line.source.itemId] || basket.some(item => item.id === `db-${alternativeId}`)) return total;
-    return total + (line.savingsRm ?? 0);
-  }, 0);
-  const adjustedSubtotal = store.basketSubtotalRm == null ? null : Math.max(0, Number((store.basketSubtotalRm - appliedSavings).toFixed(2)));
-  const creditAdjustment = appliedLines.reduce((total, line) => {
-    const sourceCredit = line.source.isSaraCreditCandidate ? (line.source.lineTotalRm ?? 0) : 0;
-    const alternativeCredit = line.alternative?.isSaraCreditCandidate ? (line.alternative.lineTotalRm ?? 0) : 0;
-    return total + alternativeCredit - sourceCredit;
-  }, 0);
-  const adjustedCredit = store.saraCreditRm == null || adjustedSubtotal == null ? null : Math.max(0, Number((store.saraCreditRm + creditAdjustment).toFixed(2)));
-  const adjustedCash = adjustedSubtotal == null || adjustedCredit == null ? null : Math.max(0, Number((adjustedSubtotal - adjustedCredit).toFixed(2)));
-  const adjustedCombinedTotal = adjustedSubtotal == null ? null : Number((adjustedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
+  const detailTotals = useMemo(() => recommendationDetailTotals(detailRows), [detailRows]);
+  const displayedSubtotal = detailRows.length > 0 ? detailTotals.currentSubtotalRm : store.basketSubtotalRm;
+  const displayedCredit = detailRows.length > 0 ? detailTotals.saraCreditRm : store.saraCreditRm;
+  const displayedCash = detailRows.length > 0 ? detailTotals.cashNeededRm : store.cashNeededRm;
+  const displayedPricedCount = detailRows.length > 0 ? detailTotals.pricedCount : store.pricedCount ?? 0;
+  const displayedLineCount = detailRows.length > 0 ? detailTotals.lineCount : store.basketLineCount ?? 0;
+  const hasIncompleteBasket = displayedLineCount > 0 && displayedPricedCount < displayedLineCount;
+  const adjustedCombinedTotal = displayedSubtotal == null
+    ? null
+    : Number((displayedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
 
   const applyAlternative = (line: BasketAlternativeLine) => {
-    const next = applyBasketSwap(basket, line, { id: store.premiseId, name: store.name });
-    if (next === basket || !line.alternative) return;
-    onSetBasket(next);
-    setAppliedSwaps(current => ({ ...current, [line.source.itemId]: line }));
+    const choice = lowerCostReplacementChoice(line);
+    if (!choice) return;
+    onSetBasket(current => applyBasketReplacement(current, choice, { id: store.premiseId, name: store.name }));
   };
 
-  const undoAlternative = (line: BasketAlternativeLine) => {
-    onSetBasket(undoBasketSwap(basket, `db-${line.alternative?.itemId ?? ""}`));
-    setAppliedSwaps(current => {
-      const next = { ...current };
-      delete next[line.source.itemId];
-      return next;
-    });
+  const applyPack = (row: RecommendationDetailRow, packItemId: string) => {
+    const pack = row.alternatives.packOptions?.find(option => option.itemId === packItemId);
+    const choice = pack ? packReplacementChoice(row.alternatives, pack) : null;
+    if (!choice) return;
+    onSetBasket(current => applyBasketReplacement(current, choice, { id: store.premiseId, name: store.name }));
   };
 
-  const alternativeBySourceId = new Map(
-    alternativeLines.map(line => [line.source.itemId, line] as const),
-  );
-  const lastPriceDate = latestPriceDate(store.basketPrices);
+  const undoReplacement = (row: RecommendationDetailRow) => {
+    if (!row.basketItem?.replacement) return;
+    onSetBasket(current => undoBasketReplacement(current, row.basketItem!.id));
+  };
+
+  const lastPriceDate = detailTotals.latestObservedDate ?? latestPriceDate(store.basketPrices);
 
   return (
     <div className="screen-enter pb-8">
@@ -1525,164 +1682,70 @@ function RecommendationOverview({
             <TripDetails
               store={store}
               copy={copy}
-              basketSubtotal={adjustedSubtotal}
-              basketLineCount={store.basketLineCount}
+              basketSubtotal={displayedSubtotal}
+              basketLineCount={displayedLineCount}
               incomplete={hasIncompleteBasket}
+              showBasketSubtotal={false}
             />
           </div>
 
-          {store.basketLines.length > 0 && (
-            <>
-              <div className="mt-2 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setPricesExpanded(expanded => !expanded)}
-                  aria-expanded={pricesExpanded}
-                  className="min-h-8 w-full rounded-lg border border-[#cbd8d1] bg-white px-2 text-[9px] font-bold text-[#087f5b]"
-                >
-                  {pricesExpanded ? copy.hidePriceList : copy.viewPriceList}
-                </button>
+          {displayedLineCount > 0 && (
+            <section className="mt-4 overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
+              <div className={`px-4 py-3 ${hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]"}`}>
+                <div className="flex flex-wrap items-end justify-between gap-2">
+                  <div>
+                    <h2 className="text-[17px] font-extrabold text-[#10231d]">{copy.basketItems}</h2>
+                    <p className="mt-0.5 text-xs text-[#617069]">
+                      {copy.priceCoverage(displayedPricedCount, displayedLineCount)}
+                      {lastPriceDate ? ` · ${copy.lastUpdated}: ${formatPriceDate(lastPriceDate)}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-[#617069]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}</p>
+                    <p className="text-xl font-extrabold text-[#175f4b]">{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</p>
+                  </div>
+                </div>
+                {displayedCredit != null && displayedCash != null && (
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#bfe3d3] pt-2 text-xs">
+                    <span className="font-semibold text-[#286d67]">{copy.saraCreditLabel}: {formatRm(displayedCredit)}</span>
+                    <span className="font-semibold text-[#17362c]">{copy.cashNeededLabel}: {formatRm(displayedCash)}</span>
+                  </div>
+                )}
               </div>
-              {pricesExpanded && (
-                <div className={"mt-3 rounded-xl p-3 " + (hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
-            {hasIncompleteBasket && store.missingItems.length > 0 && (
-              <p className="mt-2 text-xs leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
-            )}
-            {lastPriceDate && (
-              <p className="mt-2 text-xs text-[#617069]">{copy.lastUpdated}: {formatPriceDate(lastPriceDate)}</p>
-            )}
-            {adjustedCredit != null && adjustedCash != null && (
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[#bfe3d3] pt-3 text-xs">
-                <span className="font-semibold text-[#286d67]">{copy.saraCreditLabel}: {formatRm(adjustedCredit)}</span>
-                <span className="font-semibold text-[#17362c]">{copy.cashNeededLabel}: {formatRm(adjustedCash)}</span>
+
+              <div className="px-4">
+                {alternativesLoading && <p role="status" className="py-4 text-xs text-[#617069]">{copy.alternativesLoading}</p>}
+                {alternativesError && <p role="alert" className="pt-4 text-xs text-[#93000a]">{copy.alternativesUnavailable}</p>}
+                {detailRows.length > 0 ? (
+                  <ul>
+                    {detailRows.map(row => (
+                      <RecommendationBasketRow
+                        key={row.source.itemId}
+                        row={row}
+                        basket={basket}
+                        copy={copy}
+                        onApplyAlternative={applyAlternative}
+                        onApplyPack={applyPack}
+                        onUndo={undoReplacement}
+                      />
+                    ))}
+                  </ul>
+                ) : !alternativesLoading && store.basketPrices.length > 0 ? (
+                  <div className="py-3"><CompactBasketPriceList prices={store.basketPrices} copy={copy} /></div>
+                ) : null}
               </div>
-            )}
 
-          <div className="mt-4 border-t border-[#bfe3d3] pt-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h3 className="text-[16px] font-extrabold leading-6 text-[#10231d]">{copy.basketItemsAndSavings}</h3>
-              <div className="text-right text-xs font-bold text-[#286d67]">
-                {appliedSavings > 0 && <span>{copy.appliedSavings(formatRm(Number(appliedSavings.toFixed(2))))}</span>}
-                {appliedSavings > 0 && remainingSavings > 0 && <span> · </span>}
-                {remainingSavings > 0 && <span>{copy.potentialSavings(formatRm(Number(remainingSavings.toFixed(2))))}</span>}
-              </div>
-            </div>
-            {alternativesLoading && <p role="status" className="mt-2 text-xs text-[#617069]">{copy.alternativesLoading}</p>}
-            {alternativesError && <p role="alert" className="mt-2 text-xs text-[#93000a]">{copy.alternativesUnavailable}</p>}
-
-            {store.basketLines.length > 0 ? (
-              <ul className="mt-2 flex flex-col">
-                {store.basketLines.map(line => {
-                  const applied = appliedSwaps[line.itemId];
-                  const persisted = persistedSwapByItemId.get(line.itemId);
-                  const suggestion = alternativeBySourceId.get(line.itemId);
-                  const replacement = applied?.alternative;
-                  const sourcePrice = store.basketPrices.find(price => price.itemId === line.itemId);
-                  const displayPackageSize = replacement?.packageSize ?? sourcePrice?.packageSize ?? line.unit;
-                  const displaySaraEligible = replacement?.saraEligible ?? sourcePrice?.saraEligible ?? null;
-                  const displaySaraCandidate = replacement?.saraCategoryCandidate ?? sourcePrice?.saraCategoryCandidate ?? false;
-                  const displayLine = replacement
-                    ? { ...line, itemId: replacement.itemId, itemName: replacement.itemName, unit: replacement.unit, unitPriceRm: replacement.unitPriceRm, lineTotalRm: replacement.lineTotalRm, observedDate: replacement.observedDate }
-                    : line;
-                  const hasSuggestion = Boolean(suggestion?.alternative && suggestion.savingsRm != null && suggestion.source.lineTotalRm != null);
-                  const targetAlreadyInBasket = suggestion?.alternative
-                    ? basket.some(item => item.id === `db-${suggestion.alternative!.itemId}`)
-                    : false;
-                  return (
-                    <li key={line.itemId} className="border-b border-[#e2e9e5] py-3 last:border-b-0 last:pb-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="break-words text-[13px] font-bold text-[#17362c]">{displayLine.itemName ?? "Catalogue item"}</p>
-                            {(applied || persisted) && <span className="rounded-md bg-[#e7f7f0] px-2 py-0.5 text-[10px] font-extrabold text-[#17634f]">{copy.swapped}</span>}
-                          </div>
-                          <p className="mt-0.5 text-xs text-[#718078]">{displayPackageSize ?? "—"}{persisted?.swap ? ` · ${copy.originally(persisted.swap.original.name)}` : ""}</p>
-                          <div className="mt-1"><SaraEligibilityFlag status={displaySaraEligible} categoryCandidate={displaySaraCandidate} copy={copy} /></div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          {displayLine.unitPriceRm != null && displayLine.lineTotalRm != null ? (
-                            <>
-                              <p className="text-[15px] font-extrabold text-[#17362c]">{formatRm(displayLine.lineTotalRm)}</p>
-                              <p className="text-[11px] text-[#718078]">{displayLine.quantity} × {formatRm(displayLine.unitPriceRm)}</p>
-                              <p className="text-[11px] text-[#718078]">{copy.priceCatcherUpdated}: {formatPriceDate(displayLine.observedDate)}</p>
-                            </>
-                          ) : (
-                            <p className="text-lg font-extrabold text-[#718078]">—</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {hasSuggestion && !applied && !persisted && suggestion?.alternative && suggestion.savingsRm != null && (
-                        <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-[#f3faf7] px-3 py-2">
-                          <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-[#286d67]">{copy.lowerCostMatch}</p>
-                            <p className="break-words text-xs font-semibold text-[#17362c]">{suggestion.alternative.itemName ?? "Catalogue item"}</p>
-                            <p className="text-[11px] text-[#718078]">{suggestion.alternative.packageSize ?? suggestion.alternative.unit ?? "—"}</p>
-                            <p className="text-[11px] text-[#53635c]">{copy.saveAmount(formatRm(suggestion.savingsRm))} · {formatRm(suggestion.alternative.unitPriceRm ?? 0)} each</p>
-                            <SaraEligibilityFlag status={suggestion.alternative.saraEligible} categoryCandidate={suggestion.alternative.saraCategoryCandidate} copy={copy} />
-                            <p className="text-[11px] text-[#718078]">{copy.priceCatcherUpdated}: {formatPriceDate(suggestion.alternative.observedDate)}</p>
-                          </div>
-                          <button type="button" disabled={targetAlreadyInBasket} onClick={() => applyAlternative(suggestion)} aria-label={`${copy.swapAndSave}: ${suggestion.alternative.itemName ?? "Catalogue item"}`} className="min-h-10 shrink-0 rounded-lg bg-[#087f5b] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]">{targetAlreadyInBasket ? copy.swapped : copy.swapAndSave}</button>
-                        </div>
-                      )}
-
-                      {!applied && !persisted && (suggestion?.packOptions?.length ?? 0) > 0 && (
-                        <div className="mt-2 rounded-xl border border-[#e2e9e5] bg-white px-3 py-2">
-                          <p className="text-[11px] font-bold text-[#286d67]">{copy.packSizeOptions}</p>
-                          <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
-                            {suggestion!.packOptions!.map(pack => (
-                              <div key={pack.itemId} className={"w-36 shrink-0 rounded-lg px-2.5 py-2 " + (pack.isBestValue ? "bg-[#e7f7f0] ring-2 ring-[#087f5b]" : "bg-[#f3faf7]")}>
-                                <p className="break-words text-[11px] font-semibold leading-4 text-[#17362c]">{pack.itemName ?? "Catalogue item"}</p>
-                                <p className="mt-0.5 text-[10px] text-[#718078]">{pack.packageSize ?? "—"}</p>
-                                <span className="mt-0.5 flex flex-wrap gap-1">
-                                  {pack.isBestValue && (
-                                    <span className="inline-block rounded-md bg-[#087f5b] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestValue}</span>
-                                  )}
-                                  {pack.itemId === line.itemId && (
-                                    <span className="inline-block rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>
-                                  )}
-                                </span>
-                                <p className="mt-1 text-[13px] font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
-                                <p className="text-[10px] text-[#53635c]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
-                                {pack.isBestValue ? (
-                                  <p className="mt-0.5 text-[9px] leading-3 text-[#087f5b]">{copy.bestValueBaseline}</p>
-                                ) : pack.upfrontDiffRm != null && pack.perUnitDiffRm != null ? (
-                                  <p className="mt-0.5 text-[9px] leading-3 text-[#53635c]">
-                                    {copy.packTradeoff(
-                                      formatRm(Math.abs(pack.upfrontDiffRm)),
-                                      pack.upfrontDiffRm > 0 ? "more" : pack.upfrontDiffRm < 0 ? "less" : "same",
-                                      formatRm(Math.abs(pack.perUnitDiffRm)),
-                                      pack.perUnitDiffRm > 0 ? "more" : pack.perUnitDiffRm < 0 ? "less" : "same",
-                                      pack.unitKind,
-                                    )}
-                                  </p>
-                                ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {(applied || persisted) && (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
-                          {applied && <span>{copy.saveAmount(formatRm(applied.savingsRm ?? 0))}</span>}
-                          <button type="button" onClick={() => {
-                            if (applied) undoAlternative(applied);
-                            else if (persisted) onSetBasket(undoBasketSwap(basket, persisted.id));
-                          }} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="mt-2 text-xs text-[#617069]">{copy.noPricedBasketLines}</p>
-           )}
-          </div>
-          </div>
-              )}
-            </>
+              <CompactSavingsFooter
+                copy={copy}
+                hasReplacements={detailTotals.hasReplacements}
+                showWhenUnchanged
+                comparable={detailTotals.savingsComparable}
+                originalRm={detailTotals.originalSubtotalRm}
+                newRm={detailTotals.currentSubtotalRm}
+                netSavingRm={detailTotals.netSavingRm}
+                totalsLabel={hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}
+              />
+            </section>
           )}
 
           {adjustedCombinedTotal != null && (
@@ -1694,20 +1757,6 @@ function RecommendationOverview({
                 </div>
                 <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.basketSubtotal} + {copy.returnTravel}</p>
               </div>
-            </div>
-          )}
-
-          {/* AC 3.4.1/3.4.2: savings summary beneath the combined total;
-              store-level totals frame the before/after amounts while the
-              per-item savings come from the applied basket swaps */}
-          {basketSavingsSummary(basket).hasSavings && (
-            <div className="mt-4">
-              <SavingsSummary
-                basket={basket}
-                copy={copy}
-                storeOriginalTotalRm={store.basketSubtotalRm}
-                storeNewTotalRm={adjustedSubtotal}
-              />
             </div>
           )}
 

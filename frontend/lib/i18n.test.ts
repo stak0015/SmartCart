@@ -76,3 +76,19 @@ describe("value trade-off copy (AC 3.2.3)", () => {
     expect(COPY.ms.bestValueBaseline.trim().length).toBeGreaterThan(0);
   });
 });
+
+describe("compact replacement copy", () => {
+  it("separates immediate savings from best unit value in both languages", () => {
+    expect(COPY.en.lowerPriceNow).toBe("Lower price now");
+    expect(COPY.en.bestUnitValue).toBe("Best unit value");
+    expect(COPY.en.comparePackSizes(3)).toBe("Compare 3 pack sizes");
+    expect(COPY.ms.lowerPriceNow.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.bestUnitValue.trim().length).toBeGreaterThan(0);
+  });
+
+  it("supports saving, higher-cost, and neutral summaries", () => {
+    expect(COPY.en.costsMoreNow("RM 2.00")).toBe("Costs RM 2.00 more now");
+    expect(COPY.en.noBasketCostChange).toBe("No change in basket cost");
+    expect(COPY.ms.costsMoreNow("RM 2.00")).toContain("RM 2.00");
+  });
+});

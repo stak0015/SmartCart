@@ -148,6 +148,9 @@ class PackSizeOption(CamelModel):
     price_per_unit_rm: float | None
     unit_kind: str | None
     observed_date: date | None
+    sara_eligible: bool | None = None
+    sara_category_candidate: bool = False
+    is_sara_credit_candidate: bool = False
     # AC 3.2.2: true for exactly one option per comparison — the cheapest
     # unit price at full precision (ties: newest observed price, then name,
     # then item id).

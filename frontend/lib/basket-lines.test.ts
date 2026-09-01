@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toBasketLineRequests } from "./basket-lines";
+import { toAlternativeLineRequests, toBasketLineRequests } from "./basket-lines";
 
 describe("toBasketLineRequests", () => {
   it("keeps real catalogue items and strips the db- prefix", () => {
@@ -28,5 +28,21 @@ describe("toBasketLineRequests", () => {
   it("returns an empty list when the basket has no real items", () => {
     expect(toBasketLineRequests([{ id: "1", qty: 1 }])).toEqual([]);
     expect(toBasketLineRequests([])).toEqual([]);
+  });
+});
+
+describe("toAlternativeLineRequests", () => {
+  it("uses an applied replacement's original item after re-entering a store", () => {
+    expect(toAlternativeLineRequests([
+      {
+        id: "db-22",
+        qty: 2,
+        replacement: { original: { id: "db-12" } },
+      },
+      { id: "db-7", qty: 1 },
+    ])).toEqual([
+      { itemId: "12", quantity: 2 },
+      { itemId: "7", quantity: 1 },
+    ]);
   });
 });

@@ -99,6 +99,9 @@ export interface PackSizeOption {
   pricePerUnitRm: number | null;
   unitKind: string | null;
   observedDate: string | null;
+  saraEligible: boolean | null;
+  saraCategoryCandidate: boolean;
+  isSaraCreditCandidate: boolean;
   // AC 3.2.2: exactly one option per comparison carries the "Best value"
   // label (lowest unit price, deterministic tie-break).
   isBestValue?: boolean;

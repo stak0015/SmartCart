@@ -19,15 +19,16 @@ SOURCE_ROWS = [
 ]
 
 # Premise rows: (item_id, item_name, unit, quantity_value, quantity_unit,
-#                current_price, price_observed_date)
+#                current_price, price_observed_date, item_category,
+#                sara_eligible)
 PREMISE_ROWS = [
-    (1, "MINYAK JAGUNG CAP MAZOLA", "1 kg", Decimal("1"), "KG", Decimal("10.00"), TODAY),
-    (2, "MINYAK JAGUNG CAP DAISY", "1 kg", Decimal("1"), "KG", Decimal("9.50"), TODAY),
-    (3, "MINYAK JAGUNG CAP MAZOLA", "2 kg", Decimal("2"), "KG", Decimal("18.00"), TODAY),
-    (4, "MINYAK JAGUNG CAP DAISY", "2 kg", Decimal("2"), "KG", Decimal("19.00"), TODAY),
-    (5, "MINYAK MASAK TULEN CAP BURUH", "1 kg", Decimal("1"), "KG", Decimal("7.00"), TODAY),
+    (1, "MINYAK JAGUNG CAP MAZOLA", "1 kg", Decimal("1"), "KG", Decimal("10.00"), TODAY, "MINYAK DAN LEMAK", None),
+    (2, "MINYAK JAGUNG CAP DAISY", "1 kg", Decimal("1"), "KG", Decimal("9.50"), TODAY, "MINYAK DAN LEMAK", True),
+    (3, "MINYAK JAGUNG CAP MAZOLA", "2 kg", Decimal("2"), "KG", Decimal("18.00"), TODAY, "MINYAK DAN LEMAK", None),
+    (4, "MINYAK JAGUNG CAP DAISY", "2 kg", Decimal("2"), "KG", Decimal("19.00"), TODAY, "MINYAK DAN LEMAK", False),
+    (5, "MINYAK MASAK TULEN CAP BURUH", "1 kg", Decimal("1"), "KG", Decimal("7.00"), TODAY, "MINYAK DAN LEMAK", None),
     # Same family name prefix would never happen here; different family must be excluded.
-    (6, "SANTAN KELAPA JENAMA KARA", "200 ml", Decimal("0.2"), "L", Decimal("3.00"), TODAY),
+    (6, "SANTAN KELAPA JENAMA KARA", "200 ml", Decimal("0.2"), "L", Decimal("3.00"), TODAY, "SANTAN", None),
 ]
 
 
@@ -69,6 +70,10 @@ def test_multi_size_family_lists_every_priced_pack(monkeypatch) -> None:
     assert packs[0].price_per_unit_rm == 9.0  # RM 18.00 / 2 kg, full precision
     assert packs[1].price_per_unit_rm == 9.5
     assert packs[0].unit_kind == "KG"
+    assert packs[0].sara_category_candidate
+    assert packs[0].is_sara_credit_candidate
+    assert packs[1].sara_eligible is True
+    assert packs[1].is_sara_credit_candidate
     # AC 3.2.2: exactly one Best value pick, the cheapest unit price.
     assert [pack.is_best_value for pack in packs] == [True, False, False, False]
 
@@ -103,9 +108,9 @@ def test_best_value_tie_prefers_newest_observed_price(monkeypatch) -> None:
     old, new = date(2026, 8, 1), date(2026, 8, 27)
     sources = [(20, "MARJERIN PLANTA", "240 g", Decimal("0.24"), "KG")]
     premise_rows = [
-        (20, "MARJERIN PLANTA", "240 g", Decimal("0.24"), "KG", Decimal("2.40"), old),
-        (21, "MARJERIN PLANTA", "480 g", Decimal("0.48"), "KG", Decimal("4.80"), old),
-        (22, "MARJERIN PLANTA", "480 g", Decimal("0.48"), "KG", Decimal("4.80"), new),
+        (20, "MARJERIN PLANTA", "240 g", Decimal("0.24"), "KG", Decimal("2.40"), old, None, None),
+        (21, "MARJERIN PLANTA", "480 g", Decimal("0.48"), "KG", Decimal("4.80"), old, None, None),
+        (22, "MARJERIN PLANTA", "480 g", Decimal("0.48"), "KG", Decimal("4.80"), new, None, None),
     ]
     monkeypatch.setattr(
         "smartcart.pack_ratios.database_cursor",
@@ -146,10 +151,10 @@ def test_single_size_family_and_foreign_family_excluded(monkeypatch) -> None:
 def test_unit_kinds_never_mix(monkeypatch) -> None:
     sources = [(9, "SOS CILI MAGGI", "340 g", Decimal("0.34"), "KG")]
     premise_rows = [
-        (9, "SOS CILI MAGGI", "340 g", Decimal("0.34"), "KG", Decimal("4.00"), TODAY),
-        (10, "SOS CILI MAGGI", "500 g", Decimal("0.5"), "KG", Decimal("5.50"), TODAY),
+        (9, "SOS CILI MAGGI", "340 g", Decimal("0.34"), "KG", Decimal("4.00"), TODAY, None, None),
+        (10, "SOS CILI MAGGI", "500 g", Decimal("0.5"), "KG", Decimal("5.50"), TODAY, None, None),
         # Same family but a litre-based sibling must not join the KG comparison.
-        (11, "SOS CILI MAGGI", "1 l", Decimal("1"), "L", Decimal("9.00"), TODAY),
+        (11, "SOS CILI MAGGI", "1 l", Decimal("1"), "L", Decimal("9.00"), TODAY, None, None),
     ]
     monkeypatch.setattr(
         "smartcart.pack_ratios.database_cursor",
@@ -172,9 +177,17 @@ def test_endpoint_returns_pack_options_in_camel_case(monkeypatch) -> None:
         "smartcart.api.get_basket_alternatives",
         lambda _premise_id, _basket: [BasketAlternative(1, source, None, None)],
     )
+    from smartcart.pack_ratios import PackSizeOption
+
+    pack = PackSizeOption(
+        item_id="2", item_name="MINYAK JAGUNG CAP DAISY", package_size="2 kg",
+        total_price_rm=18.0, price_per_unit_rm=9.0, unit_kind="KG",
+        observed_date=TODAY, sara_eligible=True, sara_category_candidate=True,
+        is_sara_credit_candidate=True,
+    )
     monkeypatch.setattr(
         "smartcart.api.get_pack_options",
-        lambda _premise_id, _basket: {"1": []},
+        lambda _premise_id, _basket: {"1": [pack]},
     )
 
     response = TestClient(create_app()).post(
@@ -184,4 +197,6 @@ def test_endpoint_returns_pack_options_in_camel_case(monkeypatch) -> None:
     assert response.status_code == 200
     line = response.json()["lines"][0]
     assert "packOptions" in line
-    assert line["packOptions"] == []
+    assert line["packOptions"][0]["saraEligible"] is True
+    assert line["packOptions"][0]["saraCategoryCandidate"] is True
+    assert line["packOptions"][0]["isSaraCreditCandidate"] is True

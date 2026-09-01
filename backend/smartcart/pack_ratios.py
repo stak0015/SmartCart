@@ -24,6 +24,7 @@ from .alternatives import _money, package_basis, product_family
 from .catalogue import display_package_size
 from .database import database_cursor
 from .models import BasketLineRequest
+from .sara import is_sara_credit_line
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,9 @@ class PackSizeOption:
     price_per_unit_rm: float | None
     unit_kind: str | None
     observed_date: date | None
+    sara_eligible: bool | None
+    sara_category_candidate: bool
+    is_sara_credit_candidate: bool
     # Full-precision ratio kept server-side for ordering and best-value picks;
     # never serialised (display uses the rounded price_per_unit_rm).
     _ratio: Decimal | None = None
@@ -66,7 +70,8 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
             SELECT item.item_id, item.item_name, item.unit,
                    item.quantity_value, item.quantity_unit,
                    current_status.current_price,
-                   current_status.price_observed_date
+                   current_status.price_observed_date,
+                   item.item_category, item.sara_eligible
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
@@ -81,8 +86,19 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
 
 
 def _option_from_row(row: tuple) -> PackSizeOption:
-    item_id, item_name, unit, quantity_value, quantity_unit, price, observed = row
+    (
+        item_id,
+        item_name,
+        unit,
+        quantity_value,
+        quantity_unit,
+        price,
+        observed,
+        category,
+        sara_eligible,
+    ) = row
     ratio = Decimal(price) / Decimal(quantity_value)
+    sara_category_candidate = bool(category and is_sara_credit_line(False, category))
     return PackSizeOption(
         item_id=str(item_id),
         item_name=item_name,
@@ -91,6 +107,9 @@ def _option_from_row(row: tuple) -> PackSizeOption:
         price_per_unit_rm=_money(ratio),
         unit_kind=quantity_unit,
         observed_date=observed,
+        sara_eligible=sara_eligible,
+        sara_category_candidate=sara_category_candidate,
+        is_sara_credit_candidate=is_sara_credit_line(sara_eligible, category),
         _ratio=ratio,
         _price=Decimal(price),
     )
