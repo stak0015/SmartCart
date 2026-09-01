@@ -25,7 +25,9 @@ from .models import (
     BasketAlternativesResponse,
     BasketAlternativeLine,
     AlternativePriceItem,
+    PackSizeOption,
 )
+from .pack_ratios import get_pack_options
 from .premises import find_nearest_premises, get_premise_location_coverage
 from .pricing import get_basket_pricing
 from .recommendation import (
@@ -124,6 +126,11 @@ async def basket_alternatives(
         str(premise_id),
         payload.basket,
     )
+    pack_options = await run_in_threadpool(
+        get_pack_options,
+        str(premise_id),
+        payload.basket,
+    )
     return BasketAlternativesResponse(
         premise_id=str(premise_id),
         lines=[
@@ -136,6 +143,10 @@ async def basket_alternatives(
                     else None
                 ),
                 savings_rm=line.savings_rm,
+                pack_options=[
+                    PackSizeOption(**option.__dict__)
+                    for option in pack_options.get(str(line.source.item_id), [])
+                ],
             )
             for line in lines
         ],

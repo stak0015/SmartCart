@@ -7,8 +7,16 @@ CREATE TABLE IF NOT EXISTS item (
     unit VARCHAR(255),
     item_group VARCHAR(255),
     item_category VARCHAR(255),
-    sara_eligible BOOLEAN
+    sara_eligible BOOLEAN,
+    quantity_value NUMERIC(12, 4),
+    quantity_unit VARCHAR(8)
 );
+
+-- Idempotent upgrade for databases created before the pack-ratio columns
+-- existed (US 3.2): quantity_value is stored in the base unit (kg or litre),
+-- quantity_unit is the normalised family 'KG' or 'L'. NULL = not comparable.
+ALTER TABLE item ADD COLUMN IF NOT EXISTS quantity_value NUMERIC(12, 4);
+ALTER TABLE item ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(8);
 
 COMMENT ON COLUMN item.sara_eligible IS
     'NULL means not yet verified. Populate only from a documented SARA source.';

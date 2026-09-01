@@ -90,11 +90,34 @@ export interface AlternativePriceItem {
   isSaraCreditCandidate: boolean;
 }
 
+// One pack size of the same product family priced at the selected store
+// (AC 3.2.1); pricePerUnitRm is display-rounded, unitKind is "KG" or "L".
+export interface PackSizeOption {
+  itemId: string;
+  itemName: string | null;
+  packageSize: string | null;
+  totalPriceRm: number | null;
+  pricePerUnitRm: number | null;
+  unitKind: string | null;
+  observedDate: string | null;
+  // AC 3.2.2: exactly one option per comparison carries the "Best value"
+  // label (lowest unit price, deterministic tie-break).
+  isBestValue?: boolean;
+  // AC 3.2.3: signed trade-off versus the Best value option (total-price and
+  // unit-price differences), computed server-side; null on the Best value
+  // card itself, which the UI marks as the comparison baseline.
+  upfrontDiffRm?: number | null;
+  perUnitDiffRm?: number | null;
+}
+
 export interface BasketAlternativeLine {
   quantity: number;
   source: AlternativePriceItem;
   alternative: AlternativePriceItem | null;
   savingsRm: number | null;
+  // AC 3.2.1: comparable pack sizes at the selected store, cheapest unit
+  // price first; empty when the item has no comparable multi-size family.
+  packOptions?: PackSizeOption[];
 }
 
 export interface BasketAlternativesResponse {

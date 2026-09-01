@@ -28,6 +28,7 @@ import {
   undoBasketSwap,
   type BasketItem,
 } from "@/lib/basket-state";
+import { basketSavingsSummary } from "@/lib/savings-summary";
 import { isCompleteBasket } from "@/lib/basket-coverage";
 import { formatRm } from "@/lib/format-rm";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -265,6 +266,77 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
         </li>
       ))}
     </ul>
+  );
+}
+
+// AC 3.4.1/3.4.2/3.4.3: savings summary for applied alternatives. When
+// store-level totals are provided (recommendation overview), they frame
+// the original/new amounts; otherwise the swapped-line totals are used.
+// Per-item savings always come from the basket swap records, so their sum
+// equals the displayed "You save" amount (AC 3.4.2).
+function SavingsSummary({
+  basket,
+  copy,
+  storeOriginalTotalRm,
+  storeNewTotalRm,
+}: {
+  basket: BasketItem[];
+  copy: AppCopy;
+  storeOriginalTotalRm?: number | null;
+  storeNewTotalRm?: number | null;
+}) {
+  const summary = basketSavingsSummary(basket);
+
+  if (!summary.hasSavings) {
+    // AC 3.4.3: nothing applied yet; point back to the
+    // Smart Budget Alternatives review.
+    return (
+      <section className="rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
+        <h3 className="text-[16px] font-extrabold leading-6 text-[#17362c]">{copy.savingsTitle}</h3>
+        <p className="mt-2 text-[14px] font-semibold text-[#53635c]">{copy.noSavingsApplied}</p>
+        <p className="mt-1 text-[13px] leading-5 text-[#617069]">
+          {copy.reviewAlternativesPrompt(copy.alternativesSectionTitle)}
+        </p>
+      </section>
+    );
+  }
+
+  const originalRm = storeOriginalTotalRm ?? summary.originalRm;
+  const newRm = storeNewTotalRm ?? summary.newRm;
+
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-[#b9e0d1] bg-[#e7f7f0] p-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-[16px] font-extrabold leading-6 text-[#175f4b]">{copy.savingsTitle}</h3>
+        <p className="text-[15px] font-extrabold text-[#175f4b]">{copy.youSave(formatRm(summary.totalSavedRm))}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-white/70 p-3">
+          <p className="text-xs text-[#286d67]">{copy.savingsOriginalTotal}</p>
+          <p className="mt-1 text-lg font-extrabold text-[#17362c]">{formatRm(originalRm)}</p>
+        </div>
+        <div className="rounded-xl bg-white/70 p-3">
+          <p className="text-xs text-[#286d67]">{copy.savingsNewTotal}</p>
+          <p className="mt-1 text-lg font-extrabold text-[#175f4b]">{formatRm(newRm)}</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-white/70 p-3">
+        <p className="text-xs font-bold text-[#286d67]">{copy.savingsBreakdownTitle}</p>
+        <ul className="mt-2 flex flex-col gap-2">
+          {summary.items.map(line => (
+            <li key={line.id} className="flex items-start justify-between gap-3 border-b border-[#bfe3d3] pb-2 last:border-b-0 last:pb-0">
+              <p className="min-w-0 break-words text-[13px] font-semibold text-[#17362c]">{line.name}</p>
+              <div className="shrink-0 text-right">
+                <p className="text-[13px] font-extrabold text-[#175f4b]">{copy.saveAmount(formatRm(line.savedRm))}</p>
+                <p className="text-[11px] text-[#617069]">{formatRm(line.originalLineRm)} 鈫?{formatRm(line.newLineRm)}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 
@@ -809,6 +881,14 @@ function BasketScreen({
 
           </div>
         </div>
+        {/* AC 3.4.3: savings summary under the basket card; shows the
+            no-savings state and a pointer to the Smart Budget
+            Alternatives review until an alternative is applied */}
+        {basket.length > 0 && (
+          <div className="mt-4">
+            <SavingsSummary basket={basket} copy={copy} />
+          </div>
+        )}
       </div>
         </>
       )}
@@ -1558,6 +1638,43 @@ function RecommendationOverview({
                         </div>
                       )}
 
+                      {!applied && !persisted && (suggestion?.packOptions?.length ?? 0) > 0 && (
+                        <div className="mt-2 rounded-xl border border-[#e2e9e5] bg-white px-3 py-2">
+                          <p className="text-[11px] font-bold text-[#286d67]">{copy.packSizeOptions}</p>
+                          <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
+                            {suggestion!.packOptions!.map(pack => (
+                              <div key={pack.itemId} className={"w-36 shrink-0 rounded-lg px-2.5 py-2 " + (pack.isBestValue ? "bg-[#e7f7f0] ring-2 ring-[#087f5b]" : "bg-[#f3faf7]")}>
+                                <p className="break-words text-[11px] font-semibold leading-4 text-[#17362c]">{pack.itemName ?? "Catalogue item"}</p>
+                                <p className="mt-0.5 text-[10px] text-[#718078]">{pack.packageSize ?? "—"}</p>
+                                <span className="mt-0.5 flex flex-wrap gap-1">
+                                  {pack.isBestValue && (
+                                    <span className="inline-block rounded-md bg-[#087f5b] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestValue}</span>
+                                  )}
+                                  {pack.itemId === line.itemId && (
+                                    <span className="inline-block rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>
+                                  )}
+                                </span>
+                                <p className="mt-1 text-[13px] font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
+                                <p className="text-[10px] text-[#53635c]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
+                                {pack.isBestValue ? (
+                                  <p className="mt-0.5 text-[9px] leading-3 text-[#087f5b]">{copy.bestValueBaseline}</p>
+                                ) : pack.upfrontDiffRm != null && pack.perUnitDiffRm != null ? (
+                                  <p className="mt-0.5 text-[9px] leading-3 text-[#53635c]">
+                                    {copy.packTradeoff(
+                                      formatRm(Math.abs(pack.upfrontDiffRm)),
+                                      pack.upfrontDiffRm > 0 ? "more" : pack.upfrontDiffRm < 0 ? "less" : "same",
+                                      formatRm(Math.abs(pack.perUnitDiffRm)),
+                                      pack.perUnitDiffRm > 0 ? "more" : pack.perUnitDiffRm < 0 ? "less" : "same",
+                                      pack.unitKind,
+                                    )}
+                                  </p>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {(applied || persisted) && (
                         <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
                           {applied && <span>{copy.saveAmount(formatRm(applied.savingsRm ?? 0))}</span>}
@@ -1595,6 +1712,18 @@ function RecommendationOverview({
               </div>
             </div>
           )}
+
+          {/* AC 3.4.1/3.4.2: savings summary beneath the combined total;
+              store-level totals frame the before/after amounts while the
+              per-item savings come from the applied basket swaps */}
+          <div className="mt-4">
+            <SavingsSummary
+              basket={basket}
+              copy={copy}
+              storeOriginalTotalRm={store.basketSubtotalRm}
+              storeNewTotalRm={adjustedSubtotal}
+            />
+          </div>
 
           <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>

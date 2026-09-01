@@ -136,11 +136,41 @@ class AlternativePriceItem(CamelModel):
     is_sara_credit_candidate: bool = False
 
 
+class PackSizeOption(CamelModel):
+    """One pack size of the same product family priced at the selected store
+    (AC 3.2.1). price_per_unit_rm is display-rounded to sen; ordering and the
+    best-value pick use full precision server-side. unit_kind is 'KG' or 'L';
+    KG and L families never mix in one comparison."""
+
+    item_id: str
+    item_name: str | None
+    package_size: str | None
+    total_price_rm: float | None
+    price_per_unit_rm: float | None
+    unit_kind: str | None
+    observed_date: date | None
+    # AC 3.2.2: true for exactly one option per comparison — the cheapest
+    # unit price at full precision (ties: newest observed price, then name,
+    # then item id).
+    is_best_value: bool = False
+    # AC 3.2.3: trade-off versus the Best value option, computed server-side
+    # in Decimal (total-price difference and unit-price difference). Both are
+    # null on the Best value card itself, which the client labels as the
+    # baseline of the comparison.
+    upfront_diff_rm: float | None = None
+    per_unit_diff_rm: float | None = None
+
+
 class BasketAlternativeLine(CamelModel):
     quantity: int
     source: AlternativePriceItem
     alternative: AlternativePriceItem | None = None
     savings_rm: float | None = None
+    # AC 3.2.1: every pack size of the same product family priced at the
+    # selected store, cheapest unit price first. Empty when the item has no
+    # comparable multi-size family (single size, unparseable quantity, or no
+    # prices at this store) — the client then shows no comparison block.
+    pack_options: list[PackSizeOption] = Field(default_factory=list)
 
 
 class BasketAlternativesRequest(CamelModel):

@@ -80,6 +80,10 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
         "smartcart.api.get_basket_alternatives",
         lambda _premise_id, _basket: [BasketAlternative(1, source, alternative, 3.0)],
     )
+    monkeypatch.setattr(
+        "smartcart.api.get_pack_options",
+        lambda _premise_id, _basket: {},
+    )
 
     response = TestClient(create_app()).post(
         "/api/premises/10/basket-alternatives",
@@ -89,3 +93,4 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
     assert response.json()["premiseId"] == "10"
     assert response.json()["lines"][0]["alternative"]["itemId"] == "2"
     assert response.json()["lines"][0]["savingsRm"] == 3.0
+    assert response.json()["lines"][0]["packOptions"] == []

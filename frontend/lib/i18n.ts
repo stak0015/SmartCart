@@ -162,9 +162,43 @@ export const COPY = {
     alternativesLoading: "Checking cheaper equivalents...",
     alternativesUnavailable: "Cheaper alternatives are unavailable right now.",
     noCheaperAlternative: "No cheaper close equivalent found at this store.",
+    packSizeOptions: "Pack size options",
+    packUnitPrice: (amount: string, kind: string | null) =>
+      `${amount} per ${kind === "L" ? "litre" : "kg"}`,
+    currentPack: "Current pack",
+    bestValue: "Best value",
+    // AC 3.2.3: trade-off line under each pack card, measured against the
+    // Best value option; amounts arrive signed from the API, the client only
+    // formats their absolute value and picks the direction word.
+    bestValueBaseline: "Lowest price per unit — the baseline",
+    packTradeoff: (
+      upfront: string,
+      upfrontDir: "more" | "less" | "same",
+      perUnit: string,
+      perUnitDir: "more" | "less" | "same",
+      kind: string | null,
+    ) => {
+      const unit = kind === "L" ? "litre" : "kg";
+      const upfrontText =
+        upfrontDir === "same" ? "same total price" : `${upfront} ${upfrontDir} now`;
+      const perUnitText =
+        perUnitDir === "same" ? `same per ${unit}` : `${perUnit}/${unit} ${perUnitDir}`;
+      return `${upfrontText} · ${perUnitText}`;
+    },
     potentialSavings: (amount: string) => `Potential savings: ${amount}`,
     appliedSavings: (amount: string) => `Applied savings: ${amount}`,
+    // English block 
     remainingSavings: (amount: string) => `${amount} more available`,
+    // AC 3.4.1/3.4.2/3.4.3: savings summary copy.
+    alternativesSectionTitle: "Smart Budget Alternatives",
+    savingsTitle: "Your savings",
+    savingsOriginalTotal: "Original total",
+    savingsNewTotal: "New total",
+    youSave: (amount: string) => `You save ${amount}`,
+    savingsBreakdownTitle: "Saving per replaced item",
+    noSavingsApplied: "No savings applied yet",
+    reviewAlternativesPrompt: (title: string) =>
+      `Review the "${title}" suggestions to see where you can spend less.`,
     ignoredPriceNote: "Items without a price at this store are shown below but excluded from the basket subtotal and combined cost.",
     oneWay: "One way",
     route: "Route",
@@ -348,9 +382,41 @@ export const COPY = {
     alternativesLoading: "Menyemak padanan setara lebih murah...",
     alternativesUnavailable: "Alternatif lebih murah tidak tersedia sekarang.",
     noCheaperAlternative: "Tiada padanan setara lebih murah ditemui di kedai ini.",
+    packSizeOptions: "Pilihan saiz bungkusan",
+    packUnitPrice: (amount: string, kind: string | null) =>
+      `${amount} setiap ${kind === "L" ? "liter" : "kg"}`,
+    currentPack: "Bungkusan semasa",
+    bestValue: "Nilai terbaik",
+    bestValueBaseline: "Harga seunit terendah — penanda aras",
+    packTradeoff: (
+      upfront: string,
+      upfrontDir: "more" | "less" | "same",
+      perUnit: string,
+      perUnitDir: "more" | "less" | "same",
+      kind: string | null,
+    ) => {
+      const unit = kind === "L" ? "liter" : "kg";
+      const dir = (d: "more" | "less") => (d === "more" ? "lebih" : "kurang");
+      const upfrontText =
+        upfrontDir === "same" ? "jumlah harga sama" : `${upfront} ${dir(upfrontDir)} kini`;
+      const perUnitText =
+        perUnitDir === "same" ? `sama setiap ${unit}` : `${perUnit}/${unit} ${dir(perUnitDir)}`;
+      return `${upfrontText} · ${perUnitText}`;
+    },
     potentialSavings: (amount: string) => `Potensi penjimatan: ${amount}`,
     appliedSavings: (amount: string) => `Penjimatan digunakan: ${amount}`,
+    // Malay block
     remainingSavings: (amount: string) => `${amount} lagi tersedia`,
+    // AC 3.4.1/3.4.2/3.4.3: savings summary copy.
+    alternativesSectionTitle: "Alternatif Bajet Pintar",
+    savingsTitle: "Penjimatan anda",
+    savingsOriginalTotal: "Jumlah asal",
+    savingsNewTotal: "Jumlah baharu",
+    youSave: (amount: string) => `Anda jimat ${amount}`,
+    savingsBreakdownTitle: "Penjimatan bagi setiap item yang diganti",
+    noSavingsApplied: "Tiada penjimatan digunakan lagi",
+    reviewAlternativesPrompt: (title: string) =>
+      `Semak cadangan "${title}" untuk melihat tempat anda boleh berbelanja lebih sedikit.`,
     ignoredPriceNote: "Item tanpa harga di kedai ini dipaparkan di bawah tetapi dikecualikan daripada jumlah kecil bakul dan kos gabungan.",
     oneWay: "Sehala",
     route: "Laluan",
