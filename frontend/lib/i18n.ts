@@ -188,16 +188,12 @@ export const COPY = {
     appliedSavings: (amount: string) => `Applied savings: ${amount}`,
     // English block 
     remainingSavings: (amount: string) => `${amount} more available`,
-    // AC 3.4.1/3.4.2/3.4.3: savings summary copy.
-    alternativesSectionTitle: "Smart Budget Alternatives",
+    // AC 3.4.1/3.4.2: savings summary copy.
     savingsTitle: "Your savings",
     savingsOriginalTotal: "Original total",
     savingsNewTotal: "New total",
     youSave: (amount: string) => `You save ${amount}`,
     savingsBreakdownTitle: "Saving per replaced item",
-    noSavingsApplied: "No savings applied yet",
-    reviewAlternativesPrompt: (title: string) =>
-      `Review the "${title}" suggestions to see where you can spend less.`,
     ignoredPriceNote: "Items without a price at this store are shown below but excluded from the basket subtotal and combined cost.",
     oneWay: "One way",
     route: "Route",
@@ -405,16 +401,12 @@ export const COPY = {
     appliedSavings: (amount: string) => `Penjimatan digunakan: ${amount}`,
     // Malay block
     remainingSavings: (amount: string) => `${amount} lagi tersedia`,
-    // AC 3.4.1/3.4.2/3.4.3: savings summary copy.
-    alternativesSectionTitle: "Alternatif Bajet Pintar",
+    // AC 3.4.1/3.4.2: savings summary copy.
     savingsTitle: "Penjimatan anda",
     savingsOriginalTotal: "Jumlah asal",
     savingsNewTotal: "Jumlah baharu",
     youSave: (amount: string) => `Anda jimat ${amount}`,
     savingsBreakdownTitle: "Penjimatan bagi setiap item yang diganti",
-    noSavingsApplied: "Tiada penjimatan digunakan lagi",
-    reviewAlternativesPrompt: (title: string) =>
-      `Semak cadangan "${title}" untuk melihat tempat anda boleh berbelanja lebih sedikit.`,
     ignoredPriceNote: "Item tanpa harga di kedai ini dipaparkan di bawah tetapi dikecualikan daripada jumlah kecil bakul dan kos gabungan.",
     oneWay: "Sehala",
     route: "Laluan",

@@ -14,6 +14,11 @@ snapshot so every developer gets the same candidate Place IDs.
 ## Files
 
 - `schema.sql` — idempotent PostgreSQL schema.
+- `docker-compose.demo.yml` — isolated PostgreSQL service for deterministic UI demos.
+- `migrate_pack_quantities.py` — idempotent upgrade for existing databases;
+  backfills normalized item pack quantities used by pack comparisons.
+- `seed_demo_alternatives.py` — repeatable fixture for cheaper-equivalent and
+  lower-unit-price recommendations.
 - `SETUP_GUIDE.md` — beginner-friendly local setup and troubleshooting guide.
 - `docker-compose.yml` — local PostgreSQL 16 service.
 - `ingest_pricecatcher.py` — PriceCatcher download, validation, transformation,
@@ -22,6 +27,8 @@ snapshot so every developer gets the same candidate Place IDs.
 - `requirements.txt` — Python dependencies.
 - `.env.example` — safe local configuration template.
 - `tests/test_ingest_pricecatcher.py` — ingestion regression tests.
+- `tests/test_migrate_pack_quantities.py` — migration idempotence coverage.
+- `tests/test_seed_demo_alternatives.py` — demo fixture behavior coverage.
 - `data/archive/lookup_premise_sara_one_to_one_2026-08-23.parquet` — dated
   premise-enrichment snapshot.
 - `data/archive/lookup_premise_sara_one_to_one_2026-08-23_provenance.json` —
@@ -114,6 +121,44 @@ The default initial load downloads January through the current Malaysia month,
 then keeps the latest observation for every item-premise pair. Records whose
 item or premise code is absent from the official lookup are skipped and
 counted. Older observations cannot replace newer database rows.
+
+### Upgrade an existing database for pack comparisons
+
+Databases created before pack-size comparisons were added may not have the
+`item.quantity_value` and `item.quantity_unit` columns. Run this migration from
+`SmartCart/database`; it does not download PriceCatcher files and is safe to
+repeat:
+
+```powershell
+python migrate_pack_quantities.py
+```
+
+The migration parses the existing `unit` value first, falls back to the item
+name, stores weights in kilograms and volumes in litres, and leaves
+non-comparable items as `NULL`. `verify_database.py` reports the resulting
+coverage and fails when the columns are missing.
+
+### Demonstrate budget alternatives with stable data
+
+Use the isolated demo database when you need a reliable browser walkthrough.
+From `SmartCart/database`:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d
+python seed_demo_alternatives.py
+```
+
+Point the backend at the printed demo database URL before starting it (the
+default is `postgresql://smartcart:smartcart_dev_password@127.0.0.1:5434/smartcart_demo`).
+The seed is repeatable and removes only rows whose codes begin with
+`SMARTCART-DEMO-`.
+
+The fixture demonstrates both behaviors:
+
+- `SARDIN CAP AYAM (SOS TOMATO)` 425 g at RM10.50 has a strict same-pack
+  cheaper equivalent, `SARDIN CAP KING CUP (SOS TOMATO)` at RM9.00.
+- The 850 g sardine pack is the best unit value at RM19.00/kg; the 2 litre
+  Daisy corn-oil pack is the best oil value at RM10.00/litre.
 
 Useful options:
 

@@ -269,7 +269,7 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
   );
 }
 
-// AC 3.4.1/3.4.2/3.4.3: savings summary for applied alternatives. When
+// AC 3.4.1/3.4.2: savings summary for applied alternatives. When
 // store-level totals are provided (recommendation overview), they frame
 // the original/new amounts; otherwise the swapped-line totals are used.
 // Per-item savings always come from the basket swap records, so their sum
@@ -288,17 +288,9 @@ function SavingsSummary({
   const summary = basketSavingsSummary(basket);
 
   if (!summary.hasSavings) {
-    // AC 3.4.3: nothing applied yet; point back to the
-    // Smart Budget Alternatives review.
-    return (
-      <section className="rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
-        <h3 className="text-[16px] font-extrabold leading-6 text-[#17362c]">{copy.savingsTitle}</h3>
-        <p className="mt-2 text-[14px] font-semibold text-[#53635c]">{copy.noSavingsApplied}</p>
-        <p className="mt-1 text-[13px] leading-5 text-[#617069]">
-          {copy.reviewAlternativesPrompt(copy.alternativesSectionTitle)}
-        </p>
-      </section>
-    );
+    // Savings are only meaningful after a selected-store swap has been
+    // applied. Keep the basket and store views free of a redundant empty card.
+    return null;
   }
 
   const originalRm = storeOriginalTotalRm ?? summary.originalRm;
@@ -881,10 +873,8 @@ function BasketScreen({
 
           </div>
         </div>
-        {/* AC 3.4.3: savings summary under the basket card; shows the
-            no-savings state and a pointer to the Smart Budget
-            Alternatives review until an alternative is applied */}
-        {basket.length > 0 && (
+        {/* Show the savings summary only after an alternative has been applied. */}
+        {basket.length > 0 && basketSavingsSummary(basket).hasSavings && (
           <div className="mt-4">
             <SavingsSummary basket={basket} copy={copy} />
           </div>
@@ -1710,14 +1700,16 @@ function RecommendationOverview({
           {/* AC 3.4.1/3.4.2: savings summary beneath the combined total;
               store-level totals frame the before/after amounts while the
               per-item savings come from the applied basket swaps */}
-          <div className="mt-4">
-            <SavingsSummary
-              basket={basket}
-              copy={copy}
-              storeOriginalTotalRm={store.basketSubtotalRm}
-              storeNewTotalRm={adjustedSubtotal}
-            />
-          </div>
+          {basketSavingsSummary(basket).hasSavings && (
+            <div className="mt-4">
+              <SavingsSummary
+                basket={basket}
+                copy={copy}
+                storeOriginalTotalRm={store.basketSubtotalRm}
+                storeNewTotalRm={adjustedSubtotal}
+              />
+            </div>
+          )}
 
           <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>

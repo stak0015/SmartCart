@@ -16,6 +16,7 @@ from ingest_pricecatcher import (  # noqa: E402
     combine_prepared_data,
     load_premise_enrichment,
     months_for_year,
+    parse_pack_quantity,
     prepare_data,
     prune_price_archives,
     retained_months,
@@ -194,6 +195,29 @@ class PrepareDataTests(unittest.TestCase):
                 },
                 {f"pricecatcher_{month}.parquet" for month in expected},
             )
+
+
+class PackQuantityTests(unittest.TestCase):
+    def test_normalizes_weight_and_volume_units(self) -> None:
+        self.assertEqual(parse_pack_quantity("Rice", "1 kg"), (1.0, "KG"))
+        self.assertEqual(parse_pack_quantity("Milk", "500 g"), (0.5, "KG"))
+        self.assertEqual(parse_pack_quantity("Oil", "1 litre"), (1.0, "L"))
+        self.assertEqual(parse_pack_quantity("Juice", "750 ml"), (0.75, "L"))
+
+    def test_handles_multipacks_before_single_pack_tokens(self) -> None:
+        self.assertEqual(parse_pack_quantity("Noodles", "5X79G"), (0.395, "KG"))
+        self.assertEqual(parse_pack_quantity("Drink", "6 x 250 ml"), (1.5, "L"))
+
+    def test_prefers_unit_and_falls_back_to_item_name(self) -> None:
+        self.assertEqual(
+            parse_pack_quantity("Cooking oil 2 kg", "1 kg"),
+            (1.0, "KG"),
+        )
+        self.assertEqual(parse_pack_quantity("Cooking oil 2 kg", None), (2.0, "KG"))
+
+    def test_leaves_non_comparable_quantities_unparsed(self) -> None:
+        self.assertIsNone(parse_pack_quantity("Grade A eggs", "10 pcs"))
+        self.assertIsNone(parse_pack_quantity(None, None))
 
 
 if __name__ == "__main__":
