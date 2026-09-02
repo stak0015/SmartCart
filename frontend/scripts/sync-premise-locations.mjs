@@ -87,6 +87,9 @@ const databaseUrl = requireEnvironment("DATABASE_URL");
 const cleanupOnly = process.argv.includes("--cleanup-only");
 const staleDays = readIntegerArgument("stale-days", 29);
 const requestedLimit = process.argv.includes("--all") ? 100_000 : readIntegerArgument("limit", 100);
+const districtFilter =
+  process.argv.find(argument => argument.startsWith("--district="))?.slice("--district=".length)?.trim() ||
+  null;
 const requestsPerMinute = readIntegerArgument("requests-per-minute", 300);
 const requestIntervalMilliseconds = Math.ceil(60_000 / requestsPerMinute);
 const pool = new Pool({
@@ -122,12 +125,15 @@ try {
   if (cleanupOnly) {
     console.log("Cleanup complete.");
   } else {
-    const apiKey = requireEnvironment("GOOGLE_MAPS_API_KEY");
+    const apiKey =
+      process.env.GOOGLE_PLACES_API_KEY?.trim() ||
+      requireEnvironment("GOOGLE_MAPS_API_KEY");
     const result = await pool.query(
       `
         SELECT premise_id, premise_code, google_place_id
         FROM premise
         WHERE google_place_id IS NOT NULL
+          AND ($3::text IS NULL OR district ILIKE $3)
           AND (
             latitude IS NULL OR
             longitude IS NULL OR
@@ -138,7 +144,7 @@ try {
         ORDER BY location_refreshed_at ASC NULLS FIRST, premise_id ASC
         LIMIT $2
       `,
-      [staleDays, requestedLimit],
+      [staleDays, requestedLimit, districtFilter ? `%${districtFilter}%` : null],
     );
 
     const premiseCount = result.rowCount ?? result.rows.length;

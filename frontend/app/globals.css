@@ -15,6 +15,7 @@ html {
   background: #f7f8f6;
   color-scheme: light;
   scroll-padding-top: 88px;
+  scrollbar-gutter: stable;
 }
 
 body {

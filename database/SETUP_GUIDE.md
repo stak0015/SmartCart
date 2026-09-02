@@ -311,6 +311,53 @@ If the team says `schema.sql` changed, apply it to the existing Docker database:
 docker compose exec -T postgres psql -U smartcart -d smartcart -f /docker-entrypoint-initdb.d/001_schema.sql
 ```
 
+If the database was created before pack-size comparisons were added, backfill
+the normalized item quantities used for per-unit comparisons:
+
+Windows PowerShell:
+
+```powershell
+python migrate_pack_quantities.py
+```
+
+macOS/Linux:
+
+```bash
+./.venv/bin/python migrate_pack_quantities.py
+```
+
+The migration is transactional and safe to run more than once. It uses the
+existing item `unit` value first, falls back to the item name, and leaves
+non-comparable quantities unset.
+
+## Demonstrate budget alternatives with stable data
+
+For a repeatable browser walkthrough, start the isolated demo database from
+`SmartCart/database`:
+
+Windows PowerShell:
+
+```powershell
+docker compose -f docker-compose.demo.yml up -d
+python seed_demo_alternatives.py
+```
+
+macOS/Linux:
+
+```bash
+docker compose -f docker-compose.demo.yml up -d
+./.venv/bin/python seed_demo_alternatives.py
+```
+
+Temporarily point the backend `DATABASE_URL` at
+`postgresql://smartcart:smartcart_dev_password@127.0.0.1:5434/smartcart_demo`
+before starting the API. The seed prints the demo premise ID and can be safely
+rerun; it removes only rows owned by the `SMARTCART-DEMO-` fixture.
+
+The fixture includes a same-pack cheaper equivalent (425 g sardine at RM9.00
+versus RM10.50) and lower unit-price pack options (850 g sardine at RM19.00/kg
+and 2 litre corn oil at RM10.00/litre).
+
 Then refresh and verify the data. If only the committed premise-enrichment file
 changed, you can apply it without downloading PriceCatcher again:
 

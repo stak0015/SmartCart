@@ -1,0 +1,35 @@
+AC 2.3.2 Build Notes / 构建说明
+Load More Stores in Steps of Five
+门店列表每次追加五家
+
+------------------------------------------------------------
+1. 中文
+
+比价列表默认只显示前 5 家门店。底部按钮文案固定为 "See More (+5)"，每点击一次恰好追加 5 家，追加内容严格衔接既有排序（有篮子时为总价升序，缺价门店仍在最后）；当列表已全部展开、没有剩余门店时，按钮自动隐藏。
+
+English:
+The compare list shows only the first five stores by default. The bottom button reads exactly "See More (+5)" and each tap appends exactly five more stores, continuing the existing order (ascending total basket price when a basket is present, with unpriced stores still listed last). Once the list is fully expanded and no stores remain, the button hides itself.
+
+------------------------------------------------------------
+2. 中文
+
+实现方式：原来的 showAll 全量/收起开关改为 visibleCount 计数，初始为 5，点击时按步长 5 递增并以门店总数封顶；新的推荐结果返回时计数重置回 5，避免旧列表的展开状态带到新结果上。分页常量与两个判定函数放在前端 lib/visible-stores.ts，步进、封顶与隐藏判定为纯函数，可独立测试。
+
+English:
+Implementation: the previous showAll expand/collapse toggle is replaced by a visibleCount counter starting at five, incremented by a step of five and capped at the store total; the counter resets to five whenever a fresh recommendation list arrives, so an old expansion state never carries over. The step constant and the two predicates live in frontend lib/visible-stores.ts as pure functions that can be tested in isolation.
+
+------------------------------------------------------------
+3. 中文
+
+改动点：前端新增 lib/visible-stores.ts（步长常量、nextVisibleCount、hasMoreStores）；components/smartcart-app.tsx 的比价页改用 visibleCount 切片渲染、按钮改为固定文案并在无剩余时隐藏，移除了 "Show first 5" 收起逻辑。后端与数据库未做改动。
+
+English:
+Changes: the frontend adds lib/visible-stores.ts (the step constant, nextVisibleCount, hasMoreStores); the compare screen in components/smartcart-app.tsx now slices by visibleCount, uses the fixed button label, hides the button when nothing remains, and drops the "Show first 5" collapse logic. The backend and the database are unchanged.
+
+------------------------------------------------------------
+4. 中文
+
+测试与验证：前端 vitest 6 项全部通过（新增分页步进恰好 +5、末页封顶、无剩余隐藏三个用例），ESLint 与生产构建通过，后端 pytest 15 项回归通过。真实环境验证：以 Kota Bharu 为起点的 25 家可达门店场景实测，初始显示 5 家，连续点击依次展开至 10/15/20/25 家，最后按钮消失；结果截图存于 docs/evidence/epic2.3screenshot-Zhihao/。手动核对方式：完成一次比价后确认默认 5 家、按钮逐字 "See More (+5)"、每次点击恰好多 5 家、全部展开后按钮隐藏。
+
+English:
+Testing and verification: frontend vitest passes 6 tests (new cases for exact +5 stepping, capping the final page at the total, and hiding when nothing remains), ESLint and the production build pass, and the backend pytest suite passes 15 tests as before. Verified live with the 25 reachable stores around Kota Bharu: the list starts at five, expands through 10/15/20/25 on successive taps, and the button disappears at the end; screenshots are stored in docs/evidence/epic2.3screenshot-Zhihao/. To verify manually: run one comparison and confirm five stores by default, the verbatim "See More (+5)" label, exactly five more per tap, and the button hidden once fully expanded.

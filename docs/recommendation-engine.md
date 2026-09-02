@@ -1,12 +1,19 @@
-# SmartCart transport-first recommendation engine
+# SmartCart basket-and-transport recommendation engine
 
-Status: implemented for Iteration 1 on 25 August 2026. Basket-price comparison
-is deliberately out of scope until the live item flow is connected.
+Status: basket-price comparison added on 28 August 2026 after the live item flow
+was connected.
 
 ## Provider decision
 
 Use Google Places API (New) for location autocomplete and Place Details, and
 Google Routes API `computeRouteMatrix` for routes.
+
+For environments without a Google Routes key, the API has a deliberate local
+fallback: it returns the 25 nearest premises with fresh coordinates, uses
+straight-line distance for the displayed distance and transport-cost estimate,
+and marks travel time, travel limits, and route feasibility as unverified. This
+keeps the recommendation flow usable without silently presenting approximate
+values as Google routes.
 
 This is the best initial cost-to-capability fit because one provider supports
 all four required modes in Malaysia: walking, public transit, car, and
@@ -43,17 +50,32 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    characters and selects a Malaysia-restricted Google autocomplete result.
 2. SmartCart keeps the origin in React state only. Remembered local preferences
    exclude all origin labels, coordinates, and Place IDs.
-3. `POST /api/recommendations` validates the origin, transport mode, travel
-   limit, and SARA filter.
+3. `POST /api/recommendations` validates the basket item IDs and quantities,
+   origin, transport mode, travel limit, and SARA filter.
 4. PostgreSQL computes Haversine distance over fresh premise coordinates and
    selects the nearest candidates. For a distance limit, premises whose
    straight-line distance already exceeds the limit are safely excluded.
-5. One Google route-matrix request calculates one-way route distance and time
-   from the origin to at most 25 candidate Place IDs. The cap is configurable
-   from 5 to 49. Transit stays below Google's 100-element request limit.
-6. SmartCart applies the user's limit to routed distance or exact route time.
-7. Reachable stores are ordered by estimated return travel cost, then shorter
-   time, route distance, name, and premise ID for deterministic ties.
+5. When `GOOGLE_ROUTES_API_KEY` is configured, one Google route-matrix request
+   calculates one-way route distance and time from the origin to at most 25
+   candidate Place IDs. The cap is configurable from 5 to 49. Transit stays
+   below Google's 100-element request limit. When the key is absent, SmartCart
+   skips Google Routes and keeps the 25 nearest fresh premises using
+   straight-line distance plus mode-based planning speeds; the user's route
+   limit is not treated as verified reachability.
+6. SmartCart applies the user's limit to routed distance or exact route time
+   only when Google route results are available.
+7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
+   at every candidate premise. Quantity is applied to produce line totals and
+   the store basket subtotal. Missing premise-item prices remain explicit nulls
+   and are excluded from the subtotal.
+8. A basket is complete only when every requested item has a price at that
+   premise. Complete baskets are ordered first by basket subtotal plus estimated
+   return travel cost, then shorter time, route distance, name, and premise ID
+   for deterministic ties. Incomplete baskets use the same ordering within a
+   separate UI tab and cannot become the main recommendation.
+9. The API returns the full basket price breakdown for the UI's per-store
+   "View item prices" control. If no complete store is available, the complete
+   tab offers a direct button to the incomplete options.
 
 At the default 25-candidate cap, one recommendation costs no more than 25 route
 matrix elements, so the current 10,000-element free cap supports about 400 full
@@ -79,6 +101,18 @@ effort, accessibility barriers, and service reliability. Validate them with
 the target community before presenting the ranking as user-ready. Override
 them with the `TRAVEL_COST_*` environment variables.
 
+## Basket-price calculation
+
+For each store, `basket cost = sum(unit price x requested quantity)` for basket
+lines that have a `current_status` record at that premise. The combined ranking
+value is `basket cost + estimated return transport cost`. A missing store price
+is not treated as zero or fabricated: it is returned in the item breakdown with
+null price fields, labelled as unavailable in the UI, and omitted from the sum.
+The response includes priced and total basket-line counts plus an explicit
+completeness flag. The UI keeps incomplete baskets in their own tab, labels the
+combined value as a partial total, and never presents one as the recommended
+complete basket.
+
 ## SARA semantics
 
 The API supports `any`, `candidate`, and `verified` filters. The current UI
@@ -89,9 +123,13 @@ not verified, never as false or ineligible.
 
 ## Privacy, security, and provider terms
 
-- `GOOGLE_MAPS_API_KEY` is server-only and must never use a `NEXT_PUBLIC_`
-  prefix. Restrict it to Places API (New) and Routes API, and restrict its use
-  to the deployed backend where the hosting platform allows it.
+- The Google API keys (`GOOGLE_PLACES_API_KEY` and `GOOGLE_ROUTES_API_KEY`,
+  or the legacy single `GOOGLE_MAPS_API_KEY` fallback) are server-only and must
+  never use a `NEXT_PUBLIC_` prefix. Restrict each key to its own API (Places
+  API (New) or Routes API), and restrict its use to the deployed backend where
+  the hosting platform allows it. `GOOGLE_ROUTES_API_KEY` may be omitted for
+  local development; the API then returns the documented nearest-premises
+  fallback.
 - The selected origin is sent to Google for search or route calculation, but
   SmartCart does not persist it in PostgreSQL or local storage and does not log
   request bodies.
@@ -125,6 +163,10 @@ not verified, never as false or ineligible.
 
 - Time-limit searches evaluate only the nearest configured candidate count by
   straight-line distance, so they are bounded rather than exhaustive.
+- When Google Routes is not configured, recommendations are the 25 nearest
+  fresh premises by straight-line distance. The fallback estimates travel time
+  and cost using mode speeds, does not verify the selected travel limit, and
+  does not establish that a route or store is reachable.
 - Public transit depends on Google's available schedule coverage at request
   time. A missing route is skipped, not treated as proof that transit is
   impossible.
@@ -132,9 +174,9 @@ not verified, never as false or ineligible.
   or restrictions.
 - Store Place IDs are top-candidate enrichment, not PriceCatcher-published IDs;
   bad or stale matches can affect the result and need review monitoring.
-- Add basket completeness and current observed prices only after the live item
-  IDs are connected. The intended future ranking should expose the trade-off
-  between basket cost and return travel cost rather than hide it in one opaque
-  score.
+- Missing prices are ignored as requested. A store with fewer priced basket
+  lines may show a lower partial subtotal, so incomplete stores are separated
+  from complete recommendations and the UI shows the coverage count and every
+  missing line.
 - Before user testing, replace the default transport costs with validated local
   assumptions and define acceptance tests from the agreed LeanKit criteria.
