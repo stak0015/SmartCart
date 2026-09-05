@@ -317,9 +317,10 @@ def prepare_data(
     require_columns(premises, REQUIRED_PREMISE_COLUMNS, "premise lookup")
 
     prices = prices.loc[:, ["date", "premise_code", "item_code", "price"]].copy()
-    items = items.loc[
-        :, ["item_code", "item", "unit", "item_group", "item_category"]
-    ].copy()
+    item_columns = ["item_code", "item", "unit", "item_group", "item_category"]
+    if "item_name_en" in items.columns:
+        item_columns.append("item_name_en")
+    items = items.loc[:, item_columns].copy()
     premises = premises.loc[
         :, ["premise_code", "premise", "address", "district", "state"]
     ].copy()
@@ -412,6 +413,8 @@ def prepare_data(
     ]
 
     prepared_items = items.rename(columns={"item": "item_name"})
+    if "item_name_en" not in prepared_items.columns:
+        prepared_items["item_name_en"] = pd.NA
     pack_quantities = prepared_items.apply(
         lambda row: parse_pack_quantity(row["item_name"], row["unit"]), axis=1
     )
@@ -505,6 +508,7 @@ def upsert_data(connection: psycopg.Connection, data: PreparedData) -> dict[str,
             CREATE TEMP TABLE stage_item (
                 item_code TEXT,
                 item_name TEXT,
+                item_name_en TEXT,
                 unit TEXT,
                 item_group TEXT,
                 item_category TEXT,
@@ -536,14 +540,15 @@ def upsert_data(connection: psycopg.Connection, data: PreparedData) -> dict[str,
         cursor.execute(
             """
             INSERT INTO item (
-                item_code, item_name, unit, item_group, item_category,
+                item_code, item_name, item_name_en, unit, item_group, item_category,
                 quantity_value, quantity_unit
             )
-            SELECT item_code, item_name, unit, item_group, item_category,
+            SELECT item_code, item_name, item_name_en, unit, item_group, item_category,
                    quantity_value, quantity_unit
             FROM stage_item
             ON CONFLICT (item_code) DO UPDATE SET
                 item_name = EXCLUDED.item_name,
+                item_name_en = COALESCE(EXCLUDED.item_name_en, item.item_name_en),
                 unit = EXCLUDED.unit,
                 item_group = EXCLUDED.item_group,
                 item_category = EXCLUDED.item_category,

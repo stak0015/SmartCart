@@ -23,6 +23,12 @@ from ingest_pricecatcher import load_local_env
 ROOT = Path(__file__).resolve().parent
 DEMO_PREMISE_CODE = "SMARTCART-DEMO-STORE"
 DEMO_OBSERVED_DATE = date(2026, 9, 1)
+DEMO_ITEM_NAMES_EN = {
+    "SARDIN CAP AYAM (SOS TOMATO)": "Ayam Brand Sardines (Tomato Sauce)",
+    "SARDIN CAP KING CUP (SOS TOMATO)": "King Cup Sardines (Tomato Sauce)",
+    "MINYAK JAGUNG CAP MAZOLA": "Mazola Corn Oil",
+    "MINYAK JAGUNG CAP DAISY": "Daisy Corn Oil",
+}
 
 
 @dataclass(frozen=True)
@@ -143,7 +149,8 @@ def seed_demo_data(connection: psycopg.Connection) -> int:
             """
             ALTER TABLE item
                 ADD COLUMN IF NOT EXISTS quantity_value NUMERIC(12, 4),
-                ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(8)
+                ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(8),
+                ADD COLUMN IF NOT EXISTS item_name_en VARCHAR(500)
             """
         )
         # Keep the operation repeatable without touching official/non-demo rows
@@ -193,15 +200,16 @@ def seed_demo_data(connection: psycopg.Connection) -> int:
             cursor.execute(
                 """
                 INSERT INTO item (
-                    item_code, item_name, unit, item_group, item_category,
+                    item_code, item_name, item_name_en, unit, item_group, item_category,
                     sara_eligible, quantity_value, quantity_unit
                 )
-                VALUES (%s, %s, %s, 'SmartCart demo', %s, NULL, %s, %s)
+                VALUES (%s, %s, %s, %s, 'SmartCart demo', %s, NULL, %s, %s)
                 RETURNING item_id
                 """,
                 (
                     item.item_code,
                     item.item_name,
+                    DEMO_ITEM_NAMES_EN[item.item_name],
                     item.unit,
                     item.item_category,
                     item.quantity_value,
