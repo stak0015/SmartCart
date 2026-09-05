@@ -34,17 +34,20 @@ routes are:
 - `GET /api/items/categories`
 - `GET /api/locations/autocomplete?query=&sessionToken=`
 - `POST /api/locations/resolve`
+- `POST /api/locations/reverse`
 - `POST /api/recommendations`
 - `POST /api/premises/{premiseId}/basket-alternatives`
 
 With Google Routes configured, the recommendation response ranks reachable
-premises by the sum of the priced basket subtotal and estimated return
-transport cost. Without a Routes key, it skips the provider and returns the 25
-nearest fresh premises by straight-line distance; route limits and reachability
-are not verified in that fallback. Both paths include quantity-aware unit and
-line prices for each basket item at each store; missing store prices are
-returned as null and excluded from the subtotal. Complete baskets rank before
-incomplete baskets, with an explicit completeness flag for UI separation.
+premises by priced-item coverage, then priced subtotal plus estimated return
+transport cost, travel time, and distance. Without a Routes key, it skips the
+provider and returns the 25 nearest fresh premises by straight-line distance;
+route limits and reachability are not verified in that fallback. Both paths
+include quantity-aware unit and line prices for each basket item at each store;
+missing store prices are returned as null and excluded from the subtotal.
+Partial stores remain in the same unified list, and stores with no priced lines
+keep null combined totals. Reverse geocoding is best-effort and requires the
+server-only Geocoding key.
 
 Run backend tests from this directory with:
 
