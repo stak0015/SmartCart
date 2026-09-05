@@ -986,6 +986,7 @@ function LocationScreen({
   const [distanceKm, setDistanceKm] = useState(preferences.distanceKm);
   const [timeMinutes, setTimeMinutes] = useState(preferences.timeMinutes);
   const limitValue = limitType === "time" ? timeMinutes : distanceKm;
+  const locationSearchRef = useRef<HTMLInputElement>(null);
   const [saraFilter, setSaraFilter] = useState<SaraFilter>(preferences.saraFilter);
   const [remember, setRemember] = useState(true);
   const [sessionToken, setSessionToken] = useState(createLocationSessionToken);
@@ -1053,6 +1054,19 @@ function LocationScreen({
     } finally {
       if (generation === locationGeneration.current) setSearchState("idle");
     }
+  };
+
+  const clearLocationSearch = () => {
+    locationGeneration.current += 1;
+    reverseController.current?.abort();
+    setLocationInput("");
+    setSelectedOrigin(null);
+    setSuggestions([]);
+    setActiveSuggestion(-1);
+    setSearchState("idle");
+    setAddressUnavailable(false);
+    setLocationError("");
+    locationSearchRef.current?.focus();
   };
 
   const usePreciseLocation = () => {
@@ -1194,6 +1208,7 @@ function LocationScreen({
           <div className="relative">
             <div className="absolute left-3 top-7 -translate-y-1/2"><IcoSearch color="#3E494A" /></div>
             <input
+              ref={locationSearchRef}
               type="text"
               value={locationInput}
               onChange={event => {
@@ -1214,8 +1229,18 @@ function LocationScreen({
               aria-activedescendant={activeSuggestion >= 0 ? "location-suggestion-" + activeSuggestion : undefined}
               placeholder={copy.searchLocationPlaceholder}
               autoComplete="off"
-              className="h-14 w-full rounded-xl border border-[#dce5e0] bg-[#f7f9f8] pl-10 pr-4 text-[16px] text-[#10231d] focus:border-[#087f5b] focus:outline-none"
+              className="h-14 w-full rounded-xl border border-[#dce5e0] bg-[#f7f9f8] pl-10 pr-14 text-[16px] text-[#10231d] focus:border-[#087f5b] focus:outline-none"
             />
+            {locationInput && (
+              <button
+                type="button"
+                aria-label={copy.clearSearch}
+                onClick={clearLocationSearch}
+                className="absolute right-1 top-1 h-12 w-12 rounded-xl text-xl text-[#53635c]"
+              >
+                ×
+              </button>
+            )}
             {suggestions.length > 0 && (
               <div id="location-suggestions" role="listbox" className="absolute inset-x-0 top-[60px] z-30 overflow-hidden rounded-xl border border-[#d7e1dc] bg-white shadow-[0_14px_34px_rgba(16,35,29,0.16)]">
                 {suggestions.map((suggestion, index) => (
