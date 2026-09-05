@@ -87,3 +87,15 @@ describe("basket replacements", () => {
     expect(applyBasketReplacement(withTarget, lowerCostReplacementChoice(suggestion)!, { id: "10", name: "Test Store" })).toBe(withTarget);
   });
 });
+
+
+describe("bilingual replacement names", () => {
+  it("preserves API translations through pack selection and undo", () => {
+    const original = [{ ...basket[0], itemNameEn: "Original English", itemNameMs: "Nama asal" }];
+    const translatedPack = { ...pack, itemNameEn: "Larger English", itemNameMs: "Bungkusan besar" };
+    const changed = applyBasketReplacement(original, packReplacementChoice(suggestion, translatedPack)!, { id: "10", name: "Store" });
+    expect(changed[0].itemNameMs).toBe("Bungkusan besar");
+    expect(changed[0].replacement?.original.itemNameEn).toBe("Original English");
+    expect(undoBasketReplacement(changed, "db-3")[0]).toEqual(original[0]);
+  });
+});

@@ -8,6 +8,7 @@ import {
   getRecommendations,
   getBasketAlternatives,
   resolveLocation,
+  reverseLocation,
   searchLocations,
 } from "@/lib/api-client";
 import type {
@@ -37,7 +38,8 @@ import {
   targetAlreadyInBasket,
   type RecommendationDetailRow,
 } from "@/lib/recommendation-detail";
-import { isCompleteBasket } from "@/lib/basket-coverage";
+import { SuccessToast } from "@/components/success-toast";
+import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
@@ -53,11 +55,17 @@ interface TravelPreferences {
   transportMode: TransportMode;
   limitType: TravelLimitType;
   limitValue: number;
+  distanceKm: number;
+  timeMinutes: number;
   saraFilter: SaraFilter;
 }
 
+function localizedName(copy: AppCopy, name: string | null | undefined, translations?: { itemNameEn?: string | null; itemNameMs?: string | null }): string {
+  const locale = copy === COPY.ms ? "ms" : "en";
+  return (locale === "ms" ? translations?.itemNameMs : translations?.itemNameEn) || name || "Catalogue item";
+}
+
 const INIT_BASKET: BasketItem[] = [];
-const HIDDEN_RECOMMENDATION_NAMES = new Set(["TESCO PUCHONG"]);
 
 // ── Shared SVG icons (from imports) ─────────────────────────────────────────
 function IcoBasket({ color = "#3E494A", size = 22 }: { color?: string; size?: number }) {
@@ -259,7 +267,7 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
       {prices.map(price => (
         <li key={price.itemId} className="flex items-start justify-between gap-3 border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
           <div className="min-w-0">
-            <p className="break-words text-[13px] font-semibold text-[#17362c]">{price.itemName}</p>
+            <p className="break-words text-[13px] font-semibold text-[#17362c]">{localizedName(copy, price.itemName, price)}</p>
             {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{price.packageSize}</p>}
             <div className="mt-1">
               <SaraEligibilityFlag status={price.saraEligible ?? null} categoryCandidate={price.saraCategoryCandidate ?? false} copy={copy} />
@@ -470,6 +478,8 @@ function BasketScreen({
   locale: Locale;
 }) {
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [notification, setNotification] = useState({ id: 0, message: "" });
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
@@ -578,13 +588,16 @@ function BasketScreen({
   // always show identical details; unparsed values show "—".
   const addRealItem = (item: Item, qty: number) => {
     // AC-1.4.2: same item added again increases quantity, never duplicates.
-    setBasket(upsertBasketLine(basket, {
+    setBasket(current => upsertBasketLine(current, {
       id: `db-${item.item_id}`,
       ...basketDetails(item),
+      itemNameEn: item.item_name_en,
+      itemNameMs: item.item_name_ms,
       qty,
       saraEligible: item.sara_eligible,
       saraCategoryCandidate: item.sara_category_candidate,
     }));
+    setNotification(current => ({ id: current.id + 1, message: copy.itemAdded(qty, localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms })) }));
   };
 
   const changePage = (nextPage: number) => {
@@ -605,10 +618,74 @@ function BasketScreen({
   const { itemCount } = basketSummary(basket);
   const basketCostSummary = basketSavingsSummary(basket);
 
+  const basketPanel = (
+      <div className="px-4 pb-8 sm:px-6">
+        <div className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
+          {/* Heading */}
+          <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-4">
+            <div className="flex items-center gap-2">
+              <IcoBasket color="#087f5b" size={22} />
+              <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+            </div>
+            <span className="text-sm font-bold text-[#617069]">{copy.itemCount(itemCount)}</span>
+          </div>
+
+          <div className="p-4">
+
+          {basket.length === 0 ? (
+            <p className="text-[16px] text-[#3e494a] text-center py-4">{copy.basketEmpty}</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {basket.map((item, idx) => (
+                <div key={item.id}>
+                  <div className={"flex min-w-0 flex-col gap-3 py-3 " + (view === "basket" ? "sm:flex-row sm:items-center sm:justify-between" : "")}>
+                    <div className="flex min-w-0 flex-col gap-1.5 sm:pr-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{localizedName(copy, item.name, item)}</p>
+                        {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
+                      </div>
+                      <p className="break-words text-[13px] leading-5 text-[#617069]">{item.size}</p>
+                      <SaraEligibilityFlag status={item.saraEligible} categoryCandidate={item.saraCategoryCandidate} copy={copy} />
+                      {item.replacement && (
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
+                          <span>{copy.originally(localizedName(copy, item.replacement.original.name, item.replacement.original))} · {replacementImpactText(copy, currentReplacementImpactRm(item))}</span>
+                          <button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1 self-start sm:self-auto">
+                      <button aria-label={copy.decreaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
+                      <span aria-label={copy.selectedQuantity(item.qty)} className="w-7 text-center text-sm font-bold">{item.qty}</span>
+                      <button aria-label={copy.increaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
+                      <button aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
+                        <IcoTrash />
+                      </button>
+                    </div>
+                  </div>
+                  {idx < basket.length - 1 && <div className="border-b border-[#e1e3e4]" />}
+                </div>
+              ))}
+            </div>
+          )}
+
+          </div>
+          <CompactSavingsFooter
+            copy={copy}
+            hasReplacements={basketCostSummary.hasReplacements}
+            comparable={basketCostSummary.comparable}
+            originalRm={basketCostSummary.originalRm}
+            newRm={basketCostSummary.newRm}
+            netSavingRm={basketCostSummary.netSavingRm}
+            totalsLabel={copy.affectedItemsTotal}
+          />
+        </div>
+      </div>
+  );
+
   return (
-    <div className="screen-enter pb-32">
+    <div className={"screen-enter pb-32 " + (view === "shop" ? "lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-4" : "")}>
       {view === "shop" && (
-        <>
+        <div className="min-w-0">
       {/* Progress */}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
         <ProgressIndicator step={1} copy={copy} />
@@ -630,6 +707,7 @@ function BasketScreen({
             <IcoSearch />
           </div>
           <input
+            ref={searchRef}
             type="text"
             aria-label={copy.searchAria}
             placeholder={copy.searchPlaceholder}
@@ -638,8 +716,9 @@ function BasketScreen({
               setSearch(e.target.value);
               setPage(1);
             }}
-            className="h-14 w-full rounded-2xl border border-[#dce5e0] bg-white pl-12 pr-4 text-[16px] text-[#10231d] shadow-[0_3px_14px_rgba(16,35,29,0.07)] placeholder:text-[#718078] focus:border-[#087f5b] focus:outline-none"
+            className="h-14 w-full rounded-2xl border border-[#dce5e0] bg-white pl-12 pr-14 text-[16px] text-[#10231d] shadow-[0_3px_14px_rgba(16,35,29,0.07)] placeholder:text-[#718078] focus:border-[#087f5b] focus:outline-none"
           />
+          {search && <button type="button" aria-label={copy.clearSearch} onClick={() => { setSearch(""); setPage(1); searchRef.current?.focus(); }} className="absolute right-1 top-1 h-12 w-12 rounded-xl text-xl text-[#53635c]">×</button>}
         </div>
       </div>
 
@@ -655,7 +734,7 @@ function BasketScreen({
           <span>
             <span className="block text-xs font-semibold text-[#718078]">{copy.categories}</span>
             <span className="block text-[15px] font-bold text-[#17362c]">
-              {activeCategories.length === 0 ? copy.allCategories : copy.categoriesSelected(activeCategories.length)}
+              {activeCategories.length === 0 ? copy.allCategories : activeCategories.map(category => categoryLabel(locale, category)).join(", ")}
             </span>
           </span>
           <span aria-hidden="true" className={`text-lg text-[#087f5b] transition-transform ${categoryOpen ? "rotate-180" : ""}`}>⌄</span>
@@ -727,7 +806,7 @@ function BasketScreen({
         {!apiLoading && apiResults.length > 0 && (
           <div className="grid grid-cols-1 gap-2.5">
             {apiResults.map(item => {
-              const fields = resultRowFields(item);
+              const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               const rawQty = qtyById[item.item_id] ?? String(DEFAULT_QTY);
               const qty = parseQty(rawQty); // null while the typed value is invalid (AC-1.4.1)
               return (
@@ -817,10 +896,17 @@ function BasketScreen({
         )}
       </div>
 
-        </>
+        </div>
       )}
 
       {/* Your basket */}
+      {view === "shop" && (
+        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl bg-white py-4 lg:block">
+          {basketPanel}
+          <div className="px-6"><button type="button" onClick={handleContinue} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 font-bold text-white disabled:opacity-40">{copy.chooseLocation}</button></div>
+        </aside>
+      )}
+      {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
@@ -830,78 +916,17 @@ function BasketScreen({
         <p className="mt-2 text-[16px] leading-6 text-[#53635c]">{copy.basketDescription}</p>
       </div>
 
-      <div className="px-4 pb-8 sm:px-6">
-        <div className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
-          {/* Heading */}
-          <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-4">
-            <div className="flex items-center gap-2">
-              <IcoBasket color="#087f5b" size={22} />
-              <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
-            </div>
-            <span className="text-sm font-bold text-[#617069]">{copy.itemCount(itemCount)}</span>
-          </div>
-
-          <div className="p-4">
-
-          {basket.length === 0 ? (
-            <p className="text-[16px] text-[#3e494a] text-center py-4">{copy.basketEmpty}</p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {basket.map((item, idx) => (
-                <div key={item.id}>
-                  <div className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex min-w-0 flex-col gap-1.5 sm:pr-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{item.name}</p>
-                        {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
-                      </div>
-                      <p className="break-words text-[13px] leading-5 text-[#617069]">{item.size}</p>
-                      <SaraEligibilityFlag status={item.saraEligible} categoryCandidate={item.saraCategoryCandidate} copy={copy} />
-                      {item.replacement && (
-                        <div className="flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
-                          <span>{copy.originally(item.replacement.original.name)} · {replacementImpactText(copy, currentReplacementImpactRm(item))}</span>
-                          <button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))} className="min-h-9 font-extrabold text-[#087f5b] underline underline-offset-2">{copy.undoSwap}</button>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1 self-start sm:self-auto">
-                      <button aria-label={copy.decreaseQuantity(item.name)} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
-                      <span aria-label={copy.selectedQuantity(item.qty)} className="w-7 text-center text-sm font-bold">{item.qty}</span>
-                      <button aria-label={copy.increaseQuantity(item.name)} onClick={() => updateQty(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
-                      <button aria-label={copy.removeItem(item.name)} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
-                        <IcoTrash />
-                      </button>
-                    </div>
-                  </div>
-                  {idx < basket.length - 1 && <div className="border-b border-[#e1e3e4]" />}
-                </div>
-              ))}
-            </div>
-          )}
-
-          </div>
-          <CompactSavingsFooter
-            copy={copy}
-            hasReplacements={basketCostSummary.hasReplacements}
-            comparable={basketCostSummary.comparable}
-            originalRm={basketCostSummary.originalRm}
-            newRm={basketCostSummary.newRm}
-            netSavingRm={basketCostSummary.netSavingRm}
-            totalsLabel={copy.affectedItemsTotal}
-          />
-        </div>
-      </div>
+      {basketPanel}
         </>
       )}
 
-      {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur">
+      {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className={(view === "shop" ? "lg:hidden " : "") + "fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur"}>
         <div className="mx-auto flex w-full max-w-[712px] flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <p className="min-w-0 flex-1 break-words text-sm font-semibold text-[#617069]">{copy.itemCount(itemCount)}</p>
           <button
             onClick={view === "shop" ? onViewBasket : handleContinue}
             className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#087f5b] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
           >
-            {view === "shop" ? copy.viewBasket : copy.chooseLocation}
+            {view === "shop" ? copy.basketProducts(basket.length) : copy.chooseLocation}
             <IcoArrowRight />
           </button>
         </div>
@@ -958,7 +983,9 @@ function LocationScreen({
   const [selectedOrigin, setSelectedOrigin] = useState<SelectedLocation | null>(preferences.origin);
   const [transportMode, setTransportMode] = useState<TransportMode>(preferences.transportMode);
   const [limitType, setLimitType] = useState<TravelLimitType>(preferences.limitType);
-  const [limitValue, setLimitValue] = useState(preferences.limitValue);
+  const [distanceKm, setDistanceKm] = useState(preferences.distanceKm);
+  const [timeMinutes, setTimeMinutes] = useState(preferences.timeMinutes);
+  const limitValue = limitType === "time" ? timeMinutes : distanceKm;
   const [saraFilter, setSaraFilter] = useState<SaraFilter>(preferences.saraFilter);
   const [remember, setRemember] = useState(true);
   const [sessionToken, setSessionToken] = useState(createLocationSessionToken);
@@ -967,11 +994,11 @@ function LocationScreen({
   const [searchState, setSearchState] = useState<"idle" | "searching" | "resolving" | "locating">("idle");
   const [locationError, setLocationError] = useState("");
 
-  useEffect(() => {
-    if (selectedOrigin?.source !== "device" || selectedOrigin.label === copy.currentLocation) return;
-    setSelectedOrigin({ ...selectedOrigin, label: copy.currentLocation });
-    setLocationInput(copy.currentLocation);
-  }, [copy.currentLocation, selectedOrigin]);
+  const locationGeneration = useRef(0);
+  const reverseController = useRef<AbortController | null>(null);
+  const [notification, setNotification] = useState({ id: 0, message: "" });
+  const [addressUnavailable, setAddressUnavailable] = useState(false);
+  useEffect(() => () => { locationGeneration.current += 1; reverseController.current?.abort(); }, []);
 
   useEffect(() => {
     const query = locationInput.trim();
@@ -1007,10 +1034,14 @@ function LocationScreen({
   }, [copy.locationSearchUnavailable, locationInput, selectedOrigin, sessionToken]);
 
   const chooseSuggestion = async (suggestion: LocationSuggestion) => {
+    const generation = ++locationGeneration.current;
+    reverseController.current?.abort();
+    setAddressUnavailable(false);
     setSearchState("resolving");
     setLocationError("");
     try {
       const resolved = await resolveLocation(suggestion.placeId, sessionToken);
+      if (generation !== locationGeneration.current) return;
       const origin: SelectedLocation = { ...resolved, source: "search" };
       setSelectedOrigin(origin);
       setLocationInput(origin.label);
@@ -1018,9 +1049,9 @@ function LocationScreen({
       setActiveSuggestion(-1);
       setSessionToken(createLocationSessionToken());
     } catch {
-      setLocationError(copy.locationSelectionFailed);
+      if (generation === locationGeneration.current) setLocationError(copy.locationSelectionFailed);
     } finally {
-      setSearchState("idle");
+      if (generation === locationGeneration.current) setSearchState("idle");
     }
   };
 
@@ -1030,10 +1061,14 @@ function LocationScreen({
       return;
     }
 
+    const generation = ++locationGeneration.current;
+    reverseController.current?.abort();
+    setAddressUnavailable(false);
     setSearchState("locating");
     setLocationError("");
     navigator.geolocation.getCurrentPosition(
-      position => {
+      async position => {
+        if (generation !== locationGeneration.current) return;
         const origin: SelectedLocation = {
           label: copy.currentLocation,
           latitude: position.coords.latitude,
@@ -1043,9 +1078,22 @@ function LocationScreen({
         setSelectedOrigin(origin);
         setLocationInput(origin.label);
         setSuggestions([]);
+        const controller = new AbortController();
+        reverseController.current = controller;
+        let label: string | null = null;
+        try {
+          label = (await reverseLocation(origin.latitude, origin.longitude, controller.signal)).label;
+        } catch { /* Coordinates remain usable if address lookup is unavailable. */ }
+        if (generation !== locationGeneration.current) return;
+        const resolvedOrigin = { ...origin, label: label || copy.currentLocation };
+        setSelectedOrigin(resolvedOrigin);
+        setLocationInput(resolvedOrigin.label);
+        setAddressUnavailable(!label);
         setSearchState("idle");
+        setNotification(current => ({ id: current.id + 1, message: label ? copy.locationDetected : copy.addressUnavailable }));
       },
       error => {
+        if (generation !== locationGeneration.current) return;
         const message = error.code === error.PERMISSION_DENIED
           ? copy.locationDenied
           : copy.locationFailed;
@@ -1084,6 +1132,8 @@ function LocationScreen({
       transportMode,
       limitType,
       limitValue,
+      distanceKm,
+      timeMinutes,
       saraFilter,
     };
 
@@ -1092,6 +1142,8 @@ function LocationScreen({
         transportMode,
         limitType,
         limitValue,
+        distanceKm,
+        timeMinutes,
         saraFilter,
       }));
     } else {
@@ -1100,10 +1152,10 @@ function LocationScreen({
     onCompare(nextPreferences);
   };
 
-  const limits = limitType === "distance" ? DISTANCE_LIMITS : TIME_LIMITS;
 
   return (
     <div className="screen-enter">
+      {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
         <ProgressIndicator step={3} copy={copy} />
       </div>
@@ -1146,6 +1198,10 @@ function LocationScreen({
               value={locationInput}
               onChange={event => {
                 const value = event.target.value;
+                locationGeneration.current += 1;
+                reverseController.current?.abort();
+                setSearchState("idle");
+                setAddressUnavailable(false);
                 setLocationInput(value);
                 if (value !== selectedOrigin?.label) setSelectedOrigin(null);
               }}
@@ -1185,7 +1241,7 @@ function LocationScreen({
           <div aria-live="polite" className="min-h-5 text-sm">
             {searchState === "searching" && <span className="text-[#53635c]">{copy.searchingLocations}</span>}
             {searchState === "resolving" && <span className="text-[#53635c]">{copy.selectingLocation}</span>}
-            {selectedOrigin && searchState === "idle" && <span className="font-medium text-[#166534]">{copy.locationSelected}</span>}
+            {selectedOrigin && searchState === "idle" && <span className="font-medium text-[#166534]">{addressUnavailable ? copy.addressUnavailable : selectedOrigin.label}</span>}
             {locationError && <span role="alert" className="font-medium text-[#ba1a1a]">{locationError}</span>}
           </div>
 
@@ -1218,40 +1274,40 @@ function LocationScreen({
           </div>
         </section>
 
+        {transportMode === "public_transport" && <p className="text-sm text-[#53635c]">{copy.transitWalking}</p>}
+
         <section className="flex flex-col gap-3">
           <div>
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.travelLimit}</h2>
             <p className="mt-1 text-[16px] text-[#3e494a]">{copy.travelLimitDescription}</p>
           </div>
-          <div className="grid grid-cols-2 rounded-xl bg-[#e8efeb] p-1" aria-label={copy.travelLimitType}>
-            {(["distance", "time"] as const).map(type => (
+          <div className="grid grid-cols-3 rounded-xl bg-[#e8efeb] p-1" aria-label={copy.travelLimitType}>
+            {(["distance", "time", "both"] as const).map(type => (
               <button
                 type="button"
                 key={type}
                 onClick={() => {
                   setLimitType(type);
-                  setLimitValue(type === "distance" ? 5 : 20);
                 }}
                 aria-pressed={limitType === type}
                 className={"min-h-11 rounded-lg px-3 text-sm font-bold " + (limitType === type ? "bg-white text-[#087f5b] shadow-sm" : "text-[#53635c]")}
               >
-                {type === "distance" ? copy.distance : copy.travelTime}
+                {type === "both" ? copy.both : type === "distance" ? copy.distance : copy.travelTime}
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-4 gap-2">
-            {limits.map(value => (
-              <button
-                type="button"
-                key={value}
-                onClick={() => setLimitValue(value)}
-                aria-pressed={limitValue === value}
-                className={"h-12 rounded-xl border px-2 text-[14px] font-bold " + (limitValue === value ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#dce5e0] bg-white text-[#405149]")}
-              >
-                {value}{limitType === "distance" ? " km" : " min"}
-              </button>
-            ))}
-          </div>
+          {(["distance", "time"] as const).filter(type => limitType === "both" || limitType === type).map(type => (
+            <fieldset key={type}>
+              <legend className="mb-2 text-sm font-semibold">{type === "distance" ? copy.distance : copy.travelTime}</legend>
+              <div className="grid grid-cols-4 gap-2">
+                {(type === "distance" ? DISTANCE_LIMITS : TIME_LIMITS).map(value => (
+                  <button type="button" key={value} onClick={() => type === "distance" ? setDistanceKm(value) : setTimeMinutes(value)} aria-pressed={(type === "distance" ? distanceKm : timeMinutes) === value} className={"h-12 rounded-xl border px-2 text-sm font-bold " + ((type === "distance" ? distanceKm : timeMinutes) === value ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#dce5e0] bg-white text-[#405149]")}>
+                    {value}{type === "distance" ? " km" : " min"}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ))}
         </section>
 
         <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
@@ -1313,6 +1369,7 @@ function StoreCard({
   pricesExpanded,
   onTogglePrices,
   onSelectStore,
+  routeUrl,
   copy,
 }: {
   store: StoreRecommendation;
@@ -1320,10 +1377,11 @@ function StoreCard({
   pricesExpanded: boolean;
   onTogglePrices: () => void;
   onSelectStore: () => void;
+  routeUrl?: string;
   copy: AppCopy;
 }) {
   return (
-    <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]") + (store.missingItems.length > 0 ? " opacity-70" : "")}>
+    <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
       {isRecommended && (
         <div className="bg-[#087f5b] px-3 py-2 text-center">
           <span className="text-[13px] font-extrabold leading-5 text-white">{copy.recommendedStore}</span>
@@ -1341,6 +1399,7 @@ function StoreCard({
           </div>
         </div>
 
+        {routeUrl && <a href={routeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-bold text-[#087f5b] underline">{copy.viewRoute}</a>}
         {/* Keep travel details and basket subtotal together, then place the
             optional item-price disclosure directly below that row. */}
         <TripDetails
@@ -1366,7 +1425,7 @@ function StoreCard({
             {pricesExpanded && (
               <div className="-mt-2">
                 {store.missingItems.length > 0 && (
-                  <p className="mb-3 text-[13px] leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.join(", "))}</p>
+                  <p className="mb-3 text-[13px] leading-5 text-[#5f6368]">{copy.missingItemPrices(store.missingItems.map(name => localizedName(copy, name, store.basketPrices.find(price => price.itemName === name))).join(", "))}</p>
                 )}
                 <CompactBasketPriceList prices={store.basketPrices} copy={copy} />
               </div>
@@ -1378,10 +1437,10 @@ function StoreCard({
           <div className="rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{copy.combinedTotal}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
                 <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.combinedTotalRm)}</p>
               </div>
-              <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.basketSubtotal} + {copy.returnTravel}</p>
+              <p className="text-right text-xs leading-5 text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal} + {copy.returnTravel}</p>
             </div>
           </div>
         )}
@@ -1391,10 +1450,10 @@ function StoreCard({
         <button
           type="button"
           onClick={onSelectStore}
-          aria-label={"Select store " + store.name}
+          aria-label={copy.selectStore + " " + store.name}
           className="min-h-11 w-full rounded-xl bg-[#087f5b] px-5 text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
         >
-          Select store
+          {copy.selectStore}
         </button>
       </div>
     </article>
@@ -1440,7 +1499,7 @@ function RecommendationBasketRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="break-words text-[14px] font-bold text-[#17362c]">{row.current.itemName}</p>
+            <p className="break-words text-[14px] font-bold text-[#17362c]">{localizedName(copy, row.current.itemName, row.current)}</p>
             {row.replacement && (
               <span className="rounded-md bg-[#e7f7f0] px-2 py-0.5 text-[10px] font-extrabold text-[#17634f]">
                 {row.replacement.kind === "pack" ? copy.packChanged : copy.swapped}
@@ -1449,7 +1508,7 @@ function RecommendationBasketRow({
           </div>
           <p className="mt-0.5 text-xs text-[#718078]">
             {row.current.packageSize ?? "—"}
-            {row.replacement ? ` · ${copy.originally(row.replacement.original.name)}` : ""}
+            {row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}
           </p>
           <div className="mt-1">
             <SaraEligibilityFlag status={row.current.saraEligible} categoryCandidate={row.current.saraCategoryCandidate} copy={copy} />
@@ -1478,7 +1537,7 @@ function RecommendationBasketRow({
         <div className="mt-2 flex flex-col gap-2 rounded-xl bg-[#f3faf7] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
-            <p className="mt-0.5 break-words text-xs font-semibold text-[#17362c]">{alternative.itemName ?? "Catalogue item"}</p>
+            <p className="mt-0.5 break-words text-xs font-semibold text-[#17362c]">{localizedName(copy, alternative.itemName, alternative)}</p>
             <p className="text-[11px] text-[#718078]">{alternative.packageSize ?? alternative.unit ?? "—"}</p>
             <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
             {eligibilityChanges && (
@@ -1489,7 +1548,7 @@ function RecommendationBasketRow({
             type="button"
             disabled={lowerCostDuplicate}
             onClick={() => onApplyAlternative(suggestion)}
-            aria-label={`${copy.swapAndSave}: ${alternative.itemName ?? "Catalogue item"}`}
+            aria-label={`${copy.swapAndSave}: ${localizedName(copy, alternative.itemName, alternative)}`}
             className="min-h-11 shrink-0 rounded-lg bg-[#087f5b] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]"
           >
             {lowerCostDuplicate ? copy.alreadyInBasket : copy.swapAndSave}
@@ -1527,12 +1586,12 @@ function RecommendationBasketRow({
                     ? copy.lessNow(formatRm(Math.abs(unitDifference)))
                     : copy.sameCostNow;
               return (
-                <div key={pack.itemId} className={`flex min-w-0 flex-col rounded-lg p-3 ${pack.isBestValue ? "bg-[#e7f7f0] ring-1 ring-[#087f5b]" : "bg-[#f7f8f6]"}`}>
+                <div key={pack.itemId} className={`flex min-w-0 flex-col rounded-lg p-3 ${isCurrent ? "bg-[#e7f7f0] ring-1 ring-[#087f5b]" : "bg-[#f7f8f6]"}`}>
                   <div className="flex flex-wrap gap-1">
-                    {pack.isBestValue && <span className="rounded-md bg-[#087f5b] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestUnitValue}</span>}
+                    {pack.isBestValue && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.bestUnitValue}</span>}
                     {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>}
                   </div>
-                  <p className="mt-1 break-words text-xs font-bold leading-4 text-[#17362c]">{pack.itemName ?? "Catalogue item"}</p>
+                  <p className="mt-1 break-words text-xs font-bold leading-4 text-[#17362c]">{localizedName(copy, pack.itemName, pack)}</p>
                   <p className="text-[11px] text-[#718078]">{pack.packageSize ?? "—"}</p>
                   <div className="mt-2 flex items-end justify-between gap-2">
                     <div>
@@ -1545,8 +1604,8 @@ function RecommendationBasketRow({
                         type="button"
                         disabled={duplicate}
                         onClick={() => onApplyPack(row, pack.itemId)}
-                        aria-label={`${copy.choosePack}: ${pack.itemName ?? "Catalogue item"}`}
-                        className="min-h-11 shrink-0 rounded-lg border border-[#087f5b] bg-white px-2.5 text-[11px] font-extrabold text-[#087f5b] disabled:cursor-not-allowed disabled:border-[#9db5ac] disabled:text-[#718078]"
+                        aria-label={`${copy.choosePack}: ${localizedName(copy, pack.itemName, pack)}`}
+                        className="min-h-11 shrink-0 rounded-lg border border-[#087f5b] bg-[#087f5b] px-2.5 text-[11px] font-extrabold text-white disabled:cursor-not-allowed disabled:border-[#9db5ac] disabled:text-[#718078]"
                       >
                         {duplicate ? copy.alreadyInBasket : copy.choosePack}
                       </button>
@@ -1590,7 +1649,9 @@ function RecommendationOverview({
   const routeEstimateNote = routeProvider === "straight_line"
     ? copy.straightLineFallbackNote
     : copy.routeEstimateNote;
-  const limitLabel = preferences.limitType === "distance"
+  const limitLabel = preferences.limitType === "both"
+    ? `${preferences.distanceKm} km · ${preferences.timeMinutes} ${copy.minutes}`
+    : preferences.limitType === "distance"
     ? preferences.limitValue + " km"
     : preferences.limitValue + " " + copy.minutes;
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
@@ -1675,6 +1736,7 @@ function RecommendationOverview({
             </div>
           </header>
 
+          {preferences.origin && <a href={mapsRouteUrl(preferences.origin, store, preferences.transportMode)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-bold text-[#087f5b] underline">{copy.viewRoute}</a>}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#53635c]">
             <span>{copy.transportMode}: {modeLabel} · {copy.travelLimit}: {limitLabel}</span>
           </div>
@@ -1752,10 +1814,10 @@ function RecommendationOverview({
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{copy.combinedTotal}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{hasIncompleteBasket ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
                   <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(adjustedCombinedTotal)}</p>
                 </div>
-                <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.basketSubtotal} + {copy.returnTravel}</p>
+                <p className="text-right text-xs leading-5 text-[#d3f0e4]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal} + {copy.returnTravel}</p>
               </div>
             </div>
           )}
@@ -1793,9 +1855,7 @@ function CompareScreen({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
-  // AC 2.3.2: which completeness tab is active; AC 2.3.9: which card's
-  // per-line prices are expanded.
-  const [activeTab, setActiveTab] = useState<"complete" | "incomplete">("complete");
+  // One price disclosure is expanded at a time.
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
@@ -1831,7 +1891,6 @@ function CompareScreen({
     setError("");
     // AC 2.3.2: a fresh recommendation list starts again at the first five.
     setVisibleCount(VISIBLE_STEP);
-    setActiveTab("complete");
     setExpandedStoreId(null);
 
     getRecommendations({
@@ -1839,14 +1898,13 @@ function CompareScreen({
       travel: {
         origin: preferences.origin,
         transportMode: preferences.transportMode,
-        limit: { type: preferences.limitType, value: preferences.limitValue },
+        limit: preferences.limitType === "both" ? { type: "both", distanceKm: preferences.distanceKm, timeMinutes: preferences.timeMinutes } : { type: preferences.limitType, value: preferences.limitValue },
         saraFilter: preferences.saraFilter,
       },
     }, controller.signal)
       .then(response => {
         setResult(response);
-        setActiveTab("complete");
-        setVisibleCount(VISIBLE_STEP);
+            setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
       })
       .catch(requestError => {
@@ -1860,26 +1918,15 @@ function CompareScreen({
     return () => controller.abort();
   }, [requestBasketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
-  const recommendations = (result?.recommendations ?? []).filter(
-    store => !HIDDEN_RECOMMENDATION_NAMES.has(store.name.trim().toUpperCase()),
-  );
-  // AC 2.3.2/2.3.3: with a priced basket the list splits into Complete and
-  // Incomplete basket tabs (complete baskets first, as ranked by the API);
-  // without a basket there is nothing to price, so the flat transport-first
-  // list is kept and the tabs are hidden.
-  const completeStores = hasBasket ? recommendations.filter(isCompleteBasket) : recommendations;
-  const incompleteStores = hasBasket ? recommendations.filter(store => !isCompleteBasket(store)) : [];
-  // AC 2.3.5: the recommended store is the first complete basket.
-  const recommendedStore = completeStores[0];
-  const visibleStores = activeTab === "complete" ? completeStores.slice(0, visibleCount) : incompleteStores;
-  // AC 2.3.2: the summary counts basket units (matching the header badge),
-  // not line rows.
-  const basketItemCount = requestBasketLines.reduce((count, line) => count + line.quantity, 0);
+  const recommendations = result?.recommendations ?? [];
+  const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
+  const visibleStores = recommendations.slice(0, visibleCount);
+  const basketItemCount = requestBasketLines.length;
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
-  const originLabel = preferences.origin?.source === "device"
-    ? copy.currentLocation
-    : preferences.origin?.label ?? "";
-  const limitLabel = preferences.limitType === "distance"
+  const originLabel = preferences.origin?.label ?? "";
+  const limitLabel = preferences.limitType === "both"
+    ? `${preferences.distanceKm} km · ${preferences.timeMinutes} ${copy.minutes}`
+    : preferences.limitType === "distance"
     ? preferences.limitValue + " km"
     : preferences.limitValue + " " + copy.minutes;
 
@@ -1920,7 +1967,7 @@ function CompareScreen({
             </p>
           )}
           <p className="text-[15px] leading-6 text-[#53635c]">
-            {copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
+            {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
           {preferences.saraFilter === "candidate" && (
             <p className="text-sm font-medium text-[#7a5b00]">{copy.saraFilterApplied}</p>
@@ -1947,43 +1994,19 @@ function CompareScreen({
           <section className="flex flex-col gap-4">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.reachablePremises}</h2>
-                <p className="mt-1 text-sm text-[#617069]">{copy.reachableSummary(recommendations.length, result.totalCandidatesEvaluated)}</p>
+                <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
+                <p className="mt-1 text-sm text-[#617069]">{result.routeProvider === "straight_line" ? `${recommendations.length} / ${result.totalCandidatesEvaluated}` : copy.reachableSummary(recommendations.length, result.totalCandidatesEvaluated)}</p>
               </div>
               <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</span>
             </div>
-
-            {/* AC 2.3.2/2.3.3: with a priced basket the shopper switches
-                between the Complete and Incomplete basket tabs */}
-            {hasBasket && (
-              <div className="grid grid-cols-2 gap-2" role="tablist" aria-label={`${copy.completeBasketsTab} / ${copy.incompleteBasketsTab}`}>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "complete"}
-                  onClick={() => setActiveTab("complete")}
-                  className={"min-h-11 rounded-xl border text-sm font-bold " + (activeTab === "complete" ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#cbd8d1] bg-white text-[#087f5b]")}
-                >
-                  {copy.completeBasketsTab} ({completeStores.length})
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === "incomplete"}
-                  onClick={() => setActiveTab("incomplete")}
-                  className={"min-h-11 rounded-xl border text-sm font-bold " + (activeTab === "incomplete" ? "border-[#5f6368] bg-[#5f6368] text-white" : "border-[#cbd8d1] bg-white text-[#5f6368]")}
-                >
-                  {copy.incompleteBasketsTab} ({incompleteStores.length})
-                </button>
-              </div>
-            )}
 
             <div className="flex flex-col gap-3">
               {visibleStores.map(store => (
                 <StoreCard
                   key={store.premiseId}
                   store={store}
-                  isRecommended={activeTab === "complete" && recommendedStore?.premiseId === store.premiseId}
+                  isRecommended={recommendedStore?.premiseId === store.premiseId}
+                  routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, store, preferences.transportMode) : undefined}
                   pricesExpanded={expandedStoreId === store.premiseId}
                   onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
                   onSelectStore={() => setSelectedStore(store)}
@@ -1991,18 +2014,11 @@ function CompareScreen({
                 />
               ))}
 
-              {/* AC 2.3.2: See More pages the Complete baskets tab only; the
-                  Incomplete tab lists every incomplete basket at once */}
-              {activeTab === "complete" && hasMoreStores(visibleCount, completeStores.length) && (
-                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, completeStores.length))} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
-                  See More (+5)
+              {/* Page the unified ranking five stores at a time. */}
+              {hasMoreStores(visibleCount, recommendations.length) && (
+                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, recommendations.length))} className="h-12 w-full rounded-xl border border-[#087f5b] bg-white text-sm font-bold text-[#087f5b]">
+                  {copy.moreStores}
                 </button>
-              )}
-
-              {recommendations.length > 0 && visibleStores.length === 0 && (
-                <p className="rounded-xl border border-[#e2e9e5] bg-white p-4 text-center text-sm text-[#617069]">
-                  {activeTab === "complete" ? copy.noCompleteBaskets : copy.noIncompleteBaskets}
-                </p>
               )}
 
               {recommendations.length === 0 && (
@@ -2040,6 +2056,8 @@ export default function App() {
     transportMode: "motorcycle",
     limitType: "distance",
     limitValue: 5,
+    distanceKm: 5,
+    timeMinutes: 20,
     saraFilter: "any",
   });
 
@@ -2069,7 +2087,7 @@ export default function App() {
       const transportMode = ["walk", "public_transport", "motorcycle", "car"].includes(String(saved.transportMode))
         ? saved.transportMode as TransportMode
         : "motorcycle";
-      const limitType = saved.limitType === "time" ? "time" : "distance";
+      const limitType = saved.limitType === "both" ? "both" : saved.limitType === "time" ? "time" : "distance";
       const candidateLimit = Number(saved.limitValue);
       const limitValue = Number.isFinite(candidateLimit) && candidateLimit > 0
         ? candidateLimit
@@ -2077,7 +2095,11 @@ export default function App() {
       const saraFilter = ["any", "candidate", "verified"].includes(String(saved.saraFilter))
         ? saved.saraFilter as SaraFilter
         : "any";
-      setPreferences({ origin: null, transportMode, limitType, limitValue, saraFilter });
+      const distanceKm = Number(saved.distanceKm ?? (limitType === "distance" ? limitValue : 5));
+      const timeMinutes = Number(saved.timeMinutes ?? (limitType === "time" ? limitValue : 20));
+      setPreferences({ origin: null, transportMode, limitType, limitValue,
+        distanceKm: Number.isFinite(distanceKm) && distanceKm >= 0.5 && distanceKm <= 100 ? distanceKm : 5,
+        timeMinutes: Number.isFinite(timeMinutes) && timeMinutes >= 5 && timeMinutes <= 180 ? timeMinutes : 20, saraFilter });
     } catch {
       window.localStorage.removeItem("smartcart-travel-preferences");
     }
@@ -2109,7 +2131,7 @@ export default function App() {
         copy={copy}
       />
 
-      <main className="mx-auto w-full max-w-[760px] pt-16">
+      <main className={"mx-auto w-full pt-16 " + (screen === "shop" ? "max-w-[1200px]" : "max-w-[760px]")}>
         {screen === "shop" && (
           <BasketScreen
             view="shop"

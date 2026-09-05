@@ -1,6 +1,10 @@
 export type TransportMode = "walk" | "public_transport" | "motorcycle" | "car";
-export type TravelLimitType = "distance" | "time";
+export type TravelLimitType = "distance" | "time" | "both";
 export type SaraFilter = "any" | "candidate" | "verified";
+
+export type TravelLimit =
+  | { type: "distance" | "time"; value: number }
+  | { type: "both"; distanceKm: number; timeMinutes: number };
 
 export interface BasketLineRequest {
   itemId: string;
@@ -18,10 +22,7 @@ export interface SelectedLocation {
 export interface TravelPreferencesRequest {
   origin: SelectedLocation;
   transportMode: TransportMode;
-  limit: {
-    type: TravelLimitType;
-    value: number;
-  };
+  limit: TravelLimit;
   saraFilter: SaraFilter;
 }
 
@@ -48,9 +49,15 @@ export interface ResolvedLocation {
   longitude: number;
 }
 
+export interface ReverseLocationResponse {
+  label: string | null;
+}
+
 export type SaraStoreStatus = "verified" | "candidate" | "unverified";
 
 export interface BasketItemPrice {
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
   itemId: string;
   itemName: string;
   packageSize: string | null;
@@ -66,6 +73,8 @@ export interface BasketItemPrice {
 // "View item prices"; price fields are null when the store has no valid
 // price for the line.
 export interface BasketLineDetail {
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
   itemId: string;
   itemName: string | null;
   unit: string | null;
@@ -76,6 +85,8 @@ export interface BasketLineDetail {
 }
 
 export interface AlternativePriceItem {
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
   itemId: string;
   itemName: string | null;
   unit: string | null;
@@ -92,6 +103,8 @@ export interface AlternativePriceItem {
 // One pack size of the same product family priced at the selected store
 // (AC 3.2.1); pricePerUnitRm is display-rounded, unitKind is "KG" or "L".
 export interface PackSizeOption {
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
   itemId: string;
   itemName: string | null;
   packageSize: string | null;
@@ -133,6 +146,7 @@ export interface StoreRecommendation {
   premiseCode: string;
   name: string;
   address: string | null;
+  googlePlaceId?: string | null;
   district: string | null;
   state: string | null;
   straightLineDistanceKm: number;
@@ -140,7 +154,7 @@ export interface StoreRecommendation {
   estimatedTravelMinutes: number;
   estimatedRoundTripCostRm: number;
   basketCostRm: number;
-  estimatedTotalCostRm: number;
+  estimatedTotalCostRm: number | null;
   pricedItemCount: number;
   basketItemCount: number;
   isCompleteBasket: boolean;
@@ -162,8 +176,8 @@ export interface StoreRecommendation {
   // Age in days of the store's oldest basket-line price (AC 2.3.5); null
   // when no basket line is priced at that store (or no basket was sent).
   priceObservedDaysAgo: number | null;
-  // Combined ranking total (AC 2.3.4/2.3.5): priced basket subtotal plus
-  // estimated return transport cost; set for complete baskets only.
+  // Priced basket subtotal plus return transport cost, including partial baskets.
+  // Null when no line is priced; missing prices never contribute zero prices.
   combinedTotalRm: number | null;
   // Per-line priced detail behind "View item prices" (AC 2.3.9).
   basketLines: BasketLineDetail[];

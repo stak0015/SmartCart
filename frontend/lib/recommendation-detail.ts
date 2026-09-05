@@ -9,6 +9,8 @@ import type { AppliedReplacement, BasketItem } from "./basket-state";
 export interface RecommendationDetailPrice {
   itemId: string;
   itemName: string;
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
   packageSize: string | null;
   quantity: number;
   unitPriceRm: number | null;
@@ -48,6 +50,8 @@ function detailFromAlternative(item: AlternativePriceItem, quantity: number): Re
   return {
     itemId: item.itemId,
     itemName: item.itemName ?? "Catalogue item",
+    itemNameEn: item.itemNameEn,
+    itemNameMs: item.itemNameMs,
     packageSize: item.packageSize ?? item.unit,
     quantity,
     unitPriceRm: item.unitPriceRm,
@@ -63,6 +67,8 @@ function detailFromPack(pack: PackSizeOption, quantity: number): RecommendationD
   return {
     itemId: pack.itemId,
     itemName: pack.itemName ?? "Catalogue item",
+    itemNameEn: pack.itemNameEn,
+    itemNameMs: pack.itemNameMs,
     packageSize: pack.packageSize,
     quantity,
     unitPriceRm: pack.totalPriceRm,
@@ -87,6 +93,8 @@ function fallbackCurrentPrice(
   return {
     itemId,
     itemName: line.itemName ?? basketItem.name,
+    itemNameEn: line.itemNameEn ?? basketItem.itemNameEn,
+    itemNameMs: line.itemNameMs ?? basketItem.itemNameMs,
     packageSize: price?.packageSize ?? line.unit ?? basketItem.size,
     quantity: basketItem.qty,
     unitPriceRm: line.unitPriceRm,
