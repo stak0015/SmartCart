@@ -33,7 +33,7 @@ def register_error_handlers(app: FastAPI) -> None:
     async def handle_validation_error(
         request: Request, error: RequestValidationError
     ) -> JSONResponse:
-        if request.url.path == "/api/locations/resolve":
+        if request.url.path in {"/api/locations/resolve", "/api/locations/reverse"}:
             public_error = AppError(
                 "INVALID_LOCATION",
                 "Please choose a valid location suggestion.",
@@ -42,7 +42,7 @@ def register_error_handlers(app: FastAPI) -> None:
         elif any(item.get("type") == "invalid_travel_limit" for item in error.errors()):
             public_error = AppError(
                 "INVALID_TRAVEL_LIMIT",
-                "Distance must be 0.5-100 km and time must be 5-180 minutes.",
+                "Distance must be 0.5-100 km and time must be 5-180 minutes; both values are required for a combined limit.",
                 400,
             )
         else:

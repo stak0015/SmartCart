@@ -17,6 +17,8 @@ from .alternatives import get_basket_alternatives, premise_exists
 from .maps import get_maps_provider
 from .models import (
     LocationResolveRequest,
+    ReverseLocationRequest,
+    ReverseLocationResponse,
     LocationSearchResponse,
     RecommendationRequest,
     RecommendationResponse,
@@ -98,6 +100,24 @@ async def resolve_location(payload: LocationResolveRequest) -> ResolvedLocation:
     )
 
 
+@router.post("/locations/reverse", response_model=ReverseLocationResponse)
+async def reverse_location(
+    payload: ReverseLocationRequest,
+) -> ReverseLocationResponse:
+    # Reverse geocoding is best-effort. The frontend can still use the device
+    # coordinates for nearby-store recommendations when the optional provider
+    # has no key or is temporarily unavailable.
+    try:
+        label = await get_maps_provider().reverse_geocode(
+            payload.latitude, payload.longitude
+        )
+    except AppError as error:
+        if error.code not in {"MAPS_NOT_CONFIGURED", "MAPS_UNAVAILABLE"}:
+            raise
+        label = None
+    return ReverseLocationResponse(label=label)
+
+
 @router.post(
     "/premises/{premise_id}/basket-alternatives",
     response_model=BasketAlternativesResponse,
@@ -122,25 +142,26 @@ async def basket_alternatives(
         str(premise_id),
         payload.basket,
     )
+    response_lines = [
+        BasketAlternativeLine(
+            quantity=line.quantity,
+            source=AlternativePriceItem(**line.source.__dict__),
+            alternative=(
+                AlternativePriceItem(**line.alternative.__dict__)
+                if line.alternative is not None
+                else None
+            ),
+            savings_rm=line.savings_rm,
+            pack_options=[
+                PackSizeOption(**option.__dict__)
+                for option in pack_options.get(str(line.source.item_id), [])
+            ],
+        )
+        for line in lines
+    ]
     return BasketAlternativesResponse(
         premise_id=str(premise_id),
-        lines=[
-            BasketAlternativeLine(
-                quantity=line.quantity,
-                source=AlternativePriceItem(**line.source.__dict__),
-                alternative=(
-                    AlternativePriceItem(**line.alternative.__dict__)
-                    if line.alternative is not None
-                    else None
-                ),
-                savings_rm=line.savings_rm,
-                pack_options=[
-                    PackSizeOption(**option.__dict__)
-                    for option in pack_options.get(str(line.source.item_id), [])
-                ],
-            )
-            for line in lines
-        ],
+        lines=response_lines,
         generated_at=datetime.now(timezone.utc),
     )
 
@@ -151,7 +172,11 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     travel = payload.travel
     use_straight_line_fallback = not settings.google_routes_api_key
     maximum_straight_line_km = (
-        travel.limit.value if travel.limit.type == "distance" else None
+        travel.limit.value
+        if travel.limit.type == "distance"
+        else travel.limit.distance_km
+        if travel.limit.type == "both"
+        else None
     )
     if use_straight_line_fallback:
         # Without Routes there is no reliable way to apply a distance/time
@@ -209,6 +234,8 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         limit_type=route_limit_type,
         limit_value=route_limit_value,
         cost_rate=cost_model[travel.transport_mode],
+        limit_distance_km=travel.limit.distance_km,
+        limit_time_minutes=travel.limit.time_minutes,
     )
     ranking_method = (
         "Nearest premises by straight-line distance; travel times and costs "
@@ -225,15 +252,14 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         )
         recommendations = apply_basket_pricing(recommendations, pricing)
         ranking_method = (
-            "Nearest 25 premises by straight-line distance; complete baskets are "
-            "then ranked by estimated combined cost using rough travel estimates. "
+            "Nearest 25 premises by straight-line distance; stores are ranked by "
+            "number of priced items, then estimated combined cost using rough travel estimates. "
             "Google Routes is not configured, so travel limits and route feasibility "
             "are not verified."
             if use_straight_line_fallback
-            else "Complete baskets ranked by lowest combined cost: priced basket "
-            "subtotal plus estimated return transport cost; ties by shortest "
-            "travel time, route distance, store name, then premise ID. "
-            "Incomplete baskets are listed after with their partial totals."
+            else "Stores ranked by number of priced items, then lowest combined cost: "
+            "priced basket subtotal plus estimated return transport cost; ties by "
+            "shortest travel time, route distance, store name, then premise ID."
         )
     route_warning_parts = []
     if use_straight_line_fallback:
@@ -246,6 +272,10 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         route_warning_parts.append(
             "Walking and motorcycle routes are beta estimates and may omit suitable "
             "paths or road restrictions. Check the route before travelling."
+        )
+    if travel.transport_mode == "public_transport":
+        route_warning_parts.append(
+            "Public transport estimates include walking to and from transit stops."
         )
     return RecommendationResponse(
         recommendations=recommendations,

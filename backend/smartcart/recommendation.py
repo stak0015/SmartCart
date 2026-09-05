@@ -52,7 +52,8 @@ def get_travel_cost_model(settings: Settings) -> dict[TransportMode, TravelCostR
             public_base,
             public_rate,
             f"Planning estimate: RM{public_base:.2f} base per leg plus "
-            f"RM{public_rate:.2f}/km. Actual fares may differ.",
+            f"RM{public_rate:.2f}/km. Includes walking to and from transit stops; "
+            "actual fares may differ.",
         ),
         "motorcycle": TravelCostRate(
             0,
@@ -113,9 +114,11 @@ def rank_reachable_stores(
     candidates: list[PremiseCandidate],
     route_results: list[RouteMatrixResult],
     limit_type: TravelLimitType,
-    limit_value: float,
+    limit_value: float | None,
     cost_rate: TravelCostRate,
     basket_prices_by_premise: dict[str, list[BasketItemPrice]] | None = None,
+    limit_distance_km: float | None = None,
+    limit_time_minutes: float | None = None,
 ) -> list[StoreRecommendation]:
     # This optional argument is retained for E2 callers. The API's richer path
     # first ranks by transport, then applies StoreBasketSummary below.
@@ -124,11 +127,31 @@ def rank_reachable_stores(
     for route in route_results:
         if not 0 <= route.destination_index < len(candidates):
             continue
-        within_limit = (
-            route.distance_meters <= limit_value * 1000
-            if limit_type == "distance"
-            else route.duration_seconds <= limit_value * 60
-        )
+        if limit_type == "distance":
+            within_limit = (
+                limit_value is not None
+                and route.distance_meters <= limit_value * 1000
+            )
+        elif limit_type == "time":
+            within_limit = (
+                limit_value is not None
+                and route.duration_seconds <= limit_value * 60
+            )
+        else:
+            # Callers using the combined mode pass the explicit values. The
+            # fallback also accepts a mapping in ``limit_value`` for older
+            # integrations that forwarded the request object directly.
+            distance_km = limit_distance_km
+            time_minutes = limit_time_minutes
+            if isinstance(limit_value, dict):
+                distance_km = distance_km or limit_value.get("distance_km")
+                time_minutes = time_minutes or limit_value.get("time_minutes")
+            within_limit = (
+                distance_km is not None
+                and time_minutes is not None
+                and route.distance_meters <= distance_km * 1000
+                and route.duration_seconds <= time_minutes * 60
+            )
         if not within_limit:
             continue
         premise = candidates[route.destination_index]
@@ -154,6 +177,7 @@ def rank_reachable_stores(
                 address=premise.address,
                 district=premise.district,
                 state=premise.state,
+                google_place_id=premise.google_place_id,
                 straight_line_distance_km=_round(
                     premise.straight_line_distance_km, 2
                 ),
@@ -170,16 +194,31 @@ def rank_reachable_stores(
             )
         )
 
-    recommendations.sort(
-        key=lambda store: (
-            not store.is_complete_basket,
-            store.estimated_total_cost_rm,
-            store.estimated_travel_minutes,
-            store.route_distance_km,
-            store.name,
-            int(store.premise_id),
+    if basket_prices_by_premise:
+        recommendations.sort(
+            key=lambda store: (
+                -store.priced_item_count,
+                store.estimated_total_cost_rm
+                if store.estimated_total_cost_rm is not None
+                else float("inf"),
+                store.estimated_travel_minutes,
+                store.route_distance_km,
+                store.name.casefold(),
+                _premise_id_sort_key(store.premise_id),
+            )
         )
-    )
+    else:
+        recommendations.sort(
+            key=lambda store: (
+                store.estimated_total_cost_rm
+                if store.estimated_total_cost_rm is not None
+                else float("inf"),
+                store.estimated_travel_minutes,
+                store.route_distance_km,
+                store.name.casefold(),
+                _premise_id_sort_key(store.premise_id),
+            )
+        )
     return recommendations
 
 
@@ -189,16 +228,24 @@ def apply_basket_pricing(
 ) -> list[StoreRecommendation]:
     """Attach per-store basket subtotals with their SARA Credit / Cash
     Needed split, combined total and per-line detail, then re-rank
-    (AC 2.3.4): complete baskets sort by lowest combined cost (priced
-    subtotal + estimated return transport), ties by shortest travel time,
-    shortest route distance, store name, then premise ID; incomplete
-    baskets are listed after, keeping the reachability order."""
-    complete = []
-    incomplete = []
+    (AC 2.3.4): stores sort by number of priced basket lines (descending),
+    then combined basket-plus-transport cost (ascending), ties by shortest
+    travel time, shortest route distance, store name, then premise ID. Missing
+    prices remain explicit and stores with no priced lines have null totals."""
+    ranked = []
     for store in recommendations:
         summary = pricing.get(store.premise_id)
         if summary is None:
-            incomplete.append(store)
+            store.basket_subtotal_rm = None
+            store.priced_count = 0
+            store.basket_line_count = 0
+            store.basket_cost_rm = 0.0
+            store.estimated_total_cost_rm = None
+            store.priced_item_count = 0
+            store.basket_item_count = 0
+            store.is_complete_basket = False
+            store.combined_total_rm = None
+            ranked.append(store)
             continue
         store.basket_subtotal_rm = summary.subtotal_rm
         store.priced_count = summary.priced_count
@@ -208,9 +255,6 @@ def apply_basket_pricing(
         store.cash_needed_rm = summary.cash_needed_rm
         store.price_observed_days_ago = summary.price_observed_days_ago
         store.basket_cost_rm = summary.subtotal_rm or 0.0
-        store.estimated_total_cost_rm = _round(
-            store.basket_cost_rm + store.estimated_round_trip_cost_rm, 2
-        )
         store.priced_item_count = summary.priced_count
         store.basket_item_count = summary.basket_line_count
         store.is_complete_basket = summary.is_complete
@@ -218,6 +262,8 @@ def apply_basket_pricing(
             BasketItemPrice(
                 item_id=line.item_id,
                 item_name=line.item_name or f"Catalogue item {line.item_id}",
+                item_name_en=line.item_name_en,
+                item_name_ms=line.item_name_ms,
                 package_size=display_package_size(line.item_name, line.unit),
                 quantity=line.quantity,
                 unit_price_rm=line.unit_price_rm,
@@ -232,6 +278,8 @@ def apply_basket_pricing(
             BasketLineDetail(
                 item_id=line.item_id,
                 item_name=line.item_name,
+                item_name_en=line.item_name_en,
+                item_name_ms=line.item_name_ms,
                 unit=line.unit,
                 quantity=line.quantity,
                 unit_price_rm=line.unit_price_rm,
@@ -240,7 +288,7 @@ def apply_basket_pricing(
             )
             for line in summary.lines
         ]
-        if summary.is_complete:
+        if summary.subtotal_rm is not None:
             # Money math stays in Decimal so the displayed combined total
             # reconciles to the cent with the subtotal and transport figures.
             store.combined_total_rm = float(
@@ -249,16 +297,37 @@ def apply_basket_pricing(
                     + Decimal(str(store.estimated_round_trip_cost_rm))
                 ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
             )
-            complete.append(store)
+            store.estimated_total_cost_rm = store.combined_total_rm
         else:
-            incomplete.append(store)
-    complete.sort(
-        key=lambda store: (
-            store.combined_total_rm,
+            store.combined_total_rm = None
+            store.estimated_total_cost_rm = None
+        ranked.append(store)
+
+    def ranking_key(store: StoreRecommendation) -> tuple:
+        # ``combined_total_rm`` is only defined when at least one line has a
+        # valid price. ``inf`` keeps zero-priced stores after priced stores of
+        # the same coverage while preserving deterministic tie-breakers.
+        combined = (
+            store.combined_total_rm
+            if store.combined_total_rm is not None
+            else float("inf")
+        )
+        return (
+            -int(store.priced_count or 0),
+            combined,
             store.estimated_travel_minutes,
             store.route_distance_km,
-            store.name,
-            int(store.premise_id),
+            store.name.casefold(),
+            _premise_id_sort_key(store.premise_id),
         )
-    )
-    return complete + incomplete
+
+    ranked.sort(key=ranking_key)
+    return ranked
+
+
+def _premise_id_sort_key(value: str) -> tuple[int, object]:
+    """Sort numeric premise IDs numerically while accepting non-numeric IDs."""
+    try:
+        return (0, int(value))
+    except (TypeError, ValueError):
+        return (1, str(value))

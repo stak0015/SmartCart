@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 PLACES_BASE_URL = "https://places.googleapis.com/v1"
 ROUTES_MATRIX_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix"
+GEOCODING_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 TRAVEL_MODE: dict[TransportMode, str] = {
     "walk": "WALK",
     "public_transport": "TRANSIT",
@@ -49,6 +50,8 @@ class GoogleMapsProvider:
             settings.google_places_api_key
             if service == "places"
             else settings.google_routes_api_key
+            if service == "routes"
+            else settings.google_geocoding_api_key
         )
         if not api_key:
             raise AppError(
@@ -83,7 +86,9 @@ class GoogleMapsProvider:
                 method=method,
             )
             try:
-                with urlopen(request, timeout=10) as response:  # noqa: S310
+                with urlopen(  # noqa: S310
+                    request, timeout=get_settings().maps_request_timeout_seconds
+                ) as response:
                     return json_module.loads(response.read().decode("utf-8"))
             except HTTPError as error:
                 diagnostic = error.read(500).decode("utf-8", errors="replace")
@@ -174,6 +179,56 @@ class GoogleMapsProvider:
             latitude=latitude,
             longitude=longitude,
         )
+
+    async def reverse_geocode(
+        self, latitude: float, longitude: float
+    ) -> str | None:
+        """Return a display address without retaining or logging coordinates.
+
+        Geocoding is deliberately best-effort: device coordinates remain
+        useful even when the optional provider is not configured or unavailable.
+        The request URL is never included in diagnostics because it contains
+        the user's coordinates.
+        """
+        settings = get_settings()
+        if not settings.google_geocoding_api_key:
+            return None
+
+        def send_request() -> str | None:
+            query = urlencode(
+                {
+                    "latlng": f"{latitude:.7f},{longitude:.7f}",
+                    "key": settings.google_geocoding_api_key,
+                    "language": "en",
+                    "region": "my",
+                }
+            )
+            request = Request(
+                f"{GEOCODING_BASE_URL}?{query}",
+                headers={"Accept": "application/json"},
+                method="GET",
+            )
+            try:
+                with urlopen(  # noqa: S310
+                    request, timeout=settings.maps_request_timeout_seconds
+                ) as response:
+                    body = json_module.loads(response.read().decode("utf-8"))
+            except (HTTPError, URLError, TimeoutError, json_module.JSONDecodeError):
+                # Do not log the exception: provider diagnostics can include a
+                # request URL containing the selected origin.
+                return None
+            if not isinstance(body, dict) or body.get("status") != "OK":
+                return None
+            results = body.get("results")
+            if not isinstance(results, list) or not results:
+                return None
+            first_result = results[0]
+            if not isinstance(first_result, dict):
+                return None
+            label = first_result.get("formatted_address")
+            return label.strip() if isinstance(label, str) and label.strip() else None
+
+        return await asyncio.to_thread(send_request)
 
     async def compute_route_matrix(
         self,

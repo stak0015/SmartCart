@@ -166,7 +166,7 @@ def test_incomplete_store_still_reports_price_age() -> None:
     assert summary.price_observed_days_ago == 241
 
 
-def test_complete_stores_sort_by_combined_cost_then_incomplete_last() -> None:
+def test_stores_sort_by_coverage_then_combined_cost() -> None:
     recommendations = [
         store("1", cost=1.0),
         store("2", cost=0.5),
@@ -195,9 +195,10 @@ def test_complete_stores_sort_by_combined_cost_then_incomplete_last() -> None:
     assert ordered[0].basket_subtotal_rm == 10.5
     assert ordered[1].sara_credit_rm == 4.0
     assert ordered[1].price_observed_days_ago == 3
-    # Incomplete store keeps its partial subtotal and coverage, no combined
+    # Partial stores keep their subtotal and coverage and participate in the
+    # combined-cost tie-break after stores with more priced lines.
     assert ordered[2].basket_subtotal_rm == 4.0
-    assert ordered[2].combined_total_rm is None
+    assert ordered[2].combined_total_rm == 4.5
     assert ordered[2].priced_count == 1
     assert ordered[2].basket_line_count == 2
     assert ordered[2].missing_items == ["Beras"]
@@ -239,7 +240,7 @@ def test_basket_lines_detail_attached() -> None:
     assert lines[1].observed_date is None
 
 
-def test_incomplete_stores_keep_reachability_order() -> None:
+def test_partial_stores_use_combined_cost_when_coverage_ties() -> None:
     recommendations = [store("1", cost=0.9), store("2", cost=0.1)]
     pricing = {
         "1": StoreBasketSummary(
@@ -252,14 +253,15 @@ def test_incomplete_stores_keep_reachability_order() -> None:
         ),
     }
     ordered = apply_basket_pricing(recommendations, pricing)
-    assert [s.premise_id for s in ordered] == ["1", "2"]
+    assert [s.premise_id for s in ordered] == ["2", "1"]
 
 
 def test_store_without_pricing_summary_is_untouched() -> None:
     recommendations = [store("1", cost=0.9)]
     ordered = apply_basket_pricing(recommendations, {})
     assert ordered[0].basket_subtotal_rm is None
-    assert ordered[0].priced_count is None
+    assert ordered[0].priced_count == 0
+    assert ordered[0].combined_total_rm is None
 
 
 class FakeCursor:
@@ -298,3 +300,32 @@ def test_e2_item_price_adapter_preserves_priced_and_missing_lines(monkeypatch) -
     assert result["1"][0].price_observed_date == date(2026, 8, 20)
     assert result["1"][1].unit_price_rm is None
     assert result["1"][1].line_total_rm is None
+
+
+def test_unified_ranking_prioritizes_coverage_then_all_tie_breakers() -> None:
+    # All stores are partial; low prices cannot outrank better coverage.
+    entries = [
+        ("9", 1, 1.0, 1, 0.1, "Cheap"),
+        ("8", 2, 12.0, 1, 0.1, "Costlier"),
+        ("7", 2, 10.0, 20, 0.1, "Slower"),
+        ("6", 2, 10.0, 10, 4.0, "Farther"),
+        ("5", 2, 10.0, 10, 2.0, "Zulu"),
+        ("4", 2, 10.0, 10, 2.0, "Alpha"),
+        ("3", 2, 10.0, 10, 2.0, "Alpha"),
+        ("2", 0, None, 1, 0.1, "No prices"),
+    ]
+    stores = []
+    pricing = {}
+    for item_id, coverage, subtotal, minutes, distance, name in entries:
+        candidate = store(item_id, cost=1.0)
+        candidate.estimated_travel_minutes = minutes
+        candidate.route_distance_km = distance
+        candidate.name = name
+        stores.append(candidate)
+        pricing[item_id] = StoreBasketSummary(
+            subtotal_rm=subtotal, priced_count=coverage, basket_line_count=3
+        )
+    ranked = apply_basket_pricing(stores, pricing)
+    assert [entry.premise_id for entry in ranked] == ["3", "4", "5", "6", "7", "8", "9", "2"]
+    assert ranked[-1].combined_total_rm is None
+    assert ranked[-1].basket_subtotal_rm is None

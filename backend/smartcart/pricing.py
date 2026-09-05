@@ -32,6 +32,8 @@ class BasketLinePrice:
     observed_date: str | None
     sara_eligible: bool | None
     sara_category_candidate: bool
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
 
 
 @dataclass(frozen=True)
@@ -69,7 +71,8 @@ def fetch_basket_price_rows(
         cursor.execute(
             """
             SELECT requested.premise_id, lines.item_id, lines.quantity,
-                   item.item_name, item.unit, current_status.current_price,
+                   item.item_name, item.item_name_en, item.unit,
+                   current_status.current_price,
                    item.sara_eligible, item.item_category,
                    current_status.price_observed_date
             FROM unnest(%s::bigint[]) AS requested(premise_id)
@@ -100,17 +103,20 @@ def summarize_basket_prices(
     missing: dict[str, list[str]] = {}
     lines_by_store: dict[str, list[BasketLinePrice]] = {}
 
-    for (
-        premise_id,
-        item_id,
-        quantity,
-        item_name,
-        unit,
-        current_price,
-        sara_eligible,
-        item_category,
-        observed,
-    ) in rows:
+    for raw_row in rows:
+        # Keep accepting the pre-lookup_item-en tuple shape for callers that
+        # build rows in-process; database queries use the 10-column shape.
+        if len(raw_row) == 9:
+            (
+                premise_id, item_id, quantity, item_name, unit,
+                current_price, sara_eligible, item_category, observed,
+            ) = raw_row
+            item_name_en = None
+        else:
+            (
+                premise_id, item_id, quantity, item_name, item_name_en, unit,
+                current_price, sara_eligible, item_category, observed,
+            ) = raw_row
         key = str(premise_id)
         priced = (
             item_name is not None
@@ -122,6 +128,8 @@ def summarize_basket_prices(
             BasketLinePrice(
                 item_id=str(item_id),
                 item_name=item_name,
+                item_name_en=item_name_en,
+                item_name_ms=item_name,
                 unit=unit,
                 quantity=quantity,
                 unit_price_rm=_money(Decimal(current_price)) if priced else None,
@@ -211,6 +219,7 @@ def get_basket_prices_for_premises(
                 requested_premise.premise_id,
                 item.item_id,
                 item.item_name,
+                item.item_name_en,
                 item.unit,
                 basket.quantity,
                 current_status.current_price,
@@ -229,19 +238,31 @@ def get_basket_prices_for_premises(
 
     result: dict[str, list[BasketItemPrice]] = defaultdict(list)
     for row in rows:
-        unit_price = Decimal(row[5]) if row[5] is not None else None
-        quantity = int(row[4])
+        # The current query includes item_name_en (8 columns); the 7-column
+        # form is retained for existing E2 adapters.
+        if len(row) == 7:
+            item_name_en = None
+            item_name_ms = (row[2] or "").strip() or None
+            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 3, 4, 5, 6
+        else:
+            item_name_en = (row[3] or "").strip() or None
+            item_name_ms = (row[2] or "").strip() or None
+            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 4, 5, 6, 7
+        unit_price = Decimal(row[price_index]) if row[price_index] is not None else None
+        quantity = int(row[quantity_index])
         result[str(row[0])].append(
             BasketItemPrice(
                 item_id=str(row[1]),
-                item_name=(row[2] or "").strip() or "Unnamed item",
-                package_size=display_package_size(row[2], row[3]),
+                item_name=(row[item_name_index] or "").strip() or "Unnamed item",
+                item_name_en=item_name_en,
+                item_name_ms=item_name_ms,
+                package_size=display_package_size(row[item_name_index], row[unit_index]),
                 quantity=quantity,
                 unit_price_rm=_money(unit_price) if unit_price is not None else None,
                 line_total_rm=(
                     _money(unit_price * quantity) if unit_price is not None else None
                 ),
-                price_observed_date=row[6],
+                price_observed_date=row[observed_index],
             )
         )
 

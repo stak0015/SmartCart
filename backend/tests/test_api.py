@@ -1,4 +1,5 @@
 from dataclasses import replace
+import asyncio
 
 from fastapi.testclient import TestClient
 
@@ -87,8 +88,9 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "name": "Kedai Test",
         "address": "Jalan Test",
         "district": "Kota Bharu",
-        "state": "Kelantan",
-        "straightLineDistanceKm": 1.5,
+            "state": "Kelantan",
+            "googlePlaceId": "google-place-1",
+            "straightLineDistanceKm": 1.5,
         "routeDistanceKm": 2.0,
         "estimatedTravelMinutes": 11,
         "estimatedRoundTripCostRm": 0.48,
@@ -152,6 +154,47 @@ def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
     assert store["saraCreditRm"] is None
     assert store["cashNeededRm"] is None
     assert store["pricedCount"] is None
+
+
+def test_combined_limit_prefilters_candidates_by_distance(monkeypatch) -> None:
+    from smartcart import api
+
+    monkeypatch.setattr(
+        api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+    )
+    captured: dict[str, object] = {}
+
+    def fake_find(**options):
+        captured.update(options)
+        return [
+            PremiseCandidate(
+                premise_id="1",
+                premise_code="P1",
+                name="Kedai Test",
+                address=None,
+                district=None,
+                state=None,
+                google_place_id="google-place-1",
+                straight_line_distance_km=1.5,
+                sara_status="candidate",
+            )
+        ]
+
+    monkeypatch.setattr(api, "find_nearest_premises", fake_find)
+    monkeypatch.setattr(api, "get_maps_provider", lambda: FakeMapsProvider())
+    payload = {
+        **{key: value for key, value in VALID_REQUEST.items() if key != "basket"},
+        "travel": {
+            **VALID_REQUEST["travel"],
+            "limit": {"type": "both", "distanceKm": 5, "timeMinutes": 20},
+        },
+    }
+    response = TestClient(create_app()).post("/api/recommendations", json=payload)
+
+    assert response.status_code == 200
+    assert captured["maximum_straight_line_km"] == 5
 
 
 def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch) -> None:
@@ -255,6 +298,56 @@ def test_location_resolve_returns_existing_contract_for_invalid_body() -> None:
     )
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "INVALID_LOCATION"
+
+
+def test_reverse_location_returns_best_effort_address(monkeypatch) -> None:
+    from smartcart import api
+
+    class FakeProvider:
+        async def reverse_geocode(self, latitude, longitude):
+            assert latitude == 6.1254
+            assert longitude == 102.2381
+            return "Kota Bharu, Kelantan, Malaysia"
+
+    monkeypatch.setattr(api, "get_maps_provider", lambda: FakeProvider())
+    response = TestClient(create_app()).post(
+        "/api/locations/reverse",
+        json={"latitude": 6.1254, "longitude": 102.2381},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"label": "Kota Bharu, Kelantan, Malaysia"}
+
+
+def test_reverse_location_validates_coordinates() -> None:
+    response = TestClient(create_app()).post(
+        "/api/locations/reverse",
+        json={"latitude": 91, "longitude": 102.2381},
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_LOCATION"
+
+
+def test_reverse_geocode_ignores_malformed_result(monkeypatch) -> None:
+    from smartcart import maps
+
+    settings = replace(
+        get_settings(), google_geocoding_api_key="test-geocoding-key"
+    )
+    monkeypatch.setattr(maps, "get_settings", lambda: settings)
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b'{"status":"OK","results":["malformed"]}'
+
+    monkeypatch.setattr(maps, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+    label = asyncio.run(maps.GoogleMapsProvider().reverse_geocode(6.1254, 102.2381))
+    assert label is None
 
 
 def test_item_name_parsing_extracts_brand_and_package_size() -> None:

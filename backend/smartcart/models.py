@@ -8,7 +8,7 @@ from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticCustomError
 
 TransportMode = Literal["walk", "public_transport", "motorcycle", "car"]
-TravelLimitType = Literal["distance", "time"]
+TravelLimitType = Literal["distance", "time", "both"]
 SaraFilter = Literal["any", "candidate", "verified"]
 SaraStoreStatus = Literal["verified", "candidate", "unverified"]
 
@@ -32,15 +32,27 @@ class SelectedLocation(CamelModel):
 
 class TravelLimit(CamelModel):
     type: TravelLimitType
-    value: float
+    # ``value`` remains the wire field for the original distance/time modes.
+    # Combined limits use the explicit fields so the UI can preserve both
+    # controls when the mode changes.
+    value: float | None = None
+    distance_km: float | None = Field(default=None, ge=0.5, le=100)
+    time_minutes: float | None = Field(default=None, ge=5, le=180)
 
     @model_validator(mode="after")
     def validate_supported_range(self) -> "TravelLimit":
-        valid = (
-            self.type == "distance" and 0.5 <= self.value <= 100
-        ) or (
-            self.type == "time" and 5 <= self.value <= 180
-        )
+        valid = False
+        if self.type == "distance":
+            valid = self.value is not None and 0.5 <= self.value <= 100
+        elif self.type == "time":
+            valid = self.value is not None and 5 <= self.value <= 180
+        else:
+            valid = (
+                self.distance_km is not None
+                and self.time_minutes is not None
+                and 0.5 <= self.distance_km <= 100
+                and 5 <= self.time_minutes <= 180
+            )
         if not valid:
             raise PydanticCustomError(
                 "invalid_travel_limit",
@@ -76,6 +88,15 @@ class LocationResolveRequest(CamelModel):
     session_token: str = Field(min_length=8, max_length=128)
 
 
+class ReverseLocationRequest(CamelModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
+
+
+class ReverseLocationResponse(CamelModel):
+    label: str | None = None
+
+
 class LocationSuggestion(CamelModel):
     place_id: str
     main_text: str
@@ -97,6 +118,8 @@ class ResolvedLocation(CamelModel):
 class BasketItemPrice(CamelModel):
     item_id: str
     item_name: str
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
     package_size: str | None
     quantity: int
     unit_price_rm: float | None
@@ -112,6 +135,8 @@ class BasketLineDetail(CamelModel):
 
     item_id: str
     item_name: str | None
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
     unit: str | None
     quantity: int
     unit_price_rm: float | None
@@ -124,6 +149,8 @@ class AlternativePriceItem(CamelModel):
 
     item_id: str
     item_name: str | None
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
     unit: str | None
     package_size: str | None
     unit_price_rm: float | None
@@ -143,6 +170,8 @@ class PackSizeOption(CamelModel):
 
     item_id: str
     item_name: str | None
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
     package_size: str | None
     total_price_rm: float | None
     price_per_unit_rm: float | None
@@ -194,6 +223,7 @@ class StoreRecommendation(CamelModel):
     address: str | None
     district: str | None
     state: str | None
+    google_place_id: str | None = None
     straight_line_distance_km: float
     route_distance_km: float
     estimated_travel_minutes: int
@@ -203,7 +233,7 @@ class StoreRecommendation(CamelModel):
     # existing clients keep working while the store-detail menu uses the new
     # subtotal, SARA split, freshness and line-detail contract.
     basket_cost_rm: float = 0.0
-    estimated_total_cost_rm: float = 0.0
+    estimated_total_cost_rm: float | None = 0.0
     priced_item_count: int = 0
     basket_item_count: int = 0
     is_complete_basket: bool = True
@@ -224,7 +254,7 @@ class StoreRecommendation(CamelModel):
     sara_credit_rm: float | None = None
     cash_needed_rm: float | None = None
     # Combined ranking total (AC 2.3.4/2.3.5): priced basket subtotal plus
-    # estimated return transport cost; set for complete baskets only.
+    # estimated return transport cost; null when no basket line has a price.
     combined_total_rm: float | None = None
     # Per-line priced detail behind "View item prices" (AC 2.3.9).
     basket_lines: list[BasketLineDetail] = Field(default_factory=list)

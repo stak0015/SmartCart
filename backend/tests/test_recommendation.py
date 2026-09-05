@@ -77,6 +77,27 @@ def test_filters_time_limit_using_exact_seconds() -> None:
     assert [store.premise_id for store in recommendations] == ["1"]
 
 
+def test_filters_combined_limit_using_both_route_dimensions() -> None:
+    recommendations = rank_reachable_stores(
+        candidates=[
+            candidate(),
+            candidate(premise_id="2", google_place_id="place-2"),
+            candidate(premise_id="3", google_place_id="place-3"),
+        ],
+        route_results=[
+            route(0, 5_000, 1_200),  # both boundaries are inclusive
+            route(1, 5_001, 1_000),  # distance fails
+            route(2, 4_000, 1_201),  # time fails
+        ],
+        limit_type="both",
+        limit_value=None,
+        limit_distance_km=5,
+        limit_time_minutes=20,
+        cost_rate=COST_RATE,
+    )
+    assert [store.premise_id for store in recommendations] == ["1"]
+
+
 def test_sorts_by_cost_then_duration_and_distance() -> None:
     recommendations = rank_reachable_stores(
         candidates=[
