@@ -262,6 +262,65 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             "shortest travel time, route distance, store name, then premise ID."
         )
     route_warning_parts = []
+    expanded_search = False
+    evaluated_count = len(candidates)
+    # Iteration1 feedback: when no store is inside the shopper's travel limit,
+    # widen the search so the nearest stores are still shown instead of nothing.
+    # These stores are flagged as exceeding the limit; the limit is intentionally
+    # ignored for this fallback ranking. The straight-line fallback already
+    # ignores the limit, so it never needs this pass.
+    if not recommendations and not use_straight_line_fallback:
+        expanded_candidates = await run_in_threadpool(
+            find_nearest_premises,
+            latitude=travel.origin.latitude,
+            longitude=travel.origin.longitude,
+            sara_filter=travel.sara_filter,
+            maximum_straight_line_km=None,
+            limit=settings.route_matrix_candidate_limit,
+            maximum_coordinate_age_days=settings.premise_location_max_age_days,
+        )
+        if expanded_candidates:
+            expanded_route_results = await get_maps_provider().compute_route_matrix(
+                {
+                    "latitude": travel.origin.latitude,
+                    "longitude": travel.origin.longitude,
+                },
+                [candidate.google_place_id for candidate in expanded_candidates],
+                travel.transport_mode,
+            )
+            recommendations = rank_reachable_stores(
+                candidates=expanded_candidates,
+                route_results=expanded_route_results,
+                limit_type="distance",
+                limit_value=float("inf"),
+                cost_rate=cost_model[travel.transport_mode],
+                limit_distance_km=None,
+                limit_time_minutes=None,
+            )
+            evaluated_count = len(expanded_candidates)
+            for store in recommendations:
+                store.exceeds_limit = True
+            if payload.basket:
+                pricing = await run_in_threadpool(
+                    get_basket_pricing,
+                    [store.premise_id for store in recommendations],
+                    payload.basket,
+                )
+                recommendations = apply_basket_pricing(recommendations, pricing)
+                for store in recommendations:
+                    store.exceeds_limit = True
+            expanded_search = True
+            ranking_method = (
+                "No store matched your travel limit, so the nearest stores are "
+                "shown instead. They are ranked by number of priced items, then "
+                "lowest combined cost (priced basket subtotal plus estimated "
+                "return transport cost); these stores exceed your chosen limit."
+            )
+            route_warning_parts.append(
+                "No store was found inside your travel limit, so the nearest "
+                "stores are shown instead. These exceed the distance or time you "
+                "set; check the route before travelling."
+            )
     if use_straight_line_fallback:
         route_warning_parts.append(
             "Google Routes is not configured. Showing the 25 nearest stores by "
@@ -279,11 +338,12 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         )
     return RecommendationResponse(
         recommendations=recommendations,
-        total_candidates_evaluated=len(candidates),
+        total_candidates_evaluated=evaluated_count,
         total_reachable=len(recommendations),
         generated_at=datetime.now(timezone.utc),
         ranking_method=ranking_method,
         cost_assumptions={mode: rate.description for mode, rate in cost_model.items()},
         route_provider="straight_line" if use_straight_line_fallback else "google",
         route_warning=" ".join(route_warning_parts) if route_warning_parts else None,
+        expanded_search=expanded_search,
     )

@@ -26,7 +26,7 @@ const path = require('node:path');
     pricedItemCount: priced, basketItemCount: 2, isCompleteBasket: priced === 2,
     basketSubtotalRm: priced ? priced * 5 : null, combinedTotalRm: priced ? priced * 5 + 2 : null,
     pricedCount: priced, basketLineCount: 2, missingItems: items.slice(priced).map(item => item.item_name), saraStatus: 'candidate',
-    saraCreditRm: null, cashNeededRm: priced ? priced * 5 : null, priceObservedDaysAgo: 1,
+    saraCreditRm: null, cashNeededRm: priced ? priced * 5 : null, priceObservedDaysAgo: 1, exceedsLimit: false,
     basketPrices: items.map((item, index) => ({ itemId: String(item.item_id), itemName: item.item_name, packageSize: item.package_size, quantity: 1, unitPriceRm: index < priced ? 5 : null, lineTotalRm: index < priced ? 5 : null, priceObservedDate: '2026-09-05' })), basketLines: [],
   }));
   await context.route('**/api/**', async route => {
@@ -46,7 +46,7 @@ const path = require('node:path');
     };
     else if (url.pathname.endsWith('/recommendations')) {
       lastRecommendation = route.request().postDataJSON();
-      body = { recommendations: stores, totalCandidatesEvaluated: 3, totalReachable: 3, routeProvider: 'google', rankingMethod: 'Products priced first', costAssumptions: {}, routeWarning: null };
+      body = { recommendations: stores, totalCandidatesEvaluated: 3, totalReachable: 3, routeProvider: 'google', rankingMethod: 'Products priced first', costAssumptions: {}, routeWarning: null, expandedSearch: false };
     } else throw new Error(`Unexpected API request: ${url.pathname}`);
     await route.fulfill({ json: body });
   });

@@ -159,6 +159,28 @@ function IcoCheckbox({ color = "white" }: { color?: string }) {
     </svg>
   );
 }
+// ── Transport mode icon (iteration1 feedback: transit includes walking) ────
+function TransportModeIcon({ mode, color = "#3E494A" }: { mode: TransportMode; color?: string }) {
+  if (mode === "public_transport") {
+    return (
+      <span className="flex h-5 items-center gap-1 [&_svg]:h-5 [&_svg]:w-auto">
+        <IcoWalkFigma color={color} />
+        <IcoBusFigma color={color} />
+      </span>
+    );
+  }
+  return (
+    <span className="flex h-5 items-center [&_svg]:h-5 [&_svg]:w-auto">
+      {mode === "walk" ? (
+        <IcoWalkFigma color={color} />
+      ) : mode === "motorcycle" ? (
+        <IcoMotoFigma color={color} />
+      ) : (
+        <IcoCarFigma color={color} />
+      )}
+    </span>
+  );
+}
 // ── Header ─────────────────────────────────────────────────────────────────
 function SaraEligibilityFlag({
   status,
@@ -218,6 +240,7 @@ function TripDetails({
   basketLineCount,
   incomplete = false,
   showBasketSubtotal = true,
+  transportMode,
 }: {
   store: StoreRecommendation;
   copy: AppCopy;
@@ -225,11 +248,19 @@ function TripDetails({
   basketLineCount?: number | null;
   incomplete?: boolean;
   showBasketSubtotal?: boolean;
+  transportMode?: TransportMode;
 }) {
   const hasBasket = showBasketSubtotal && (basketLineCount ?? 0) > 0;
 
   return (
-    <div className={"grid grid-cols-2 gap-2 " + (hasBasket ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
+    <>
+      {transportMode && (
+        <div className="mb-2 flex items-center gap-1.5 text-xs text-[#617069]">
+          <span>{copy.transportMode}:</span>
+          <TransportModeIcon mode={transportMode} />
+        </div>
+      )}
+      <div className={"grid grid-cols-2 gap-2 " + (hasBasket ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
       <div className="rounded-xl bg-[#f3faf7] p-3">
         <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
         <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
@@ -258,6 +289,7 @@ function TripDetails({
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -627,7 +659,7 @@ function BasketScreen({
               <IcoBasket color="#087f5b" size={22} />
               <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
             </div>
-            <span className="text-sm font-bold text-[#617069]">{copy.itemCount(itemCount)}</span>
+            <span className="text-sm font-bold text-[#617069]">{copy.basketItemsAndKinds(itemCount, basket.length)}</span>
           </div>
 
           <div className="p-4">
@@ -944,7 +976,12 @@ const TRANSPORT_OPTS: Array<{
   Icon: ({ active }: { active: boolean }) => React.ReactNode;
 }> = [
   { id: "walk", Icon: ({ active }: { active: boolean }) => <IcoWalkFigma color={active ? "white" : "#3E494A"} /> },
-  { id: "public_transport", Icon: ({ active }: { active: boolean }) => <IcoBusFigma color={active ? "white" : "#3E494A"} /> },
+  { id: "public_transport", Icon: ({ active }: { active: boolean }) => (
+    <div className="flex items-center gap-1">
+      <IcoWalkFigma color={active ? "white" : "#3E494A"} />
+      <IcoBusFigma color={active ? "white" : "#3E494A"} />
+    </div>
+  ) },
   { id: "motorcycle", Icon: ({ active }: { active: boolean }) => <IcoMotoFigma color={active ? "white" : "#3E494A"} /> },
   { id: "car", Icon: ({ active }: { active: boolean }) => <IcoCarFigma color={active ? "white" : "#3E494A"} /> },
 ];
@@ -1396,6 +1433,7 @@ function StoreCard({
   onSelectStore,
   routeUrl,
   copy,
+  transportMode,
 }: {
   store: StoreRecommendation;
   isRecommended: boolean;
@@ -1404,6 +1442,7 @@ function StoreCard({
   onSelectStore: () => void;
   routeUrl?: string;
   copy: AppCopy;
+  transportMode: TransportMode;
 }) {
   return (
     <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
@@ -1417,7 +1456,12 @@ function StoreCard({
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
           <div className="min-w-0 flex-1">
             <p className="text-[18px] font-extrabold leading-6 text-[#10231d] sm:text-[20px] sm:leading-7">{store.name}</p>
-            <div className="mt-2"><SaraStoreTag status={store.saraStatus} copy={copy} /></div>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <SaraStoreTag status={store.saraStatus} copy={copy} />
+              {store.exceedsLimit && (
+                <span className="inline-flex self-start rounded-md bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#7a4d00]">{copy.beyondTravelLimit}</span>
+              )}
+            </div>
             {(store.address || store.district || store.state) && (
               <p className="mt-2 text-[13px] leading-5 text-[#617069]">{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
             )}
@@ -1433,6 +1477,7 @@ function StoreCard({
           basketSubtotal={store.basketSubtotalRm}
           basketLineCount={store.basketLineCount}
           incomplete={store.missingItems.length > 0}
+          transportMode={transportMode}
         />
 
         {(store.basketLineCount ?? 0) > 0 && store.basketPrices.length > 0 && (
@@ -1463,7 +1508,7 @@ function StoreCard({
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
-                <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.combinedTotalRm)}</p>
+                <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.basketSubtotalRm!)} + {formatRm(store.estimatedRoundTripCostRm)} = {formatRm(store.combinedTotalRm!)}</p>
               </div>
               <p className="text-right text-xs leading-5 text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal} + {copy.returnTravel}</p>
             </div>
@@ -1773,6 +1818,7 @@ function RecommendationOverview({
               basketLineCount={displayedLineCount}
               incomplete={hasIncompleteBasket}
               showBasketSubtotal={false}
+              transportMode={preferences.transportMode}
             />
           </div>
 
@@ -1840,7 +1886,7 @@ function RecommendationOverview({
               <div className="flex items-end justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{hasIncompleteBasket ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
-                  <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(adjustedCombinedTotal)}</p>
+                  <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(displayedSubtotal!)} + {formatRm(store.estimatedRoundTripCostRm)} = {formatRm(adjustedCombinedTotal!)}</p>
                 </div>
                 <p className="text-right text-xs leading-5 text-[#d3f0e4]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal} + {copy.returnTravel}</p>
               </div>
@@ -1947,6 +1993,7 @@ function CompareScreen({
   const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
   const visibleStores = recommendations.slice(0, visibleCount);
   const basketItemCount = requestBasketLines.length;
+  const basketUnits = requestBasketLines.reduce((total, line) => total + line.quantity, 0);
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.label ?? "";
   const limitLabel = preferences.limitType === "both"
@@ -1988,7 +2035,7 @@ function CompareScreen({
           </h1>
           {hasBasket && (
             <p className="text-[15px] font-semibold leading-6 text-[#17362c]">
-              Basket: {basketItemCount} {basketItemCount === 1 ? "item" : "items"}
+              Basket: {copy.basketItemsAndKinds(basketUnits, basketItemCount)}
             </p>
           )}
           <p className="text-[15px] leading-6 text-[#53635c]">
@@ -2017,6 +2064,11 @@ function CompareScreen({
 
         {!loading && !error && result && (
           <section className="flex flex-col gap-4">
+            {result.expandedSearch && (
+              <div role="status" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a4d00]">
+                {copy.expandedSearchNotice}
+              </div>
+            )}
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
@@ -2036,6 +2088,7 @@ function CompareScreen({
                   onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
                   onSelectStore={() => setSelectedStore(store)}
                   copy={copy}
+                  transportMode={preferences.transportMode}
                 />
               ))}
 

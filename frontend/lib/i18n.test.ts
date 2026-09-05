@@ -92,3 +92,38 @@ describe("compact replacement copy", () => {
     expect(COPY.ms.costsMoreNow("RM 2.00")).toContain("RM 2.00");
   });
 });
+
+describe("basket count copy (iteration1 feedback)", () => {
+  it("distinguishes total units from product kinds in English", () => {
+    expect(COPY.en.basketItemsAndKinds(3, 2)).toBe("3 items · 2 products");
+    expect(COPY.en.basketItemsAndKinds(1, 1)).toBe("1 item · 1 product");
+  });
+
+  it("provides a Malay translation", () => {
+    expect(COPY.ms.basketItemsAndKinds(3, 2)).toBe("3 item · 2 produk");
+    expect(COPY.ms.basketItemsAndKinds(1, 1)).toBe("1 item · 1 produk");
+  });
+});
+
+describe("combined total labels (iteration1 feedback)", () => {
+  it("localizes the basket subtotal, partial total and return travel in both languages", () => {
+    expect(COPY.en.basketSubtotal).toBe("Basket subtotal");
+    expect(COPY.en.partialTotal).toBe("Partial total");
+    expect(COPY.en.returnTravel).toBe("Return travel");
+    expect(COPY.en.combinedTotal).toBe("Combined total");
+    expect(COPY.en.partialEstimatedTotal).toBe("Partial basket + transport");
+
+    expect(COPY.ms.basketSubtotal.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.partialTotal.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.returnTravel.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.combinedTotal.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.partialEstimatedTotal.trim().length).toBeGreaterThan(0);
+  });
+
+  it("keeps the suffix word order consistent with the equation in both languages", () => {
+    expect(`${COPY.en.basketSubtotal} + ${COPY.en.returnTravel}`).toContain("+");
+    expect(`${COPY.ms.basketSubtotal} + ${COPY.ms.returnTravel}`).toContain("+");
+    expect(`${COPY.en.partialTotal} + ${COPY.en.returnTravel}`).toContain("+");
+    expect(`${COPY.ms.partialTotal} + ${COPY.ms.returnTravel}`).toContain("+");
+  });
+});

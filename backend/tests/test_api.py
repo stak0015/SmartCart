@@ -110,6 +110,7 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "combinedTotalRm": 12.82,
         "basketLines": [],
         "priceObservedDaysAgo": None,
+        "exceedsLimit": False,
     }
 
 
@@ -243,6 +244,75 @@ def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch)
     assert "25 nearest stores" in body["routeWarning"]
     assert captured["limit"] == 25
     assert captured["maximum_straight_line_km"] is None
+
+
+def test_recommendation_expands_search_when_no_store_within_limit(
+    monkeypatch,
+) -> None:
+    """Iteration1 feedback: show the nearest stores when none match the limit."""
+    from smartcart import api
+    from smartcart.pricing import StoreBasketSummary
+
+    monkeypatch.setattr(
+        api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+    )
+
+    candidate = PremiseCandidate(
+        premise_id="1",
+        premise_code="P1",
+        name="Kedai Jauh",
+        address="Jalan Test",
+        district="Kota Bharu",
+        state="Kelantan",
+        google_place_id="google-place-1",
+        straight_line_distance_km=1.5,
+        sara_status="candidate",
+    )
+    captured = {"find_calls": [], "route_calls": 0}
+
+    def fake_find(**options):
+        captured["find_calls"].append(options)
+        return [candidate]
+
+    monkeypatch.setattr(api, "find_nearest_premises", fake_find)
+
+    class ExpandingProvider:
+        async def compute_route_matrix(self, origin, destination_place_ids, mode):
+            captured["route_calls"] += 1
+            # 6 km route is beyond the 5 km distance limit, so the limited
+            # pass yields nothing and the expansion pass must recover it.
+            return [RouteMatrixResult(0, 6_000, 1_200)]
+
+    monkeypatch.setattr(api, "get_maps_provider", lambda: ExpandingProvider())
+    monkeypatch.setattr(
+        api,
+        "get_basket_pricing",
+        lambda premise_ids, basket: {
+            premise_id: StoreBasketSummary(
+                subtotal_rm=12.34,
+                priced_count=1,
+                basket_line_count=1,
+                sara_credit_rm=5.0,
+                cash_needed_rm=7.34,
+            )
+            for premise_id in premise_ids
+        },
+    )
+
+    response = TestClient(create_app()).post("/api/recommendations", json=VALID_REQUEST)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["expandedSearch"] is True
+    assert body["recommendations"][0]["exceedsLimit"] is True
+    assert "No store was found inside your travel limit" in body["routeWarning"]
+    # The expansion pass requests candidates without a distance pre-filter.
+    assert any(
+        call["maximum_straight_line_km"] is None for call in captured["find_calls"]
+    )
+    assert captured["route_calls"] == 2
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

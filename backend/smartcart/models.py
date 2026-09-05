@@ -261,6 +261,10 @@ class StoreRecommendation(CamelModel):
     # Age in days of the store's oldest basket-line price (AC 2.3.5); None
     # when no basket line is priced at that store (or no basket was sent).
     price_observed_days_ago: int | None = None
+    # True when the store is beyond the shopper's chosen travel limit and was
+    # only shown because no store matched inside it (iteration1 feedback: show
+    # something rather than nothing).
+    exceeds_limit: bool = False
 
 
 class RecommendationResponse(CamelModel):
@@ -272,3 +276,6 @@ class RecommendationResponse(CamelModel):
     ranking_method: str
     cost_assumptions: dict[TransportMode, str]
     route_warning: str | None
+    # True when no store matched the shopper's travel limit and the nearest
+    # stores were returned anyway (iteration1 feedback: always show something).
+    expanded_search: bool = False

@@ -143,6 +143,22 @@ def test_sorts_by_basket_plus_transport_cost() -> None:
     assert recommendations[0].estimated_total_cost_rm == 17
 
 
+def test_ranks_all_candidates_when_limit_is_unbounded() -> None:
+    """Iteration1 expansion pass: infinity limit returns every candidate."""
+    recommendations = rank_reachable_stores(
+        candidates=[
+            candidate(premise_id="1", name="Near"),
+            candidate(premise_id="2", name="Far", google_place_id="place-2"),
+        ],
+        route_results=[route(0, 1_000, 300), route(1, 9_000, 900)],
+        limit_type="distance",
+        limit_value=float("inf"),
+        cost_rate=COST_RATE,
+    )
+    # No candidate is filtered out; they still sort by cost (near first).
+    assert [store.premise_id for store in recommendations] == ["1", "2"]
+
+
 def test_ignores_missing_store_prices_in_basket_subtotal() -> None:
     missing_line = BasketItemPrice(
         item_id="11",

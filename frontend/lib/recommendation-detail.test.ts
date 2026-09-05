@@ -77,6 +77,7 @@ const store: StoreRecommendation = {
     itemId: "2", itemName: "Lower-price oil", unit: "1 kg", quantity: 1,
     unitPriceRm: 8, lineTotalRm: 8, observedDate: "2026-08-31",
   }],
+  exceedsLimit: false,
 };
 
 const originalBasket: BasketItem[] = [{

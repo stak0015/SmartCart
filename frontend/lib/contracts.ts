@@ -181,6 +181,9 @@ export interface StoreRecommendation {
   combinedTotalRm: number | null;
   // Per-line priced detail behind "View item prices" (AC 2.3.9).
   basketLines: BasketLineDetail[];
+  // True when the store is beyond the shopper's chosen travel limit and was
+  // only shown because no store matched inside it (iteration1 feedback).
+  exceedsLimit: boolean;
 }
 
 export interface RecommendationResponse {
@@ -192,6 +195,9 @@ export interface RecommendationResponse {
   rankingMethod: string;
   costAssumptions: Record<TransportMode, string>;
   routeWarning: string | null;
+  // True when no store matched the shopper's travel limit and the nearest
+  // stores were returned anyway (iteration1 feedback).
+  expandedSearch: boolean;
 }
 
 export interface ApiErrorBody {
