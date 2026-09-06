@@ -659,7 +659,6 @@ function BasketScreen({
               <IcoBasket color="#087f5b" size={22} />
               <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
             </div>
-            <span className="text-sm font-bold text-[#617069]">{copy.basketItemsAndKinds(itemCount, basket.length)}</span>
           </div>
 
           <div className="p-4">
@@ -958,7 +957,7 @@ function BasketScreen({
             onClick={view === "shop" ? onViewBasket : handleContinue}
             className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#087f5b] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
           >
-            {view === "shop" ? copy.basketProducts(basket.length) : copy.chooseLocation}
+            {view === "shop" ? copy.viewBasket : copy.chooseLocation}
             <IcoArrowRight />
           </button>
         </div>
@@ -1992,8 +1991,6 @@ function CompareScreen({
   const recommendations = result?.recommendations ?? [];
   const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
   const visibleStores = recommendations.slice(0, visibleCount);
-  const basketItemCount = requestBasketLines.length;
-  const basketUnits = requestBasketLines.reduce((total, line) => total + line.quantity, 0);
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.label ?? "";
   const limitLabel = preferences.limitType === "both"
@@ -2033,11 +2030,6 @@ function CompareScreen({
           <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
             {copy.recommendationTitle}
           </h1>
-          {hasBasket && (
-            <p className="text-[15px] font-semibold leading-6 text-[#17362c]">
-              Basket: {copy.basketItemsAndKinds(basketUnits, basketItemCount)}
-            </p>
-          )}
           <p className="text-[15px] leading-6 text-[#53635c]">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
