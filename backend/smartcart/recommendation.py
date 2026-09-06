@@ -51,9 +51,9 @@ def get_travel_cost_model(settings: Settings) -> dict[TransportMode, TravelCostR
         "public_transport": TravelCostRate(
             public_base,
             public_rate,
-            f"Planning estimate: RM{public_base:.2f} base per leg plus "
-            f"RM{public_rate:.2f}/km. Includes walking to and from transit stops; "
-            "actual fares may differ.",
+            f"Uses Google's MYR transit fare when available; otherwise estimates "
+            f"RM{public_base:.2f} base per leg plus RM{public_rate:.2f}/km. "
+            "Includes walking to and from transit stops.",
         ),
         "motorcycle": TravelCostRate(
             0,
@@ -76,8 +76,13 @@ def _round(value: float, decimal_places: int) -> float:
 
 
 def estimate_round_trip_cost_rm(
-    one_way_distance_meters: float, rate: TravelCostRate
+    one_way_distance_meters: float,
+    rate: TravelCostRate,
+    *,
+    one_way_transit_fare_rm: float | None = None,
 ) -> float:
+    if one_way_transit_fare_rm is not None:
+        return _round(max(0, one_way_transit_fare_rm) * 2, 2)
     return_distance_km = max(0, one_way_distance_meters) * 2 / 1000
     value = rate.base_fare_per_leg_rm * 2 + return_distance_km * rate.per_kilometre_rm
     return _round(value, 2)
@@ -171,7 +176,11 @@ def rank_reachable_stores(
             ),
             2,
         )
-        travel_cost_rm = estimate_round_trip_cost_rm(route.distance_meters, cost_rate)
+        travel_cost_rm = estimate_round_trip_cost_rm(
+            route.distance_meters,
+            cost_rate,
+            one_way_transit_fare_rm=route.transit_fare_rm,
+        )
         priced_item_count = sum(
             line.unit_price_rm is not None for line in basket_prices
         )

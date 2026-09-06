@@ -261,10 +261,6 @@ function TripDetails({
         </div>
       )}
       <div className={"grid grid-cols-2 gap-2 " + (hasBasket ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
-      <div className="rounded-xl bg-[#f3faf7] p-3">
-        <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
-        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
-      </div>
       <div className="rounded-xl bg-[#f7f8f6] p-3">
         <p className="text-xs text-[#617069]">{copy.oneWay}</p>
         <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.estimatedTravelMinutes} {copy.minutes}</p>
@@ -272,6 +268,10 @@ function TripDetails({
       <div className="rounded-xl bg-[#f7f8f6] p-3">
         <p className="text-xs text-[#617069]">{copy.route}</p>
         <p className="mt-1 text-lg font-extrabold text-[#17362c]">{store.routeDistanceKm.toFixed(1)} km</p>
+      </div>
+      <div className="rounded-xl bg-[#f3faf7] p-3">
+        <p className="text-xs text-[#617069]">{copy.returnTravel}</p>
+        <p className="mt-1 text-lg font-extrabold text-[#087f5b]">{formatRm(store.estimatedRoundTripCostRm)}</p>
       </div>
       {hasBasket && (
         <div className={"rounded-xl p-3 " + (incomplete ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
@@ -1507,9 +1507,9 @@ function StoreCard({
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
-                <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.basketSubtotalRm!)} + {formatRm(store.estimatedRoundTripCostRm)} = {formatRm(store.combinedTotalRm!)}</p>
+                <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.estimatedRoundTripCostRm)} + {formatRm(store.basketSubtotalRm!)} = {formatRm(store.combinedTotalRm!)}</p>
               </div>
-              <p className="text-right text-xs leading-5 text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal} + {copy.returnTravel}</p>
+              <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.returnTravel} + {store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal}</p>
             </div>
           </div>
         )}
@@ -1712,17 +1712,9 @@ function RecommendationOverview({
   routeProvider: "google" | "straight_line";
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
 }) {
-  // AC 2.4.2: labels for the selected travel preferences, written the same
-  // way as on the compare screen so both pages describe them identically.
-  const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const routeEstimateNote = routeProvider === "straight_line"
     ? copy.straightLineFallbackNote
     : copy.routeEstimateNote;
-  const limitLabel = preferences.limitType === "both"
-    ? `${preferences.distanceKm} km · ${preferences.timeMinutes} ${copy.minutes}`
-    : preferences.limitType === "distance"
-    ? preferences.limitValue + " km"
-    : preferences.limitValue + " " + copy.minutes;
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(true);
   const [alternativesError, setAlternativesError] = useState(false);
@@ -1806,9 +1798,6 @@ function RecommendationOverview({
           </header>
 
           {preferences.origin && <a href={mapsRouteUrl(preferences.origin, store, preferences.transportMode)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-bold text-[#087f5b] underline">{copy.viewRoute}</a>}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#53635c]">
-            <span>{copy.transportMode}: {modeLabel} · {copy.travelLimit}: {limitLabel}</span>
-          </div>
           <div className="mt-4">
             <TripDetails
               store={store}

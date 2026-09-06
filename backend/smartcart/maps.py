@@ -31,6 +31,10 @@ class RouteMatrixResult:
     destination_index: int
     distance_meters: float
     duration_seconds: float
+    # Google returns transit fares as a one-way Money value when the provider
+    # supplies it. Keep only MYR values because SmartCart reports RM and does
+    # not have a currency-conversion source.
+    transit_fare_rm: float | None = None
 
 
 def _parse_duration_seconds(duration: object) -> float | None:
@@ -40,6 +44,24 @@ def _parse_duration_seconds(duration: object) -> float | None:
         value = float(duration[:-1])
     except ValueError:
         return None
+    return value if value >= 0 else None
+
+
+def _parse_transit_fare_rm(element: object) -> float | None:
+    if not isinstance(element, dict):
+        return None
+    advisory = element.get("travelAdvisory")
+    if not isinstance(advisory, dict):
+        return None
+    fare = advisory.get("transitFare")
+    if not isinstance(fare, dict) or fare.get("currencyCode") != "MYR":
+        return None
+    try:
+        units = int(fare.get("units", 0))
+        nanos = int(fare.get("nanos", 0))
+    except (TypeError, ValueError):
+        return None
+    value = units + nanos / 1_000_000_000
     return value if value >= 0 else None
 
 
@@ -244,10 +266,13 @@ class GoogleMapsProvider:
                 "Too many route candidates were requested.",
                 500,
             )
+        field_mask = "originIndex,destinationIndex,status,condition,distanceMeters,duration"
+        if mode == "public_transport":
+            field_mask += ",travelAdvisory.transitFare"
         response = await self._request(
             "POST",
             ROUTES_MATRIX_URL,
-            "originIndex,destinationIndex,status,condition,distanceMeters,duration",
+            field_mask,
             "routes",
             json={
                 "origins": [{"waypoint": {"location": {"latLng": origin}}}],
@@ -271,6 +296,11 @@ class GoogleMapsProvider:
         routes = []
         for element in response:
             duration_seconds = _parse_duration_seconds(element.get("duration"))
+            transit_fare_rm = (
+                _parse_transit_fare_rm(element)
+                if mode == "public_transport"
+                else None
+            )
             status = element.get("status") or {}
             destination_index = element.get("destinationIndex")
             distance_meters = element.get("distanceMeters")
@@ -286,6 +316,7 @@ class GoogleMapsProvider:
                         destination_index=destination_index,
                         distance_meters=distance_meters,
                         duration_seconds=duration_seconds,
+                        transit_fare_rm=transit_fare_rm,
                     )
                 )
         return routes

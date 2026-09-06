@@ -241,7 +241,7 @@ export const COPY = {
     straightLineFallbackNote: "Google Routes is not configured. Distances use straight-line proximity and travel times are rough estimates; the selected travel limit and route feasibility are not verified.",
     costAssumptions: {
       walk: "Walking has no direct transport cost.",
-      public_transport: "Public transport cost is estimated from the configured return fare.",
+      public_transport: "Uses Google's MYR transit fare when available; otherwise uses the configured return-fare estimate.",
       motorcycle: "Motorcycle cost is estimated from route distance and a fuel-cost rate.",
       car: "Car cost is estimated from route distance and a fuel-cost rate.",
     },
@@ -484,7 +484,7 @@ export const COPY = {
     straightLineFallbackNote: "Google Routes tidak dikonfigurasikan. Jarak menggunakan kedekatan garis lurus dan masa perjalanan ialah anggaran kasar; had perjalanan dipilih dan kebolehlaluan laluan tidak disahkan.",
     costAssumptions: {
       walk: "Berjalan kaki tidak mempunyai kos pengangkutan langsung.",
-      public_transport: "Kos pengangkutan awam dianggarkan daripada tambang pergi balik yang dikonfigurasikan.",
+      public_transport: "Menggunakan tambang transit MYR Google jika tersedia; jika tidak, menggunakan anggaran tambang pergi balik yang dikonfigurasikan.",
       motorcycle: "Kos motosikal dianggarkan daripada jarak laluan dan kadar kos bahan api.",
       car: "Kos kereta dianggarkan daripada jarak laluan dan kadar kos bahan api.",
     },
