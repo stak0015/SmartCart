@@ -714,9 +714,9 @@ function BasketScreen({
   );
 
   return (
-    <div className={"screen-enter pb-32 " + (view === "shop" ? "lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-4" : "")}>
+    <div className={"screen-enter pb-32 " + (view === "shop" ? "lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid xl:grid-cols-[360px_minmax(0,760px)_360px] xl:justify-center lg:items-start lg:gap-4" : "")}>
       {view === "shop" && (
-        <div className="min-w-0">
+        <div className="min-w-0 lg:col-start-1 xl:col-start-2">
       {/* Progress */}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
         <ProgressIndicator step={1} copy={copy} />
@@ -932,7 +932,7 @@ function BasketScreen({
 
       {/* Your basket */}
       {view === "shop" && (
-        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl bg-white py-4 lg:block">
+        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl bg-white py-4 lg:col-start-2 xl:col-start-3 lg:block">
           {basketPanel}
           <div className="px-6"><button type="button" onClick={handleContinue} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 font-bold text-white disabled:opacity-40">{copy.chooseLocation}</button></div>
         </aside>
@@ -2201,7 +2201,7 @@ export default function App() {
         copy={copy}
       />
 
-      <main className={"mx-auto w-full pt-16 " + (screen === "shop" ? "max-w-[1200px]" : "max-w-[760px]")}>
+      <main className={"mx-auto w-full pt-16 " + (screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
         {screen === "shop" && (
           <BasketScreen
             view="shop"
