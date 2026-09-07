@@ -5,6 +5,7 @@ import type {
   LocationSearchResponse,
   RecommendationRequest,
   RecommendationResponse,
+  ReverseLocationResponse,
   ResolvedLocation,
 } from "./contracts";
 import { API_BASE_URL } from "./api-base";
@@ -83,5 +84,17 @@ export function resolveLocation(
   return request<ResolvedLocation>("/locations/resolve", {
     method: "POST",
     body: JSON.stringify({ placeId, sessionToken }),
+  });
+}
+
+export function reverseLocation(
+  latitude: number,
+  longitude: number,
+  signal?: AbortSignal,
+): Promise<ReverseLocationResponse> {
+  return request<ReverseLocationResponse>("/locations/reverse", {
+    method: "POST",
+    body: JSON.stringify({ latitude, longitude }),
+    signal,
   });
 }

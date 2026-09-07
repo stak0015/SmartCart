@@ -4,6 +4,12 @@ import re
 from typing import Any
 
 from .database import database_cursor
+from .translations import (
+    catalogue_search_params,
+    catalogue_search_where,
+    catalogue_translation_joins,
+    translation_select_columns,
+)
 
 # Query-time parsing of brand and package size from item_name (the item table
 # has no dedicated columns). Anything that cannot be parsed confidently is
@@ -122,33 +128,35 @@ def search_catalogue(
         category.strip() for category in categories or [] if category.strip()
     ]
     offset = (page - 1) * page_size
+    where = catalogue_search_where()
+    joins = catalogue_translation_joins()
+    params = catalogue_search_params(keyword, selected_categories)
     with database_cursor() as cursor:
-        # AC-1.1.2: the keyword strictly matches official item_name. Category
-        # selections are a separate exact-match filter, not keyword matches.
         cursor.execute(
-            """
+            f"""
             SELECT COUNT(*)
             FROM item i
-            WHERE i.item_name ILIKE %s
-              AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+            {joins}
+            WHERE {where}
             """,
-            (keyword, selected_categories, selected_categories),
+            params,
         )
         total_row = cursor.fetchone()
         total = int(total_row[0] if total_row else 0)
 
         cursor.execute(
-            """
+            f"""
             SELECT i.item_id, i.item_name, i.unit, i.item_category,
-                   i.sara_eligible
+                   i.sara_eligible,
+                   {translation_select_columns()}
             FROM item i
-            WHERE i.item_name ILIKE %s
-              AND (cardinality(%s::text[]) = 0 OR i.item_category = ANY(%s::text[]))
+            {joins}
+            WHERE {where}
             ORDER BY i.item_name
             LIMIT %s
             OFFSET %s
             """,
-            (keyword, selected_categories, selected_categories, page_size, offset),
+            (*params, page_size, offset),
         )
         columns = [
             "item_id",
@@ -156,6 +164,10 @@ def search_catalogue(
             "unit",
             "item_category",
             "sara_eligible",
+            "item_name_en",
+            "item_name_ms",
+            "item_category_en",
+            "item_category_ms",
         ]
         rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 

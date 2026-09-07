@@ -45,6 +45,33 @@ def main() -> int:
             FROM information_schema.columns
             WHERE table_schema = current_schema()
               AND table_name = 'item'
+              AND column_name = 'item_name_en'
+            """
+        )
+        english_name_columns = cursor.fetchone()[0]
+        missing_english_names = translated_blank_sources = None
+        if english_name_columns == 1:
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (
+                        WHERE NULLIF(BTRIM(item_name), '') IS NOT NULL
+                          AND NULLIF(BTRIM(item_name_en), '') IS NULL
+                    ),
+                    COUNT(*) FILTER (
+                        WHERE NULLIF(BTRIM(item_name), '') IS NULL
+                          AND NULLIF(BTRIM(item_name_en), '') IS NOT NULL
+                    )
+                FROM item
+                """
+            )
+            missing_english_names, translated_blank_sources = cursor.fetchone()
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'item'
               AND column_name IN ('quantity_value', 'quantity_unit')
             """
         )
@@ -101,6 +128,13 @@ def main() -> int:
         ) = cursor.fetchone()
 
     print(f"item rows: {item_count:,}")
+    if missing_english_names is None:
+        print("English item names: unavailable (item_name_en column missing)")
+    else:
+        print(
+            "English item names: "
+            f"{item_count - missing_english_names:,} rows populated or intentionally blank"
+        )
     if pack_quantity_count is None:
         print("items with parsed pack quantities: unavailable (columns missing)")
     else:
@@ -120,6 +154,16 @@ def main() -> int:
     failures = []
     if not item_count or not premise_count or not status_count:
         failures.append("one or more required tables are empty")
+    if english_name_columns != 1:
+        failures.append(
+            "item.item_name_en is missing; run migrate_item_name_en.py and seed_item_names.py"
+        )
+    elif missing_english_names:
+        failures.append(
+            f"{missing_english_names} named items have no English label; run seed_item_names.py"
+        )
+    if translated_blank_sources:
+        failures.append("blank official item names must not have fabricated English labels")
     if pack_quantity_columns != 2:
         failures.append(
             "item quantity_value/quantity_unit columns are missing; "

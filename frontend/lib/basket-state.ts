@@ -7,6 +7,8 @@ import type {
 export interface BasketItemBase {
   id: string;
   name: string;
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
   size: string;
   qty: number;
   saraEligible: boolean | null;
@@ -46,6 +48,8 @@ function baseItem(item: AlternativePriceItem): BasketItemBase {
   return {
     id: `db-${item.itemId}`,
     name: item.itemName ?? "Catalogue item",
+    itemNameEn: item.itemNameEn,
+    itemNameMs: item.itemNameMs,
     size: item.packageSize ?? item.unit ?? "—",
     qty: 1,
     saraEligible: item.saraEligible,
@@ -78,6 +82,8 @@ export function applyBasketReplacement(
   const original: BasketItemBase = current.replacement?.original ?? {
     id: current.id,
     name: current.name,
+    itemNameEn: current.itemNameEn,
+    itemNameMs: current.itemNameMs,
     size: current.size,
     qty: current.qty,
     saraEligible: current.saraEligible,
@@ -158,6 +164,8 @@ export function packReplacementChoice(
     replacement: {
       id: `db-${pack.itemId}`,
       name: pack.itemName ?? "Catalogue item",
+      itemNameEn: pack.itemNameEn,
+      itemNameMs: pack.itemNameMs,
       size: pack.packageSize ?? "—",
       qty: line.quantity,
       saraEligible: pack.saraEligible,

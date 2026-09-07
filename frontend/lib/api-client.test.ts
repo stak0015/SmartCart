@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getBasketAlternatives } from "./api-client";
+import { getBasketAlternatives, reverseLocation } from "./api-client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,6 +19,28 @@ describe("getBasketAlternatives", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ basket: [{ itemId: "1", quantity: 2 }] }),
+      }),
+    );
+  });
+});
+
+describe("reverseLocation", () => {
+  it("posts coordinates and forwards an abort signal", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ label: "10 Example Street" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+
+    await reverseLocation(-37.8136, 144.9631, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/locations/reverse",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ latitude: -37.8136, longitude: 144.9631 }),
+        signal: controller.signal,
       }),
     );
   });

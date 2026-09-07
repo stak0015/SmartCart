@@ -80,6 +80,8 @@ class AlternativePriceItem:
     sara_eligible: bool | None
     sara_category_candidate: bool
     is_sara_credit_candidate: bool
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
 
 
 @dataclass(frozen=True)
@@ -97,15 +99,14 @@ def premise_exists(premise_id: str) -> bool:
 
 
 def _item_from_row(row: tuple, quantity: int, today: date) -> AlternativePriceItem:
-    (
-        item_id,
-        item_name,
-        unit,
-        category,
-        sara_eligible,
-        current_price,
-        observed,
-    ) = row
+    if len(row) == 7:
+        item_id, item_name, unit, category, sara_eligible, current_price, observed = row
+        item_name_en = None
+    else:
+        (
+            item_id, item_name, item_name_en, unit, category, sara_eligible,
+            current_price, observed,
+        ) = row
     priced = item_name is not None and current_price is not None and current_price > 0
     unit_price = _money(Decimal(current_price)) if priced else None
     line_total = _money(Decimal(current_price) * quantity) if priced else None
@@ -114,6 +115,8 @@ def _item_from_row(row: tuple, quantity: int, today: date) -> AlternativePriceIt
     return AlternativePriceItem(
         item_id=str(item_id),
         item_name=item_name,
+        item_name_en=item_name_en,
+        item_name_ms=item_name,
         unit=unit,
         package_size=display_package_size(item_name, unit),
         unit_price_rm=unit_price,
@@ -147,7 +150,8 @@ def get_basket_alternatives(
                     WITH ORDINALITY AS input(item_id, quantity, position)
             )
             SELECT requested.item_id, requested.quantity, item.item_name,
-                   item.unit, item.item_category, item.sara_eligible,
+                   item.item_name_en, item.unit, item.item_category,
+                   item.sara_eligible,
                    current_status.current_price,
                    current_status.price_observed_date
             FROM requested
@@ -163,8 +167,9 @@ def get_basket_alternatives(
 
         cursor.execute(
             """
-            SELECT item.item_id, item.item_name, item.unit, item.item_category,
-                   item.sara_eligible, current_status.current_price,
+            SELECT item.item_id, item.item_name, item.item_name_en, item.unit,
+                   item.item_category, item.sara_eligible,
+                   current_status.current_price,
                    current_status.price_observed_date
             FROM item
             JOIN current_status
@@ -179,26 +184,30 @@ def get_basket_alternatives(
 
     candidates_by_key: dict[tuple[str | None, str], list[tuple]] = {}
     for row in candidate_rows:
-        key = (row[3], package_basis(row[1], row[2]))
+        if len(row) == 7:
+            key = (row[3], package_basis(row[1], row[2]))
+        else:
+            key = (row[4], package_basis(row[1], row[3]))
         candidates_by_key.setdefault(key, []).append(row)
 
     results: list[BasketAlternative] = []
     for source_row, quantity in zip(source_rows, quantities):
-        source = _item_from_row(
-            (
-                source_row[0],
-                source_row[2],
-                source_row[3],
-                source_row[4],
-                source_row[5],
-                source_row[6],
-                source_row[7],
-            ),
-            quantity,
-            today,
-        )
+        if len(source_row) == 8:
+            source_values = (
+                source_row[0], source_row[2], None, source_row[3], source_row[4],
+                source_row[5], source_row[6], source_row[7],
+            )
+        else:
+            source_values = (
+                source_row[0], source_row[2], source_row[3], source_row[4],
+                source_row[5], source_row[6], source_row[7], source_row[8],
+            )
+        source = _item_from_row(source_values, quantity, today)
         alternatives = []
-        source_key = (source_row[4], package_basis(source_row[2], source_row[3]))
+        if len(source_row) == 8:
+            source_key = (source_row[4], package_basis(source_row[2], source_row[3]))
+        else:
+            source_key = (source_row[5], package_basis(source_row[2], source_row[4]))
         family = product_family(source_row[2])
         if source.unit_price_rm is not None and family:
             for candidate in candidates_by_key.get(source_key, []):

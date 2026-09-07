@@ -29,6 +29,8 @@ class Settings:
     google_maps_api_key: str | None
     google_places_api_key: str | None
     google_routes_api_key: str | None
+    google_geocoding_api_key: str | None
+    maps_request_timeout_seconds: float
     cors_origins: tuple[str, ...]
     route_matrix_candidate_limit: int
     premise_location_max_age_days: int
@@ -54,6 +56,18 @@ def get_settings() -> Settings:
         ),
         google_routes_api_key=(
             os.getenv("GOOGLE_ROUTES_API_KEY") or os.getenv("GOOGLE_MAPS_API_KEY") or None
+        ),
+        google_geocoding_api_key=(
+            os.getenv("GOOGLE_GEOCODING_API_KEY")
+            or os.getenv("GOOGLE_MAPS_API_KEY")
+            or None
+        ),
+        maps_request_timeout_seconds=max(
+            1.0,
+            min(
+                30.0,
+                _non_negative_number("GOOGLE_MAPS_REQUEST_TIMEOUT_SECONDS", 10.0),
+            ),
         ),
         cors_origins=origins,
         route_matrix_candidate_limit=_bounded_integer(

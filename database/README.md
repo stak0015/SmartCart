@@ -1,8 +1,8 @@
 # SmartCart database
 
 This directory contains the minimum local PostgreSQL setup and ingestion
-workflow for the current three-table schema: `item`, `premise`, and
-`current_status`.
+workflow for `item`, `premise`, and `current_status`, plus the code-keyed
+English item labels used by the catalogue lookup.
 
 New to Docker, Python, or command-line setup? Follow the step-by-step
 [`SETUP_GUIDE.md`](SETUP_GUIDE.md) first.
@@ -23,6 +23,12 @@ snapshot so every developer gets the same candidate Place IDs.
 - `docker-compose.yml` — local PostgreSQL 16 service.
 - `ingest_pricecatcher.py` — PriceCatcher download, validation, transformation,
   and idempotent database upserts.
+- `migrate_item_name_en.py` — idempotent upgrade from the retired
+  `item_translation` table to `item.item_name_en`.
+- `seed_item_names.py` — repeatable code-keyed English-name seed/export for the
+  complete lookup catalogue.
+- `seed_category_translations.py` — optional category-label seed; category
+  translations remain separate from item names.
 - `verify_database.py` — post-ingestion integrity checks.
 - `requirements.txt` — Python dependencies.
 - `.env.example` — safe local configuration template.
@@ -33,6 +39,8 @@ snapshot so every developer gets the same candidate Place IDs.
   premise-enrichment snapshot.
 - `data/archive/lookup_premise_sara_one_to_one_2026-08-23_provenance.json` —
   snapshot checksum, source hashes, matching rule, and row counts.
+- `data/item_name_en.csv` — 757 code-keyed English item names (the one blank
+  official source row intentionally has a blank English value).
 
 Downloaded PriceCatcher files are reproducible local cache files under
 `data/raw/` and are not committed.
@@ -137,6 +145,25 @@ The migration parses the existing `unit` value first, falls back to the item
 name, stores weights in kilograms and volumes in litres, and leaves
 non-comparable items as `NULL`. `verify_database.py` reports the resulting
 coverage and fails when the columns are missing.
+
+### Add English catalogue labels
+
+English labels are stored directly on each `item` lookup row. On an existing
+database, first migrate any labels left by the retired translation table, then
+apply the complete code-keyed seed:
+
+```powershell
+python migrate_item_name_en.py
+python seed_item_names.py
+```
+
+Both commands load `database/.env` then `backend/.env`; existing process
+environment variables take precedence. The migration copies existing English
+rows by `item_id`, drops the obsolete `item_translation` table, and is safe to
+rerun. The seed matches by stable `item_code`, covers all 757 current lookup
+rows, and leaves an intentionally blank source name as `NULL`. New
+PriceCatcher rows without a checked-in label keep `item_name_en` as `NULL`; the
+API falls back to the official source name until a reviewed label is added.
 
 ### Demonstrate budget alternatives with stable data
 

@@ -48,13 +48,16 @@ class PackSizeOption:
     per_unit_diff_rm: float | None = None
     # Full-precision pack price for the trade-off maths; never serialised.
     _price: Decimal | None = None
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
 
 
 def _source_rows(item_ids: list[int]) -> list[tuple]:
     with database_cursor() as cursor:
         cursor.execute(
             """
-            SELECT item_id, item_name, unit, quantity_value, quantity_unit
+            SELECT item_id, item_name, item_name_en, unit,
+                   quantity_value, quantity_unit
             FROM item
             WHERE item_id = ANY(%s::BIGINT[])
             """,
@@ -67,7 +70,7 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
     with database_cursor() as cursor:
         cursor.execute(
             """
-            SELECT item.item_id, item.item_name, item.unit,
+            SELECT item.item_id, item.item_name, item.item_name_en, item.unit,
                    item.quantity_value, item.quantity_unit,
                    current_status.current_price,
                    current_status.price_observed_date,
@@ -86,22 +89,24 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
 
 
 def _option_from_row(row: tuple) -> PackSizeOption:
-    (
-        item_id,
-        item_name,
-        unit,
-        quantity_value,
-        quantity_unit,
-        price,
-        observed,
-        category,
-        sara_eligible,
-    ) = row
+    if len(row) == 9:
+        (
+            item_id, item_name, unit, quantity_value, quantity_unit, price,
+            observed, category, sara_eligible,
+        ) = row
+        item_name_en = None
+    else:
+        (
+            item_id, item_name, item_name_en, unit, quantity_value, quantity_unit,
+            price, observed, category, sara_eligible,
+        ) = row
     ratio = Decimal(price) / Decimal(quantity_value)
     sara_category_candidate = bool(category and is_sara_credit_line(False, category))
     return PackSizeOption(
         item_id=str(item_id),
         item_name=item_name,
+        item_name_en=item_name_en,
+        item_name_ms=item_name,
         package_size=display_package_size(item_name, unit),
         total_price_rm=_money(Decimal(price)),
         price_per_unit_rm=_money(ratio),
@@ -144,7 +149,10 @@ def get_pack_options(
             by_family.setdefault(family, []).append(row)
 
     for item_id, source in sources.items():
-        _sid, source_name, source_unit, source_qty, source_kind = source
+        if len(source) == 5:
+            _sid, source_name, source_unit, source_qty, source_kind = source
+        else:
+            _sid, source_name, _source_name_en, source_unit, source_qty, source_kind = source
         if source_qty is None or source_kind is None:
             continue
         family = product_family(source_name)
@@ -153,9 +161,11 @@ def get_pack_options(
         members = [
             row
             for row in by_family.get(family, [])
-            if row[4] == source_kind
+            if row[5 if len(row) >= 10 else 4] == source_kind
         ]
-        distinct_bases = {package_basis(row[1], row[2]) for row in members}
+        distinct_bases = {
+            package_basis(row[1], row[3 if len(row) >= 10 else 2]) for row in members
+        }
         if len(distinct_bases) < 2:
             continue
         ranked = sorted(

@@ -55,6 +55,41 @@ def test_calculates_return_trip_cost_from_one_way_route() -> None:
     assert estimate_round_trip_cost_rm(2_000, COST_RATE) == 2
 
 
+def test_uses_google_transit_fare_for_return_trip_when_available() -> None:
+    assert (
+        estimate_round_trip_cost_rm(
+            20_000,
+            COST_RATE,
+            one_way_transit_fare_rm=2.35,
+        )
+        == 4.7
+    )
+
+
+def test_ranking_uses_route_transit_fare_when_available() -> None:
+    public_rate = TravelCostRate(
+        base_fare_per_leg_rm=1.0,
+        per_kilometre_rm=0.08,
+        description="public transport",
+    )
+    recommendations = rank_reachable_stores(
+        candidates=[candidate()],
+        route_results=[
+            RouteMatrixResult(
+                destination_index=0,
+                distance_meters=20_000,
+                duration_seconds=1_200,
+                transit_fare_rm=2.35,
+            )
+        ],
+        limit_type="distance",
+        limit_value=50,
+        cost_rate=public_rate,
+    )
+
+    assert recommendations[0].estimated_round_trip_cost_rm == 4.7
+
+
 def test_filters_using_routed_distance_not_straight_line_distance() -> None:
     recommendations = rank_reachable_stores(
         candidates=[candidate(straight_line_distance_km=1.5)],
@@ -72,6 +107,27 @@ def test_filters_time_limit_using_exact_seconds() -> None:
         route_results=[route(0, 2_000, 1_200), route(1, 2_000, 1_201)],
         limit_type="time",
         limit_value=20,
+        cost_rate=COST_RATE,
+    )
+    assert [store.premise_id for store in recommendations] == ["1"]
+
+
+def test_filters_combined_limit_using_both_route_dimensions() -> None:
+    recommendations = rank_reachable_stores(
+        candidates=[
+            candidate(),
+            candidate(premise_id="2", google_place_id="place-2"),
+            candidate(premise_id="3", google_place_id="place-3"),
+        ],
+        route_results=[
+            route(0, 5_000, 1_200),  # both boundaries are inclusive
+            route(1, 5_001, 1_000),  # distance fails
+            route(2, 4_000, 1_201),  # time fails
+        ],
+        limit_type="both",
+        limit_value=None,
+        limit_distance_km=5,
+        limit_time_minutes=20,
         cost_rate=COST_RATE,
     )
     assert [store.premise_id for store in recommendations] == ["1"]
@@ -120,6 +176,22 @@ def test_sorts_by_basket_plus_transport_cost() -> None:
     assert recommendations[0].basket_cost_rm == 14
     assert recommendations[0].estimated_round_trip_cost_rm == 3
     assert recommendations[0].estimated_total_cost_rm == 17
+
+
+def test_ranks_all_candidates_when_limit_is_unbounded() -> None:
+    """Iteration1 expansion pass: infinity limit returns every candidate."""
+    recommendations = rank_reachable_stores(
+        candidates=[
+            candidate(premise_id="1", name="Near"),
+            candidate(premise_id="2", name="Far", google_place_id="place-2"),
+        ],
+        route_results=[route(0, 1_000, 300), route(1, 9_000, 900)],
+        limit_type="distance",
+        limit_value=float("inf"),
+        cost_rate=COST_RATE,
+    )
+    # No candidate is filtered out; they still sort by cost (near first).
+    assert [store.premise_id for store in recommendations] == ["1", "2"]
 
 
 def test_ignores_missing_store_prices_in_basket_subtotal() -> None:

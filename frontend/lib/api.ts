@@ -5,6 +5,8 @@ import { API_BASE_URL } from "./api-base";
 export interface Item {
   item_id: number;
   item_name: string;
+  item_name_en?: string | null;
+  item_name_ms?: string | null;
   unit: string | null;
   item_category: string | null;
   package_size: string | null;   // merged quantity/pricing basis: parsed size, else unit; null = show "—"

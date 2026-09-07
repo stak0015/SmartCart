@@ -187,6 +187,18 @@ A successful run ends with:
 Ingestion complete.
 ```
 
+After the initial catalogue load, populate the canonical English item labels.
+On a database that previously used the retired `item_translation` table, run
+the migration first:
+
+```powershell
+.\.venv\Scripts\python.exe migrate_item_name_en.py
+.\.venv\Scripts\python.exe seed_item_names.py
+```
+
+The checked-in seed covers all 757 current lookup rows. The one official row
+whose source name is blank intentionally remains `NULL` in `item_name_en`.
+
 Warnings about source observations missing official lookup rows are expected.
 Those observations are skipped instead of inventing item or premise details.
 

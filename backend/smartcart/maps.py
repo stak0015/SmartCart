@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 PLACES_BASE_URL = "https://places.googleapis.com/v1"
 ROUTES_MATRIX_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix"
+GEOCODING_BASE_URL = "https://maps.googleapis.com/maps/api/geocode/json"
 TRAVEL_MODE: dict[TransportMode, str] = {
     "walk": "WALK",
     "public_transport": "TRANSIT",
@@ -30,6 +31,10 @@ class RouteMatrixResult:
     destination_index: int
     distance_meters: float
     duration_seconds: float
+    # Google returns transit fares as a one-way Money value when the provider
+    # supplies it. Keep only MYR values because SmartCart reports RM and does
+    # not have a currency-conversion source.
+    transit_fare_rm: float | None = None
 
 
 def _parse_duration_seconds(duration: object) -> float | None:
@@ -42,6 +47,24 @@ def _parse_duration_seconds(duration: object) -> float | None:
     return value if value >= 0 else None
 
 
+def _parse_transit_fare_rm(element: object) -> float | None:
+    if not isinstance(element, dict):
+        return None
+    advisory = element.get("travelAdvisory")
+    if not isinstance(advisory, dict):
+        return None
+    fare = advisory.get("transitFare")
+    if not isinstance(fare, dict) or fare.get("currencyCode") != "MYR":
+        return None
+    try:
+        units = int(fare.get("units", 0))
+        nanos = int(fare.get("nanos", 0))
+    except (TypeError, ValueError):
+        return None
+    value = units + nanos / 1_000_000_000
+    return value if value >= 0 else None
+
+
 class GoogleMapsProvider:
     def _api_key_for(self, service: str) -> str:
         settings = get_settings()
@@ -49,6 +72,8 @@ class GoogleMapsProvider:
             settings.google_places_api_key
             if service == "places"
             else settings.google_routes_api_key
+            if service == "routes"
+            else settings.google_geocoding_api_key
         )
         if not api_key:
             raise AppError(
@@ -83,7 +108,9 @@ class GoogleMapsProvider:
                 method=method,
             )
             try:
-                with urlopen(request, timeout=10) as response:  # noqa: S310
+                with urlopen(  # noqa: S310
+                    request, timeout=get_settings().maps_request_timeout_seconds
+                ) as response:
                     return json_module.loads(response.read().decode("utf-8"))
             except HTTPError as error:
                 diagnostic = error.read(500).decode("utf-8", errors="replace")
@@ -175,6 +202,56 @@ class GoogleMapsProvider:
             longitude=longitude,
         )
 
+    async def reverse_geocode(
+        self, latitude: float, longitude: float
+    ) -> str | None:
+        """Return a display address without retaining or logging coordinates.
+
+        Geocoding is deliberately best-effort: device coordinates remain
+        useful even when the optional provider is not configured or unavailable.
+        The request URL is never included in diagnostics because it contains
+        the user's coordinates.
+        """
+        settings = get_settings()
+        if not settings.google_geocoding_api_key:
+            return None
+
+        def send_request() -> str | None:
+            query = urlencode(
+                {
+                    "latlng": f"{latitude:.7f},{longitude:.7f}",
+                    "key": settings.google_geocoding_api_key,
+                    "language": "en",
+                    "region": "my",
+                }
+            )
+            request = Request(
+                f"{GEOCODING_BASE_URL}?{query}",
+                headers={"Accept": "application/json"},
+                method="GET",
+            )
+            try:
+                with urlopen(  # noqa: S310
+                    request, timeout=settings.maps_request_timeout_seconds
+                ) as response:
+                    body = json_module.loads(response.read().decode("utf-8"))
+            except (HTTPError, URLError, TimeoutError, json_module.JSONDecodeError):
+                # Do not log the exception: provider diagnostics can include a
+                # request URL containing the selected origin.
+                return None
+            if not isinstance(body, dict) or body.get("status") != "OK":
+                return None
+            results = body.get("results")
+            if not isinstance(results, list) or not results:
+                return None
+            first_result = results[0]
+            if not isinstance(first_result, dict):
+                return None
+            label = first_result.get("formatted_address")
+            return label.strip() if isinstance(label, str) and label.strip() else None
+
+        return await asyncio.to_thread(send_request)
+
     async def compute_route_matrix(
         self,
         origin: dict[str, float],
@@ -189,10 +266,13 @@ class GoogleMapsProvider:
                 "Too many route candidates were requested.",
                 500,
             )
+        field_mask = "originIndex,destinationIndex,status,condition,distanceMeters,duration"
+        if mode == "public_transport":
+            field_mask += ",travelAdvisory.transitFare"
         response = await self._request(
             "POST",
             ROUTES_MATRIX_URL,
-            "originIndex,destinationIndex,status,condition,distanceMeters,duration",
+            field_mask,
             "routes",
             json={
                 "origins": [{"waypoint": {"location": {"latLng": origin}}}],
@@ -216,6 +296,11 @@ class GoogleMapsProvider:
         routes = []
         for element in response:
             duration_seconds = _parse_duration_seconds(element.get("duration"))
+            transit_fare_rm = (
+                _parse_transit_fare_rm(element)
+                if mode == "public_transport"
+                else None
+            )
             status = element.get("status") or {}
             destination_index = element.get("destinationIndex")
             distance_meters = element.get("distanceMeters")
@@ -231,6 +316,7 @@ class GoogleMapsProvider:
                         destination_index=destination_index,
                         distance_meters=distance_meters,
                         duration_seconds=duration_seconds,
+                        transit_fare_rm=transit_fare_rm,
                     )
                 )
         return routes

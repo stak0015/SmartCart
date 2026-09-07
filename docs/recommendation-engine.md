@@ -5,8 +5,9 @@ was connected.
 
 ## Provider decision
 
-Use Google Places API (New) for location autocomplete and Place Details, and
-Google Routes API `computeRouteMatrix` for routes.
+Use Google Places API (New) for location autocomplete and Place Details, Google
+Geocoding for best-effort device-location labels, and Google Routes API
+`computeRouteMatrix` for routes.
 
 For environments without a Google Routes key, the API has a deliberate local
 fallback: it returns the 25 nearest premises with fresh coordinates, uses
@@ -48,13 +49,17 @@ Provider pricing and terms can change. Recheck these sources before deployment.
 
 1. The user either permits browser geolocation or types at least three
    characters and selects a Malaysia-restricted Google autocomplete result.
-2. SmartCart keeps the origin in React state only. Remembered local preferences
-   exclude all origin labels, coordinates, and Place IDs.
+2. SmartCart keeps the origin in React state only. Device coordinates are sent
+   to `POST /api/locations/reverse` for a display address when a server-side
+   Geocoding key is configured; an unavailable address never blocks nearby
+   store search. Remembered local preferences exclude all origin labels,
+   coordinates, and Place IDs.
 3. `POST /api/recommendations` validates the basket item IDs and quantities,
    origin, transport mode, travel limit, and SARA filter.
 4. PostgreSQL computes Haversine distance over fresh premise coordinates and
-   selects the nearest candidates. For a distance limit, premises whose
-   straight-line distance already exceeds the limit are safely excluded.
+   selects the nearest candidates. For distance and combined limits, premises
+   whose straight-line distance already exceeds the distance threshold are
+   safely excluded when routed mode is enabled.
 5. When `GOOGLE_ROUTES_API_KEY` is configured, one Google route-matrix request
    calculates one-way route distance and time from the origin to at most 25
    candidate Place IDs. The cap is configurable from 5 to 49. Transit stays
@@ -63,19 +68,23 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    straight-line distance plus mode-based planning speeds; the user's route
    limit is not treated as verified reachability.
 6. SmartCart applies the user's limit to routed distance or exact route time
-   only when Google route results are available.
+   only when Google route results are available. A combined limit uses an
+   inclusive AND: both the route distance and route duration must be within
+   their selected thresholds.
 7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
    at every candidate premise. Quantity is applied to produce line totals and
    the store basket subtotal. Missing premise-item prices remain explicit nulls
    and are excluded from the subtotal.
-8. A basket is complete only when every requested item has a price at that
-   premise. Complete baskets are ordered first by basket subtotal plus estimated
-   return travel cost, then shorter time, route distance, name, and premise ID
-   for deterministic ties. Incomplete baskets use the same ordering within a
-   separate UI tab and cannot become the main recommendation.
+8. The API ranks one unified store list by the number of requested basket lines
+   with valid prices (descending). Ties use the available basket subtotal plus
+   estimated return transport cost, then shorter time, route distance, name,
+   and premise ID. Partial stores remain in the same list with an explicit
+   coverage count and partial combined total; stores with no priced lines keep
+   null basket and combined totals and sort last.
 9. The API returns the full basket price breakdown for the UI's per-store
-   "View item prices" control. If no complete store is available, the complete
-   tab offers a direct button to the incomplete options.
+   "View item prices" control. Every priced response item also carries the
+   English label from `item.item_name_en`; the official `item_name` is the
+   Malay/original label and fallback.
 
 At the default 25-candidate cap, one recommendation costs no more than 25 route
 matrix elements, so the current 10,000-element free cap supports about 400 full
@@ -90,7 +99,7 @@ the engine uses transparent, configurable planning assumptions. Defaults are:
 | Mode | Default return-trip estimate |
 | --- | --- |
 | Walking | RM0 direct monetary cost |
-| Public transport | Two RM1.00 base fares plus RM0.08 per return-trip kilometre |
+| Public transport | Two RM1.00 base fares plus RM0.08 per return-trip kilometre; route estimates include walking to and from transit stops |
 | Motorcycle | RM0.12 per return-trip kilometre |
 | Car | RM0.45 per return-trip kilometre |
 
@@ -105,13 +114,13 @@ them with the `TRAVEL_COST_*` environment variables.
 
 For each store, `basket cost = sum(unit price x requested quantity)` for basket
 lines that have a `current_status` record at that premise. The combined ranking
-value is `basket cost + estimated return transport cost`. A missing store price
-is not treated as zero or fabricated: it is returned in the item breakdown with
-null price fields, labelled as unavailable in the UI, and omitted from the sum.
-The response includes priced and total basket-line counts plus an explicit
-completeness flag. The UI keeps incomplete baskets in their own tab, labels the
-combined value as a partial total, and never presents one as the recommended
-complete basket.
+value is `basket cost + estimated return transport cost` whenever at least one
+line is priced. A missing store price is not treated as zero or fabricated: it
+is returned in the item breakdown with null price fields, labelled as
+unavailable in the UI, and omitted from the sum. The response includes priced
+and total basket-line counts plus an explicit completeness flag for backwards
+compatibility. The UI uses one unified list, labels partial coverage and
+combined totals clearly, and keeps combined totals null when no line is priced.
 
 ## SARA semantics
 
@@ -123,16 +132,19 @@ not verified, never as false or ineligible.
 
 ## Privacy, security, and provider terms
 
-- The Google API keys (`GOOGLE_PLACES_API_KEY` and `GOOGLE_ROUTES_API_KEY`,
-  or the legacy single `GOOGLE_MAPS_API_KEY` fallback) are server-only and must
-  never use a `NEXT_PUBLIC_` prefix. Restrict each key to its own API (Places
-  API (New) or Routes API), and restrict its use to the deployed backend where
+- The Google API keys (`GOOGLE_PLACES_API_KEY`, `GOOGLE_ROUTES_API_KEY`, and
+  `GOOGLE_GEOCODING_API_KEY`, or the legacy single `GOOGLE_MAPS_API_KEY`
+  fallback) are server-only and must never use a `NEXT_PUBLIC_` prefix. Restrict
+  each key to its own API and restrict its use to the deployed backend where
   the hosting platform allows it. `GOOGLE_ROUTES_API_KEY` may be omitted for
   local development; the API then returns the documented nearest-premises
-  fallback.
-- The selected origin is sent to Google for search or route calculation, but
-  SmartCart does not persist it in PostgreSQL or local storage and does not log
-  request bodies.
+  fallback. Provider requests use the bounded
+  `GOOGLE_MAPS_REQUEST_TIMEOUT_SECONDS` setting.
+- The selected origin is sent to Google for search, reverse lookup, or route
+  calculation, but SmartCart does not persist it in PostgreSQL, local storage,
+  or translation/enrichment tables and does not log request bodies or
+  coordinate-bearing reverse-lookup failures. Reverse lookup returns a nullable
+  display label; coordinates remain usable when the label is unavailable.
 - API responses use `private, no-store`; all SQL values are parameterised;
   input length, coordinates, enums, and limit ranges are validated.
 - Google-derived premise coordinates are used only as a temporary prefilter
@@ -141,7 +153,9 @@ not verified, never as false or ineligible.
   and refresh coordinates with `pnpm sync:premise-locations`.
 - Do not display Google route content on a non-Google map. This implementation
   does not display a map and attributes location suggestions and route data to
-  Google.
+  Google. "View route" links open Google Maps Directions with the selected
+  origin, destination Place ID, and mode; Google Maps recomputes the route
+  externally when the link is opened. SmartCart does not persist those links.
 - Google requires a warning for walking and two-wheeler beta routes. The API
   returns this warning and the results screen displays it.
 
@@ -150,7 +164,9 @@ not verified, never as false or ineligible.
 1. Apply `database/schema.sql` to PostgreSQL.
 2. Copy `backend/.env.example` to `backend/.env` and configure the database URL
    and server-only Google key.
-3. Enable Places API (New) and Routes API for the key.
+3. Enable Places API (New), Routes API, and Geocoding API for the configured
+   server key(s). Set `GOOGLE_MAPS_REQUEST_TIMEOUT_SECONDS` within its bounded
+   range when deployment needs a different provider timeout.
 4. From `frontend`, run `pnpm sync:premise-locations -- --limit=100` for a
    controlled test batch. Review quota, then use `--all` when ready.
 5. From `backend`, install `requirements-dev.txt` and run
@@ -174,9 +190,9 @@ not verified, never as false or ineligible.
   or restrictions.
 - Store Place IDs are top-candidate enrichment, not PriceCatcher-published IDs;
   bad or stale matches can affect the result and need review monitoring.
-- Missing prices are ignored as requested. A store with fewer priced basket
-  lines may show a lower partial subtotal, so incomplete stores are separated
-  from complete recommendations and the UI shows the coverage count and every
-  missing line.
+- Missing prices are explicit unavailable values. A store with fewer priced
+  basket lines may show a lower partial subtotal, so ranking gives coverage
+  priority before comparing partial combined totals; the UI shows the coverage
+  count and every missing line in one unified recommendation list.
 - Before user testing, replace the default transport costs with validated local
   assumptions and define acceptance tests from the agreed LeanKit criteria.
