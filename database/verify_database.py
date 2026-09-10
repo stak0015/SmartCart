@@ -112,6 +112,38 @@ def main() -> int:
         premise_count = cursor.fetchone()[0]
         cursor.execute(
             """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'premise'
+              AND column_name IN (
+                  'open_closed_status',
+                  'place_status_refreshed_at'
+              )
+            """
+        )
+        premise_status_columns = cursor.fetchone()[0]
+        open_premise_count = invalid_premise_statuses = None
+        if premise_status_columns == 2:
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE open_closed_status = 'open'),
+                    COUNT(*) FILTER (
+                        WHERE open_closed_status IS NOT NULL
+                          AND open_closed_status NOT IN (
+                              'open',
+                              'closed_permanently',
+                              'closed_temporarily',
+                              'unknown'
+                          )
+                    )
+                FROM premise
+                """
+            )
+            open_premise_count, invalid_premise_statuses = cursor.fetchone()
+        cursor.execute(
+            """
             SELECT
                 COUNT(*),
                 MIN(price_observed_date),
@@ -171,6 +203,10 @@ def main() -> int:
             f"{median_price_count:,} / {item_count:,}"
         )
     print(f"premise rows: {premise_count:,}")
+    if open_premise_count is None:
+        print("open premises: unavailable (premise status columns missing)")
+    else:
+        print(f"open premises: {open_premise_count:,} / {premise_count:,}")
     print(f"current_status rows: {status_count:,}")
     print(f"price observation range: {min_date} to {max_date}")
     print(f"invalid non-positive prices: {invalid_prices:,}")
@@ -205,6 +241,13 @@ def main() -> int:
         failures.append("item contains non-positive cached median prices")
     if invalid_prices:
         failures.append("current_status contains non-positive prices")
+    if premise_status_columns != 2:
+        failures.append(
+            "premise open-status columns are missing; run "
+            "migrate_premise_open_status.py"
+        )
+    elif invalid_premise_statuses:
+        failures.append("premise contains invalid open/closed status values")
     if orphan_count:
         failures.append("current_status contains orphan foreign keys")
     if explicit_nonpartner_count:

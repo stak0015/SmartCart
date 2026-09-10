@@ -95,7 +95,15 @@ class BasketAlternative:
 
 def premise_exists(premise_id: str) -> bool:
     with database_cursor() as cursor:
-        cursor.execute("SELECT 1 FROM premise WHERE premise_id = %s", (int(premise_id),))
+        cursor.execute(
+            """
+            SELECT 1
+            FROM premise
+            WHERE premise_id = %s
+              AND open_closed_status = 'open'
+            """,
+            (int(premise_id),),
+        )
         return cursor.fetchone() is not None
 
 

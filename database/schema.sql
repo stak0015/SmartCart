@@ -66,6 +66,8 @@ CREATE TABLE IF NOT EXISTS premise (
     state VARCHAR(255),
     google_place_id VARCHAR(255),
     place_match_refreshed_at TIMESTAMPTZ,
+    open_closed_status VARCHAR(32),
+    place_status_refreshed_at TIMESTAMPTZ,
     latitude DOUBLE PRECISION,
     longitude DOUBLE PRECISION,
     location_provider VARCHAR(32),
@@ -77,7 +79,17 @@ CREATE TABLE IF NOT EXISTS premise (
     CONSTRAINT premise_longitude_range
         CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
     CONSTRAINT premise_coordinate_pair
-        CHECK ((latitude IS NULL) = (longitude IS NULL))
+        CHECK ((latitude IS NULL) = (longitude IS NULL)),
+    CONSTRAINT premise_open_closed_status_check
+        CHECK (
+            open_closed_status IS NULL
+            OR open_closed_status IN (
+                'open',
+                'closed_permanently',
+                'closed_temporarily',
+                'unknown'
+            )
+        )
 );
 
 -- Keep local databases aligned when this idempotent schema is reapplied.
@@ -89,6 +101,8 @@ ALTER TABLE premise
     DROP COLUMN IF EXISTS sara_verified_date;
 ALTER TABLE premise
     ADD COLUMN IF NOT EXISTS sara_match_candidate BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS open_closed_status VARCHAR(32),
+    ADD COLUMN IF NOT EXISTS place_status_refreshed_at TIMESTAMPTZ,
     ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
     ADD COLUMN IF NOT EXISTS location_provider VARCHAR(32),
@@ -110,21 +124,42 @@ BEGIN
     END IF;
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'premise_coordinate_pair'
+          AND conrelid = 'premise'::regclass
     ) THEN
         ALTER TABLE premise ADD CONSTRAINT premise_coordinate_pair
             CHECK ((latitude IS NULL) = (longitude IS NULL));
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'premise_open_closed_status_check'
+          AND conrelid = 'premise'::regclass
+    ) THEN
+        ALTER TABLE premise ADD CONSTRAINT premise_open_closed_status_check
+            CHECK (
+                open_closed_status IS NULL
+                OR open_closed_status IN (
+                    'open',
+                    'closed_permanently',
+                    'closed_temporarily',
+                    'unknown'
+                )
+            );
     END IF;
 END
 $$;
 
 COMMENT ON COLUMN premise.google_place_id IS
     'Top candidate enrichment; PriceCatcher does not publish a Google Place ID.';
+COMMENT ON COLUMN premise.open_closed_status IS
+    'Last imported Google Places business-state label for the automated Place candidate. Only open is eligible for display; NULL and unknown are not claims that a store is open.';
+COMMENT ON COLUMN premise.place_status_refreshed_at IS
+    'Snapshot generation time for open_closed_status; this is not a live opening-hours check.';
 COMMENT ON COLUMN premise.latitude IS
     'Routing prefilter coordinate from location_provider; refresh or remove according to provider terms.';
 COMMENT ON COLUMN premise.longitude IS
     'Routing prefilter coordinate from location_provider; refresh or remove according to provider terms.';
 COMMENT ON COLUMN premise.location_refreshed_at IS
-    'Time the provider coordinate was refreshed. The recommendation query excludes stale coordinates.';
+    'Provider snapshot time for the routing coordinate. The recommendation query excludes stale coordinates.';
 COMMENT ON COLUMN premise.sara_partner IS
     'NULL means not yet verified. Populate only from a documented SARA source.';
 COMMENT ON COLUMN premise.sara_match_candidate IS
@@ -165,6 +200,8 @@ CREATE INDEX IF NOT EXISTS category_translation_name_idx
 CREATE INDEX IF NOT EXISTS premise_coordinates_idx
     ON premise (latitude, longitude)
     WHERE latitude IS NOT NULL AND longitude IS NOT NULL;
+CREATE INDEX IF NOT EXISTS premise_open_closed_status_idx
+    ON premise (open_closed_status);
 CREATE INDEX IF NOT EXISTS current_status_observed_date_idx
     ON current_status (price_observed_date DESC);
 CREATE INDEX IF NOT EXISTS current_status_premise_idx
