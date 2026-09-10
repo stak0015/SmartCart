@@ -114,8 +114,8 @@ describe("combined total labels (iteration1 feedback)", () => {
     expect(COPY.en.partialEstimatedTotal).toBe("Partial basket + transport");
     expect(COPY.en.estimatedSubtotal).toBe("Estimated basket subtotal");
     expect(COPY.en.estimatedCombinedTotal).toBe("Estimated basket + transport");
-    expect(COPY.en.medianPriceEstimate).toContain("Estimated median price");
-    expect(COPY.en.priceMix(2, 1)).toBe("2 store prices · 1 estimated median");
+    expect(COPY.en.medianPriceEstimate).toBe("Price unavailable; showing estimate");
+    expect(COPY.en.priceCoverage(2, 3)).toBe("2 of 3 products have an official price");
 
     expect(COPY.ms.basketSubtotal.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.partialTotal.trim().length).toBeGreaterThan(0);
@@ -125,7 +125,7 @@ describe("combined total labels (iteration1 feedback)", () => {
     expect(COPY.ms.estimatedSubtotal.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.estimatedCombinedTotal.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.medianPriceEstimate.trim().length).toBeGreaterThan(0);
-    expect(COPY.ms.priceMix(2, 1)).toContain("2");
+    expect(COPY.ms.priceCoverage(2, 3)).toContain("2");
   });
 
   it("keeps the suffix word order consistent with the equation in both languages", () => {
