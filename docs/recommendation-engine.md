@@ -56,10 +56,14 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    coordinates, and Place IDs.
 3. `POST /api/recommendations` validates the basket item IDs and quantities,
    origin, transport mode, travel limit, and SARA filter.
-4. PostgreSQL computes Haversine distance over fresh premise coordinates and
-   selects the nearest candidates. For distance and combined limits, premises
-   whose straight-line distance already exceeds the distance threshold are
-   safely excluded when routed mode is enabled.
+4. PostgreSQL first excludes every premise whose last imported Google business
+   state is not exactly `open`, then computes Haversine distance over fresh
+   premise coordinates and selects the nearest candidates. `unknown`, missing,
+   temporarily closed, and permanently closed states are all excluded. This is
+   an operational business state from the maintained snapshot, not a live
+   opening-hours or "open now" check. For distance and combined limits,
+   premises whose straight-line distance already exceeds the distance threshold
+   are safely excluded when routed mode is enabled.
 5. When `GOOGLE_ROUTES_API_KEY` is configured, one Google route-matrix request
    calculates one-way route distance and time from the origin to at most 25
    candidate Place IDs. The cap is configurable from 5 to 49. Transit stays
@@ -156,9 +160,16 @@ not verified, never as false or ineligible.
 - API responses use `private, no-store`; all SQL values are parameterised;
   input length, coordinates, enums, and limit ranges are validated.
 - Google-derived premise coordinates are used only as a temporary prefilter
-  cache. The app excludes coordinates older than 29 days. Schedule
+  cache. The premise migration imports only the selected candidate's
+  `place_latitude` and `place_longitude` from the matching raw cache; it never
+  uses the separate postcode-geocoding coordinates. It retains coordinates
+  only for premises whose imported business state is `open` and uses the
+  cache's own generation time for expiry. The app excludes coordinates older
+  than 29 days. Schedule
   `pnpm cleanup:premise-locations` daily to delete values older than 30 days,
-  and refresh coordinates with `pnpm sync:premise-locations`.
+  and refresh coordinates with `pnpm sync:premise-locations`. The refresh query
+  selects only premises whose imported business state is `open`, avoiding quota
+  use for closed or unverified candidates.
 - Do not display Google route content on a non-Google map. This implementation
   does not display a map and attributes location suggestions and route data to
   Google. "View route" links open Google Maps Directions with the selected
@@ -169,7 +180,12 @@ not verified, never as false or ineligible.
 
 ## Setup
 
-1. Apply `database/schema.sql` to PostgreSQL.
+1. Apply `database/schema.sql` to PostgreSQL, then run
+   `python database/migrate_premise_open_status.py` to import the maintained
+   premise status CSV and its matching `.cache.json` Place coordinates. Repeat
+   that provider-free migration after both files are regenerated; future
+   PriceCatcher-only premises remain hidden until they receive an imported
+   `open` state and selected-Place coordinates.
 2. Copy `backend/.env.example` to `backend/.env` and configure the database URL
    and server-only Google key.
 3. Enable Places API (New), Routes API, and Geocoding API for the configured
@@ -198,6 +214,10 @@ not verified, never as false or ineligible.
   or restrictions.
 - Store Place IDs are top-candidate enrichment, not PriceCatcher-published IDs;
   bad or stale matches can affect the result and need review monitoring.
+- Premise business states are also a dated enrichment snapshot rather than
+  opening hours. A stale candidate may therefore be excluded after reopening or
+  remain eligible after closing until the enrichment is regenerated and the
+  migration is rerun.
 - Missing prices are explicit unavailable values. A store with fewer priced
   basket lines may show a lower partial subtotal, so ranking gives coverage
   priority before comparing partial combined totals; the UI shows the coverage

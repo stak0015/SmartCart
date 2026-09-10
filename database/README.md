@@ -19,6 +19,9 @@ snapshot so every developer gets the same candidate Place IDs.
   backfills normalized item pack quantities used by pack comparisons.
 - `migrate_median_prices.py` — repeatable upgrade and full backfill for the
   cached cross-store item median price.
+- `migrate_premise_open_status.py` — repeatable, provider-free import of the
+  maintained Place ID, open/closed status, and selected Place coordinate
+  snapshot into local PostgreSQL or Neon.
 - `seed_demo_alternatives.py` — repeatable fixture for cheaper-equivalent and
   lower-unit-price recommendations.
 - `SETUP_GUIDE.md` — beginner-friendly local setup and troubleshooting guide.
@@ -49,6 +52,52 @@ snapshot so every developer gets the same candidate Place IDs.
 Downloaded PriceCatcher files are reproducible local cache files under
 `data/raw/` and are not committed.
 
+## Premise open/closed status
+
+`data/raw/lookup_premise_enriched_postcode_place_id.csv` is the maintained
+local enrichment output used for premise Place IDs and business state. The
+matching `.cache.json` contains the selected Place-details coordinates, which
+are intentionally absent from the CSV. Import both after the base
+PriceCatcher premises exist:
+
+```powershell
+# Uses DATABASE_URL from database/.env (normally local PostgreSQL).
+python migrate_premise_open_status.py
+
+# Validate a refreshed CSV without changing a database or calling Google.
+python migrate_premise_open_status.py --prepare-only
+
+# Apply the same validated snapshot to Neon using its pooled or direct URL.
+python migrate_premise_open_status.py --database-url $env:NEON_DATABASE_URL
+```
+
+For the Vercel-managed `smart-cart` Neon resource, run from the repository root
+so `backend/.env` cannot override the injected production value:
+
+```powershell
+npx vercel env run -e production --project smart-cart --scope tm-17 -- python database/migrate_premise_open_status.py
+```
+
+The command should report a `*.neon.tech` target when independently checking
+the injected URL. Do not run the production migration from `backend/`, where a
+local `DATABASE_URL` file may take precedence.
+
+The migration is safe to repeat and does not call Google. It records the CSV's
+`open_closed_status` and the adjacent provenance file's `generated_at` value.
+For coordinates it uses only `place_latitude` and `place_longitude` from the
+selected `place_id`; the cache's separate postcode-geocoding coordinates are
+never imported. A Place ID mismatch between the CSV and cache fails before a
+database connection is made.
+Only `open` is eligible for display. `closed_permanently`,
+`closed_temporarily`, `unknown`, and missing (`NULL`) values must all be
+excluded from store results. The value describes the last imported business
+state for an automated Google Place candidate; it is not a live opening-hours
+check. Regenerate and review the enrichment before refreshing stale data.
+This import is intentionally separate from the normal PriceCatcher refresh:
+daily price ingestion preserves statuses already stored on matching premises,
+while a newly published premise remains `NULL` (and therefore hidden) until a
+refreshed enrichment CSV is generated and this migration is rerun.
+
 ## Enrichment status
 
 The committed snapshot contains 3,803 PriceCatcher top-candidate Place IDs.
@@ -74,6 +123,15 @@ database connection is made.
 `location_refreshed_at` support a cheap straight-line prefilter before calling
 the route matrix. They are routing enrichment, not PriceCatcher fields. The
 ingestion upsert preserves them.
+
+For an `open` selected Place coordinate, the premise Place migration sets
+`location_provider = 'google'` and uses the cache's generation time as the last
+available provider-cache timestamp. The cache format has no per-row retrieval
+timestamp. Non-open, unknown, and status-less cache rows clear Google routing
+coordinates that are not newer than the cache so unnecessary provider data is
+not retained. A newer coordinate is preserved. `place_match_refreshed_at` is
+also advanced to the cache generation time when a selected Place ID matches.
+The migration never writes a user's selected origin.
 
 When `location_provider = 'google'`, latitude and longitude are a temporary
 cache. The recommendation query uses only coordinates refreshed within the

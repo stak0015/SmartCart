@@ -133,6 +133,7 @@ try {
         SELECT premise_id, premise_code, google_place_id
         FROM premise
         WHERE google_place_id IS NOT NULL
+          AND open_closed_status = 'open'
           AND ($3::text IS NULL OR district ILIKE $3)
           AND (
             latitude IS NULL OR

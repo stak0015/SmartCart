@@ -11,11 +11,34 @@ from smartcart.alternatives import (
     get_basket_alternatives,
     package_basis,
     product_family,
+    premise_exists,
 )
 from smartcart.models import BasketLineRequest
 
 
 TODAY = date(2026, 8, 31)
+
+
+def test_premise_exists_only_accepts_open_store(monkeypatch) -> None:
+    captured = {}
+
+    class Cursor:
+        def execute(self, query, params) -> None:
+            captured["query"] = query
+            captured["params"] = params
+
+        def fetchone(self):
+            return (1,)
+
+    @contextmanager
+    def fake_cursor():
+        yield Cursor()
+
+    monkeypatch.setattr("smartcart.alternatives.database_cursor", fake_cursor)
+
+    assert premise_exists("10") is True
+    assert "open_closed_status = 'open'" in captured["query"]
+    assert captured["params"] == (10,)
 
 
 def test_family_and_package_keys_are_conservative() -> None:

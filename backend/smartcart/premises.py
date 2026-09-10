@@ -49,6 +49,7 @@ def find_nearest_premises(
                     ))) AS straight_line_distance_km
                 FROM premise
                 WHERE google_place_id IS NOT NULL
+                  AND open_closed_status = 'open'
                   AND latitude IS NOT NULL
                   AND longitude IS NOT NULL
                   AND location_refreshed_at >=
@@ -109,9 +110,13 @@ def get_premise_location_coverage(maximum_coordinate_age_days: int) -> tuple[int
         cursor.execute(
             """
             SELECT
-                COUNT(*) FILTER (WHERE google_place_id IS NOT NULL),
                 COUNT(*) FILTER (
                     WHERE google_place_id IS NOT NULL
+                      AND open_closed_status = 'open'
+                ),
+                COUNT(*) FILTER (
+                    WHERE google_place_id IS NOT NULL
+                      AND open_closed_status = 'open'
                       AND latitude IS NOT NULL
                       AND longitude IS NOT NULL
                       AND location_refreshed_at >=
