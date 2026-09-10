@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
@@ -226,20 +226,6 @@ function SaraStoreTag({ status, copy }: { status: StoreRecommendation["saraStatu
   return <span className="inline-flex self-start rounded-md bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>;
 }
 
-function formatPriceDate(date: string | null | undefined): string {
-  if (!date) return "—";
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : date;
-}
-
-function latestPriceDate(prices: BasketItemPrice[]): string | null {
-  return prices
-    .map(price => price.priceObservedDate)
-    .filter((date): date is string => Boolean(date))
-    .sort()
-    .at(-1) ?? null;
-}
-
 function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
   return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
 }
@@ -253,6 +239,7 @@ function TripDetails({
   incomplete = false,
   showBasketSubtotal = true,
   transportMode,
+  routeUrl,
 }: {
   store: StoreRecommendation;
   copy: AppCopy;
@@ -262,6 +249,7 @@ function TripDetails({
   incomplete?: boolean;
   showBasketSubtotal?: boolean;
   transportMode?: TransportMode;
+  routeUrl?: string;
 }) {
   const hasBasket = showBasketSubtotal && (basketLineCount ?? 0) > 0;
   const hasMedianPrices = reportedMedianPriceCount > 0;
@@ -269,10 +257,15 @@ function TripDetails({
 
   return (
     <>
-      {transportMode && (
-        <div className="mb-2 flex items-center gap-1.5 text-xs text-[#617069]">
-          <span>{copy.transportMode}:</span>
-          <TransportModeIcon mode={transportMode} />
+      {(transportMode || routeUrl) && (
+        <div className="mb-2 flex flex-wrap items-center gap-3 text-xs text-[#617069]">
+          {transportMode && (
+            <div className="flex items-center gap-1.5">
+              <span>{copy.transportMode}:</span>
+              <TransportModeIcon mode={transportMode} />
+            </div>
+          )}
+          {routeUrl && <a href={routeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-1 font-bold text-[#087f5b] underline underline-offset-2">{copy.viewRoute}</a>}
         </div>
       )}
       <div className={"grid grid-cols-2 gap-2 " + (hasBasket ? "sm:grid-cols-4" : "sm:grid-cols-3")}>
@@ -298,14 +291,9 @@ function TripDetails({
           <p className={"mt-1 text-lg font-extrabold " + (incomplete ? "text-[#3f4944]" : "text-[#175f4b]")}>
             {basketSubtotal == null ? "—" : formatRm(basketSubtotal)}
           </p>
-          {store.pricedCount != null && basketLineCount != null && (
+          {(store.pricedCount != null || store.storePriceCount != null) && basketLineCount != null && (
             <p className={"mt-1 text-[11px] font-medium " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
-              {copy.priceCoverage(store.pricedCount ?? 0, basketLineCount)}
-            </p>
-          )}
-          {hasMedianPrices && (
-            <p className={"mt-1 text-[11px] font-medium " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
-              {copy.priceMix(reportedStorePriceCount, reportedMedianPriceCount)}
+              {copy.priceCoverage(reportedStorePriceCount, basketLineCount)}
             </p>
           )}
         </div>
@@ -347,7 +335,6 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
 function CompactSavingsFooter({
   copy,
   hasReplacements,
-  showWhenUnchanged = false,
   comparable,
   originalRm,
   newRm,
@@ -356,28 +343,23 @@ function CompactSavingsFooter({
 }: {
   copy: AppCopy;
   hasReplacements: boolean;
-  showWhenUnchanged?: boolean;
   comparable: boolean;
   originalRm: number | null;
   newRm: number | null;
   netSavingRm: number | null;
   totalsLabel: string;
 }) {
-  if (!hasReplacements && !showWhenUnchanged) return null;
-  const isSaving = comparable && netSavingRm != null && netSavingRm > 0;
-  const isIncrease = comparable && netSavingRm != null && netSavingRm < 0;
+  if (!hasReplacements || !comparable || netSavingRm == null || netSavingRm === 0) return null;
+  const isSaving = netSavingRm > 0;
+  const isIncrease = netSavingRm < 0;
   const theme = isSaving
     ? "border-[#b9e0d1] bg-[#e7f7f0] text-[#175f4b]"
     : isIncrease
       ? "border-[#efd3a6] bg-[#fff7e8] text-[#7a4d00]"
       : "border-[#d9e1dd] bg-[#f3f5f4] text-[#405149]";
-  const message = !comparable || netSavingRm == null
-    ? copy.savingsUnavailable
-    : isSaving
-      ? copy.youSave(formatRm(netSavingRm))
-      : isIncrease
-        ? copy.costsMoreNow(formatRm(Math.abs(netSavingRm)))
-        : copy.noBasketCostChange;
+  const message = isSaving
+    ? copy.youSave(formatRm(netSavingRm))
+    : copy.costsMoreNow(formatRm(Math.abs(netSavingRm)));
 
   return (
     <footer className={`border-t px-4 py-3 ${theme}`}>
@@ -500,18 +482,91 @@ function ProgressIndicator({ step, copy }: { step: 1 | 2 | 3 | 4; copy: AppCopy 
   ] as const;
 
   return (
-    <div aria-label={copy.step(step)} className="grid w-full grid-cols-4 rounded-xl bg-[#edf3ef] p-1">
-      {steps.map(current => (
-        <div
-          key={current.n}
-          className={`flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2 text-center text-[11px] font-bold sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-sm ${
-            step === current.n ? "bg-white text-[#087f5b] shadow-sm" : current.n < step ? "text-[#087f5b]" : "text-[#617069]"
-          }`}
-        >
-          <span aria-hidden="true">{current.n < step ? "✓" : current.n}</span>
-          <span className="min-w-0 break-words leading-4">{current.label}</span>
+    <div
+      role="progressbar"
+      aria-label={copy.step(step)}
+      aria-valuemin={1}
+      aria-valuemax={steps.length}
+      aria-valuenow={step}
+      aria-valuetext={copy.step(step)}
+      className="-mx-2 w-[calc(100%+1rem)] px-3 py-3 sm:px-5"
+    >
+      <div className="relative">
+        <div aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-4 h-1 -translate-y-1/2 rounded-full bg-[#dce5e0]">
+          <div
+            className="h-full rounded-full bg-[#087f5b]"
+            style={{ width: `${((step - 1) / (steps.length - 1)) * 100}%` }}
+          />
         </div>
-      ))}
+        <ol className="relative grid grid-cols-4">
+          {steps.map(current => (
+            <li key={current.n} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+              <span
+                aria-hidden="true"
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-extrabold ${
+                  current.n < step
+                    ? "border-[#087f5b] bg-[#087f5b] text-white"
+                    : current.n === step
+                      ? "border-[#087f5b] bg-[#edf7f2] text-[#087f5b]"
+                      : "border-[#b8c9c1] bg-white text-[#617069]"
+                }`}
+              >
+                {current.n < step ? "✓" : current.n}
+              </span>
+              <span className={`min-w-0 break-words text-[11px] font-bold leading-4 sm:text-sm ${current.n <= step ? "text-[#087f5b]" : "text-[#617069]"}`}>
+                {current.label}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+function QuantitySelector({
+  value,
+  onChange,
+  onStep,
+  decreaseLabel,
+  increaseLabel,
+  quantityLabel,
+  errorId,
+  errorText,
+  action,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onStep: (delta: number) => void;
+  decreaseLabel: string;
+  increaseLabel: string;
+  quantityLabel: string;
+  errorId?: string;
+  errorText?: string;
+  action?: ReactNode;
+}) {
+  const qty = parseQty(value);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 sm:items-start">
+      <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
+        <button type="button" aria-label={decreaseLabel} disabled={qty === DEFAULT_QTY} onClick={() => onStep(-1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b] disabled:opacity-40">−</button>
+        <input
+          type="text"
+          inputMode="numeric"
+          aria-label={quantityLabel}
+          aria-invalid={qty === null}
+          aria-describedby={qty === null && errorId ? errorId : undefined}
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10231d] focus:border-[#087f5b]"}`}
+        />
+        <button type="button" aria-label={increaseLabel} disabled={qty === MAX_QTY} onClick={() => onStep(1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white disabled:opacity-40">+</button>
+        {action}
+      </div>
+      {qty === null && errorId && errorText && (
+        <p id={errorId} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{errorText}</p>
+      )}
     </div>
   );
 }
@@ -522,6 +577,7 @@ function BasketScreen({
   basket,
   setBasket,
   onViewBasket,
+  onBackToShop,
   onContinue,
   copy,
   locale,
@@ -530,6 +586,7 @@ function BasketScreen({
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onViewBasket: () => void;
+  onBackToShop: () => void;
   onContinue: () => void;
   copy: AppCopy;
   locale: Locale;
@@ -553,6 +610,7 @@ function BasketScreen({
   const [apiSearched, setApiSearched] = useState(false);
   const [apiError, setApiError] = useState(false);
   const [qtyById, setQtyById] = useState<Record<number, string>>({}); // result-row quantity raw input (default "1")
+  const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
 
   // AC-1.4.1: single source of truth is the raw string; the steppers also
   // read/write through parseQty so typed and stepped values never drift.
@@ -633,11 +691,30 @@ function BasketScreen({
       : [...current, category]);
   };
 
-  const updateQty = (id: string, delta: number) => {
-    setBasket(basket.map(b => b.id === id ? { ...b, qty: Math.max(1, b.qty + delta) } : b));
+  const stepBasketQty = (id: string, delta: number) => {
+    const item = basket.find(current => current.id === id);
+    if (!item) return;
+    const base = parseQty(basketQtyById[id] ?? String(item.qty)) ?? item.qty;
+    const next = stepQty(base, delta);
+    setBasketQtyById(current => ({ ...current, [id]: String(next) }));
+    setBasket(current => current.map(line => line.id === id ? { ...line, qty: next } : line));
   };
 
-  const removeItem = (id: string) => setBasket(basket.filter(b => b.id !== id));
+  const typeBasketQty = (id: string, raw: string) => {
+    setBasketQtyById(current => ({ ...current, [id]: raw }));
+    const next = parseQty(raw);
+    if (next === null) return;
+    setBasket(current => current.map(line => line.id === id ? { ...line, qty: next } : line));
+  };
+
+  const removeItem = (id: string) => {
+    setBasket(current => current.filter(item => item.id !== id));
+    setBasketQtyById(current => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  };
 
   // Convert a real database Item into a BasketItem and add it to the basket.
   // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
@@ -674,19 +751,24 @@ function BasketScreen({
 
   const { itemCount } = basketSummary(basket);
   const basketCostSummary = basketSavingsSummary(basket);
+  const isDesktopBasketRail = view === "shop";
 
   const basketPanel = (
-      <div className="px-4 pb-8 sm:px-6">
-        <div className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
+      <div className={isDesktopBasketRail ? "h-full" : "px-4 pb-8 sm:px-6"}>
+        <div className={isDesktopBasketRail
+          ? "flex h-full min-h-0 flex-col overflow-hidden bg-white"
+          : "overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]"}>
           {/* Heading */}
-          <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-4">
+          <div className={"flex items-center justify-between border-b border-[#edf1ef] " + (isDesktopBasketRail ? "px-5 py-4" : "px-4 py-4")}>
             <div className="flex items-center gap-2">
               <IcoBasket color="#087f5b" size={22} />
-              <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+              <div>
+                <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+              </div>
             </div>
           </div>
 
-          <div className="p-4">
+          <div className={isDesktopBasketRail ? "min-h-0 flex-1 overflow-y-auto px-5" : "p-4"}>
 
           {basket.length === 0 ? (
             <p className="text-[16px] text-[#3e494a] text-center py-4">{copy.basketEmpty}</p>
@@ -694,8 +776,8 @@ function BasketScreen({
             <div className="flex flex-col gap-2">
               {basket.map((item, idx) => (
                 <div key={item.id}>
-                  <div className={"flex min-w-0 flex-col gap-3 py-3 " + (view === "basket" ? "sm:flex-row sm:items-center sm:justify-between" : "")}>
-                    <div className="flex min-w-0 flex-col gap-1.5 sm:pr-3">
+                  <div className={"flex min-w-0 py-3 " + (isDesktopBasketRail ? "flex-col gap-3" : "flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")}>
+                    <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{localizedName(copy, item.name, item)}</p>
                         {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
@@ -709,11 +791,18 @@ function BasketScreen({
                         </div>
                       )}
                     </div>
-                    <div className="flex shrink-0 items-center gap-1 self-start sm:self-auto">
-                      <button aria-label={copy.decreaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
-                      <span aria-label={copy.selectedQuantity(item.qty)} className="w-7 text-center text-sm font-bold">{item.qty}</span>
-                      <button aria-label={copy.increaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
-                      <button aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
+                    <div className={"flex shrink-0 items-center gap-1 " + (isDesktopBasketRail ? "self-start" : "self-start sm:self-auto")}>
+                      <QuantitySelector
+                        value={basketQtyById[item.id] ?? String(item.qty)}
+                        onChange={raw => typeBasketQty(item.id, raw)}
+                        onStep={delta => stepBasketQty(item.id, delta)}
+                        decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))}
+                        increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))}
+                        quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))}
+                        errorId={`basket-quantity-error-${item.id}`}
+                        errorText={copy.quantityError}
+                      />
+                      <button type="button" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
                         <IcoTrash />
                       </button>
                     </div>
@@ -734,6 +823,13 @@ function BasketScreen({
             netSavingRm={basketCostSummary.netSavingRm}
             totalsLabel={copy.affectedItemsTotal}
           />
+          {isDesktopBasketRail && (
+            <div className="border-t border-[#dce5e0] bg-[#fbfcfb] px-5 py-4">
+              <button type="button" onClick={onViewBasket} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 text-[15px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none">
+                {copy.viewBasket}
+              </button>
+            </div>
+          )}
         </div>
       </div>
   );
@@ -779,7 +875,7 @@ function BasketScreen({
       </div>
 
       {/* Multi-select category filter */}
-      <div className="relative z-[60] px-4 pb-6 pt-1 sm:px-6">
+      <div className="sticky top-[8.75rem] z-[60] bg-[#f7f8f6]/95 px-4 pb-6 pt-1 backdrop-blur sm:px-6">
         <button
           type="button"
           aria-expanded={categoryOpen}
@@ -876,33 +972,25 @@ function BasketScreen({
                   <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
                 </div>
 
-                <div className="flex min-w-0 flex-col gap-2 sm:items-end">
-                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                    <button type="button" aria-label={copy.decreaseQuantity(fields.name)} disabled={qty === DEFAULT_QTY} onClick={() => stepResultQty(item.item_id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b] disabled:opacity-40">−</button>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      aria-label={copy.quantityFor(fields.name)}
-                      aria-invalid={qty === null}
-                      aria-describedby={qty === null ? `quantity-error-${item.item_id}` : undefined}
-                      value={rawQty}
-                      onChange={e => typeResultQty(item.item_id, e.target.value)}
-                      className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10231d] focus:border-[#087f5b]"}`}
-                    />
-                    <button type="button" aria-label={copy.increaseQuantity(fields.name)} disabled={qty === MAX_QTY} onClick={() => stepResultQty(item.item_id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white disabled:opacity-40">+</button>
-                    <button
+                <QuantitySelector
+                  value={rawQty}
+                  onChange={raw => typeResultQty(item.item_id, raw)}
+                  onStep={delta => stepResultQty(item.item_id, delta)}
+                  decreaseLabel={copy.decreaseQuantity(fields.name)}
+                  increaseLabel={copy.increaseQuantity(fields.name)}
+                  quantityLabel={copy.quantityFor(fields.name)}
+                  errorId={`quantity-error-${item.item_id}`}
+                  errorText={copy.quantityError}
+                  action={<button
+                      type="button"
                       disabled={qty === null}
                       onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
                       aria-label={`${copy.addToBasket}: ${fields.name}`}
                       className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
                     >
                       {copy.addShort}
-                    </button>
-                  </div>
-                  {qty === null && (
-                    <p id={`quantity-error-${item.item_id}`} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{copy.quantityError}</p>
-                  )}
-                </div>
+                    </button>}
+                />
               </article>
               );
             })}
@@ -957,9 +1045,8 @@ function BasketScreen({
 
       {/* Your basket */}
       {view === "shop" && (
-        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl bg-white py-4 lg:col-start-2 xl:col-start-3 lg:block">
+        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_8px_24px_rgba(16,35,29,0.07)] lg:col-start-2 xl:col-start-3 lg:block">
           {basketPanel}
-          <div className="px-6"><button type="button" onClick={handleContinue} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 font-bold text-white disabled:opacity-40">{copy.chooseLocation}</button></div>
         </aside>
       )}
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
@@ -977,15 +1064,31 @@ function BasketScreen({
       )}
 
       {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className={(view === "shop" ? "lg:hidden " : "") + "fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur"}>
-        <div className="mx-auto flex w-full max-w-[712px] flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <button
-            onClick={view === "shop" ? onViewBasket : handleContinue}
-            className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#087f5b] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
-          >
-            {view === "shop" ? copy.viewBasket : copy.chooseLocation}
-            <IcoArrowRight />
-          </button>
-        </div>
+        {view === "basket" ? (
+          <div className="mx-auto flex w-full max-w-[712px] gap-3">
+            <button type="button" onClick={onBackToShop} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
+              {copy.backToShop}
+            </button>
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
+            >
+              {copy.chooseLocation}
+            </button>
+          </div>
+        ) : (
+          <div className="mx-auto flex w-full max-w-[712px] flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <button
+              type="button"
+              onClick={onViewBasket}
+              className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#087f5b] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
+            >
+              {copy.viewBasket}
+              <IcoArrowRight />
+            </button>
+          </div>
+        )}
         {emptyError && (
           <p role="alert" className="mx-auto mt-2 max-w-[712px] text-right text-sm font-medium text-[#ba1a1a]">{copy.addOneItem}</p>
         )}
@@ -1465,7 +1568,11 @@ function StoreCard({
   transportMode: TransportMode;
 }) {
   const storeMedianPriceCount = medianPriceCount(store.basketPrices, store.medianPriceCount);
+  const storeOfficialPriceCount = store.storePriceCount ?? Math.max(0, (store.pricedCount ?? 0) - storeMedianPriceCount);
   const hasMedianPrices = storeMedianPriceCount > 0;
+  const totalLabel = store.missingItems.length > 0
+    ? (hasMedianPrices ? copy.estimatedPartialTotal : copy.partialEstimatedTotal)
+    : (storeOfficialPriceCount > 0 && hasMedianPrices ? copy.estimatedCombinedTotal : copy.combinedTotal);
 
   return (
     <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
@@ -1491,7 +1598,6 @@ function StoreCard({
           </div>
         </div>
 
-        {routeUrl && <a href={routeUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-bold text-[#087f5b] underline">{copy.viewRoute}</a>}
         {/* Keep travel details and basket subtotal together, then place the
             optional item-price disclosure directly below that row. */}
         <TripDetails
@@ -1502,6 +1608,7 @@ function StoreCard({
           medianPriceCount={storeMedianPriceCount}
           incomplete={store.missingItems.length > 0}
           transportMode={transportMode}
+          routeUrl={routeUrl}
         />
 
         {(store.basketLineCount ?? 0) > 0 && store.basketPrices.length > 0 && (
@@ -1529,20 +1636,14 @@ function StoreCard({
 
         {store.combinedTotalRm != null && (
           <div className="rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
-            <div className="flex items-end justify-between gap-3">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">
-                  {store.missingItems.length > 0
-                    ? (hasMedianPrices ? copy.estimatedPartialTotal : copy.partialEstimatedTotal)
-                    : (hasMedianPrices ? copy.estimatedCombinedTotal : copy.combinedTotal)}
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{totalLabel}</p>
+                <p className="mt-1 text-xs leading-5 text-[#d3f0e4]">
+                  ({copy.basketSubtotal}: {formatRm(store.basketSubtotalRm!)} + {copy.returnTravel}: {formatRm(store.estimatedRoundTripCostRm)})
                 </p>
-                <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.estimatedRoundTripCostRm)} + {formatRm(store.basketSubtotalRm!)} = {formatRm(store.combinedTotalRm!)}</p>
               </div>
-              <p className="text-right text-xs leading-5 text-[#d3f0e4]">
-                {copy.returnTravel} + {store.missingItems.length > 0
-                  ? (hasMedianPrices ? copy.estimatedPartialTotal : copy.partialTotal)
-                  : (hasMedianPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
-              </p>
+              <p className="text-2xl font-extrabold leading-8 sm:text-right">{formatRm(store.combinedTotalRm!)}</p>
             </div>
           </div>
         )}
@@ -1796,9 +1897,15 @@ function RecommendationOverview({
   const displayedMedianPriceCount = detailRows.length > 0
     ? detailTotals.medianPriceCount
     : store.medianPriceCount ?? store.basketPrices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
+  const displayedStorePriceCount = detailRows.length > 0
+    ? detailTotals.storePriceCount
+    : store.storePriceCount ?? Math.max(0, displayedPricedCount - displayedMedianPriceCount);
   const displayedLineCount = detailRows.length > 0 ? detailTotals.lineCount : store.basketLineCount ?? 0;
   const hasIncompleteBasket = displayedLineCount > 0 && displayedPricedCount < displayedLineCount;
   const hasEstimatedPrices = displayedMedianPriceCount > 0;
+  const totalLabel = hasIncompleteBasket
+    ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialEstimatedTotal)
+    : (displayedStorePriceCount > 0 && hasEstimatedPrices ? copy.estimatedCombinedTotal : copy.combinedTotal);
   const adjustedCombinedTotal = displayedSubtotal == null
     ? null
     : Number((displayedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
@@ -1823,8 +1930,6 @@ function RecommendationOverview({
     onSetBasket(current => undoBasketReplacement(current, row.basketItem!.id));
   };
 
-  const lastPriceDate = detailTotals.latestObservedDate ?? latestPriceDate(store.basketPrices);
-
   return (
     <div className="screen-enter pb-8">
       <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
@@ -1844,7 +1949,6 @@ function RecommendationOverview({
             </div>
           </header>
 
-          {preferences.origin && <a href={mapsRouteUrl(preferences.origin, store, preferences.transportMode)} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-bold text-[#087f5b] underline">{copy.viewRoute}</a>}
           <div className="mt-4">
             <TripDetails
               store={store}
@@ -1854,41 +1958,14 @@ function RecommendationOverview({
               incomplete={hasIncompleteBasket}
               showBasketSubtotal={false}
               transportMode={preferences.transportMode}
+              routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, store, preferences.transportMode) : undefined}
             />
           </div>
 
           {displayedLineCount > 0 && (
             <section className="mt-4 overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
               <div className={`px-4 py-3 ${hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]"}`}>
-                <div className="flex flex-wrap items-end justify-between gap-2">
-                  <div>
-                    <h2 className="text-[17px] font-extrabold text-[#10231d]">{copy.basketItems}</h2>
-                    <p className="mt-0.5 text-xs text-[#617069]">
-                      {copy.priceCoverage(displayedPricedCount, displayedLineCount)}
-                      {hasEstimatedPrices ? ` · ${copy.priceMix(
-                        detailRows.length > 0
-                          ? detailTotals.storePriceCount
-                          : store.storePriceCount ?? Math.max(0, displayedPricedCount - displayedMedianPriceCount),
-                        displayedMedianPriceCount,
-                      )}` : ""}
-                      {lastPriceDate ? ` · ${copy.lastUpdated}: ${formatPriceDate(lastPriceDate)}` : ""}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-[#617069]">
-                      {hasIncompleteBasket
-                        ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
-                        : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
-                    </p>
-                    <p className="text-xl font-extrabold text-[#175f4b]">{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</p>
-                  </div>
-                </div>
-                {displayedCredit != null && displayedCash != null && (
-                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 border-t border-[#bfe3d3] pt-2 text-xs">
-                    <span className="font-semibold text-[#286d67]">{copy.saraCreditLabel}: {formatRm(displayedCredit)}</span>
-                    <span className="font-semibold text-[#17362c]">{copy.cashNeededLabel}: {formatRm(displayedCash)}</span>
-                  </div>
-                )}
+                <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
               </div>
 
               <div className="px-4">
@@ -1913,10 +1990,34 @@ function RecommendationOverview({
                 ) : null}
               </div>
 
+              <div className="border-t border-[#dce5e0] bg-white px-4 py-3">
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                  <div>
+                    <p className="text-xs text-[#617069]">
+                      {hasIncompleteBasket
+                        ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
+                        : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
+                    </p>
+                    <p className="mt-0.5 text-xl font-extrabold text-[#175f4b]">{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</p>
+                  </div>
+                  {displayedCredit != null && displayedCash != null && (
+                    <div className="grid grid-cols-2 sm:min-w-[250px]">
+                      <div className="pr-4">
+                        <p className="text-[11px] leading-4 text-[#617069]">{copy.saraCreditLabel}</p>
+                        <p className="mt-0.5 text-base font-extrabold text-[#286d67]">{formatRm(displayedCredit)}</p>
+                      </div>
+                      <div className="border-l border-[#dce5e0] pl-4">
+                        <p className="text-[11px] leading-4 text-[#617069]">{copy.cashNeededLabel}</p>
+                        <p className="mt-0.5 text-base font-extrabold text-[#17362c]">{formatRm(displayedCash)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <CompactSavingsFooter
                 copy={copy}
                 hasReplacements={detailTotals.hasReplacements}
-                showWhenUnchanged
                 comparable={detailTotals.savingsComparable}
                 originalRm={detailTotals.originalSubtotalRm}
                 newRm={detailTotals.currentSubtotalRm}
@@ -1930,20 +2031,14 @@ function RecommendationOverview({
 
           {adjustedCombinedTotal != null && (
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
-              <div className="flex items-end justify-between gap-3">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">
-                    {hasIncompleteBasket
-                      ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialEstimatedTotal)
-                      : (hasEstimatedPrices ? copy.estimatedCombinedTotal : copy.combinedTotal)}
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{totalLabel}</p>
+                  <p className="mt-1 text-xs leading-5 text-[#d3f0e4]">
+                    ({copy.basketSubtotal}: {formatRm(displayedSubtotal!)} + {copy.returnTravel}: {formatRm(store.estimatedRoundTripCostRm)})
                   </p>
-                  <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(displayedSubtotal!)} + {formatRm(store.estimatedRoundTripCostRm)} = {formatRm(adjustedCombinedTotal!)}</p>
                 </div>
-                <p className="text-right text-xs leading-5 text-[#d3f0e4]">
-                  {hasIncompleteBasket
-                    ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
-                    : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)} + {copy.returnTravel}
-                </p>
+                <p className="text-2xl font-extrabold leading-8 sm:text-right">{formatRm(adjustedCombinedTotal!)}</p>
               </div>
             </div>
           )}
@@ -2264,6 +2359,7 @@ export default function App() {
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => setScreen("basket")}
+            onBackToShop={() => setScreen("shop")}
             onContinue={() => setScreen("location")}
             copy={copy}
             locale={locale}
@@ -2275,6 +2371,7 @@ export default function App() {
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => setScreen("basket")}
+            onBackToShop={() => setScreen("shop")}
             onContinue={() => setScreen("location")}
             copy={copy}
             locale={locale}
