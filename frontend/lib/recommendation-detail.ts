@@ -2,6 +2,7 @@ import type {
   AlternativePriceItem,
   BasketAlternativeLine,
   PackSizeOption,
+  PriceSource,
   StoreRecommendation,
 } from "./contracts";
 import type { AppliedReplacement, BasketItem } from "./basket-state";
@@ -16,6 +17,7 @@ export interface RecommendationDetailPrice {
   unitPriceRm: number | null;
   lineTotalRm: number | null;
   observedDate: string | null;
+  priceSource?: PriceSource | null;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
@@ -33,6 +35,8 @@ export interface RecommendationDetailTotals {
   originalSubtotalRm: number | null;
   currentSubtotalRm: number | null;
   pricedCount: number;
+  storePriceCount: number;
+  medianPriceCount: number;
   lineCount: number;
   saraCreditRm: number | null;
   cashNeededRm: number | null;
@@ -57,6 +61,7 @@ function detailFromAlternative(item: AlternativePriceItem, quantity: number): Re
     unitPriceRm: item.unitPriceRm,
     lineTotalRm: item.unitPriceRm == null ? null : money(item.unitPriceRm * quantity),
     observedDate: item.observedDate,
+    priceSource: item.priceSource,
     saraEligible: item.saraEligible,
     saraCategoryCandidate: item.saraCategoryCandidate,
     isSaraCreditCandidate: item.isSaraCreditCandidate,
@@ -74,6 +79,7 @@ function detailFromPack(pack: PackSizeOption, quantity: number): RecommendationD
     unitPriceRm: pack.totalPriceRm,
     lineTotalRm: pack.totalPriceRm == null ? null : money(pack.totalPriceRm * quantity),
     observedDate: pack.observedDate,
+    priceSource: pack.priceSource,
     saraEligible: pack.saraEligible,
     saraCategoryCandidate: pack.saraCategoryCandidate,
     isSaraCreditCandidate: pack.isSaraCreditCandidate,
@@ -100,6 +106,7 @@ function fallbackCurrentPrice(
     unitPriceRm: line.unitPriceRm,
     lineTotalRm: line.unitPriceRm == null ? null : money(line.unitPriceRm * basketItem.qty),
     observedDate: line.observedDate,
+    priceSource: line.priceSource ?? price?.priceSource,
     saraEligible,
     saraCategoryCandidate,
     isSaraCreditCandidate: saraEligible === true || saraCategoryCandidate,
@@ -151,6 +158,8 @@ export function recommendationDetailTotals(
 ): RecommendationDetailTotals {
   const originalPrices = rows.map(row => row.source.lineTotalRm).filter((value): value is number => value != null);
   const currentPrices = rows.map(row => row.current.lineTotalRm).filter((value): value is number => value != null);
+  const pricedRows = rows.filter(row => row.current.lineTotalRm != null && row.current.unitPriceRm != null);
+  const medianPriceCount = pricedRows.filter(row => row.current.priceSource === "median").length;
   const replacementRows = rows.filter(row => row.replacement);
   const savingsComparable = rows.length > 0 && rows.every(row => (
     row.source.lineTotalRm != null && row.current.lineTotalRm != null
@@ -178,6 +187,8 @@ export function recommendationDetailTotals(
     originalSubtotalRm,
     currentSubtotalRm,
     pricedCount: currentPrices.length,
+    storePriceCount: pricedRows.length - medianPriceCount,
+    medianPriceCount,
     lineCount: rows.length,
     saraCreditRm,
     cashNeededRm,

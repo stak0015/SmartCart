@@ -70,6 +70,45 @@ def test_missing_price_excluded_from_subtotal_not_zero() -> None:
     assert unpriced.observed_date is None
 
 
+def test_missing_store_price_uses_cached_median_and_keeps_observation_null() -> None:
+    rows = [
+        # New database row shape includes the item-level cached median after
+        # current_price.
+        (1, 10, 2, "Beras", "Beras EN", "5kg", None, Decimal("5.25"), True, "BERAS", None),
+        (1, 11, 1, "Minyak", "Minyak EN", "1kg", Decimal("9.00"), Decimal("8.50"), None, "LAUK", FRESH),
+    ]
+
+    summary = summarize_basket_prices(rows, today=TODAY)["1"]
+
+    assert summary.subtotal_rm == 19.50
+    assert summary.priced_count == 2
+    assert summary.store_price_count == 1
+    assert summary.median_price_count == 1
+    assert summary.missing_items == []
+    assert summary.is_complete
+    assert summary.sara_credit_rm == 10.50
+    assert summary.cash_needed_rm == 9.00
+    assert summary.price_observed_days_ago == 3
+    assert summary.lines[0].unit_price_rm == 5.25
+    assert summary.lines[0].price_source == "median"
+    assert summary.lines[0].observed_date is None
+    assert summary.lines[1].price_source == "store"
+
+
+def test_unresolved_line_stays_missing_when_median_is_null() -> None:
+    rows = [
+        (1, 10, 1, "Beras", "Beras EN", "5kg", None, None, None, "BERAS", None),
+    ]
+
+    summary = summarize_basket_prices(rows, today=TODAY)["1"]
+
+    assert summary.subtotal_rm is None
+    assert summary.priced_count == 0
+    assert summary.store_price_count == 0
+    assert summary.median_price_count == 0
+    assert summary.missing_items == ["Beras"]
+
+
 def test_non_positive_price_is_not_a_valid_price() -> None:
     rows = [
         (1, 10, 1, "Beras", "5kg", Decimal("0.00"), None, "BERAS", FRESH),
@@ -204,6 +243,35 @@ def test_stores_sort_by_coverage_then_combined_cost() -> None:
     assert ordered[2].missing_items == ["Beras"]
 
 
+def test_ranking_prioritizes_exact_store_coverage_before_median_coverage() -> None:
+    recommendations = [store("1", cost=0.1), store("2", cost=0.1)]
+    pricing = {
+        # Both stores cover two effective lines; exact store coverage wins.
+        "1": StoreBasketSummary(
+            subtotal_rm=4.0,
+            priced_count=2,
+            basket_line_count=2,
+            store_price_count=1,
+            median_price_count=1,
+        ),
+        "2": StoreBasketSummary(
+            subtotal_rm=3.0,
+            priced_count=2,
+            basket_line_count=2,
+            store_price_count=2,
+            median_price_count=0,
+        ),
+    }
+
+    ordered = apply_basket_pricing(recommendations, pricing)
+
+    assert [entry.premise_id for entry in ordered] == ["2", "1"]
+    assert ordered[0].store_price_count == 2
+    assert ordered[0].median_price_count == 0
+    assert ordered[1].store_price_count == 1
+    assert ordered[1].median_price_count == 1
+
+
 def test_combined_ranking_tie_breaks_by_time_distance_name_id() -> None:
     def full_summary() -> StoreBasketSummary:
         return StoreBasketSummary(
@@ -300,6 +368,47 @@ def test_e2_item_price_adapter_preserves_priced_and_missing_lines(monkeypatch) -
     assert result["1"][0].price_observed_date == date(2026, 8, 20)
     assert result["1"][1].unit_price_rm is None
     assert result["1"][1].line_total_rm is None
+
+
+def test_e2_item_price_adapter_uses_median_without_store_observation(monkeypatch) -> None:
+    class MedianCursor:
+        def __init__(self) -> None:
+            self.parameters = None
+
+        def execute(self, _query, parameters) -> None:
+            self.parameters = parameters
+
+        def fetchall(self):
+            return [
+                (
+                    1,
+                    10,
+                    "Item with median",
+                    "Item EN",
+                    "1kg",
+                    2,
+                    None,
+                    Decimal("3.25"),
+                    None,
+                )
+            ]
+
+    cursor = MedianCursor()
+
+    @contextmanager
+    def fake_database_cursor():
+        yield cursor
+
+    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
+    result = get_basket_prices_for_premises(
+        premise_ids=["1"],
+        basket=[BasketLineRequest(item_id=10, quantity=2)],
+    )
+
+    assert result["1"][0].unit_price_rm == 3.25
+    assert result["1"][0].line_total_rm == 6.5
+    assert result["1"][0].price_source == "median"
+    assert result["1"][0].price_observed_date is None
 
 
 def test_unified_ranking_prioritizes_coverage_then_all_tie_breakers() -> None:

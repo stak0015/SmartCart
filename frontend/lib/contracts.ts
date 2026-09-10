@@ -54,6 +54,10 @@ export interface ReverseLocationResponse {
 }
 
 export type SaraStoreStatus = "verified" | "candidate" | "unverified";
+// A median price is a cached cross-store estimate, not a price observed at the
+// selected store. Optional fields keep older API snapshots readable while the
+// recommendation API rolls out the explicit source metadata.
+export type PriceSource = "store" | "median";
 
 export interface BasketItemPrice {
   itemNameEn?: string | null;
@@ -65,6 +69,7 @@ export interface BasketItemPrice {
   unitPriceRm: number | null;
   lineTotalRm: number | null;
   priceObservedDate: string | null;
+  priceSource?: PriceSource | null;
   saraEligible?: boolean | null;
   saraCategoryCandidate?: boolean;
 }
@@ -82,6 +87,7 @@ export interface BasketLineDetail {
   unitPriceRm: number | null;
   lineTotalRm: number | null;
   observedDate: string | null;
+  priceSource?: PriceSource | null;
 }
 
 export interface AlternativePriceItem {
@@ -95,6 +101,7 @@ export interface AlternativePriceItem {
   lineTotalRm: number | null;
   observedDate: string | null;
   priceObservedDaysAgo: number | null;
+  priceSource?: PriceSource | null;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
@@ -112,6 +119,7 @@ export interface PackSizeOption {
   pricePerUnitRm: number | null;
   unitKind: string | null;
   observedDate: string | null;
+  priceSource?: PriceSource | null;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
@@ -159,14 +167,18 @@ export interface StoreRecommendation {
   basketItemCount: number;
   isCompleteBasket: boolean;
   basketPrices: BasketItemPrice[];
+  // Effective priced coverage includes store-observed and cached median lines.
+  // These counts expose the exact-vs-estimated mix without changing ranking's
+  // existing pricedCount semantics.
+  storePriceCount?: number;
+  medianPriceCount?: number;
   saraStatus: SaraStoreStatus;
-  // Priced-basket subtotal (AC 2.3.1): sum of valid positive priced lines;
-  // partial when the store misses prices and then always labelled
-  // "Partial total", never the full basket cost (AC 2.3.3). Null when no
-  // basket was sent or no basket line is priced.
+  // Effective basket subtotal (AC 2.3.1): store-observed prices plus cached
+  // median estimates. It remains partial when neither source exists for a
+  // line, and is null when no basket line has an effective price.
   basketSubtotalRm: number | null;
   missingItems: string[];
-  // Priced-item coverage ("X of N items priced"); null when no basket sent.
+  // Effective priced-item coverage ("X of N items priced"); null without a basket.
   pricedCount: number | null;
   basketLineCount: number | null;
   // SARA Credit / Cash Needed split of the displayed subtotal (AC 2.3.7/2.3.8);
@@ -177,7 +189,8 @@ export interface StoreRecommendation {
   // when no basket line is priced at that store (or no basket was sent).
   priceObservedDaysAgo: number | null;
   // Priced basket subtotal plus return transport cost, including partial baskets.
-  // Null when no line is priced; missing prices never contribute zero prices.
+  // Null when no line has a store or median price; unresolved prices never
+  // contribute zero prices.
   combinedTotalRm: number | null;
   // Per-line priced detail behind "View item prices" (AC 2.3.9).
   basketLines: BasketLineDetail[];

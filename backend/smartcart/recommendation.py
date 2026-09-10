@@ -184,6 +184,14 @@ def rank_reachable_stores(
         priced_item_count = sum(
             line.unit_price_rm is not None for line in basket_prices
         )
+        store_price_count = sum(
+            line.unit_price_rm is not None and line.price_source != "median"
+            for line in basket_prices
+        )
+        median_price_count = sum(
+            line.unit_price_rm is not None and line.price_source == "median"
+            for line in basket_prices
+        )
         basket_item_count = len(basket_prices)
         recommendations.append(
             StoreRecommendation(
@@ -207,12 +215,15 @@ def rank_reachable_stores(
                 basket_item_count=basket_item_count,
                 is_complete_basket=priced_item_count == basket_item_count,
                 basket_prices=basket_prices,
+                store_price_count=store_price_count,
+                median_price_count=median_price_count,
             )
         )
 
     if basket_prices_by_premise:
         recommendations.sort(
             key=lambda store: (
+                -store.store_price_count,
                 -store.priced_item_count,
                 store.estimated_total_cost_rm
                 if store.estimated_total_cost_rm is not None
@@ -244,10 +255,12 @@ def apply_basket_pricing(
 ) -> list[StoreRecommendation]:
     """Attach per-store basket subtotals with their SARA Credit / Cash
     Needed split, combined total and per-line detail, then re-rank
-    (AC 2.3.4): stores sort by number of priced basket lines (descending),
-    then combined basket-plus-transport cost (ascending), ties by shortest
+    (AC 2.3.4): stores sort by exact store-price coverage (descending), then
+    effective coverage including cached median estimates (descending), then
+    effective combined basket-plus-transport cost (ascending), ties by shortest
     travel time, shortest route distance, store name, then premise ID. Missing
-    prices remain explicit and stores with no priced lines have null totals."""
+    prices remain explicit and stores with no effective priced lines have null
+    totals."""
     ranked = []
     for store in recommendations:
         summary = pricing.get(store.premise_id)
@@ -261,6 +274,8 @@ def apply_basket_pricing(
             store.basket_item_count = 0
             store.is_complete_basket = False
             store.combined_total_rm = None
+            store.store_price_count = 0
+            store.median_price_count = 0
             ranked.append(store)
             continue
         store.basket_subtotal_rm = summary.subtotal_rm
@@ -274,6 +289,24 @@ def apply_basket_pricing(
         store.priced_item_count = summary.priced_count
         store.basket_item_count = summary.basket_line_count
         store.is_complete_basket = summary.is_complete
+        if summary.store_price_count is None:
+            store_price_count = sum(
+                line.unit_price_rm is not None and line.price_source != "median"
+                for line in summary.lines
+            )
+            if not summary.lines:
+                store_price_count = summary.priced_count
+        else:
+            store_price_count = summary.store_price_count
+        if summary.median_price_count is None:
+            median_price_count = sum(
+                line.unit_price_rm is not None and line.price_source == "median"
+                for line in summary.lines
+            )
+        else:
+            median_price_count = summary.median_price_count
+        store.store_price_count = store_price_count
+        store.median_price_count = median_price_count
         store.basket_prices = [
             BasketItemPrice(
                 item_id=line.item_id,
@@ -285,6 +318,7 @@ def apply_basket_pricing(
                 unit_price_rm=line.unit_price_rm,
                 line_total_rm=line.line_total_rm,
                 price_observed_date=line.observed_date,
+                price_source=line.price_source,
                 sara_eligible=line.sara_eligible,
                 sara_category_candidate=line.sara_category_candidate,
             )
@@ -301,6 +335,7 @@ def apply_basket_pricing(
                 unit_price_rm=line.unit_price_rm,
                 line_total_rm=line.line_total_rm,
                 observed_date=line.observed_date,
+                price_source=line.price_source,
             )
             for line in summary.lines
         ]
@@ -321,14 +356,15 @@ def apply_basket_pricing(
 
     def ranking_key(store: StoreRecommendation) -> tuple:
         # ``combined_total_rm`` is only defined when at least one line has a
-        # valid price. ``inf`` keeps zero-priced stores after priced stores of
-        # the same coverage while preserving deterministic tie-breakers.
+        # valid store or median price. ``inf`` keeps stores with no effective
+        # coverage after priced stores while preserving deterministic ties.
         combined = (
             store.combined_total_rm
             if store.combined_total_rm is not None
             else float("inf")
         )
         return (
+            -int(store.store_price_count or 0),
             -int(store.priced_count or 0),
             combined,
             store.estimated_travel_minutes,

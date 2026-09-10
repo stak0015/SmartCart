@@ -87,6 +87,27 @@ def main() -> int:
                 """
             )
             pack_quantity_count = cursor.fetchone()[0]
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'item'
+              AND column_name = 'median_price_rm'
+            """
+        )
+        median_price_columns = cursor.fetchone()[0]
+        median_price_count = median_invalid_prices = None
+        if median_price_columns == 1:
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE median_price_rm IS NOT NULL),
+                    COUNT(*) FILTER (WHERE median_price_rm <= 0)
+                FROM item
+                """
+            )
+            median_price_count, median_invalid_prices = cursor.fetchone()
         cursor.execute("SELECT COUNT(*) FROM premise")
         premise_count = cursor.fetchone()[0]
         cursor.execute(
@@ -142,6 +163,13 @@ def main() -> int:
             "items with parsed pack quantities: "
             f"{pack_quantity_count:,} / {item_count:,}"
         )
+    if median_price_count is None:
+        print("items with cached median prices: unavailable (column missing)")
+    else:
+        print(
+            "items with cached median prices: "
+            f"{median_price_count:,} / {item_count:,}"
+        )
     print(f"premise rows: {premise_count:,}")
     print(f"current_status rows: {status_count:,}")
     print(f"price observation range: {min_date} to {max_date}")
@@ -169,6 +197,12 @@ def main() -> int:
             "item quantity_value/quantity_unit columns are missing; "
             "run migrate_pack_quantities.py"
         )
+    if median_price_columns != 1:
+        failures.append(
+            "item median_price_rm column is missing; run migrate_median_prices.py"
+        )
+    elif median_invalid_prices:
+        failures.append("item contains non-positive cached median prices")
     if invalid_prices:
         failures.append("current_status contains non-positive prices")
     if orphan_count:

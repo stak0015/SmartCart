@@ -60,6 +60,46 @@ def test_get_basket_alternatives_chooses_cheapest_same_family(monkeypatch) -> No
     assert lines[0].alternative.item_id == "2"
     assert lines[0].alternative.line_total_rm == 10.0
     assert lines[0].savings_rm == 6.0
+    assert lines[0].source.price_source == "store"
+    assert lines[0].alternative.price_source == "store"
+
+
+def test_median_source_is_returned_but_cannot_drive_alternatives(monkeypatch) -> None:
+    source_rows = [
+        (
+            1, 1, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "425 g",
+            "IKAN DALAM TIN", None, None, Decimal("7.00"), TODAY,
+        ),
+    ]
+    candidate_rows = [
+        (2, "SARDIN CAP CHEAP (SOS TOMATO)", "SARDIN EN", "425 g", "IKAN DALAM TIN", None, Decimal("5.00"), TODAY),
+    ]
+
+    class Cursor:
+        def __init__(self) -> None:
+            self.rows = []
+
+        def execute(self, query, _params) -> None:
+            self.rows = source_rows if "WITH requested" in query else candidate_rows
+
+        def fetchall(self):
+            return self.rows
+
+    @contextmanager
+    def fake_cursor():
+        yield Cursor()
+
+    monkeypatch.setattr("smartcart.alternatives.database_cursor", fake_cursor)
+    lines = get_basket_alternatives(
+        "10", [BasketLineRequest(item_id=1, quantity=2)], today=TODAY
+    )
+
+    assert lines[0].source.price_source == "median"
+    assert lines[0].source.unit_price_rm == 7.0
+    assert lines[0].source.observed_date is None
+    assert lines[0].source.price_observed_days_ago is None
+    assert lines[0].alternative is None
+    assert lines[0].savings_rm is None
 
 
 def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
@@ -68,12 +108,14 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
         unit_price_rm=8.0, line_total_rm=8.0, observed_date=TODAY,
         price_observed_days_ago=0, sara_eligible=None,
         sara_category_candidate=True, is_sara_credit_candidate=True,
+        price_source="store",
     )
     alternative = AlternativePriceItem(
         item_id="2", item_name="SARDIN CHEAP", unit="425 g", package_size="425 g",
         unit_price_rm=5.0, line_total_rm=5.0, observed_date=TODAY,
         price_observed_days_ago=0, sara_eligible=None,
         sara_category_candidate=True, is_sara_credit_candidate=True,
+        price_source="store",
     )
     monkeypatch.setattr("smartcart.api.premise_exists", lambda _premise_id: True)
     monkeypatch.setattr(
@@ -94,3 +136,33 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
     assert response.json()["lines"][0]["alternative"]["itemId"] == "2"
     assert response.json()["lines"][0]["savingsRm"] == 3.0
     assert response.json()["lines"][0]["packOptions"] == []
+
+
+def test_median_source_suppresses_pack_comparison_query(monkeypatch) -> None:
+    source = AlternativePriceItem(
+        item_id="1", item_name="SARDIN", unit="425 g", package_size="425 g",
+        unit_price_rm=7.0, line_total_rm=7.0, observed_date=None,
+        price_observed_days_ago=None, sara_eligible=None,
+        sara_category_candidate=True, is_sara_credit_candidate=True,
+        price_source="median",
+    )
+    monkeypatch.setattr("smartcart.api.premise_exists", lambda _premise_id: True)
+    monkeypatch.setattr(
+        "smartcart.api.get_basket_alternatives",
+        lambda _premise_id, _basket: [BasketAlternative(1, source, None, None)],
+    )
+
+    def fail_if_called(*_args, **_kwargs):
+        raise AssertionError("median source must not query pack comparisons")
+
+    monkeypatch.setattr("smartcart.api.get_pack_options", fail_if_called)
+    response = TestClient(create_app()).post(
+        "/api/premises/10/basket-alternatives",
+        json={"basket": [{"itemId": "1", "quantity": 1}]},
+    )
+
+    assert response.status_code == 200
+    line = response.json()["lines"][0]
+    assert line["source"]["priceSource"] == "median"
+    assert line["alternative"] is None
+    assert line["packOptions"] == []

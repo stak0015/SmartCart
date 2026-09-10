@@ -82,6 +82,7 @@ class AlternativePriceItem:
     is_sara_credit_candidate: bool
     item_name_en: str | None = None
     item_name_ms: str | None = None
+    price_source: str | None = None
 
 
 @dataclass(frozen=True)
@@ -98,19 +99,51 @@ def premise_exists(premise_id: str) -> bool:
         return cursor.fetchone() is not None
 
 
-def _item_from_row(row: tuple, quantity: int, today: date) -> AlternativePriceItem:
+def _item_from_row(
+    row: tuple,
+    quantity: int,
+    today: date,
+    *,
+    allow_median: bool = False,
+) -> AlternativePriceItem:
     if len(row) == 7:
         item_id, item_name, unit, category, sara_eligible, current_price, observed = row
         item_name_en = None
-    else:
+        median_price = None
+    elif len(row) == 8:
         (
             item_id, item_name, item_name_en, unit, category, sara_eligible,
             current_price, observed,
         ) = row
-    priced = item_name is not None and current_price is not None and current_price > 0
-    unit_price = _money(Decimal(current_price)) if priced else None
-    line_total = _money(Decimal(current_price) * quantity) if priced else None
-    age = (today - observed).days if priced and observed is not None else None
+        median_price = None
+    else:
+        (
+            item_id, item_name, item_name_en, unit, category, sara_eligible,
+            current_price, median_price, observed,
+        ) = row
+    has_store_price = (
+        item_name is not None
+        and current_price is not None
+        and current_price > 0
+    )
+    has_median_price = (
+        allow_median
+        and item_name is not None
+        and not has_store_price
+        and median_price is not None
+        and median_price > 0
+    )
+    priced = has_store_price or has_median_price
+    effective_price = (
+        current_price
+        if has_store_price
+        else median_price
+        if has_median_price
+        else None
+    )
+    unit_price = _money(Decimal(effective_price)) if priced else None
+    line_total = _money(Decimal(effective_price) * quantity) if priced else None
+    age = (today - observed).days if has_store_price and observed is not None else None
     category_candidate = bool(category and is_sara_credit_line(False, category))
     return AlternativePriceItem(
         item_id=str(item_id),
@@ -121,8 +154,9 @@ def _item_from_row(row: tuple, quantity: int, today: date) -> AlternativePriceIt
         package_size=display_package_size(item_name, unit),
         unit_price_rm=unit_price,
         line_total_rm=line_total,
-        observed_date=observed,
+        observed_date=observed if has_store_price else None,
         price_observed_days_ago=age,
+        price_source="store" if has_store_price else "median" if has_median_price else None,
         sara_eligible=sara_eligible,
         sara_category_candidate=category_candidate,
         is_sara_credit_candidate=is_sara_credit_line(sara_eligible, category),
@@ -153,6 +187,7 @@ def get_basket_alternatives(
                    item.item_name_en, item.unit, item.item_category,
                    item.sara_eligible,
                    current_status.current_price,
+                   item.median_price_rm,
                    current_status.price_observed_date
             FROM requested
             LEFT JOIN item ON item.item_id = requested.item_id
@@ -195,21 +230,29 @@ def get_basket_alternatives(
         if len(source_row) == 8:
             source_values = (
                 source_row[0], source_row[2], None, source_row[3], source_row[4],
-                source_row[5], source_row[6], source_row[7],
+                source_row[5], source_row[6], None, source_row[7],
+            )
+        elif len(source_row) == 9:
+            source_values = (
+                source_row[0], source_row[2], source_row[3], source_row[4],
+                source_row[5], source_row[6], source_row[7], None, source_row[8],
             )
         else:
             source_values = (
                 source_row[0], source_row[2], source_row[3], source_row[4],
                 source_row[5], source_row[6], source_row[7], source_row[8],
+                source_row[9],
             )
-        source = _item_from_row(source_values, quantity, today)
+        source = _item_from_row(
+            source_values, quantity, today, allow_median=True
+        )
         alternatives = []
         if len(source_row) == 8:
             source_key = (source_row[4], package_basis(source_row[2], source_row[3]))
         else:
             source_key = (source_row[5], package_basis(source_row[2], source_row[4]))
         family = product_family(source_row[2])
-        if source.unit_price_rm is not None and family:
+        if source.price_source == "store" and source.unit_price_rm is not None and family:
             for candidate in candidates_by_key.get(source_key, []):
                 if product_family(candidate[1]) != family:
                     continue

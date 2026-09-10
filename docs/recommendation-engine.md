@@ -72,15 +72,19 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    inclusive AND: both the route distance and route duration must be within
    their selected thresholds.
 7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
-   at every candidate premise. Quantity is applied to produce line totals and
-   the store basket subtotal. Missing premise-item prices remain explicit nulls
-   and are excluded from the subtotal.
-8. The API ranks one unified store list by the number of requested basket lines
-   with valid prices (descending). Ties use the available basket subtotal plus
-   estimated return transport cost, then shorter time, route distance, name,
-   and premise ID. Partial stores remain in the same list with an explicit
-   coverage count and partial combined total; stores with no priced lines keep
-   null basket and combined totals and sort last.
+   at every candidate premise. When that premise-item row is unavailable, the
+   API uses the ingestion-maintained `item.median_price_rm`, computed from all
+   positive latest store prices for that item and rounded to cents. Quantity is
+   applied to produce line totals and the store basket subtotal. A missing item
+   remains an explicit null only when neither a premise price nor a cached
+   median is available.
+8. The API ranks one unified store list by directly observed store-price
+   coverage, then effective coverage including median estimates. Remaining ties
+   use the effective basket subtotal plus estimated return transport cost, then
+   shorter time, route distance, name, and premise ID. Partial stores remain in
+   the same list with an explicit coverage count and partial combined total;
+   stores with no priced lines keep null basket and combined totals and sort
+   last.
 9. The API returns the full basket price breakdown for the UI's per-store
    "View item prices" control. Every priced response item also carries the
    English label from `item.item_name_en`; the official `item_name` is the
@@ -113,14 +117,18 @@ them with the `TRAVEL_COST_*` environment variables.
 ## Basket-price calculation
 
 For each store, `basket cost = sum(unit price x requested quantity)` for basket
-lines that have a `current_status` record at that premise. The combined ranking
-value is `basket cost + estimated return transport cost` whenever at least one
-line is priced. A missing store price is not treated as zero or fabricated: it
-is returned in the item breakdown with null price fields, labelled as
-unavailable in the UI, and omitted from the sum. The response includes priced
-and total basket-line counts plus an explicit completeness flag for backwards
-compatibility. The UI uses one unified list, labels partial coverage and
-combined totals clearly, and keeps combined totals null when no line is priced.
+lines that have either a `current_status` record at that premise or a cached
+`item.median_price_rm`. The median fallback is a cached cross-store estimate,
+not a claim that the item is stocked at that premise; `priceSource` exposes the
+estimate separately from a directly observed store price. The combined
+ranking value is `basket cost + estimated return transport cost` whenever at
+least one line has a usable price. A missing price is not treated as zero or
+fabricated: it is returned with null price fields and omitted from the sum only
+when both the store price and cached median are unavailable. The response
+includes priced and total basket-line counts plus an explicit completeness flag
+for backwards compatibility. The UI uses one unified list, labels partial
+coverage and combined totals clearly, and keeps combined totals null when no
+line is priced.
 
 ## SARA semantics
 
@@ -194,5 +202,9 @@ not verified, never as false or ineligible.
   basket lines may show a lower partial subtotal, so ranking gives coverage
   priority before comparing partial combined totals; the UI shows the coverage
   count and every missing line in one unified recommendation list.
+- Median fallback prices are refreshed during ingestion from the latest rows
+  retained in `current_status`. Because a premise row can be older than the
+  current day, a median is an estimate of the observed catalogue data and does
+  not prove current availability or stock.
 - Before user testing, replace the default transport costs with validated local
   assumptions and define acceptance tests from the agreed LeanKit criteria.

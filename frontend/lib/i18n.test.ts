@@ -112,12 +112,20 @@ describe("combined total labels (iteration1 feedback)", () => {
     expect(COPY.en.returnTravel).toBe("Return travel");
     expect(COPY.en.combinedTotal).toBe("Combined total");
     expect(COPY.en.partialEstimatedTotal).toBe("Partial basket + transport");
+    expect(COPY.en.estimatedSubtotal).toBe("Estimated basket subtotal");
+    expect(COPY.en.estimatedCombinedTotal).toBe("Estimated basket + transport");
+    expect(COPY.en.medianPriceEstimate).toBe("Price unavailable; showing estimate");
+    expect(COPY.en.priceCoverage(2, 3)).toBe("2 of 3 products have an official price");
 
     expect(COPY.ms.basketSubtotal.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.partialTotal.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.returnTravel.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.combinedTotal.trim().length).toBeGreaterThan(0);
     expect(COPY.ms.partialEstimatedTotal.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.estimatedSubtotal.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.estimatedCombinedTotal.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.medianPriceEstimate.trim().length).toBeGreaterThan(0);
+    expect(COPY.ms.priceCoverage(2, 3)).toContain("2");
   });
 
   it("keeps the suffix word order consistent with the equation in both languages", () => {

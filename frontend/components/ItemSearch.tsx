@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { searchItems, type Item } from "@/lib/api";
+import { uppercaseItemName } from "@/lib/item-name";
+import { localizedPackageSize } from "@/lib/package-size";
 
 /**
  * Item Search Component: Input field + live results list + no-results/loading/error states
@@ -82,10 +84,10 @@ export default function ItemSearch() {
               key={item.item_id}
               className="border rounded p-3 hover:bg-gray-50"
             >
-              <div className="font-semibold text-black">{item.item_name}</div>
+              <div className="font-semibold text-black">{uppercaseItemName(item.item_name)}</div>
               <div className="text-sm text-gray-600">
                 {item.item_category && <span>📂 {item.item_category}</span>}
-                {item.unit && <span className="ml-3">📏 {item.unit}</span>}
+                {item.unit && <span className="ml-3">📏 {localizedPackageSize(item.unit, "en")}</span>}
               </div>
             </div>
           ))}
