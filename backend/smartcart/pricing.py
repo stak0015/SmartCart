@@ -1,9 +1,9 @@
 """Per-store basket pricing for recommendation and store-detail views.
 
-Every reachable store is priced independently for the whole basket. Missing
-or non-positive prices stay visible but do not contribute to totals. Decimal
-money arithmetic keeps the basket subtotal, SARA credit and cash split
-reconciled to the cent.
+Every reachable store is priced independently for the whole basket. A cached
+cross-store median fills a missing store observation; lines without either
+source remain visible and do not contribute to totals. Decimal money arithmetic
+keeps the basket subtotal, SARA credit and cash split reconciled to the cent.
 """
 
 from collections import defaultdict
@@ -32,6 +32,7 @@ class BasketLinePrice:
     observed_date: str | None
     sara_eligible: bool | None
     sara_category_candidate: bool
+    price_source: str | None = None
     item_name_en: str | None = None
     item_name_ms: str | None = None
 
@@ -48,6 +49,10 @@ class StoreBasketSummary:
     cash_needed_rm: float | None = None
     price_observed_days_ago: int | None = None
     lines: tuple[BasketLinePrice, ...] = ()
+    # None preserves compatibility with callers that construct summaries
+    # directly; application code fills exact counts when available.
+    store_price_count: int | None = None
+    median_price_count: int | None = None
 
     @property
     def is_complete(self) -> bool:
@@ -73,6 +78,7 @@ def fetch_basket_price_rows(
             SELECT requested.premise_id, lines.item_id, lines.quantity,
                    item.item_name, item.item_name_en, item.unit,
                    current_status.current_price,
+                   item.median_price_rm,
                    item.sara_eligible, item.item_category,
                    current_status.price_observed_date
             FROM unnest(%s::bigint[]) AS requested(premise_id)
@@ -99,6 +105,8 @@ def summarize_basket_prices(
     totals: dict[str, Decimal] = {}
     credits: dict[str, Decimal] = {}
     priced_counts: dict[str, int] = {}
+    store_counts: dict[str, int] = {}
+    median_counts: dict[str, int] = {}
     oldest_observed: dict[str, date] = {}
     missing: dict[str, list[str]] = {}
     lines_by_store: dict[str, list[BasketLinePrice]] = {}
@@ -112,18 +120,42 @@ def summarize_basket_prices(
                 current_price, sara_eligible, item_category, observed,
             ) = raw_row
             item_name_en = None
-        else:
+            median_price = None
+        elif len(raw_row) == 10:
             (
                 premise_id, item_id, quantity, item_name, item_name_en, unit,
                 current_price, sara_eligible, item_category, observed,
             ) = raw_row
+            median_price = None
+        else:
+            (
+                premise_id, item_id, quantity, item_name, item_name_en, unit,
+                current_price, median_price, sara_eligible, item_category, observed,
+            ) = raw_row
         key = str(premise_id)
-        priced = (
+        has_store_price = (
             item_name is not None
             and current_price is not None
             and current_price > 0
         )
-        line_total = Decimal(current_price) * quantity if priced else None
+        has_median_price = (
+            item_name is not None
+            and not has_store_price
+            and median_price is not None
+            and median_price > 0
+        )
+        priced = has_store_price or has_median_price
+        effective_price = (
+            current_price
+            if has_store_price
+            else median_price
+            if has_median_price
+            else None
+        )
+        price_source = (
+            "store" if has_store_price else "median" if has_median_price else None
+        )
+        line_total = Decimal(effective_price) * quantity if priced else None
         lines_by_store.setdefault(key, []).append(
             BasketLinePrice(
                 item_id=str(item_id),
@@ -132,9 +164,14 @@ def summarize_basket_prices(
                 item_name_ms=item_name,
                 unit=unit,
                 quantity=quantity,
-                unit_price_rm=_money(Decimal(current_price)) if priced else None,
+                unit_price_rm=_money(Decimal(effective_price)) if priced else None,
                 line_total_rm=_money(line_total) if priced else None,
-                observed_date=observed.isoformat() if priced and observed else None,
+                observed_date=(
+                    observed.isoformat()
+                    if has_store_price and observed
+                    else None
+                ),
+                price_source=price_source,
                 sara_eligible=sara_eligible,
                 sara_category_candidate=bool(
                     item_category and is_sara_credit_line(False, item_category)
@@ -148,9 +185,13 @@ def summarize_basket_prices(
 
         totals[key] = totals.get(key, Decimal("0")) + line_total
         priced_counts[key] = priced_counts.get(key, 0) + 1
+        if has_store_price:
+            store_counts[key] = store_counts.get(key, 0) + 1
+        else:
+            median_counts[key] = median_counts.get(key, 0) + 1
         if is_sara_credit_line(sara_eligible, item_category):
             credits[key] = credits.get(key, Decimal("0")) + line_total
-        if observed is not None and (
+        if has_store_price and observed is not None and (
             key not in oldest_observed or observed < oldest_observed[key]
         ):
             oldest_observed[key] = observed
@@ -167,6 +208,8 @@ def summarize_basket_prices(
                 subtotal_rm=None,
                 priced_count=0,
                 basket_line_count=len(lines),
+                store_price_count=0,
+                median_price_count=0,
                 missing_items=missing.get(key, []),
                 lines=lines,
             )
@@ -178,6 +221,8 @@ def summarize_basket_prices(
             subtotal_rm=float(subtotal),
             priced_count=priced_count,
             basket_line_count=len(lines),
+            store_price_count=store_counts.get(key, 0),
+            median_price_count=median_counts.get(key, 0),
             missing_items=missing.get(key, []),
             sara_credit_rm=float(credit),
             cash_needed_rm=float(subtotal - credit),
@@ -223,6 +268,7 @@ def get_basket_prices_for_premises(
                 item.unit,
                 basket.quantity,
                 current_status.current_price,
+                item.median_price_rm,
                 current_status.price_observed_date
             FROM requested_premise
             CROSS JOIN basket
@@ -243,12 +289,30 @@ def get_basket_prices_for_premises(
         if len(row) == 7:
             item_name_en = None
             item_name_ms = (row[2] or "").strip() or None
+            median_index = None
             item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 3, 4, 5, 6
+        elif len(row) == 8:
+            item_name_en = (row[3] or "").strip() or None
+            item_name_ms = (row[2] or "").strip() or None
+            median_index = None
+            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 4, 5, 6, 7
         else:
             item_name_en = (row[3] or "").strip() or None
             item_name_ms = (row[2] or "").strip() or None
-            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 4, 5, 6, 7
-        unit_price = Decimal(row[price_index]) if row[price_index] is not None else None
+            median_index = 7
+            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 4, 5, 6, 8
+        store_price = Decimal(row[price_index]) if row[price_index] is not None else None
+        median_price = (
+            Decimal(row[median_index])
+            if median_index is not None and row[median_index] is not None
+            else None
+        )
+        has_store_price = store_price is not None and store_price > 0
+        has_median_price = (
+            not has_store_price and median_price is not None and median_price > 0
+        )
+        unit_price = store_price if has_store_price else median_price if has_median_price else None
+        price_source = "store" if has_store_price else "median" if has_median_price else None
         quantity = int(row[quantity_index])
         result[str(row[0])].append(
             BasketItemPrice(
@@ -262,7 +326,8 @@ def get_basket_prices_for_premises(
                 line_total_rm=(
                     _money(unit_price * quantity) if unit_price is not None else None
                 ),
-                price_observed_date=row[observed_index],
+                price_observed_date=row[observed_index] if has_store_price else None,
+                price_source=price_source,
             )
         )
 

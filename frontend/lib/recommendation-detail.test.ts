@@ -181,6 +181,24 @@ describe("recommendation detail replacement model", () => {
     expect(totals.netSavingRm).toBeNull();
   });
 
+  it("counts median-backed lines as effective coverage while exposing the price mix", () => {
+    const medianLine: BasketAlternativeLine = {
+      ...line,
+      source: { ...line.source, priceSource: "median" },
+      alternative: null,
+      savingsRm: null,
+      packOptions: [],
+    };
+    const rows = buildRecommendationDetailRows(originalBasket, store, [medianLine]);
+    const totals = recommendationDetailTotals(rows);
+
+    expect(rows[0].current.priceSource).toBe("median");
+    expect(totals.pricedCount).toBe(1);
+    expect(totals.storePriceCount).toBe(0);
+    expect(totals.medianPriceCount).toBe(1);
+    expect(totals.currentSubtotalRm).toBe(10);
+  });
+
   it("detects a target already used by a separate basket line", () => {
     expect(targetAlreadyInBasket([
       ...originalBasket,

@@ -137,10 +137,17 @@ async def basket_alternatives(
         str(premise_id),
         payload.basket,
     )
-    pack_options = await run_in_threadpool(
-        get_pack_options,
-        str(premise_id),
-        payload.basket,
+    # Pack-size comparisons are meaningful only for a source price observed at
+    # this store. A median source is useful for the selected-item display, but
+    # must not become the baseline for a store-specific comparison.
+    pack_options = (
+        await run_in_threadpool(
+            get_pack_options,
+            str(premise_id),
+            payload.basket,
+        )
+        if any(line.source.price_source == "store" for line in lines)
+        else {}
     )
     response_lines = [
         BasketAlternativeLine(
@@ -155,7 +162,7 @@ async def basket_alternatives(
             pack_options=[
                 PackSizeOption(**option.__dict__)
                 for option in pack_options.get(str(line.source.item_id), [])
-            ],
+            ] if line.source.price_source == "store" else [],
         )
         for line in lines
     ]
@@ -253,12 +260,14 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         recommendations = apply_basket_pricing(recommendations, pricing)
         ranking_method = (
             "Nearest 25 premises by straight-line distance; stores are ranked by "
-            "number of priced items, then estimated combined cost using rough travel estimates. "
+            "exact store-price coverage, then effective coverage including cached "
+            "median estimates, then estimated combined cost using rough travel estimates. "
             "Google Routes is not configured, so travel limits and route feasibility "
             "are not verified."
             if use_straight_line_fallback
-            else "Stores ranked by number of priced items, then lowest combined cost: "
-            "priced basket subtotal plus estimated return transport cost; ties by "
+            else "Stores ranked by exact store-price coverage, then effective "
+            "coverage including cached median estimates, then lowest combined cost: "
+            "effective basket subtotal plus estimated return transport cost; ties by "
             "shortest travel time, route distance, store name, then premise ID."
         )
     route_warning_parts = []
@@ -312,8 +321,9 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             expanded_search = True
             ranking_method = (
                 "No store matched your travel limit, so the nearest stores are "
-                "shown instead. They are ranked by number of priced items, then "
-                "lowest combined cost (priced basket subtotal plus estimated "
+                "shown instead. They are ranked by exact store-price coverage, "
+                "then effective coverage including cached median estimates, then "
+                "lowest combined cost (effective basket subtotal plus estimated "
                 "return transport cost); these stores exceed your chosen limit."
             )
             route_warning_parts.append(

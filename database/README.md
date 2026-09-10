@@ -17,6 +17,8 @@ snapshot so every developer gets the same candidate Place IDs.
 - `docker-compose.demo.yml` — isolated PostgreSQL service for deterministic UI demos.
 - `migrate_pack_quantities.py` — idempotent upgrade for existing databases;
   backfills normalized item pack quantities used by pack comparisons.
+- `migrate_median_prices.py` — repeatable upgrade and full backfill for the
+  cached cross-store item median price.
 - `seed_demo_alternatives.py` — repeatable fixture for cheaper-equivalent and
   lower-unit-price recommendations.
 - `SETUP_GUIDE.md` — beginner-friendly local setup and troubleshooting guide.
@@ -34,6 +36,8 @@ snapshot so every developer gets the same candidate Place IDs.
 - `.env.example` — safe local configuration template.
 - `tests/test_ingest_pricecatcher.py` — ingestion regression tests.
 - `tests/test_migrate_pack_quantities.py` — migration idempotence coverage.
+- `tests/test_migrate_median_prices.py` — cached median refresh and migration
+  SQL coverage.
 - `tests/test_seed_demo_alternatives.py` — demo fixture behavior coverage.
 - `data/archive/lookup_premise_sara_one_to_one_2026-08-23.parquet` — dated
   premise-enrichment snapshot.
@@ -146,6 +150,28 @@ name, stores weights in kilograms and volumes in litres, and leaves
 non-comparable items as `NULL`. `verify_database.py` reports the resulting
 coverage and fails when the columns are missing.
 
+### Cache cross-store median prices
+
+`item.median_price_rm` stores the continuous median of all positive
+`current_status.current_price` values for that item across premises, rounded to
+the nearest cent. It is refreshed in the same transaction as PriceCatcher
+ingestion, but only for item IDs present in the incoming batch; the aggregate
+still reads every current status for each touched item. This keeps normal price
+display queries from running a median aggregate for every request. Items with
+no valid store price retain `NULL`, not a fabricated zero.
+
+For an existing database, run the repeatable full backfill from
+`SmartCart/database`:
+
+```powershell
+python migrate_median_prices.py
+```
+
+The backfill clears stale cached values and recomputes them from the latest rows
+already in `current_status`. As with the source prices, a median can be based on
+an older observation when a premise has not reported a newer price; the cache
+does not claim current stock or freshness.
+
 ### Add English catalogue labels
 
 English labels are stored directly on each `item` lookup row. On an existing
@@ -214,8 +240,9 @@ python verify_database.py
 
 `price_observed_date` is the source observation date and `price_synced_at` is
 the ingestion time. A PriceCatcher price does not prove that an item is in
-stock. The loader retains only the latest six monthly PriceCatcher files
-locally after a successful run.
+stock. Each successful refresh also updates `item.median_price_rm` for touched
+items. The loader retains only the latest six monthly PriceCatcher files locally
+after a successful run.
 
 ## Local and committed data
 

@@ -41,6 +41,8 @@ import {
 import { SuccessToast } from "@/components/success-toast";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
+import { uppercaseItemName } from "@/lib/item-name";
+import { localizedPackageSize } from "@/lib/package-size";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
@@ -62,7 +64,12 @@ interface TravelPreferences {
 
 function localizedName(copy: AppCopy, name: string | null | undefined, translations?: { itemNameEn?: string | null; itemNameMs?: string | null }): string {
   const locale = copy === COPY.ms ? "ms" : "en";
-  return (locale === "ms" ? translations?.itemNameMs : translations?.itemNameEn) || name || "Catalogue item";
+  const localized = (locale === "ms" ? translations?.itemNameMs : translations?.itemNameEn) || name || "Catalogue item";
+  return uppercaseItemName(localized);
+}
+
+function packageSizeForCopy(copy: AppCopy, value: string | null | undefined): string | null {
+  return localizedPackageSize(value, copy === COPY.ms ? "ms" : "en");
 }
 
 const INIT_BASKET: BasketItem[] = [];
@@ -233,11 +240,16 @@ function latestPriceDate(prices: BasketItemPrice[]): string | null {
     .at(-1) ?? null;
 }
 
+function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
+  return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
+}
+
 function TripDetails({
   store,
   copy,
   basketSubtotal,
   basketLineCount,
+  medianPriceCount: reportedMedianPriceCount = 0,
   incomplete = false,
   showBasketSubtotal = true,
   transportMode,
@@ -246,11 +258,14 @@ function TripDetails({
   copy: AppCopy;
   basketSubtotal?: number | null;
   basketLineCount?: number | null;
+  medianPriceCount?: number;
   incomplete?: boolean;
   showBasketSubtotal?: boolean;
   transportMode?: TransportMode;
 }) {
   const hasBasket = showBasketSubtotal && (basketLineCount ?? 0) > 0;
+  const hasMedianPrices = reportedMedianPriceCount > 0;
+  const reportedStorePriceCount = store.storePriceCount ?? Math.max(0, (store.pricedCount ?? 0) - reportedMedianPriceCount);
 
   return (
     <>
@@ -276,7 +291,9 @@ function TripDetails({
       {hasBasket && (
         <div className={"rounded-xl p-3 " + (incomplete ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]")}>
           <p className={"text-xs " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
-            {incomplete ? copy.partialTotal : copy.basketSubtotal}
+            {incomplete
+              ? (hasMedianPrices ? copy.estimatedPartialTotal : copy.partialTotal)
+              : (hasMedianPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
           </p>
           <p className={"mt-1 text-lg font-extrabold " + (incomplete ? "text-[#3f4944]" : "text-[#175f4b]")}>
             {basketSubtotal == null ? "—" : formatRm(basketSubtotal)}
@@ -284,6 +301,11 @@ function TripDetails({
           {store.pricedCount != null && basketLineCount != null && (
             <p className={"mt-1 text-[11px] font-medium " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
               {copy.priceCoverage(store.pricedCount ?? 0, basketLineCount)}
+            </p>
+          )}
+          {hasMedianPrices && (
+            <p className={"mt-1 text-[11px] font-medium " + (incomplete ? "text-[#5f6368]" : "text-[#286d67]")}>
+              {copy.priceMix(reportedStorePriceCount, reportedMedianPriceCount)}
             </p>
           )}
         </div>
@@ -300,7 +322,10 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
         <li key={price.itemId} className="flex items-start justify-between gap-3 border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
           <div className="min-w-0">
             <p className="break-words text-[13px] font-semibold text-[#17362c]">{localizedName(copy, price.itemName, price)}</p>
-            {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{price.packageSize}</p>}
+            {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{packageSizeForCopy(copy, price.packageSize)}</p>}
+            {price.priceSource === "median" && (
+              <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{copy.medianPriceEstimate}</p>
+            )}
             <div className="mt-1">
               <SaraEligibilityFlag status={price.saraEligible ?? null} categoryCandidate={price.saraCategoryCandidate ?? false} copy={copy} />
             </div>
@@ -675,7 +700,7 @@ function BasketScreen({
                         <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{localizedName(copy, item.name, item)}</p>
                         {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
                       </div>
-                      <p className="break-words text-[13px] leading-5 text-[#617069]">{item.size}</p>
+                      <p className="break-words text-[13px] leading-5 text-[#617069]">{packageSizeForCopy(copy, item.size)}</p>
                       <SaraEligibilityFlag status={item.saraEligible} categoryCandidate={item.saraCategoryCandidate} copy={copy} />
                       {item.replacement && (
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
@@ -845,7 +870,7 @@ function BasketScreen({
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <h3 className="break-words text-[15px] font-extrabold leading-5 text-[#10231d]">{fields.name}</h3>
                   <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-5">
-                    <span className="break-words text-[#617069]">{fields.packageSize}</span>
+                    <span className="break-words text-[#617069]">{packageSizeForCopy(copy, fields.packageSize)}</span>
                     <span className="break-words text-[#718078]">{categoryLabel(locale, item.item_category)}</span>
                   </div>
                   <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
@@ -1034,7 +1059,6 @@ function LocationScreen({
   const locationGeneration = useRef(0);
   const reverseController = useRef<AbortController | null>(null);
   const [notification, setNotification] = useState({ id: 0, message: "" });
-  const [addressUnavailable, setAddressUnavailable] = useState(false);
   useEffect(() => () => { locationGeneration.current += 1; reverseController.current?.abort(); }, []);
 
   useEffect(() => {
@@ -1073,7 +1097,6 @@ function LocationScreen({
   const chooseSuggestion = async (suggestion: LocationSuggestion) => {
     const generation = ++locationGeneration.current;
     reverseController.current?.abort();
-    setAddressUnavailable(false);
     setSearchState("resolving");
     setLocationError("");
     try {
@@ -1100,7 +1123,6 @@ function LocationScreen({
     setSuggestions([]);
     setActiveSuggestion(-1);
     setSearchState("idle");
-    setAddressUnavailable(false);
     setLocationError("");
     locationSearchRef.current?.focus();
   };
@@ -1113,7 +1135,6 @@ function LocationScreen({
 
     const generation = ++locationGeneration.current;
     reverseController.current?.abort();
-    setAddressUnavailable(false);
     setSearchState("locating");
     setLocationError("");
     navigator.geolocation.getCurrentPosition(
@@ -1138,7 +1159,6 @@ function LocationScreen({
         const resolvedOrigin = { ...origin, label: label || copy.currentLocation };
         setSelectedOrigin(resolvedOrigin);
         setLocationInput(resolvedOrigin.label);
-        setAddressUnavailable(!label);
         setSearchState("idle");
         setNotification(current => ({ id: current.id + 1, message: label ? copy.locationDetected : copy.addressUnavailable }));
       },
@@ -1252,7 +1272,6 @@ function LocationScreen({
                 locationGeneration.current += 1;
                 reverseController.current?.abort();
                 setSearchState("idle");
-                setAddressUnavailable(false);
                 setLocationInput(value);
                 if (value !== selectedOrigin?.label) setSelectedOrigin(null);
               }}
@@ -1299,17 +1318,20 @@ function LocationScreen({
             )}
           </div>
 
-          <div aria-live="polite" className="min-h-5 text-sm">
-            {searchState === "searching" && <span className="text-[#53635c]">{copy.searchingLocations}</span>}
-            {searchState === "resolving" && <span className="text-[#53635c]">{copy.selectingLocation}</span>}
-            {selectedOrigin && searchState === "idle" && <span className="font-medium text-[#166534]">{addressUnavailable ? copy.addressUnavailable : selectedOrigin.label}</span>}
-            {locationError && <span role="alert" className="font-medium text-[#ba1a1a]">{locationError}</span>}
-          </div>
+          {(searchState === "searching" || searchState === "resolving" || locationError) && (
+            <div aria-live="polite" className="text-sm">
+              {searchState === "searching" && <span className="text-[#53635c]">{copy.searchingLocations}</span>}
+              {searchState === "resolving" && <span className="text-[#53635c]">{copy.selectingLocation}</span>}
+              {locationError && <span role="alert" className="font-medium text-[#ba1a1a]">{locationError}</span>}
+            </div>
+          )}
 
-          <div className="flex items-start gap-1 text-[14px] text-[#3e494a]">
-            <svg width={13.333} height={13.333} viewBox="0 0 13.3333 13.3333" fill="none" className="mt-0.5 shrink-0">
-              <path d={svgPathsLocation.p33549300} fill="#3E494A" />
-            </svg>
+          <div className="flex items-start gap-2 text-[14px] leading-5 text-[#3e494a]">
+            <span aria-hidden="true" className="flex h-5 w-4 shrink-0 items-center justify-center">
+              <svg width={14} height={14} viewBox="0 0 13.3333 13.3333" fill="none">
+                <path d={svgPathsLocation.p33549300} fill="#3E494A" />
+              </svg>
+            </span>
             <span>{copy.locationPrivacy}</span>
           </div>
         </section>
@@ -1374,7 +1396,6 @@ function LocationScreen({
         <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
           <div>
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.saraPlanning} <span className="text-sm font-normal text-[#53635c]">({copy.optional})</span></h2>
-            <p className="mt-1 text-sm text-[#3e494a]">{copy.saraPrivacy}</p>
           </div>
           <label className="flex items-start gap-3 text-[16px] text-[#191c1d]">
             <input
@@ -1443,6 +1464,9 @@ function StoreCard({
   copy: AppCopy;
   transportMode: TransportMode;
 }) {
+  const storeMedianPriceCount = medianPriceCount(store.basketPrices, store.medianPriceCount);
+  const hasMedianPrices = storeMedianPriceCount > 0;
+
   return (
     <article className={"relative overflow-hidden rounded-2xl border bg-white shadow-[0_4px_18px_rgba(16,35,29,0.06)] " + (isRecommended ? "border-2 border-[#087f5b]" : "border-[#e2e9e5]")}>
       {isRecommended && (
@@ -1475,6 +1499,7 @@ function StoreCard({
           copy={copy}
           basketSubtotal={store.basketSubtotalRm}
           basketLineCount={store.basketLineCount}
+          medianPriceCount={storeMedianPriceCount}
           incomplete={store.missingItems.length > 0}
           transportMode={transportMode}
         />
@@ -1506,10 +1531,18 @@ function StoreCard({
           <div className="rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{store.missingItems.length > 0 ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">
+                  {store.missingItems.length > 0
+                    ? (hasMedianPrices ? copy.estimatedPartialTotal : copy.partialEstimatedTotal)
+                    : (hasMedianPrices ? copy.estimatedCombinedTotal : copy.combinedTotal)}
+                </p>
                 <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(store.estimatedRoundTripCostRm)} + {formatRm(store.basketSubtotalRm!)} = {formatRm(store.combinedTotalRm!)}</p>
               </div>
-              <p className="text-right text-xs leading-5 text-[#d3f0e4]">{copy.returnTravel} + {store.missingItems.length > 0 ? copy.partialTotal : copy.basketSubtotal}</p>
+              <p className="text-right text-xs leading-5 text-[#d3f0e4]">
+                {copy.returnTravel} + {store.missingItems.length > 0
+                  ? (hasMedianPrices ? copy.estimatedPartialTotal : copy.partialTotal)
+                  : (hasMedianPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
+              </p>
             </div>
           </div>
         )}
@@ -1546,7 +1579,12 @@ function RecommendationBasketRow({
 }) {
   const suggestion = row.alternatives;
   const alternative = suggestion.alternative;
+  // A median baseline is useful for an estimate, but it is not a store price
+  // against which savings or pack-value recommendations can be claimed.
+  const hasMedianBaseline = row.source.priceSource === "median" || row.current.priceSource === "median";
   const lowerCostAvailable = Boolean(
+    !hasMedianBaseline
+    &&
     alternative
     && suggestion.savingsRm != null
     && suggestion.savingsRm > 0
@@ -1559,7 +1597,7 @@ function RecommendationBasketRow({
     alternative.saraEligible !== row.current.saraEligible
     || alternative.saraCategoryCandidate !== row.current.saraCategoryCandidate
   ) : false;
-  const packOptions = suggestion.packOptions ?? [];
+  const packOptions = hasMedianBaseline ? [] : suggestion.packOptions ?? [];
   const bestPack = packOptions.find(pack => pack.isBestValue) ?? packOptions[0];
   const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
 
@@ -1576,9 +1614,12 @@ function RecommendationBasketRow({
             )}
           </div>
           <p className="mt-0.5 text-xs text-[#718078]">
-            {row.current.packageSize ?? "—"}
+            {packageSizeForCopy(copy, row.current.packageSize) ?? "—"}
             {row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}
           </p>
+          {row.current.priceSource === "median" && (
+            <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{copy.medianPriceEstimate}</p>
+          )}
           <div className="mt-1">
             <SaraEligibilityFlag status={row.current.saraEligible} categoryCandidate={row.current.saraCategoryCandidate} copy={copy} />
           </div>
@@ -1607,7 +1648,7 @@ function RecommendationBasketRow({
           <div className="min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
             <p className="mt-0.5 break-words text-xs font-semibold text-[#17362c]">{localizedName(copy, alternative.itemName, alternative)}</p>
-            <p className="text-[11px] text-[#718078]">{alternative.packageSize ?? alternative.unit ?? "—"}</p>
+            <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
             <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
             {eligibilityChanges && (
               <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} categoryCandidate={alternative.saraCategoryCandidate} copy={copy} /></div>
@@ -1634,7 +1675,7 @@ function RecommendationBasketRow({
                 <p className="mt-0.5 break-words text-[11px] text-[#617069]">
                   {bestPack.itemId === row.current.itemId
                     ? copy.currentPackBestValue
-                    : `${copy.bestUnitValue}: ${bestPack.packageSize ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
+                    : `${copy.bestUnitValue}: ${packageSizeForCopy(copy, bestPack.packageSize) ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
                 </p>
               </div>
               <span aria-hidden="true" className="shrink-0 text-lg font-bold text-[#087f5b]">⌄</span>
@@ -1661,7 +1702,7 @@ function RecommendationBasketRow({
                     {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>}
                   </div>
                   <p className="mt-1 break-words text-xs font-bold leading-4 text-[#17362c]">{localizedName(copy, pack.itemName, pack)}</p>
-                  <p className="text-[11px] text-[#718078]">{pack.packageSize ?? "—"}</p>
+                  <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, pack.packageSize) ?? "—"}</p>
                   <div className="mt-2 flex items-end justify-between gap-2">
                     <div>
                       <p className="text-sm font-extrabold text-[#17362c]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
@@ -1752,19 +1793,25 @@ function RecommendationOverview({
   const displayedCredit = detailRows.length > 0 ? detailTotals.saraCreditRm : store.saraCreditRm;
   const displayedCash = detailRows.length > 0 ? detailTotals.cashNeededRm : store.cashNeededRm;
   const displayedPricedCount = detailRows.length > 0 ? detailTotals.pricedCount : store.pricedCount ?? 0;
+  const displayedMedianPriceCount = detailRows.length > 0
+    ? detailTotals.medianPriceCount
+    : store.medianPriceCount ?? store.basketPrices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
   const displayedLineCount = detailRows.length > 0 ? detailTotals.lineCount : store.basketLineCount ?? 0;
   const hasIncompleteBasket = displayedLineCount > 0 && displayedPricedCount < displayedLineCount;
+  const hasEstimatedPrices = displayedMedianPriceCount > 0;
   const adjustedCombinedTotal = displayedSubtotal == null
     ? null
     : Number((displayedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
 
   const applyAlternative = (line: BasketAlternativeLine) => {
+    if (line.source.priceSource === "median") return;
     const choice = lowerCostReplacementChoice(line);
     if (!choice) return;
     onSetBasket(current => applyBasketReplacement(current, choice, { id: store.premiseId, name: store.name }));
   };
 
   const applyPack = (row: RecommendationDetailRow, packItemId: string) => {
+    if (row.source.priceSource === "median" || row.current.priceSource === "median") return;
     const pack = row.alternatives.packOptions?.find(option => option.itemId === packItemId);
     const choice = pack ? packReplacementChoice(row.alternatives, pack) : null;
     if (!choice) return;
@@ -1818,11 +1865,21 @@ function RecommendationOverview({
                     <h2 className="text-[17px] font-extrabold text-[#10231d]">{copy.basketItems}</h2>
                     <p className="mt-0.5 text-xs text-[#617069]">
                       {copy.priceCoverage(displayedPricedCount, displayedLineCount)}
+                      {hasEstimatedPrices ? ` · ${copy.priceMix(
+                        detailRows.length > 0
+                          ? detailTotals.storePriceCount
+                          : store.storePriceCount ?? Math.max(0, displayedPricedCount - displayedMedianPriceCount),
+                        displayedMedianPriceCount,
+                      )}` : ""}
                       {lastPriceDate ? ` · ${copy.lastUpdated}: ${formatPriceDate(lastPriceDate)}` : ""}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-[#617069]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}</p>
+                    <p className="text-xs text-[#617069]">
+                      {hasIncompleteBasket
+                        ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
+                        : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
+                    </p>
                     <p className="text-xl font-extrabold text-[#175f4b]">{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</p>
                   </div>
                 </div>
@@ -1864,7 +1921,9 @@ function RecommendationOverview({
                 originalRm={detailTotals.originalSubtotalRm}
                 newRm={detailTotals.currentSubtotalRm}
                 netSavingRm={detailTotals.netSavingRm}
-                totalsLabel={hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal}
+                totalsLabel={hasIncompleteBasket
+                  ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
+                  : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
               />
             </section>
           )}
@@ -1873,10 +1932,18 @@ function RecommendationOverview({
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">{hasIncompleteBasket ? copy.partialEstimatedTotal : copy.combinedTotal}</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[#d3f0e4]">
+                    {hasIncompleteBasket
+                      ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialEstimatedTotal)
+                      : (hasEstimatedPrices ? copy.estimatedCombinedTotal : copy.combinedTotal)}
+                  </p>
                   <p className="mt-1 text-2xl font-extrabold leading-8">{formatRm(displayedSubtotal!)} + {formatRm(store.estimatedRoundTripCostRm)} = {formatRm(adjustedCombinedTotal!)}</p>
                 </div>
-                <p className="text-right text-xs leading-5 text-[#d3f0e4]">{hasIncompleteBasket ? copy.partialTotal : copy.basketSubtotal} + {copy.returnTravel}</p>
+                <p className="text-right text-xs leading-5 text-[#d3f0e4]">
+                  {hasIncompleteBasket
+                    ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
+                    : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)} + {copy.returnTravel}
+                </p>
               </div>
             </div>
           )}

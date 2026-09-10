@@ -171,6 +171,7 @@ def test_endpoint_returns_pack_options_in_camel_case(monkeypatch) -> None:
         package_size="1 kg", unit_price_rm=10.0, line_total_rm=10.0,
         observed_date=TODAY, price_observed_days_ago=0, sara_eligible=None,
         sara_category_candidate=False, is_sara_credit_candidate=False,
+        price_source="store",
     )
     monkeypatch.setattr("smartcart.api.premise_exists", lambda _premise_id: True)
     monkeypatch.setattr(

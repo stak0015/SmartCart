@@ -342,6 +342,25 @@ The migration is transactional and safe to run more than once. It uses the
 existing item `unit` value first, falls back to the item name, and leaves
 non-comparable quantities unset.
 
+If the database was created before cached median prices were added, backfill
+the cross-store price cache as well:
+
+Windows PowerShell:
+
+```powershell
+python migrate_median_prices.py
+```
+
+macOS/Linux:
+
+```bash
+./.venv/bin/python migrate_median_prices.py
+```
+
+This migration is transactional and repeatable. It computes
+`item.median_price_rm` from all positive latest store prices in
+`current_status`; items with no valid price remain `NULL`.
+
 ## Demonstrate budget alternatives with stable data
 
 For a repeatable browser walkthrough, start the isolated demo database from

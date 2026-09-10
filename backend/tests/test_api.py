@@ -99,6 +99,8 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "estimatedTotalCostRm": 12.82,
         "pricedItemCount": 1,
         "basketItemCount": 1,
+        "storePriceCount": 1,
+        "medianPriceCount": 0,
         "isCompleteBasket": True,
         "basketPrices": [],
         "basketSubtotalRm": 12.34,

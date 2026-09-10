@@ -125,13 +125,17 @@ class BasketItemPrice(CamelModel):
     unit_price_rm: float | None
     line_total_rm: float | None
     price_observed_date: date | None
+    price_source: Literal["store", "median"] | None = None
     sara_eligible: bool | None = None
     sara_category_candidate: bool = False
 
 
 class BasketLineDetail(CamelModel):
-    """One basket line's priced detail at a store (AC 2.3.9); price fields
-    are None when the store has no valid price for the line."""
+    """One basket line's priced detail at a store (AC 2.3.9).
+
+    A valid store observation is preferred, then the cached cross-store
+    median. Price fields remain None when neither source is available.
+    """
 
     item_id: str
     item_name: str | None
@@ -142,6 +146,7 @@ class BasketLineDetail(CamelModel):
     unit_price_rm: float | None
     line_total_rm: float | None
     observed_date: str | None
+    price_source: Literal["store", "median"] | None = None
 
 
 class AlternativePriceItem(CamelModel):
@@ -160,6 +165,7 @@ class AlternativePriceItem(CamelModel):
     sara_eligible: bool | None
     sara_category_candidate: bool = False
     is_sara_credit_candidate: bool = False
+    price_source: Literal["store", "median"] | None = None
 
 
 class PackSizeOption(CamelModel):
@@ -238,11 +244,14 @@ class StoreRecommendation(CamelModel):
     basket_item_count: int = 0
     is_complete_basket: bool = True
     basket_prices: list[BasketItemPrice] = Field(default_factory=list)
-    # Priced-basket subtotal (AC 2.3.1): sum of the valid positive priced
-    # lines; partial when the store misses prices and then never presented
-    # as the full basket cost (AC 2.3.3). None when no basket was sent or
-    # no basket line is priced; priced_count / basket_line_count give the
-    # coverage ("X of N items priced").
+    # Effective basket coverage includes actual store prices and cached median
+    # estimates. The split remains visible so callers can distinguish exact
+    # store coverage from estimated fallback coverage.
+    store_price_count: int = 0
+    median_price_count: int = 0
+    # Effective basket subtotal (AC 2.3.1): valid store prices plus cached
+    # median estimates. It remains partial when neither source exists for a
+    # line. None means no basket was sent or no line has an effective price.
     basket_subtotal_rm: float | None = None
     missing_items: list[str] = Field(default_factory=list)
     priced_count: int | None = None
@@ -258,8 +267,8 @@ class StoreRecommendation(CamelModel):
     combined_total_rm: float | None = None
     # Per-line priced detail behind "View item prices" (AC 2.3.9).
     basket_lines: list[BasketLineDetail] = Field(default_factory=list)
-    # Age in days of the store's oldest basket-line price (AC 2.3.5); None
-    # when no basket line is priced at that store (or no basket was sent).
+    # Age in days of the store's oldest directly observed basket-line price
+    # (AC 2.3.5); cached medians never contribute an observation date.
     price_observed_days_ago: int | None = None
     # True when the store is beyond the shopper's chosen travel limit and was
     # only shown because no store matched inside it (iteration1 feedback: show

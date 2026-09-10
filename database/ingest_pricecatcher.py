@@ -501,6 +501,45 @@ def copy_frame(cursor: psycopg.Cursor, table: str, frame: pd.DataFrame) -> None:
             copy.write(data)
 
 
+def refresh_touched_item_medians(cursor: psycopg.Cursor) -> int:
+    """Refresh cached medians for items represented in the staging batch.
+
+    The aggregate reads every current status for each touched item, rather than
+    only the rows in the incoming batch. The primary key on ``current_status``
+    starts with ``item_id``, so this keeps the refresh bounded to affected item
+    groups while preserving the all-premises median semantics.
+    """
+
+    cursor.execute(
+        """
+        WITH touched_items AS (
+            SELECT DISTINCT i.item_id
+            FROM stage_current_status AS s
+            JOIN item AS i ON i.item_code = s.item_code
+        ), medians AS (
+            SELECT cs.item_id,
+                   ROUND(
+                       (
+                           percentile_cont(0.5)
+                           WITHIN GROUP (ORDER BY cs.current_price)
+                       )::numeric,
+                       2
+                   ) AS median_price_rm
+            FROM current_status AS cs
+            JOIN touched_items AS touched ON touched.item_id = cs.item_id
+            WHERE cs.current_price > 0
+            GROUP BY cs.item_id
+        )
+        UPDATE item AS i
+        SET median_price_rm = medians.median_price_rm
+        FROM touched_items AS touched
+        LEFT JOIN medians ON medians.item_id = touched.item_id
+        WHERE i.item_id = touched.item_id
+        """
+    )
+    return cursor.rowcount
+
+
 def upsert_data(connection: psycopg.Connection, data: PreparedData) -> dict[str, int]:
     with connection.transaction(), connection.cursor() as cursor:
         cursor.execute(
@@ -629,11 +668,13 @@ def upsert_data(connection: psycopg.Connection, data: PreparedData) -> dict[str,
             """
         )
         status_rows = cursor.rowcount
+        median_items = refresh_touched_item_medians(cursor)
 
     return {
         "item_rows_upserted": item_rows,
         "premise_rows_upserted": premise_rows,
         "status_rows_upserted": status_rows,
+        "median_items_refreshed": median_items,
     }
 
 
