@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
@@ -482,18 +482,91 @@ function ProgressIndicator({ step, copy }: { step: 1 | 2 | 3 | 4; copy: AppCopy 
   ] as const;
 
   return (
-    <div aria-label={copy.step(step)} className="grid w-full grid-cols-4 rounded-xl bg-[#edf3ef] p-1">
-      {steps.map(current => (
-        <div
-          key={current.n}
-          className={`flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2 text-center text-[11px] font-bold sm:flex-row sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-sm ${
-            step === current.n ? "bg-white text-[#087f5b] shadow-sm" : current.n < step ? "text-[#087f5b]" : "text-[#617069]"
-          }`}
-        >
-          <span aria-hidden="true">{current.n < step ? "✓" : current.n}</span>
-          <span className="min-w-0 break-words leading-4">{current.label}</span>
+    <div
+      role="progressbar"
+      aria-label={copy.step(step)}
+      aria-valuemin={1}
+      aria-valuemax={steps.length}
+      aria-valuenow={step}
+      aria-valuetext={copy.step(step)}
+      className="-mx-2 w-[calc(100%+1rem)] px-3 py-3 sm:px-5"
+    >
+      <div className="relative">
+        <div aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-4 h-1 -translate-y-1/2 rounded-full bg-[#dce5e0]">
+          <div
+            className="h-full rounded-full bg-[#087f5b]"
+            style={{ width: `${((step - 1) / (steps.length - 1)) * 100}%` }}
+          />
         </div>
-      ))}
+        <ol className="relative grid grid-cols-4">
+          {steps.map(current => (
+            <li key={current.n} className="flex min-w-0 flex-col items-center gap-1.5 text-center">
+              <span
+                aria-hidden="true"
+                className={`flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-extrabold ${
+                  current.n < step
+                    ? "border-[#087f5b] bg-[#087f5b] text-white"
+                    : current.n === step
+                      ? "border-[#087f5b] bg-[#edf7f2] text-[#087f5b]"
+                      : "border-[#b8c9c1] bg-white text-[#617069]"
+                }`}
+              >
+                {current.n < step ? "✓" : current.n}
+              </span>
+              <span className={`min-w-0 break-words text-[11px] font-bold leading-4 sm:text-sm ${current.n <= step ? "text-[#087f5b]" : "text-[#617069]"}`}>
+                {current.label}
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </div>
+  );
+}
+
+function QuantitySelector({
+  value,
+  onChange,
+  onStep,
+  decreaseLabel,
+  increaseLabel,
+  quantityLabel,
+  errorId,
+  errorText,
+  action,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onStep: (delta: number) => void;
+  decreaseLabel: string;
+  increaseLabel: string;
+  quantityLabel: string;
+  errorId?: string;
+  errorText?: string;
+  action?: ReactNode;
+}) {
+  const qty = parseQty(value);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 sm:items-start">
+      <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
+        <button type="button" aria-label={decreaseLabel} disabled={qty === DEFAULT_QTY} onClick={() => onStep(-1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b] disabled:opacity-40">−</button>
+        <input
+          type="text"
+          inputMode="numeric"
+          aria-label={quantityLabel}
+          aria-invalid={qty === null}
+          aria-describedby={qty === null && errorId ? errorId : undefined}
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10231d] focus:border-[#087f5b]"}`}
+        />
+        <button type="button" aria-label={increaseLabel} disabled={qty === MAX_QTY} onClick={() => onStep(1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white disabled:opacity-40">+</button>
+        {action}
+      </div>
+      {qty === null && errorId && errorText && (
+        <p id={errorId} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{errorText}</p>
+      )}
     </div>
   );
 }
@@ -537,6 +610,7 @@ function BasketScreen({
   const [apiSearched, setApiSearched] = useState(false);
   const [apiError, setApiError] = useState(false);
   const [qtyById, setQtyById] = useState<Record<number, string>>({}); // result-row quantity raw input (default "1")
+  const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
 
   // AC-1.4.1: single source of truth is the raw string; the steppers also
   // read/write through parseQty so typed and stepped values never drift.
@@ -617,11 +691,30 @@ function BasketScreen({
       : [...current, category]);
   };
 
-  const updateQty = (id: string, delta: number) => {
-    setBasket(basket.map(b => b.id === id ? { ...b, qty: Math.max(1, b.qty + delta) } : b));
+  const stepBasketQty = (id: string, delta: number) => {
+    const item = basket.find(current => current.id === id);
+    if (!item) return;
+    const base = parseQty(basketQtyById[id] ?? String(item.qty)) ?? item.qty;
+    const next = stepQty(base, delta);
+    setBasketQtyById(current => ({ ...current, [id]: String(next) }));
+    setBasket(current => current.map(line => line.id === id ? { ...line, qty: next } : line));
   };
 
-  const removeItem = (id: string) => setBasket(basket.filter(b => b.id !== id));
+  const typeBasketQty = (id: string, raw: string) => {
+    setBasketQtyById(current => ({ ...current, [id]: raw }));
+    const next = parseQty(raw);
+    if (next === null) return;
+    setBasket(current => current.map(line => line.id === id ? { ...line, qty: next } : line));
+  };
+
+  const removeItem = (id: string) => {
+    setBasket(current => current.filter(item => item.id !== id));
+    setBasketQtyById(current => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  };
 
   // Convert a real database Item into a BasketItem and add it to the basket.
   // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
@@ -671,7 +764,6 @@ function BasketScreen({
               <IcoBasket color="#087f5b" size={22} />
               <div>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
-                {isDesktopBasketRail && <p className="mt-0.5 text-xs text-[#718078]">{copy.basketItemsAndKinds(itemCount, basket.length)}</p>}
               </div>
             </div>
           </div>
@@ -684,8 +776,8 @@ function BasketScreen({
             <div className="flex flex-col gap-2">
               {basket.map((item, idx) => (
                 <div key={item.id}>
-                  <div className={"flex min-w-0 py-3 " + (isDesktopBasketRail ? "items-center justify-between gap-2" : "flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")}>
-                    <div className="flex min-w-0 flex-col gap-1.5 pr-2">
+                  <div className={"flex min-w-0 py-3 " + (isDesktopBasketRail ? "flex-col gap-3" : "flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")}>
+                    <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{localizedName(copy, item.name, item)}</p>
                         {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
@@ -699,11 +791,18 @@ function BasketScreen({
                         </div>
                       )}
                     </div>
-                    <div className={"flex shrink-0 items-center gap-1 " + (isDesktopBasketRail ? "" : "self-start sm:self-auto")}>
-                      <button aria-label={copy.decreaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
-                      <span aria-label={copy.selectedQuantity(item.qty)} className="w-7 text-center text-sm font-bold">{item.qty}</span>
-                      <button aria-label={copy.increaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
-                      <button aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
+                    <div className={"flex shrink-0 items-center gap-1 " + (isDesktopBasketRail ? "self-start" : "self-start sm:self-auto")}>
+                      <QuantitySelector
+                        value={basketQtyById[item.id] ?? String(item.qty)}
+                        onChange={raw => typeBasketQty(item.id, raw)}
+                        onStep={delta => stepBasketQty(item.id, delta)}
+                        decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))}
+                        increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))}
+                        quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))}
+                        errorId={`basket-quantity-error-${item.id}`}
+                        errorText={copy.quantityError}
+                      />
+                      <button type="button" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)} className="flex h-11 w-9 items-center justify-center">
                         <IcoTrash />
                       </button>
                     </div>
@@ -726,9 +825,8 @@ function BasketScreen({
           />
           {isDesktopBasketRail && (
             <div className="border-t border-[#dce5e0] bg-[#fbfcfb] px-5 py-4">
-              <p className="text-xs font-semibold text-[#617069]">{copy.basketItemsAndKinds(itemCount, basket.length)}</p>
-              <button type="button" onClick={handleContinue} disabled={basket.length === 0} className="mt-3 min-h-12 w-full rounded-xl bg-[#087f5b] px-4 text-[15px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none">
-                {copy.chooseLocation}
+              <button type="button" onClick={onViewBasket} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 text-[15px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none">
+                {copy.viewBasket}
               </button>
             </div>
           )}
@@ -874,33 +972,25 @@ function BasketScreen({
                   <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
                 </div>
 
-                <div className="flex min-w-0 flex-col gap-2 sm:items-end">
-                  <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-                    <button type="button" aria-label={copy.decreaseQuantity(fields.name)} disabled={qty === DEFAULT_QTY} onClick={() => stepResultQty(item.item_id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b] disabled:opacity-40">−</button>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      aria-label={copy.quantityFor(fields.name)}
-                      aria-invalid={qty === null}
-                      aria-describedby={qty === null ? `quantity-error-${item.item_id}` : undefined}
-                      value={rawQty}
-                      onChange={e => typeResultQty(item.item_id, e.target.value)}
-                      className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10231d] focus:border-[#087f5b]"}`}
-                    />
-                    <button type="button" aria-label={copy.increaseQuantity(fields.name)} disabled={qty === MAX_QTY} onClick={() => stepResultQty(item.item_id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white disabled:opacity-40">+</button>
-                    <button
+                <QuantitySelector
+                  value={rawQty}
+                  onChange={raw => typeResultQty(item.item_id, raw)}
+                  onStep={delta => stepResultQty(item.item_id, delta)}
+                  decreaseLabel={copy.decreaseQuantity(fields.name)}
+                  increaseLabel={copy.increaseQuantity(fields.name)}
+                  quantityLabel={copy.quantityFor(fields.name)}
+                  errorId={`quantity-error-${item.item_id}`}
+                  errorText={copy.quantityError}
+                  action={<button
+                      type="button"
                       disabled={qty === null}
                       onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
                       aria-label={`${copy.addToBasket}: ${fields.name}`}
                       className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
                     >
                       {copy.addShort}
-                    </button>
-                  </div>
-                  {qty === null && (
-                    <p id={`quantity-error-${item.item_id}`} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{copy.quantityError}</p>
-                  )}
-                </div>
+                    </button>}
+                />
               </article>
               );
             })}
