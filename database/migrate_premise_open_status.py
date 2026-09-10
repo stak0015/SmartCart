@@ -35,6 +35,17 @@ PREMISE_PLACE_CACHE_PATH = (
 ALLOWED_OPEN_CLOSED_STATUSES = frozenset(
     {"open", "closed_permanently", "closed_temporarily", "unknown"}
 )
+ALLOWED_PLACE_MATCH_DECISIONS = frozenset(
+    {
+        "accepted",
+        "needs_review",
+        "rejected",
+        "no_result",
+        "error",
+        "not_attempted_no_postcode",
+        "not_attempted_no_name_or_postcode",
+    }
+)
 
 
 def snapshot_generated_at(path: Path) -> pd.Timestamp:
@@ -142,6 +153,7 @@ def load_premise_coordinates(
             {
                 "premise_code": result.get("premise_code"),
                 "coordinate_google_place_id": result.get("place_id"),
+                "place_match_decision": result.get("place_match_decision"),
                 "coordinate_open_closed_status": result.get(
                     "place_open_closed_status"
                 ),
@@ -155,6 +167,7 @@ def load_premise_coordinates(
         columns=[
             "premise_code",
             "coordinate_google_place_id",
+            "place_match_decision",
             "coordinate_open_closed_status",
             "latitude",
             "longitude",
@@ -173,6 +186,23 @@ def load_premise_coordinates(
     frame.loc[
         frame["coordinate_google_place_id"] == "", "coordinate_google_place_id"
     ] = pd.NA
+    frame["place_match_decision"] = (
+        frame["place_match_decision"].astype("string").str.strip().str.lower()
+    )
+    frame.loc[frame["place_match_decision"] == "", "place_match_decision"] = pd.NA
+    missing_decision = frame["place_match_decision"].isna()
+    if missing_decision.any():
+        raise ValueError(
+            "premise Place cache is missing place_match_decision values"
+        )
+    invalid_decisions = sorted(
+        set(frame["place_match_decision"]) - ALLOWED_PLACE_MATCH_DECISIONS
+    )
+    if invalid_decisions:
+        raise ValueError(
+            "premise Place cache contains invalid place_match_decision values: "
+            f"{invalid_decisions}"
+        )
     frame["coordinate_open_closed_status"] = (
         frame["coordinate_open_closed_status"].astype("string").str.strip().str.lower()
     )
@@ -245,6 +275,7 @@ def load_premise_coordinates(
         [
             "premise_code",
             "coordinate_google_place_id",
+            "place_match_decision",
             "open_closed_status",
             "latitude",
             "longitude",
@@ -254,7 +285,11 @@ def load_premise_coordinates(
         columns={"coordinate_google_place_id": "google_place_id"}, inplace=True
     )
     has_coordinates = prepared["latitude"].notna()
-    retain_coordinates = has_coordinates & prepared["open_closed_status"].eq("open")
+    retain_coordinates = (
+        has_coordinates
+        & prepared["open_closed_status"].eq("open")
+        & prepared["place_match_decision"].ne("rejected")
+    )
     prepared.loc[~retain_coordinates, ["latitude", "longitude"]] = pd.NA
     prepared["location_provider"] = pd.Series(
         pd.NA, index=prepared.index, dtype="string"
@@ -291,6 +326,7 @@ def apply_premise_open_status(
         {
             "premise_code",
             "google_place_id",
+            "place_match_decision",
             "open_closed_status",
             "latitude",
             "longitude",
@@ -343,6 +379,7 @@ def apply_premise_open_status(
             CREATE TEMP TABLE stage_premise_coordinates (
                 premise_code TEXT,
                 google_place_id TEXT,
+                place_match_decision TEXT,
                 open_closed_status TEXT,
                 latitude DOUBLE PRECISION,
                 longitude DOUBLE PRECISION,
@@ -373,6 +410,7 @@ def apply_premise_open_status(
             FROM stage_premise_coordinates AS e
             WHERE p.premise_code = e.premise_code
               AND e.google_place_id IS NOT NULL
+              AND e.place_match_decision <> 'rejected'
               AND p.google_place_id = e.google_place_id
               AND (
                   p.place_match_refreshed_at IS NULL
@@ -400,6 +438,7 @@ def apply_premise_open_status(
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.latitude IS NULL
+                      AND e.place_match_decision <> 'rejected'
                       AND p.location_provider = 'google'
                       AND (
                           p.location_refreshed_at IS NULL
@@ -415,6 +454,7 @@ def apply_premise_open_status(
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.latitude IS NULL
+                      AND e.place_match_decision <> 'rejected'
                       AND p.location_provider = 'google'
                       AND p.location_refreshed_at > e.cache_generated_at
                 ),
@@ -459,6 +499,7 @@ def apply_premise_open_status(
             FROM stage_premise_coordinates AS e
             WHERE p.premise_code = e.premise_code
               AND e.latitude IS NULL
+              AND e.place_match_decision <> 'rejected'
               AND p.location_provider = 'google'
               AND (
                   p.location_refreshed_at IS NULL
@@ -469,32 +510,108 @@ def apply_premise_open_status(
         cleared_rows_updated = cursor.rowcount
         cursor.execute(
             """
+            SELECT COUNT(*)
+            FROM stage_premise_coordinates AS e
+            JOIN premise AS p ON p.premise_code = e.premise_code
+            WHERE e.place_match_decision = 'rejected'
+              AND (
+                  p.google_place_id IS NOT NULL
+                  OR p.open_closed_status IS NOT NULL
+                  OR p.place_status_refreshed_at IS NOT NULL
+                  OR p.place_match_refreshed_at IS NOT NULL
+                  OR p.latitude IS NOT NULL
+                  OR p.longitude IS NOT NULL
+                  OR p.location_provider IS NOT NULL
+                  OR p.location_refreshed_at IS NOT NULL
+              )
+            """
+        )
+        rejected_rows_with_existing_data = cursor.fetchone()[0]
+        cursor.execute(
+            """
+            UPDATE premise AS p
+            SET
+                google_place_id = NULL,
+                open_closed_status = NULL,
+                place_status_refreshed_at = NULL,
+                place_match_refreshed_at = NULL,
+                latitude = NULL,
+                longitude = NULL,
+                location_provider = NULL,
+                location_refreshed_at = NULL
+            FROM stage_premise_coordinates AS e
+            WHERE p.premise_code = e.premise_code
+              AND e.place_match_decision = 'rejected'
+            """
+        )
+        rejected_rows_cleared = cursor.rowcount
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM stage_premise_coordinates AS e
+            JOIN premise AS p ON p.premise_code = e.premise_code
+            WHERE e.place_match_decision = 'rejected'
+              AND (
+                  p.google_place_id IS NOT NULL
+                  OR p.open_closed_status IS NOT NULL
+                  OR p.place_status_refreshed_at IS NOT NULL
+                  OR p.place_match_refreshed_at IS NOT NULL
+                  OR p.latitude IS NOT NULL
+                  OR p.longitude IS NOT NULL
+                  OR p.location_provider IS NOT NULL
+                  OR p.location_refreshed_at IS NOT NULL
+              )
+            """
+        )
+        rejected_rows_remaining = cursor.fetchone()[0]
+        cursor.execute(
+            """
             SELECT
                 COUNT(*) FILTER (WHERE p.premise_id IS NULL),
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.open_closed_status = 'open'
+                      AND c.place_match_decision IS DISTINCT FROM 'rejected'
                 ),
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.open_closed_status IS DISTINCT FROM 'open'
+                ),
+                COUNT(*) FILTER (
+                    WHERE p.premise_id IS NOT NULL
+                      AND e.open_closed_status = 'open'
+                      AND c.place_match_decision = 'rejected'
                 )
             FROM stage_premise_open_status AS e
+            LEFT JOIN stage_premise_coordinates AS c
+                ON c.premise_code = e.premise_code
             LEFT JOIN premise AS p ON p.premise_code = e.premise_code
             """
         )
-        missing_rows, open_rows, excluded_rows = cursor.fetchone()
+        (
+            missing_rows,
+            open_rows,
+            excluded_rows,
+            open_rejected_rows,
+        ) = cursor.fetchone()
 
     return {
         "premise_rows_updated": updated_rows,
         "open_premise_rows": open_rows,
         "not_open_or_unknown_premise_rows": excluded_rows,
+        "open_rejected_premise_rows": open_rejected_rows,
         "snapshot_rows_without_database_premise": missing_rows,
         "place_match_timestamps_updated": place_match_timestamps_updated,
         "coordinate_rows_updated": coordinate_rows_updated,
         "coordinate_rows_set": coordinate_rows_set,
         "google_coordinate_rows_cleared": google_coordinate_rows_cleared,
         "cleared_rows_updated": cleared_rows_updated,
+        "rejected_place_match_rows": int(
+            coordinate_rows["place_match_decision"].eq("rejected").sum()
+        ),
+        "rejected_rows_with_existing_data": rejected_rows_with_existing_data,
+        "rejected_rows_cleared": rejected_rows_cleared,
+        "rejected_rows_remaining": rejected_rows_remaining,
         "newer_open_coordinate_rows_preserved": (
             newer_open_coordinate_rows_preserved
         ),
@@ -548,6 +665,10 @@ def main() -> int:
     print(
         "  retained_open_place_coordinate_rows: "
         f"{int(coordinate_rows['latitude'].notna().sum()):,}"
+    )
+    print(
+        "  rejected_place_match_rows: "
+        f"{int(coordinate_rows['place_match_decision'].eq('rejected').sum()):,}"
     )
     print(
         "  rows_without_retained_open_coordinates: "

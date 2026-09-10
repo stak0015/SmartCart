@@ -33,6 +33,11 @@ class PremiseOpenStatusSnapshotTests(unittest.TestCase):
 
     @staticmethod
     def write_cache(directory: Path, results: dict[str, dict]) -> Path:
+        for result in results.values():
+            result.setdefault(
+                "place_match_decision",
+                "accepted" if result.get("place_id") else "no_result",
+            )
         path = directory / "premises.cache.json"
         path.write_text(
             json.dumps(
@@ -231,6 +236,33 @@ class PremiseOpenStatusSnapshotTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "business status"):
                 load_premise_coordinates(cache_path, status_rows)
+
+    def test_rejected_place_match_clears_coordinates_before_import(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory)
+            csv_path = self.write_snapshot(directory, "10,place-10,open\n")
+            status_rows = load_premise_open_status(csv_path)
+            cache_path = self.write_cache(
+                directory,
+                {
+                    "0": {
+                        "premise_code": "10",
+                        "place_id": "place-10",
+                        "place_open_closed_status": "open",
+                        "place_latitude": 3.139,
+                        "place_longitude": 101.6869,
+                        "place_match_decision": "rejected",
+                    }
+                },
+            )
+
+            result = load_premise_coordinates(cache_path, status_rows)
+
+        self.assertEqual(result.iloc[0]["place_match_decision"], "rejected")
+        self.assertTrue(pd.isna(result.iloc[0]["latitude"]))
+        self.assertTrue(pd.isna(result.iloc[0]["longitude"]))
+        self.assertTrue(pd.isna(result.iloc[0]["location_provider"]))
+        self.assertTrue(pd.isna(result.iloc[0]["location_refreshed_at"]))
 
 
 if __name__ == "__main__":
