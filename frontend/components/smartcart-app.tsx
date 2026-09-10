@@ -658,19 +658,25 @@ function BasketScreen({
 
   const { itemCount } = basketSummary(basket);
   const basketCostSummary = basketSavingsSummary(basket);
+  const isDesktopBasketRail = view === "shop";
 
   const basketPanel = (
-      <div className="px-4 pb-8 sm:px-6">
-        <div className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
+      <div className={isDesktopBasketRail ? "h-full" : "px-4 pb-8 sm:px-6"}>
+        <div className={isDesktopBasketRail
+          ? "flex h-full min-h-0 flex-col overflow-hidden bg-white"
+          : "overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]"}>
           {/* Heading */}
-          <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-4">
+          <div className={"flex items-center justify-between border-b border-[#edf1ef] " + (isDesktopBasketRail ? "px-5 py-4" : "px-4 py-4")}>
             <div className="flex items-center gap-2">
               <IcoBasket color="#087f5b" size={22} />
-              <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+              <div>
+                <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+                {isDesktopBasketRail && <p className="mt-0.5 text-xs text-[#718078]">{copy.basketItemsAndKinds(itemCount, basket.length)}</p>}
+              </div>
             </div>
           </div>
 
-          <div className="p-4">
+          <div className={isDesktopBasketRail ? "min-h-0 flex-1 overflow-y-auto px-5" : "p-4"}>
 
           {basket.length === 0 ? (
             <p className="text-[16px] text-[#3e494a] text-center py-4">{copy.basketEmpty}</p>
@@ -678,8 +684,8 @@ function BasketScreen({
             <div className="flex flex-col gap-2">
               {basket.map((item, idx) => (
                 <div key={item.id}>
-                  <div className={"flex min-w-0 flex-col gap-3 py-3 " + (view === "basket" ? "sm:flex-row sm:items-center sm:justify-between" : "")}>
-                    <div className="flex min-w-0 flex-col gap-1.5 sm:pr-3">
+                  <div className={"flex min-w-0 py-3 " + (isDesktopBasketRail ? "items-center justify-between gap-2" : "flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")}>
+                    <div className="flex min-w-0 flex-col gap-1.5 pr-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{localizedName(copy, item.name, item)}</p>
                         {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
@@ -693,7 +699,7 @@ function BasketScreen({
                         </div>
                       )}
                     </div>
-                    <div className="flex shrink-0 items-center gap-1 self-start sm:self-auto">
+                    <div className={"flex shrink-0 items-center gap-1 " + (isDesktopBasketRail ? "" : "self-start sm:self-auto")}>
                       <button aria-label={copy.decreaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, -1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#087f5b]">−</button>
                       <span aria-label={copy.selectedQuantity(item.qty)} className="w-7 text-center text-sm font-bold">{item.qty}</span>
                       <button aria-label={copy.increaseQuantity(localizedName(copy, item.name, item))} onClick={() => updateQty(item.id, 1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#087f5b] text-lg text-white">+</button>
@@ -718,6 +724,14 @@ function BasketScreen({
             netSavingRm={basketCostSummary.netSavingRm}
             totalsLabel={copy.affectedItemsTotal}
           />
+          {isDesktopBasketRail && (
+            <div className="border-t border-[#dce5e0] bg-[#fbfcfb] px-5 py-4">
+              <p className="text-xs font-semibold text-[#617069]">{copy.basketItemsAndKinds(itemCount, basket.length)}</p>
+              <button type="button" onClick={handleContinue} disabled={basket.length === 0} className="mt-3 min-h-12 w-full rounded-xl bg-[#087f5b] px-4 text-[15px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none">
+                {copy.chooseLocation}
+              </button>
+            </div>
+          )}
         </div>
       </div>
   );
@@ -763,7 +777,7 @@ function BasketScreen({
       </div>
 
       {/* Multi-select category filter */}
-      <div className="relative z-[60] px-4 pb-6 pt-1 sm:px-6">
+      <div className="sticky top-[8.75rem] z-[60] bg-[#f7f8f6]/95 px-4 pb-6 pt-1 backdrop-blur sm:px-6">
         <button
           type="button"
           aria-expanded={categoryOpen}
@@ -941,9 +955,8 @@ function BasketScreen({
 
       {/* Your basket */}
       {view === "shop" && (
-        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl bg-white py-4 lg:col-start-2 xl:col-start-3 lg:block">
+        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_8px_24px_rgba(16,35,29,0.07)] lg:col-start-2 xl:col-start-3 lg:block">
           {basketPanel}
-          <div className="px-6"><button type="button" onClick={handleContinue} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 font-bold text-white disabled:opacity-40">{copy.chooseLocation}</button></div>
         </aside>
       )}
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
