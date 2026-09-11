@@ -16,3 +16,6 @@ maintenance details are in [`database/README.md`](database/README.md).
 The location and basket-plus-transport recommendation architecture, provider
 choice, cost controls, privacy behaviour, and setup are documented in
 [`docs/recommendation-engine.md`](docs/recommendation-engine.md).
+
+Proposed product changes for later iterations are recorded in
+[`docs/future-iteration-improvements.md`](docs/future-iteration-improvements.md).
