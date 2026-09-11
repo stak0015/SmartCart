@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
@@ -70,6 +71,12 @@ function localizedName(copy: AppCopy, name: string | null | undefined, translati
 
 function packageSizeForCopy(copy: AppCopy, value: string | null | undefined): string | null {
   return localizedPackageSize(value, copy === COPY.ms ? "ms" : "en");
+}
+
+function getLocalizedCostAssumption(copy: AppCopy, mode: TransportMode, serverAssumption?: string): string {
+  const rate = serverAssumption?.match(/RM\d+(?:\.\d+)?\/km/)?.[0];
+  if ((mode === "motorcycle" || mode === "car") && rate) return copy.planningEstimate(rate);
+  return copy.costAssumptions[mode];
 }
 
 const INIT_BASKET: BasketItem[] = [];
@@ -448,7 +455,15 @@ function Header({
           </button>
         ) : <span aria-hidden="true" />}
 
-        <span className="text-lg font-extrabold tracking-[-0.3px] text-[#10231d]">SmartCart</span>
+        <Link href="/" aria-label="SmartCart home" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-lg font-extrabold tracking-[-0.4px] text-[#10231d] transition-colors hover:bg-[#e5f5ed] focus-visible:bg-[#e5f5ed]">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087f5b] text-white">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+              <path d="M4.5 9.5h15l-1.15 9.2a2 2 0 0 1-1.98 1.75H7.63a2 2 0 0 1-1.98-1.75L4.5 9.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+              <path d="M8 9.5 10 5m6 4.5L14 5M3.5 9.5h17M9 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </span>
+          SmartCart
+        </Link>
 
         <div className="flex items-center gap-2 justify-self-end">
           <LanguageToggle locale={locale} onToggle={onToggleLanguage} />
@@ -1799,7 +1814,7 @@ function RecommendationBasketRow({
               return (
                 <div key={pack.itemId} className={`flex min-w-0 flex-col rounded-lg p-3 ${isCurrent ? "bg-[#e7f7f0] ring-1 ring-[#087f5b]" : "bg-[#f7f8f6]"}`}>
                   <div className="flex flex-wrap gap-1">
-                    {pack.isBestValue && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.bestUnitValue}</span>}
+                    {pack.isBestValue && <span className="rounded-md bg-[#087f5b] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestUnitValue}</span>}
                     {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#53635c]">{copy.currentPack}</span>}
                   </div>
                   <p className="mt-1 break-words text-xs font-bold leading-4 text-[#17362c]">{localizedName(copy, pack.itemName, pack)}</p>
@@ -1816,7 +1831,7 @@ function RecommendationBasketRow({
                         disabled={duplicate}
                         onClick={() => onApplyPack(row, pack.itemId)}
                         aria-label={`${copy.choosePack}: ${localizedName(copy, pack.itemName, pack)}`}
-                        className="min-h-11 shrink-0 rounded-lg border border-[#087f5b] bg-[#087f5b] px-2.5 text-[11px] font-extrabold text-white disabled:cursor-not-allowed disabled:border-[#9db5ac] disabled:text-[#718078]"
+                        className="min-h-11 shrink-0 rounded-lg border border-[#087f5b] bg-[#087f5b] px-2.5 text-[11px] font-extrabold text-white disabled:cursor-not-allowed disabled:border-[#b8d3c6] disabled:bg-[#e8f4ee] disabled:text-[#245d4b]"
                       >
                         {duplicate ? copy.alreadyInBasket : copy.choosePack}
                       </button>
@@ -1840,7 +1855,6 @@ function RecommendationOverview({
   basket,
   preferences,
   copy,
-  rankingMethod,
   costAssumptions,
   routeProvider,
   onSetBasket,
@@ -1849,7 +1863,6 @@ function RecommendationOverview({
   basket: BasketItem[];
   preferences: TravelPreferences;
   copy: AppCopy;
-  rankingMethod: string;
   costAssumptions: Record<TransportMode, string> | undefined;
   routeProvider: "google" | "straight_line";
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
@@ -1857,6 +1870,10 @@ function RecommendationOverview({
   const routeEstimateNote = routeProvider === "straight_line"
     ? copy.straightLineFallbackNote
     : copy.routeEstimateNote;
+  const localizedRankingMethod = routeProvider === "straight_line" && basket.length > 0
+    ? copy.fallbackRankingMethod
+    : copy.rankingMethod;
+  const localizedCostAssumption = getLocalizedCostAssumption(copy, preferences.transportMode, costAssumptions?.[preferences.transportMode]);
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(true);
   const [alternativesError, setAlternativesError] = useState(false);
@@ -2045,8 +2062,8 @@ function RecommendationOverview({
 
           <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>
-            {rankingMethod && <p className="mt-2 leading-5 text-[#53635c]">{rankingMethod}</p>}
-            {costAssumptions && <p className="mt-2 leading-5 text-[#53635c]">{costAssumptions[preferences.transportMode]}</p>}
+            <p className="mt-2 leading-5 text-[#53635c]">{localizedRankingMethod}</p>
+            <p className="mt-2 leading-5 text-[#53635c]">{localizedCostAssumption}</p>
             <p className="mt-2 leading-5 text-[#53635c]">{routeEstimateNote} {copy.stockNotVerified}</p>
           </details>
         </section>
@@ -2149,6 +2166,10 @@ function CompareScreen({
     : preferences.limitType === "distance"
     ? preferences.limitValue + " km"
     : preferences.limitValue + " " + copy.minutes;
+  const localizedRankingMethod = result?.routeProvider === "straight_line" && hasBasket
+    ? copy.fallbackRankingMethod
+    : copy.rankingMethod;
+  const localizedCostAssumption = getLocalizedCostAssumption(copy, preferences.transportMode, result?.costAssumptions?.[preferences.transportMode]);
 
   // AC 2.4.1: once a store is selected the overview replaces the list. It
   // renders the saved snapshot, so a background refresh of the list can
@@ -2162,7 +2183,6 @@ function CompareScreen({
         onSetBasket={setBasket}
         preferences={preferences}
         copy={copy}
-        rankingMethod={result?.rankingMethod ?? ""}
         costAssumptions={result?.costAssumptions}
         routeProvider={result?.routeProvider ?? "google"}
       />
@@ -2256,8 +2276,8 @@ function CompareScreen({
         {!loading && !error && result && (
           <details className="rounded-2xl border border-[#dce5e0] bg-white p-4 text-sm">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>
-            <p className="mt-3 leading-5 text-[#53635c]">{copy.rankingMethod}</p>
-            <p className="mt-2 leading-5 text-[#53635c]">{copy.costAssumptions[preferences.transportMode]}</p>
+            <p className="mt-3 leading-5 text-[#53635c]">{localizedRankingMethod}</p>
+            <p className="mt-2 leading-5 text-[#53635c]">{localizedCostAssumption}</p>
             <p className="mt-2 leading-5 text-[#53635c]">{result.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.routeEstimateNote}</p>
           </details>
         )}
