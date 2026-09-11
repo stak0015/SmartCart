@@ -164,9 +164,10 @@ not verified, never as false or ineligible.
   `place_latitude` and `place_longitude` from the matching raw cache; it never
   uses the separate postcode-geocoding coordinates. It retains coordinates
   only for premises whose imported business state is `open` and whose cache
-  `place_match_decision` is not `rejected`; rejected candidates have their
-  Place ID, open/closed state, coordinates, and refresh metadata removed. The
-  migration uses the cache's own generation time for expiry. The app excludes
+  `place_match_decision` is neither `rejected` nor `needs_review`; both
+  decisions have their Place ID, open/closed state, coordinates, and refresh
+  metadata removed. The migration uses the cache's own generation time for
+  expiry. The app excludes
   coordinates older than 29 days. Schedule
   `pnpm cleanup:premise-locations` daily to delete values older than 30 days,
   and refresh coordinates with `pnpm sync:premise-locations`. The refresh query

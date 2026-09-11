@@ -237,32 +237,36 @@ class PremiseOpenStatusSnapshotTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "business status"):
                 load_premise_coordinates(cache_path, status_rows)
 
-    def test_rejected_place_match_clears_coordinates_before_import(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_directory:
-            directory = Path(temporary_directory)
-            csv_path = self.write_snapshot(directory, "10,place-10,open\n")
-            status_rows = load_premise_open_status(csv_path)
-            cache_path = self.write_cache(
-                directory,
-                {
-                    "0": {
-                        "premise_code": "10",
-                        "place_id": "place-10",
-                        "place_open_closed_status": "open",
-                        "place_latitude": 3.139,
-                        "place_longitude": 101.6869,
-                        "place_match_decision": "rejected",
-                    }
-                },
-            )
+    def test_excluded_place_matches_clear_coordinates_before_import(self) -> None:
+        for decision in ("rejected", "needs_review"):
+            with (
+                self.subTest(decision=decision),
+                tempfile.TemporaryDirectory() as temporary_directory,
+            ):
+                directory = Path(temporary_directory)
+                csv_path = self.write_snapshot(directory, "10,place-10,open\n")
+                status_rows = load_premise_open_status(csv_path)
+                cache_path = self.write_cache(
+                    directory,
+                    {
+                        "0": {
+                            "premise_code": "10",
+                            "place_id": "place-10",
+                            "place_open_closed_status": "open",
+                            "place_latitude": 3.139,
+                            "place_longitude": 101.6869,
+                            "place_match_decision": decision,
+                        }
+                    },
+                )
 
-            result = load_premise_coordinates(cache_path, status_rows)
+                result = load_premise_coordinates(cache_path, status_rows)
 
-        self.assertEqual(result.iloc[0]["place_match_decision"], "rejected")
-        self.assertTrue(pd.isna(result.iloc[0]["latitude"]))
-        self.assertTrue(pd.isna(result.iloc[0]["longitude"]))
-        self.assertTrue(pd.isna(result.iloc[0]["location_provider"]))
-        self.assertTrue(pd.isna(result.iloc[0]["location_refreshed_at"]))
+            self.assertEqual(result.iloc[0]["place_match_decision"], decision)
+            self.assertTrue(pd.isna(result.iloc[0]["latitude"]))
+            self.assertTrue(pd.isna(result.iloc[0]["longitude"]))
+            self.assertTrue(pd.isna(result.iloc[0]["location_provider"]))
+            self.assertTrue(pd.isna(result.iloc[0]["location_refreshed_at"]))
 
 
 if __name__ == "__main__":
