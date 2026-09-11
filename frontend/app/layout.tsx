@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "SmartCart",
-  description: "Plan an affordable basket at one reachable Malaysian store.",
+  description: "Plan an affordable household basket by comparing item prices, travel time, and return transport costs.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

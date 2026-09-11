@@ -241,8 +241,10 @@ export const COPY = {
     calculationTitle: "How this recommendation is calculated",
     stockNotVerified: "SmartCart does not verify affordability or in-store stock.",
     rankingMethod: "Ranked by products priced, then priced subtotal + return travel cost, travel time and distance. Missing prices are excluded.",
+    fallbackRankingMethod: "Nearest 25 premises by straight-line distance; stores are ranked by exact store-price coverage, then effective coverage including cached median estimates, then estimated combined cost using rough travel estimates. Google Routes is not configured, so travel limits and route feasibility are not verified.",
     routeEstimateNote: "Route distance and time are estimates from Google Maps. Straight-line distance is used only to limit paid route checks; SmartCart does not store your starting location.",
     straightLineFallbackNote: "Google Routes is not configured. Distances use straight-line proximity and travel times are rough estimates; the selected travel limit and route feasibility are not verified.",
+    planningEstimate: (rate: string) => `Planning estimate: ${rate}/km. Parking, tolls and ownership costs are excluded.`,
     costAssumptions: {
       walk: "Walking has no direct transport cost.",
       public_transport: "Uses Google's MYR transit fare when available; otherwise uses the configured return-fare estimate.",
@@ -488,8 +490,10 @@ export const COPY = {
     calculationTitle: "Cara cadangan ini dikira",
     stockNotVerified: "SmartCart tidak mengesahkan kemampuan membayar atau stok di kedai.",
     rankingMethod: "Disusun mengikut bilangan produk berharga, kemudian jumlah kecil + kos pergi balik, masa dan jarak. Harga tiada dikecualikan.",
+    fallbackRankingMethod: "25 premis terdekat berdasarkan jarak garis lurus; kedai disusun mengikut liputan harga kedai yang tepat, kemudian liputan berkesan termasuk anggaran median cache, dan seterusnya anggaran kos gabungan menggunakan anggaran perjalanan kasar. Google Routes tidak dikonfigurasikan, jadi had perjalanan dan kebolehlaluan laluan tidak disahkan.",
     routeEstimateNote: "Jarak dan masa laluan ialah anggaran daripada Google Maps. Jarak garis lurus hanya digunakan untuk mengehadkan semakan laluan berbayar; SmartCart tidak menyimpan lokasi permulaan anda.",
     straightLineFallbackNote: "Google Routes tidak dikonfigurasikan. Jarak menggunakan kedekatan garis lurus dan masa perjalanan ialah anggaran kasar; had perjalanan dipilih dan kebolehlaluan laluan tidak disahkan.",
+    planningEstimate: (rate: string) => `Anggaran perancangan: ${rate}/km. Kos parkir, tol dan pemilikan tidak termasuk.`,
     costAssumptions: {
       walk: "Berjalan kaki tidak mempunyai kos pengangkutan langsung.",
       public_transport: "Menggunakan tambang transit MYR Google jika tersedia; jika tidak, menggunakan anggaran tambang pergi balik yang dikonfigurasikan.",
