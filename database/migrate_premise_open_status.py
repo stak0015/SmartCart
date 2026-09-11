@@ -46,6 +46,7 @@ ALLOWED_PLACE_MATCH_DECISIONS = frozenset(
         "not_attempted_no_name_or_postcode",
     }
 )
+PLACE_MATCH_DECISIONS_TO_CLEAR = frozenset({"rejected", "needs_review"})
 
 
 def snapshot_generated_at(path: Path) -> pd.Timestamp:
@@ -121,13 +122,15 @@ def load_premise_coordinates(
     and ``place_*`` fields returned for the selected Places search candidate.
     Only the latter can describe the premise represented by ``place_id``. The
     Place ID is cross-checked against the companion CSV before any coordinate
-    is prepared for import.
+    is prepared for import. Rejected and needs-review decisions are retained
+    as explicit exclusions so existing database metadata can be removed.
 
     The cache format has one generation time rather than per-row retrieval
     times. It is the last provider-cache timestamp available for this snapshot
     and remains subject to the normal Google coordinate TTL. Rows without a
     selected Place coordinate are retained with NULL location fields so the
-    import clears coordinates left by an older Place match.
+    import clears coordinates left by an older Place match. The same clear
+    path is used for excluded match decisions.
     """
 
     if not path.is_file():
@@ -288,7 +291,7 @@ def load_premise_coordinates(
     retain_coordinates = (
         has_coordinates
         & prepared["open_closed_status"].eq("open")
-        & prepared["place_match_decision"].ne("rejected")
+        & ~prepared["place_match_decision"].isin(PLACE_MATCH_DECISIONS_TO_CLEAR)
     )
     prepared.loc[~retain_coordinates, ["latitude", "longitude"]] = pd.NA
     prepared["location_provider"] = pd.Series(
@@ -410,7 +413,7 @@ def apply_premise_open_status(
             FROM stage_premise_coordinates AS e
             WHERE p.premise_code = e.premise_code
               AND e.google_place_id IS NOT NULL
-              AND e.place_match_decision <> 'rejected'
+              AND e.place_match_decision NOT IN ('rejected', 'needs_review')
               AND p.google_place_id = e.google_place_id
               AND (
                   p.place_match_refreshed_at IS NULL
@@ -438,7 +441,7 @@ def apply_premise_open_status(
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.latitude IS NULL
-                      AND e.place_match_decision <> 'rejected'
+                      AND e.place_match_decision NOT IN ('rejected', 'needs_review')
                       AND p.location_provider = 'google'
                       AND (
                           p.location_refreshed_at IS NULL
@@ -454,7 +457,7 @@ def apply_premise_open_status(
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.latitude IS NULL
-                      AND e.place_match_decision <> 'rejected'
+                      AND e.place_match_decision NOT IN ('rejected', 'needs_review')
                       AND p.location_provider = 'google'
                       AND p.location_refreshed_at > e.cache_generated_at
                 ),
@@ -499,7 +502,7 @@ def apply_premise_open_status(
             FROM stage_premise_coordinates AS e
             WHERE p.premise_code = e.premise_code
               AND e.latitude IS NULL
-              AND e.place_match_decision <> 'rejected'
+              AND e.place_match_decision NOT IN ('rejected', 'needs_review')
               AND p.location_provider = 'google'
               AND (
                   p.location_refreshed_at IS NULL
@@ -513,7 +516,7 @@ def apply_premise_open_status(
             SELECT COUNT(*)
             FROM stage_premise_coordinates AS e
             JOIN premise AS p ON p.premise_code = e.premise_code
-            WHERE e.place_match_decision = 'rejected'
+            WHERE e.place_match_decision IN ('rejected', 'needs_review')
               AND (
                   p.google_place_id IS NOT NULL
                   OR p.open_closed_status IS NOT NULL
@@ -526,7 +529,7 @@ def apply_premise_open_status(
               )
             """
         )
-        rejected_rows_with_existing_data = cursor.fetchone()[0]
+        excluded_rows_with_existing_data = cursor.fetchone()[0]
         cursor.execute(
             """
             UPDATE premise AS p
@@ -541,16 +544,16 @@ def apply_premise_open_status(
                 location_refreshed_at = NULL
             FROM stage_premise_coordinates AS e
             WHERE p.premise_code = e.premise_code
-              AND e.place_match_decision = 'rejected'
+              AND e.place_match_decision IN ('rejected', 'needs_review')
             """
         )
-        rejected_rows_cleared = cursor.rowcount
+        excluded_rows_cleared = cursor.rowcount
         cursor.execute(
             """
             SELECT COUNT(*)
             FROM stage_premise_coordinates AS e
             JOIN premise AS p ON p.premise_code = e.premise_code
-            WHERE e.place_match_decision = 'rejected'
+            WHERE e.place_match_decision IN ('rejected', 'needs_review')
               AND (
                   p.google_place_id IS NOT NULL
                   OR p.open_closed_status IS NOT NULL
@@ -563,7 +566,7 @@ def apply_premise_open_status(
               )
             """
         )
-        rejected_rows_remaining = cursor.fetchone()[0]
+        excluded_rows_remaining = cursor.fetchone()[0]
         cursor.execute(
             """
             SELECT
@@ -571,7 +574,8 @@ def apply_premise_open_status(
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.open_closed_status = 'open'
-                      AND c.place_match_decision IS DISTINCT FROM 'rejected'
+                      AND COALESCE(c.place_match_decision, '')
+                          NOT IN ('rejected', 'needs_review')
                 ),
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
@@ -580,7 +584,7 @@ def apply_premise_open_status(
                 COUNT(*) FILTER (
                     WHERE p.premise_id IS NOT NULL
                       AND e.open_closed_status = 'open'
-                      AND c.place_match_decision = 'rejected'
+                      AND c.place_match_decision IN ('rejected', 'needs_review')
                 )
             FROM stage_premise_open_status AS e
             LEFT JOIN stage_premise_coordinates AS c
@@ -592,26 +596,28 @@ def apply_premise_open_status(
             missing_rows,
             open_rows,
             excluded_rows,
-            open_rejected_rows,
+            open_excluded_rows,
         ) = cursor.fetchone()
 
     return {
         "premise_rows_updated": updated_rows,
         "open_premise_rows": open_rows,
         "not_open_or_unknown_premise_rows": excluded_rows,
-        "open_rejected_premise_rows": open_rejected_rows,
+        "open_place_match_excluded_rows": open_excluded_rows,
         "snapshot_rows_without_database_premise": missing_rows,
         "place_match_timestamps_updated": place_match_timestamps_updated,
         "coordinate_rows_updated": coordinate_rows_updated,
         "coordinate_rows_set": coordinate_rows_set,
         "google_coordinate_rows_cleared": google_coordinate_rows_cleared,
         "cleared_rows_updated": cleared_rows_updated,
-        "rejected_place_match_rows": int(
-            coordinate_rows["place_match_decision"].eq("rejected").sum()
+        "excluded_place_match_rows": int(
+            coordinate_rows["place_match_decision"]
+            .isin(PLACE_MATCH_DECISIONS_TO_CLEAR)
+            .sum()
         ),
-        "rejected_rows_with_existing_data": rejected_rows_with_existing_data,
-        "rejected_rows_cleared": rejected_rows_cleared,
-        "rejected_rows_remaining": rejected_rows_remaining,
+        "excluded_rows_with_existing_data": excluded_rows_with_existing_data,
+        "excluded_rows_cleared": excluded_rows_cleared,
+        "excluded_rows_remaining": excluded_rows_remaining,
         "newer_open_coordinate_rows_preserved": (
             newer_open_coordinate_rows_preserved
         ),
@@ -667,8 +673,8 @@ def main() -> int:
         f"{int(coordinate_rows['latitude'].notna().sum()):,}"
     )
     print(
-        "  rejected_place_match_rows: "
-        f"{int(coordinate_rows['place_match_decision'].eq('rejected').sum()):,}"
+        "  excluded_place_match_rows: "
+        f"{int(coordinate_rows['place_match_decision'].isin(PLACE_MATCH_DECISIONS_TO_CLEAR).sum()):,}"
     )
     print(
         "  rows_without_retained_open_coordinates: "

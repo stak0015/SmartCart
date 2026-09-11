@@ -88,10 +88,11 @@ For coordinates it uses only `place_latitude` and `place_longitude` from the
 selected `place_id`; the cache's separate postcode-geocoding coordinates are
 never imported. A Place ID mismatch between the CSV and cache fails before a
 database connection is made. The cache's `place_match_decision` is
-authoritative for rejected candidates: every rejected premise has its Place ID,
-coordinates, open/closed status, and related refresh timestamps cleared. This
-also removes a previously imported open candidate from store results. SARA
-matching and PriceCatcher history are not changed by this cleanup.
+authoritative for rejected and needs-review candidates: every premise with
+either decision has its Place ID, coordinates, open/closed status, and related
+refresh timestamps cleared. This also removes previously imported open
+candidates from store results. SARA matching and PriceCatcher history are not
+changed by this cleanup.
 Only `open` is eligible for display. `closed_permanently`,
 `closed_temporarily`, `unknown`, and missing (`NULL`) values must all be
 excluded from store results. The value describes the last imported business
