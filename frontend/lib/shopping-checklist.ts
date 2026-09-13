@@ -1,12 +1,26 @@
 import type { BasketItemPrice, StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 
-export const SHOPPING_CHECKLIST_VERSION = 1 as const;
+export const SHOPPING_CHECKLIST_VERSION = 4 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought";
 export type ChecklistPriceSource = "store" | "median" | "manual" | null;
 export type ChecklistItemSource = "catalogue" | "manual";
+export type ChecklistQuantitySource = "planned" | "actual";
+
+/**
+ * Epic 8 interface point (D8.0 / gap G4): the estimated trip cost of each
+ * alternative store at snapshot time. These are estimates, never observed
+ * prices; they let later epics compare "what if I had shopped elsewhere"
+ * on-device without re-querying recommendations.
+ */
+export interface AlternativeStoreEstimate {
+  premiseId: string;
+  name: string;
+  estimatedRoundTripCostRm: number;
+  estimatedTotalCostRm: number | null;
+}
 
 export interface ChecklistStore {
   premiseId: string;
@@ -26,6 +40,13 @@ export interface ChecklistItem {
   quantity: number;
   unitPriceRm: number | null;
   lineTotalRm: number | null;
+  // AC 5.3.1/5.3.2: the shopper-observed unit price. Kept strictly separate
+  // from the official/reference unitPriceRm; null means "not recorded".
+  actualPriceRm: number | null;
+  // AC 5.3.4 (D5.5): the shopper may record an actual quantity; quantitySource
+  // says whether spending uses the planned quantity or an entered one.
+  actualQuantity: number | null;
+  quantitySource: ChecklistQuantitySource;
   priceSource: ChecklistPriceSource;
   observedDate: string | null;
   status: ChecklistStatus;
@@ -37,19 +58,28 @@ export interface ShoppingChecklist {
   store: ChecklistStore;
   createdAt: string;
   updatedAt: string;
+  // AC 5.1.1: the snapshot keeps the planned subtotal, the estimated return
+  // transport (an estimate, never an observed price), and the planned
+  // combined total when known. Null when the source value was unknown.
+  plannedSubtotalRm: number | null;
+  estimatedRoundTripCostRm: number | null;
+  plannedCombinedTotalRm: number | null;
+  // Gap G4: the alternative stores' estimated trip costs at snapshot time.
+  // Empty for payloads created before this field existed (migrated v1-v3).
+  alternativeStoreEstimates: AlternativeStoreEstimate[];
   items: ChecklistItem[];
 }
 
 export interface ManualChecklistItemInput {
   itemName: string;
   quantity: number | string;
-  unitPriceRm: number | string;
+  unitPriceRm: number | string | null;
 }
 
 export interface ValidatedManualChecklistItemInput {
   itemName: string;
   quantity: number;
-  unitPriceRm: number;
+  unitPriceRm: number | null;
 }
 
 export interface ManualChecklistItemErrors {
@@ -74,6 +104,7 @@ export interface ChecklistProgress {
 interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
+  alternativeStores?: StoreRecommendation[];
 }
 
 interface AddManualItemOptions {
@@ -96,7 +127,7 @@ function nowIso(): string {
 }
 
 function normalizeQuantity(value: number): number {
-  return Number.isInteger(value) && value >= 1 && value <= 99 ? value : 1;
+  return Number.isInteger(value) && value >= 1 ? value : 1;
 }
 
 function normalizeCataloguePrice(value: number | null): number | null {
@@ -128,6 +159,9 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     quantity,
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
+    actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
     priceSource: cataloguePriceSource(current.priceSource, unitPriceRm),
     observedDate: current.observedDate,
     status: "neutral",
@@ -148,6 +182,9 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     quantity,
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
+    actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
     priceSource: cataloguePriceSource(price.priceSource, unitPriceRm),
     observedDate: price.priceObservedDate,
     status: "neutral",
@@ -167,6 +204,18 @@ export function createShoppingChecklist(
   const items = rows.length > 0
     ? rows.map(checklistItemFromDetail)
     : store.basketPrices.map(checklistItemFromBasketPrice);
+  const alternativeStoreEstimates: AlternativeStoreEstimate[] = (
+    options.alternativeStores ?? []
+  )
+    .filter(candidate => candidate.premiseId !== store.premiseId)
+    .map(candidate => ({
+      premiseId: candidate.premiseId,
+      name: candidate.name,
+      estimatedRoundTripCostRm: money(candidate.estimatedRoundTripCostRm),
+      estimatedTotalCostRm: candidate.estimatedTotalCostRm == null
+        ? null
+        : money(candidate.estimatedTotalCostRm),
+    }));
 
   return {
     version: SHOPPING_CHECKLIST_VERSION,
@@ -179,6 +228,14 @@ export function createShoppingChecklist(
     },
     createdAt,
     updatedAt: createdAt,
+    plannedSubtotalRm: store.basketSubtotalRm == null ? null : money(store.basketSubtotalRm),
+    estimatedRoundTripCostRm: Number.isFinite(store.estimatedRoundTripCostRm)
+      ? money(store.estimatedRoundTripCostRm)
+      : null,
+    plannedCombinedTotalRm: store.estimatedTotalCostRm == null
+      ? null
+      : money(store.estimatedTotalCostRm),
+    alternativeStoreEstimates,
     items,
   };
 }
@@ -203,9 +260,12 @@ export function toggleChecklistItemStatus(
 }
 
 function parseQuantity(value: number | string): number | null {
-  if (typeof value === "string" && !/^\d{1,2}$/.test(value)) return null;
+  if (typeof value === "string" && !/^\d+$/.test(value)) return null;
   const parsed = typeof value === "string" ? Number(value) : value;
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 99 ? parsed : null;
+  // AC 5.1.5: any positive whole number is accepted; no upper bound.
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= Number.MAX_SAFE_INTEGER
+    ? parsed
+    : null;
 }
 
 function parseManualUnitPrice(value: number | string): number | null {
@@ -222,15 +282,20 @@ export function validateManualChecklistItem(
 ): ManualChecklistItemValidation {
   const itemName = input.itemName.trim();
   const quantity = parseQuantity(input.quantity);
-  const unitPriceRm = parseManualUnitPrice(input.unitPriceRm);
+  // AC 5.1.5: the price may be left blank when the shopper does not know it
+  // yet; a blank string means "unknown", not an error. A provided price must
+  // still be a positive amount with no more than two decimals.
+  const priceIsBlank = input.unitPriceRm == null
+    || (typeof input.unitPriceRm === "string" && input.unitPriceRm.trim() === "");
+  const unitPriceRm = priceIsBlank ? null : parseManualUnitPrice(input.unitPriceRm!);
   const errors: ManualChecklistItemErrors = {};
   if (!itemName) errors.itemName = "required";
   if (quantity == null) errors.quantity = "invalid";
-  if (unitPriceRm == null) errors.unitPriceRm = "invalid";
+  if (!priceIsBlank && unitPriceRm == null) errors.unitPriceRm = "invalid";
   if (Object.keys(errors).length > 0) return { success: false, errors };
   return {
     success: true,
-    value: { itemName, quantity: quantity!, unitPriceRm: unitPriceRm! },
+    value: { itemName, quantity: quantity!, unitPriceRm },
   };
 }
 
@@ -252,7 +317,10 @@ export function addManualChecklistItem(
     packageSize: null,
     quantity,
     unitPriceRm,
-    lineTotalRm: money(unitPriceRm * quantity),
+    lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
+    actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
     priceSource: "manual",
     observedDate: null,
     status: "neutral",
@@ -286,10 +354,111 @@ export function editChecklistItem(
       itemNameMs: null,
       quantity,
       unitPriceRm,
-      lineTotalRm: money(unitPriceRm * quantity),
+      lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
       priceSource: "manual",
       observedDate: null,
     } : item),
+  };
+}
+
+/**
+ * AC 5.3.1: validates an actual unit price typed by the shopper. A blank
+ * input clears the recorded price (success with null); anything else must be
+ * a positive amount with no more than two decimals.
+ */
+export function validateActualUnitPrice(
+  input: string,
+): { success: true; value: number | null } | { success: false } {
+  const trimmed = input.trim();
+  if (trimmed === "") return { success: true, value: null };
+  const parsed = parseManualUnitPrice(trimmed);
+  return parsed == null ? { success: false } : { success: true, value: parsed };
+}
+
+/**
+ * AC 5.3.1/5.3.2: records or clears the shopper-observed unit price on a
+ * Purchased line. The official/reference price fields are never touched.
+ * Returns null when the line does not exist or is not marked bought.
+ */
+export function setChecklistItemActualPrice(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  actualPriceRm: number | null,
+  updatedAt = nowIso(),
+): ShoppingChecklist | null {
+  const index = checklist.items.findIndex(item => item.id === itemId);
+  if (index < 0) return null;
+  const target = checklist.items[index];
+  if (target.status !== "bought") return null;
+  if (actualPriceRm != null && (!Number.isFinite(actualPriceRm) || actualPriceRm <= 0)) return null;
+  const normalized = actualPriceRm == null ? null : money(actualPriceRm);
+  if (target.actualPriceRm === normalized) return checklist;
+  return {
+    ...checklist,
+    updatedAt,
+    items: checklist.items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, actualPriceRm: normalized } : item
+    )),
+  };
+}
+
+/**
+ * AC 5.3.3: the actual line total exists only while an actual unit price is
+ * recorded; a cleared/unknown price yields null (rendered blank, never 0.00).
+ * The quantity is the shopper-recorded actual quantity when present (AC
+ * 5.3.4), otherwise the planned quantity.
+ */
+export function actualLineTotalRm(item: ChecklistItem): number | null {
+  return item.actualPriceRm == null
+    ? null
+    : money(item.actualPriceRm * (item.actualQuantity ?? item.quantity));
+}
+
+/**
+ * AC 5.3.4: validates an actual quantity typed by the shopper. A blank input
+ * means "use the planned quantity" (success with null); anything else must be
+ * a positive whole number (same rule as AC 5.1.5).
+ */
+export function validateActualQuantity(
+  input: string,
+): { success: true; value: number | null } | { success: false } {
+  const trimmed = input.trim();
+  if (trimmed === "") return { success: true, value: null };
+  const parsed = parseQuantity(trimmed);
+  return parsed == null ? { success: false } : { success: true, value: parsed };
+}
+
+/**
+ * AC 5.3.4: records or clears the actual quantity on a Purchased line and
+ * marks the quantity source planned/actual accordingly. Returns null when the
+ * line does not exist or is not marked bought.
+ */
+export function setChecklistItemActualQuantity(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  actualQuantity: number | null,
+  updatedAt = nowIso(),
+): ShoppingChecklist | null {
+  const index = checklist.items.findIndex(item => item.id === itemId);
+  if (index < 0) return null;
+  const target = checklist.items[index];
+  if (target.status !== "bought") return null;
+  if (actualQuantity != null
+    && (!Number.isInteger(actualQuantity)
+      || actualQuantity < 1
+      || actualQuantity > Number.MAX_SAFE_INTEGER)) return null;
+  const nextSource: ChecklistQuantitySource = actualQuantity == null ? "planned" : "actual";
+  if (target.actualQuantity === actualQuantity && target.quantitySource === nextSource) {
+    return checklist;
+  }
+  return {
+    ...checklist,
+    updatedAt,
+    items: checklist.items.map((item, itemIndex) => (
+      itemIndex === index
+        ? { ...item, actualQuantity: actualQuantity ?? null, quantitySource: nextSource }
+        : item
+    )),
   };
 }
 
@@ -348,7 +517,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
   const sourceIsValid = item.source === "catalogue" || item.source === "manual";
-  const statusIsValid = item.status === "neutral" || item.status === "bought" || item.status === "not_bought";
+  const statusIsValid = item.status === "neutral" || item.status === "bought"
+    || item.status === "not_bought";
   const priceSourceIsValid = item.priceSource === null
     || item.priceSource === "store"
     || item.priceSource === "median"
@@ -365,26 +535,48 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && typeof item.quantity === "number"
     && Number.isInteger(item.quantity)
     && item.quantity >= 1
-    && item.quantity <= 99
     && isFiniteMoneyOrNull(item.unitPriceRm)
     && isFiniteMoneyOrNull(item.lineTotalRm)
+    && (item.actualPriceRm === null
+      || (typeof item.actualPriceRm === "number" && item.actualPriceRm > 0))
+    && (item.actualQuantity === null
+      || (typeof item.actualQuantity === "number"
+        && Number.isInteger(item.actualQuantity)
+        && item.actualQuantity >= 1))
+    && (item.quantitySource === "planned" || item.quantitySource === "actual")
     && priceSourceIsValid
     && isNullableString(item.observedDate)
     && statusIsValid;
   if (!commonFieldsAreValid) return false;
 
   if ((item.unitPriceRm === null) !== (item.lineTotalRm === null)) return false;
+  // AC 5.3.4: a recorded actual quantity must carry the "actual" source, and
+  // a cleared one must fall back to "planned".
+  if ((item.actualQuantity === null) !== (item.quantitySource === "planned")) return false;
   if (item.source === "manual") {
     return item.catalogueItemId === null
       && item.priceSource === "manual"
-      && typeof item.unitPriceRm === "number"
-      && item.unitPriceRm > 0
+      && (item.unitPriceRm === null
+        || (typeof item.unitPriceRm === "number" && item.unitPriceRm > 0))
       && item.observedDate === null;
   }
   return typeof item.catalogueItemId === "string"
     && item.catalogueItemId.length > 0
     && item.priceSource !== "manual"
     && (item.unitPriceRm === null ? item.priceSource === null : item.priceSource !== null);
+}
+
+function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEstimate {
+  if (!value || typeof value !== "object") return false;
+  const estimate = value as Record<string, unknown>;
+  return typeof estimate.premiseId === "string"
+    && estimate.premiseId.length > 0
+    && typeof estimate.name === "string"
+    && estimate.name.length > 0
+    && typeof estimate.estimatedRoundTripCostRm === "number"
+    && Number.isFinite(estimate.estimatedRoundTripCostRm)
+    && estimate.estimatedRoundTripCostRm >= 0
+    && isFiniteMoneyOrNull(estimate.estimatedTotalCostRm);
 }
 
 export function isShoppingChecklist(value: unknown): value is ShoppingChecklist {
@@ -395,6 +587,11 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || checklist.id.length === 0
     || !isIsoDate(checklist.createdAt)
     || !isIsoDate(checklist.updatedAt)
+    || !isFiniteMoneyOrNull(checklist.plannedSubtotalRm)
+    || !isFiniteMoneyOrNull(checklist.estimatedRoundTripCostRm)
+    || !isFiniteMoneyOrNull(checklist.plannedCombinedTotalRm)
+    || !Array.isArray(checklist.alternativeStoreEstimates)
+    || !checklist.alternativeStoreEstimates.every(isAlternativeStoreEstimate)
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 
@@ -412,11 +609,55 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
   return JSON.stringify(checklist);
 }
 
+/**
+ * Migration chain (D5.0). v1 payloads (before planned totals, actual prices
+ * and actual quantities existed), v2 payloads (before actual quantities) and
+ * v3 payloads (before alternative store estimates, gap G4) are upgraded in
+ * place: missing planned totals and estimates are filled with null / empty
+ * defaults and every line gains actualPriceRm / actualQuantity /
+ * quantitySource defaults. Out-of-stock registration was abolished, so
+ * legacy out_of_stock statuses degrade to not_bought. Unknown versions are
+ * dropped safely.
+ */
+export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Record<string, unknown>;
+  // v1, v2 and v3 are the only legacy envelopes; anything else unknown is dropped.
+  if (candidate.version !== 1
+    && candidate.version !== 2
+    && candidate.version !== 3
+    && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
+  const normalized = {
+    ...candidate,
+    version: SHOPPING_CHECKLIST_VERSION,
+    plannedSubtotalRm: candidate.plannedSubtotalRm ?? null,
+    estimatedRoundTripCostRm: candidate.estimatedRoundTripCostRm ?? null,
+    plannedCombinedTotalRm: candidate.plannedCombinedTotalRm ?? null,
+    // Missing entirely (legacy payloads) → empty list; a present-but-malformed
+    // value is left as-is so validation rejects it instead of hiding corruption.
+    alternativeStoreEstimates: candidate.alternativeStoreEstimates ?? [],
+    items: Array.isArray(candidate.items)
+      ? candidate.items.map(item => {
+          if (!item || typeof item !== "object") return item;
+          const legacy = item as Record<string, unknown>;
+          return {
+            actualPriceRm: null,
+            actualQuantity: null,
+            quantitySource: "planned",
+            ...legacy,
+            status: legacy.status === "out_of_stock" ? "not_bought" : legacy.status,
+          };
+        })
+      : candidate.items,
+  };
+  return isShoppingChecklist(normalized) ? normalized : null;
+}
+
 export function parseShoppingChecklist(serialized: string | null | undefined): ShoppingChecklist | null {
   if (!serialized) return null;
   try {
     const value: unknown = JSON.parse(serialized);
-    return isShoppingChecklist(value) ? value : null;
+    return migrateShoppingChecklist(value);
   } catch {
     return null;
   }
