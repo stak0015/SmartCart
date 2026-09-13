@@ -105,7 +105,7 @@ const store: StoreRecommendation = {
  * Builds a realistic finished-trip checklist:
  * - Cooking oil: bought, actual price 4.50 and actual quantity 3 → 13.50
  * - Rice: not bought (median reference price must not leak into the total)
- * - Soap: out of stock, no price
+ * - Soap: not bought, no price
  * - Bread: left neutral (unfinished when the trip was recorded)
  * - Snack (custom, typed price): bought, actual price 2.00 → 2.00
  * - Mystery (custom, no price): bought, no actual price → known total null
@@ -134,7 +134,7 @@ function finishedChecklist() {
   checklist = setChecklistItemActualPrice(checklist, oil, 4.5)!;
   checklist = setChecklistItemActualQuantity(checklist, oil, 3)!;
   checklist = toggleChecklistItemStatus(checklist, rice, "not_bought")!;
-  checklist = toggleChecklistItemStatus(checklist, soap, "out_of_stock")!;
+  checklist = toggleChecklistItemStatus(checklist, soap, "not_bought")!;
   checklist = toggleChecklistItemStatus(checklist, snack, "bought")!;
   checklist = setChecklistItemActualPrice(checklist, snack, 2)!;
   checklist = toggleChecklistItemStatus(checklist, mystery, "bought")!;
@@ -170,7 +170,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
     expect(record.lines.map(line => line.status)).toEqual([
       "bought",
       "not_bought",
-      "out_of_stock",
+      "not_bought",
       "neutral",
       "bought",
       "bought",
@@ -223,7 +223,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
 describe("actualExpenseTotal (AC 5.4.2)", () => {
   it("sums only the known purchased line totals", () => {
     const record = buildTripRecord(finishedChecklist(), { recordId: "trip-5" });
-    // 13.50 (oil) + 2.00 (snack); rice (not bought), soap (out of stock),
+    // 13.50 (oil) + 2.00 (snack); rice (not bought), soap (not bought),
     // bread (unfinished) and mystery (unknown price) are all excluded.
     expect(record.actualTotalRm).toBe(15.5);
   });
@@ -307,6 +307,22 @@ describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
     const parsed = parseTripHistory(JSON.stringify(envelope));
     expect(parsed.map(record => record.id)).toEqual(["trip-good"]);
     expect(isTripRecord(unknownVersion)).toBe(false);
+  });
+
+  it("degrades legacy out-of-stock line statuses to not bought on read", () => {
+    const record = buildTripRecord(finishedChecklist(), {
+      recordId: "trip-legacy",
+      recordedAt: "2026-09-14T10:30:00.000Z",
+    });
+    const legacyJson = JSON.parse(JSON.stringify(record)) as {
+      lines: { status: string }[];
+    };
+    legacyJson.lines[0].status = "out_of_stock";
+    const envelope = { version: 1, records: [legacyJson] };
+
+    const parsed = parseTripHistory(JSON.stringify(envelope));
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].lines[0].status).toBe("not_bought");
   });
 
   it("returns an empty history for broken payloads, never crashing", () => {

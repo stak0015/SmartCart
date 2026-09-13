@@ -38,10 +38,8 @@ export interface ShoppingChecklistCopy {
   manualItem: string;
   bought: string;
   notBought: string;
-  outOfStock: string;
   markBought: (name: string) => string;
   markNotBought: (name: string) => string;
-  markOutOfStock: (name: string) => string;
   clearItemStatus: (name: string) => string;
   addChecklistItem: string;
   editChecklistItem: string;
@@ -521,7 +519,6 @@ function ChecklistRow({
   copy,
   onToggleBought,
   onToggleNotBought,
-  onToggleOutOfStock,
   onEdit,
   onDelete,
 }: {
@@ -530,14 +527,12 @@ function ChecklistRow({
   copy: ShoppingChecklistCopy;
   onToggleBought: () => void;
   onToggleNotBought: () => void;
-  onToggleOutOfStock: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const name = localizedItemName(item, locale);
   const bought = item.status === "bought";
   const notBought = item.status === "not_bought";
-  const outOfStock = item.status === "out_of_stock";
   // AC 5.3.2/5.3.3: the shopper-recorded price and its line total render
   // alongside (never instead of) the official/reference price; a cleared
   // price renders nothing — never RM0.00.
@@ -579,9 +574,6 @@ function ChecklistRow({
           )}
           {notBought && (
             <p className="mt-0.5 text-[11px] font-semibold text-[#8a5a00]">{copy.notBought}</p>
-          )}
-          {outOfStock && (
-            <p className="mt-0.5 text-[11px] font-semibold text-[#ba1a1a]">{copy.outOfStock}</p>
           )}
         </div>
         <div className={`${actualPrice != null || item.actualQuantity != null ? "w-40" : "w-28"} shrink-0 text-right`}>
@@ -627,19 +619,6 @@ function ChecklistRow({
               }`}
             >
               {copy.notBought}
-            </button>
-            <button
-              type="button"
-              aria-pressed={outOfStock}
-              aria-label={outOfStock ? copy.clearItemStatus(name) : copy.markOutOfStock(name)}
-              onClick={onToggleOutOfStock}
-              className={`min-h-7 rounded-full border px-2 text-[10px] font-bold ${
-                outOfStock
-                  ? "border-[#ba1a1a] bg-[#fff2f2] text-[#ba1a1a]"
-                  : "border-[#c4d2ca] text-[#53635c] hover:bg-[#f1f5f3]"
-              }`}
-            >
-              {copy.outOfStock}
             </button>
           </div>
           <div className="mt-0.5 flex items-center justify-end gap-0.5">
@@ -794,7 +773,6 @@ export function ShoppingChecklistScreen({
                     copy={copy}
                     onToggleBought={() => onToggleStatus(item.id, "bought")}
                     onToggleNotBought={() => onToggleStatus(item.id, "not_bought")}
-                    onToggleOutOfStock={() => onToggleStatus(item.id, "out_of_stock")}
                     onEdit={() => setManualDialog({ open: true, item })}
                     onDelete={() => setItemPendingDelete(item)}
                   />

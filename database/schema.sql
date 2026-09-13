@@ -171,27 +171,21 @@ CREATE TABLE IF NOT EXISTS current_status (
     current_price NUMERIC(12, 2) NOT NULL,
     price_observed_date DATE NOT NULL,
     price_synced_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    out_of_stock_report_count INTEGER NOT NULL DEFAULT 0,
-    report_count_date DATE,
     status_updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (item_id, premise_id),
     CONSTRAINT current_status_item_fk
         FOREIGN KEY (item_id) REFERENCES item (item_id),
     CONSTRAINT current_status_premise_fk
         FOREIGN KEY (premise_id) REFERENCES premise (premise_id),
-    CONSTRAINT current_status_price_positive CHECK (current_price > 0),
-    CONSTRAINT current_status_report_count_nonnegative
-        CHECK (out_of_stock_report_count >= 0)
+    CONSTRAINT current_status_price_positive CHECK (current_price > 0)
 );
 
 COMMENT ON TABLE current_status IS
-    'Latest observed PriceCatcher price for each item-premise pair plus separate unverified stock-report signals.';
+    'Latest observed PriceCatcher price for each item-premise pair.';
 COMMENT ON COLUMN current_status.price_observed_date IS
     'Date the source observed the price; this is not proof of current stock.';
 COMMENT ON COLUMN current_status.price_synced_at IS
     'Timestamp at which SmartCart ingested the source observation.';
-COMMENT ON COLUMN current_status.out_of_stock_report_count IS
-    'Count of recent anonymous reports; reports are unverified signals, not stock facts.';
 
 CREATE INDEX IF NOT EXISTS premise_location_idx
     ON premise (state, district);

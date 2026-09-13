@@ -4,7 +4,7 @@ import type { RecommendationDetailRow } from "./recommendation-detail";
 export const SHOPPING_CHECKLIST_VERSION = 4 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
-export type ChecklistStatus = "neutral" | "bought" | "not_bought" | "out_of_stock";
+export type ChecklistStatus = "neutral" | "bought" | "not_bought";
 export type ChecklistPriceSource = "store" | "median" | "manual" | null;
 export type ChecklistItemSource = "catalogue" | "manual";
 export type ChecklistQuantitySource = "planned" | "actual";
@@ -97,7 +97,6 @@ export interface ChecklistProgress {
   completed: number;
   bought: number;
   notBought: number;
-  outOfStock: number;
   neutral: number;
   percent: number;
 }
@@ -488,7 +487,6 @@ export function plannedChecklistSubtotal(checklist: ShoppingChecklist): number |
 export function checklistProgress(checklist: ShoppingChecklist): ChecklistProgress {
   const bought = checklist.items.filter(item => item.status === "bought").length;
   const notBought = checklist.items.filter(item => item.status === "not_bought").length;
-  const outOfStock = checklist.items.filter(item => item.status === "out_of_stock").length;
   const total = checklist.items.length;
   // A red "not bought" choice records the outcome but does not count towards
   // the shopping-completion indicator.
@@ -498,8 +496,7 @@ export function checklistProgress(checklist: ShoppingChecklist): ChecklistProgre
     completed,
     bought,
     notBought,
-    outOfStock,
-    neutral: total - bought - notBought - outOfStock,
+    neutral: total - bought - notBought,
     percent: total === 0 ? 0 : Math.round((completed / total) * 100),
   };
 }
@@ -521,7 +518,7 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   const item = value as Record<string, unknown>;
   const sourceIsValid = item.source === "catalogue" || item.source === "manual";
   const statusIsValid = item.status === "neutral" || item.status === "bought"
-    || item.status === "not_bought" || item.status === "out_of_stock";
+    || item.status === "not_bought";
   const priceSourceIsValid = item.priceSource === null
     || item.priceSource === "store"
     || item.priceSource === "median"
@@ -618,7 +615,9 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
  * v3 payloads (before alternative store estimates, gap G4) are upgraded in
  * place: missing planned totals and estimates are filled with null / empty
  * defaults and every line gains actualPriceRm / actualQuantity /
- * quantitySource defaults. Unknown versions are dropped safely.
+ * quantitySource defaults. Out-of-stock registration was abolished, so
+ * legacy out_of_stock statuses degrade to not_bought. Unknown versions are
+ * dropped safely.
  */
 export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
   if (!raw || typeof raw !== "object") return null;
@@ -638,16 +637,17 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
     // value is left as-is so validation rejects it instead of hiding corruption.
     alternativeStoreEstimates: candidate.alternativeStoreEstimates ?? [],
     items: Array.isArray(candidate.items)
-      ? candidate.items.map(item => (
-          item && typeof item === "object"
-            ? {
-                actualPriceRm: null,
-                actualQuantity: null,
-                quantitySource: "planned",
-                ...(item as Record<string, unknown>),
-              }
-            : item
-        ))
+      ? candidate.items.map(item => {
+          if (!item || typeof item !== "object") return item;
+          const legacy = item as Record<string, unknown>;
+          return {
+            actualPriceRm: null,
+            actualQuantity: null,
+            quantitySource: "planned",
+            ...legacy,
+            status: legacy.status === "out_of_stock" ? "not_bought" : legacy.status,
+          };
+        })
       : candidate.items,
   };
   return isShoppingChecklist(normalized) ? normalized : null;

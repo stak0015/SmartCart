@@ -286,7 +286,6 @@ describe("shopping checklist mutations", () => {
       completed: 1,
       bought: 1,
       notBought: 1,
-      outOfStock: 0,
       neutral: 0,
       percent: 50,
     });
@@ -295,25 +294,21 @@ describe("shopping checklist mutations", () => {
     expect(checklistProgress(neutralAgain).completed).toBe(0);
   });
 
-  it("keeps purchased, not-purchased and out-of-stock mutually exclusive (AC 5.2.2)", () => {
+  it("keeps purchased and not-purchased mutually exclusive (AC 5.2.2)", () => {
     const initial = checklistFromDetails();
     const itemId = initial.items[0].id;
 
     const bought = toggleChecklistItemStatus(initial, itemId, "bought");
     expect(bought.items[0].status).toBe("bought");
 
-    const outOfStock = toggleChecklistItemStatus(bought, itemId, "out_of_stock");
-    expect(outOfStock.items[0].status).toBe("out_of_stock");
-    expect(checklistProgress(outOfStock)).toMatchObject({
+    const notBought = toggleChecklistItemStatus(bought, itemId, "not_bought");
+    expect(notBought.items[0].status).toBe("not_bought");
+    expect(checklistProgress(notBought)).toMatchObject({
       bought: 0,
-      notBought: 0,
-      outOfStock: 1,
+      notBought: 1,
       neutral: 1,
       completed: 0,
     });
-
-    const notBought = toggleChecklistItemStatus(outOfStock, itemId, "not_bought");
-    expect(notBought.items[0].status).toBe("not_bought");
 
     const backToBought = toggleChecklistItemStatus(notBought, itemId, "bought");
     expect(backToBought.items[0].status).toBe("bought");
@@ -322,10 +317,15 @@ describe("shopping checklist mutations", () => {
     expect(cleared.items[0].status).toBe("neutral");
   });
 
-  it("persists out-of-stock rows through serialization", () => {
+  it("degrades legacy out-of-stock statuses to not bought on read", () => {
     const initial = checklistFromDetails();
-    const marked = toggleChecklistItemStatus(initial, initial.items[0].id, "out_of_stock");
-    expect(parseShoppingChecklist(serializeShoppingChecklist(marked))).toEqual(marked);
+    const legacy = JSON.parse(serializeShoppingChecklist(initial)) as {
+      items: { status: string }[];
+    };
+    legacy.items[0].status = "out_of_stock";
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated).not.toBeNull();
+    expect(migrated?.items[0].status).toBe("not_bought");
   });
 
   it("adds, edits, and deletes manual rows while preserving their status", () => {

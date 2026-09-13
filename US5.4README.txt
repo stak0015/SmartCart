@@ -5,18 +5,18 @@ Record a Completed Shopping Trip
 ------------------------------------------------------------
 1. 中文
 
-清单页新增 "Record shopping trip" 按钮：确认后把当前清单冻结为一份支出记录，保存在本机（浏览器 localStorage，独立存储键 smartcart.trip-history.v1），数据永不离开设备。记录包含保存日期时间、门店、全部目录行与自定义行、各行的购买结果（已购/未购/缺货/未完成）、实际数量及其 planned/actual 来源标注、实际单价与实际行小计；自定义行保留用户输入的名称并始终标注为购物者添加，绝不匹配官方商品。保存成功弹出确认提示，记录即时写入本机历史，无需刷新；重复保存会提示该清单已记录过。
+清单页新增 "Record shopping trip" 按钮：确认后把当前清单冻结为一份支出记录，保存在本机（浏览器 localStorage，独立存储键 smartcart.trip-history.v1），数据永不离开设备。记录包含保存日期时间、门店、全部目录行与自定义行、各行的购买结果（已购/未购/未完成）、实际数量及其 planned/actual 来源标注、实际单价与实际行小计；自定义行保留用户输入的名称并始终标注为购物者添加，绝不匹配官方商品。保存成功弹出确认提示，记录即时写入本机历史，无需刷新；重复保存会提示该清单已记录过。
 
 English:
-The checklist screen gains a "Record shopping trip" button: once confirmed, the current checklist is frozen into an expense record stored on the device (browser localStorage, dedicated key smartcart.trip-history.v1) and never leaves it. The record keeps the save date and time, the store, every catalogue and custom line, each line's outcome (purchased / not purchased / out of stock / unfinished), the actual quantity with its planned/actual source label, and the actual unit price and line total when entered; custom lines keep the name the shopper typed and stay marked as shopper-added — never matched to an official item. A confirmation toast appears after a successful save and the record is written to the on-device history immediately, no reload needed; recording the same checklist again shows an already-recorded notice.
+The checklist screen gains a "Record shopping trip" button: once confirmed, the current checklist is frozen into an expense record stored on the device (browser localStorage, dedicated key smartcart.trip-history.v1) and never leaves it. The record keeps the save date and time, the store, every catalogue and custom line, each line's outcome (purchased / not purchased / unfinished), the actual quantity with its planned/actual source label, and the actual unit price and line total when entered; custom lines keep the name the shopper typed and stay marked as shopper-added — never matched to an official item. A confirmation toast appears after a successful save and the record is written to the on-device history immediately, no reload needed; recording the same checklist again shows an already-recorded notice.
 
 ------------------------------------------------------------
 2. 中文
 
-合计口径与隐私：记录的实际支出总额只合计"已购且实际价已知"的行小计；未购、缺货、缺价与参考价（median）行一律排除并在记录中保留原有标注，估算往返交通费仅作计划元数据保存、绝不计入支出，无已知已购行小计时总额为空而非虚构的零。行程记录格式带版本号（version 1），损坏或未知版本的记录被安全忽略、绝不崩溃或虚构总额。清单快照同步扩展保存备选门店的估算行程成本列表（店标识、估算往返交通费、可得时的估算合计），为后续"换店对比"功能提供端侧数据来源；清单存储格式升级至 version 4，旧版（v1–v3）本地数据自动迁移、不丢失。
+合计口径与隐私：记录的实际支出总额只合计"已购且实际价已知"的行小计；未购、缺价与参考价（median）行一律排除并在记录中保留原有标注，估算往返交通费仅作计划元数据保存、绝不计入支出，无已知已购行小计时总额为空而非虚构的零。行程记录格式带版本号（version 1），损坏或未知版本的记录被安全忽略、绝不崩溃或虚构总额。清单快照同步扩展保存备选门店的估算行程成本列表（店标识、估算往返交通费、可得时的估算合计），为后续"换店对比"功能提供端侧数据来源；清单存储格式升级至 version 4，旧版（v1–v3）本地数据自动迁移、不丢失。
 
 English:
-Totals and privacy: a record's actual expense total sums only the known line totals of purchased lines; unpurchased, out-of-stock, missing-price and reference-price (median) lines are excluded and keep their explicit labels in the record, the estimated return transport is kept as planned metadata only and never counted as spending, and the total stays empty rather than showing a made-up zero when no purchased line total is known. Trip records are versioned (version 1); malformed or unknown-version records are ignored safely without crashing or inventing totals. The checklist snapshot now also stores the alternative stores' estimated trip costs (store identity, estimated return transport, and estimated combined total when known), providing the on-device data source for a future store-comparison feature; the checklist storage format moves to version 4 and legacy local data (v1–v3) migrates automatically without loss.
+Totals and privacy: a record's actual expense total sums only the known line totals of purchased lines; unpurchased, missing-price and reference-price (median) lines are excluded and keep their explicit labels in the record, the estimated return transport is kept as planned metadata only and never counted as spending, and the total stays empty rather than showing a made-up zero when no purchased line total is known. Trip records are versioned (version 1); malformed or unknown-version records are ignored safely without crashing or inventing totals. The checklist snapshot now also stores the alternative stores' estimated trip costs (store identity, estimated return transport, and estimated combined total when known), providing the on-device data source for a future store-comparison feature; the checklist storage format moves to version 4 and legacy local data (v1–v3) migrates automatically without loss.
 
 ------------------------------------------------------------
 3. 中文
@@ -33,3 +33,11 @@ Testing and verification: the frontend vitest suite passes 150 tests (18 new: re
 
 English:
 Files changed: frontend/lib/trip-history.ts (new — trip record model, totals, and versioned serialization pure functions), frontend/lib/trip-history.test.ts (new tests), frontend/lib/shopping-checklist.ts and its tests (snapshot gains alternative-store estimates, storage version moves to v4 with an extended migration chain), frontend/components/shopping-checklist.tsx (Record button and confirmation dialog), frontend/components/smartcart-app.tsx (alternative stores passed at checklist creation, history state with on-device persistence, save confirmation toast), frontend/lib/i18n.ts (English and Malay copy), docs/evidence/epic5.4screenshot-Zhihao/ (verification screenshots).
+
+------------------------------------------------------------
+5. 中文
+
+2026-09-14 修订（缺货登记废除）：缺货标记功能因违反项目约束（选题禁区"无论坛博客众包"）废除，Out of stock 状态从前端移除——清单行仅剩已购/未购两种标记，行程记录 outcome 枚举随之收窄；读取本机旧数据时，清单与行程记录中已存的 out_of_stock 状态自动降级为 not_bought，记录不丢弃、不丢失。验收标准原文已同步改写（EpicsUser StoriesAC_实际v4.txt：US 5.2 陈述、AC 5.2.2/5.4.2/5.5.1）。修订后前端 vitest 151 项全部通过，ESLint 零告警，生产构建通过。
+
+English:
+Revision of 2026-09-14 (out-of-stock marking abolished): the out-of-stock marking feature was retired under a project constraint (the "no crowdsourcing" topic ban) and the Out of stock state was removed from the frontend — checklist lines now offer only purchased / not purchased, and the trip-record outcome enum narrowed accordingly. When legacy on-device data is read, any stored out_of_stock status degrades automatically to not_bought; no record is dropped or lost. The acceptance criteria text was updated in step (EpicsUser StoriesAC_实际v4.txt: US 5.2 statement, AC 5.2.2 / 5.4.2 / 5.5.1). After the revision the frontend vitest suite passes 151 tests, ESLint reports no warnings, and the production build passes.

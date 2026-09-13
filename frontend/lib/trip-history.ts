@@ -90,7 +90,7 @@ function nowIso(): string {
 
 /**
  * AC 5.4.2: the actual expense total is the sum of the known purchased line
- * totals. Unpurchased, out-of-stock, missing-price and reference-price lines
+ * totals. Unpurchased, missing-price and reference-price lines
  * are excluded (they stay in the record, explicitly labelled by their status
  * and price source). Returns null when nothing is known — never 0.
  */
@@ -196,7 +196,7 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
   const line = value as Record<string, unknown>;
   const sourceIsValid = line.source === "catalogue" || line.source === "manual";
   const statusIsValid = line.status === "neutral" || line.status === "bought"
-    || line.status === "not_bought" || line.status === "out_of_stock";
+    || line.status === "not_bought";
   const priceSourceIsValid = line.priceSource === null
     || line.priceSource === "store"
     || line.priceSource === "median"
@@ -272,7 +272,24 @@ export function migrateTripHistory(raw: unknown): TripRecord[] {
   if (!raw || typeof raw !== "object") return [];
   const envelope = raw as Record<string, unknown>;
   if (envelope.version !== TRIP_HISTORY_VERSION || !Array.isArray(envelope.records)) return [];
-  return envelope.records.filter(isTripRecord);
+  return envelope.records
+    .map(record => {
+      if (!record || typeof record !== "object") return record;
+      const candidate = record as Record<string, unknown>;
+      if (!Array.isArray(candidate.lines)) return record;
+      // Out-of-stock registration was abolished: legacy out_of_stock lines
+      // degrade to not_bought instead of dropping the whole record.
+      return {
+        ...candidate,
+        lines: candidate.lines.map(line => (
+          line && typeof line === "object"
+            && (line as Record<string, unknown>).status === "out_of_stock"
+            ? { ...(line as Record<string, unknown>), status: "not_bought" }
+            : line
+        )),
+      };
+    })
+    .filter(isTripRecord);
 }
 
 export function serializeTripHistory(records: TripRecord[]): string {
