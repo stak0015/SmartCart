@@ -163,6 +163,10 @@ describe("shopping checklist copy", () => {
     expect(COPY.ms.itemQuantityError).toContain("nombor bulat positif");
     expect(COPY.en.itemPriceError).toContain("two decimal places");
     expect(COPY.ms.itemPriceError).toContain("dua tempat perpuluhan");
+    expect(COPY.en.shopperRecorded).toBe("Shopper recorded");
+    expect(COPY.ms.shopperRecorded).toContain("Dicatat");
+    expect(COPY.en.actualUnitPrice).toContain("Actual unit price");
+    expect(COPY.ms.actualUnitPrice).toContain("Harga seunit sebenar");
     expect(COPY.en.deleteItemConfirm("Milk")).toContain("Milk");
     expect(COPY.ms.deleteItemConfirm("Susu")).toContain("Susu");
     expect(COPY.en.replaceChecklistConfirm).toContain("manually added items");

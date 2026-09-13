@@ -1,7 +1,7 @@
 import type { BasketItemPrice, StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 
-export const SHOPPING_CHECKLIST_VERSION = 1 as const;
+export const SHOPPING_CHECKLIST_VERSION = 2 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought" | "out_of_stock";
@@ -26,6 +26,9 @@ export interface ChecklistItem {
   quantity: number;
   unitPriceRm: number | null;
   lineTotalRm: number | null;
+  // AC 5.3.1/5.3.2: the shopper-observed unit price. Kept strictly separate
+  // from the official/reference unitPriceRm; null means "not recorded".
+  actualPriceRm: number | null;
   priceSource: ChecklistPriceSource;
   observedDate: string | null;
   status: ChecklistStatus;
@@ -135,6 +138,7 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     quantity,
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
+    actualPriceRm: null,
     priceSource: cataloguePriceSource(current.priceSource, unitPriceRm),
     observedDate: current.observedDate,
     status: "neutral",
@@ -155,6 +159,7 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     quantity,
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
+    actualPriceRm: null,
     priceSource: cataloguePriceSource(price.priceSource, unitPriceRm),
     observedDate: price.priceObservedDate,
     status: "neutral",
@@ -275,6 +280,7 @@ export function addManualChecklistItem(
     quantity,
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
+    actualPriceRm: null,
     priceSource: "manual",
     observedDate: null,
     status: "neutral",
@@ -313,6 +319,55 @@ export function editChecklistItem(
       observedDate: null,
     } : item),
   };
+}
+
+/**
+ * AC 5.3.1: validates an actual unit price typed by the shopper. A blank
+ * input clears the recorded price (success with null); anything else must be
+ * a positive amount with no more than two decimals.
+ */
+export function validateActualUnitPrice(
+  input: string,
+): { success: true; value: number | null } | { success: false } {
+  const trimmed = input.trim();
+  if (trimmed === "") return { success: true, value: null };
+  const parsed = parseManualUnitPrice(trimmed);
+  return parsed == null ? { success: false } : { success: true, value: parsed };
+}
+
+/**
+ * AC 5.3.1/5.3.2: records or clears the shopper-observed unit price on a
+ * Purchased line. The official/reference price fields are never touched.
+ * Returns null when the line does not exist or is not marked bought.
+ */
+export function setChecklistItemActualPrice(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  actualPriceRm: number | null,
+  updatedAt = nowIso(),
+): ShoppingChecklist | null {
+  const index = checklist.items.findIndex(item => item.id === itemId);
+  if (index < 0) return null;
+  const target = checklist.items[index];
+  if (target.status !== "bought") return null;
+  if (actualPriceRm != null && (!Number.isFinite(actualPriceRm) || actualPriceRm <= 0)) return null;
+  const normalized = actualPriceRm == null ? null : money(actualPriceRm);
+  if (target.actualPriceRm === normalized) return checklist;
+  return {
+    ...checklist,
+    updatedAt,
+    items: checklist.items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, actualPriceRm: normalized } : item
+    )),
+  };
+}
+
+/**
+ * AC 5.3.3: the actual line total exists only while an actual unit price is
+ * recorded; a cleared/unknown price yields null (rendered blank, never 0.00).
+ */
+export function actualLineTotalRm(item: ChecklistItem): number | null {
+  return item.actualPriceRm == null ? null : money(item.actualPriceRm * item.quantity);
 }
 
 export function deleteChecklistItem(
@@ -392,6 +447,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && item.quantity >= 1
     && isFiniteMoneyOrNull(item.unitPriceRm)
     && isFiniteMoneyOrNull(item.lineTotalRm)
+    && (item.actualPriceRm === null
+      || (typeof item.actualPriceRm === "number" && item.actualPriceRm > 0))
     && priceSourceIsValid
     && isNullableString(item.observedDate)
     && statusIsValid;
@@ -440,19 +497,29 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
 }
 
 /**
- * Migration chain entry point (D5.0). v1 payloads written before the planned
- * totals existed are filled with null; unknown versions are dropped safely.
- * The first real version-to-version migration lands with the v2 envelope.
+ * Migration chain (D5.0). v1 payloads written before the planned totals and
+ * per-line actual prices existed are upgraded in place: missing planned
+ * totals are filled with null and every line gains actualPriceRm: null.
+ * Unknown versions are dropped safely.
  */
 export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Record<string, unknown>;
-  if (candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
+  // v1 is the only legacy envelope; anything else unknown is dropped.
+  if (candidate.version !== 1 && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
   const normalized = {
     ...candidate,
+    version: SHOPPING_CHECKLIST_VERSION,
     plannedSubtotalRm: candidate.plannedSubtotalRm ?? null,
     estimatedRoundTripCostRm: candidate.estimatedRoundTripCostRm ?? null,
     plannedCombinedTotalRm: candidate.plannedCombinedTotalRm ?? null,
+    items: Array.isArray(candidate.items)
+      ? candidate.items.map(item => (
+          item && typeof item === "object"
+            ? { actualPriceRm: null, ...(item as Record<string, unknown>) }
+            : item
+        ))
+      : candidate.items,
   };
   return isShoppingChecklist(normalized) ? normalized : null;
 }

@@ -54,6 +54,7 @@ import {
   editChecklistItem as editChecklistItemModel,
   parseShoppingChecklist,
   serializeShoppingChecklist,
+  setChecklistItemActualPrice,
   toggleChecklistItemStatus,
   type ChecklistStatus,
   type ManualChecklistItemInput,
@@ -2497,6 +2498,11 @@ export default function App() {
       ? editChecklistItemModel(current, itemId, input) ?? current
       : current);
   };
+  const setActualPrice = (itemId: string, actualPriceRm: number | null) => {
+    setChecklist(current => current
+      ? setChecklistItemActualPrice(current, itemId, actualPriceRm) ?? current
+      : current);
+  };
   const removeChecklistItem = (itemId: string) => {
     setChecklist(current => current ? deleteChecklistItem(current, itemId) : current);
   };
@@ -2542,6 +2548,7 @@ export default function App() {
             onToggleStatus={updateChecklistStatus}
             onAddManual={addChecklistItem}
             onEditItem={editChecklistItem}
+            onSetActualPrice={setActualPrice}
             onDeleteItem={removeChecklistItem}
             onDeleteChecklist={removeChecklist}
           />

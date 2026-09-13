@@ -4,6 +4,7 @@ import type { StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 import {
   SHOPPING_CHECKLIST_STORAGE_KEY,
+  actualLineTotalRm,
   addManualChecklistItem,
   checklistProgress,
   createShoppingChecklist,
@@ -13,7 +14,9 @@ import {
   parseShoppingChecklist,
   plannedChecklistSubtotal,
   serializeShoppingChecklist,
+  setChecklistItemActualPrice,
   toggleChecklistItemStatus,
+  validateActualUnitPrice,
   validateManualChecklistItem,
 } from "./shopping-checklist";
 
@@ -450,15 +453,22 @@ describe("shopping checklist persistence", () => {
     expect(parseShoppingChecklist(serializeShoppingChecklist(checklist))).toEqual(checklist);
   });
 
-  it("migrates legacy v1 payloads written before the planned-total fields", () => {
+  it("migrates legacy v1 payloads written before the planned-total and actual-price fields", () => {
     const checklist = checklistFromDetails();
     const legacy = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    legacy.version = 1;
     delete legacy.plannedSubtotalRm;
     delete legacy.estimatedRoundTripCostRm;
     delete legacy.plannedCombinedTotalRm;
+    legacy.items = (legacy.items as Record<string, unknown>[]).map(item => {
+      const copy = { ...item };
+      delete copy.actualPriceRm;
+      return copy;
+    });
 
     const migrated = parseShoppingChecklist(JSON.stringify(legacy));
     expect(migrated).not.toBeNull();
+    expect(migrated?.version).toBe(2);
     expect(migrated?.plannedSubtotalRm).toBeNull();
     expect(migrated?.estimatedRoundTripCostRm).toBeNull();
     expect(migrated?.plannedCombinedTotalRm).toBeNull();
@@ -470,14 +480,14 @@ describe("shopping checklist persistence", () => {
     const checklist = checklistFromDetails();
     expect(migrateShoppingChecklist(null)).toBeNull();
     expect(migrateShoppingChecklist("checklist")).toBeNull();
-    expect(migrateShoppingChecklist({ ...checklist, version: 2 })).toBeNull();
+    expect(migrateShoppingChecklist({ ...checklist, version: 99 })).toBeNull();
     expect(migrateShoppingChecklist({ ...checklist, version: 0 })).toBeNull();
   });
 
   it("rejects malformed, unsupported, and internally inconsistent storage", () => {
     const checklist = checklistFromDetails();
     expect(parseShoppingChecklist("{bad json")).toBeNull();
-    expect(parseShoppingChecklist(JSON.stringify({ ...checklist, version: 2 }))).toBeNull();
+    expect(parseShoppingChecklist(JSON.stringify({ ...checklist, version: 99 }))).toBeNull();
     expect(parseShoppingChecklist(JSON.stringify({
       ...checklist,
       items: [{ ...checklist.items[0], unitPriceRm: null, lineTotalRm: 0 }],
@@ -486,5 +496,99 @@ describe("shopping checklist persistence", () => {
       ...checklist,
       items: [{ ...checklist.items[0], source: "manual", priceSource: "median" }],
     }))).toBeNull();
+    expect(parseShoppingChecklist(JSON.stringify({
+      ...checklist,
+      items: [{ ...checklist.items[0], actualPriceRm: 0 }],
+    }))).toBeNull();
+  });
+});
+
+describe("actual price recording (AC 5.3.1-5.3.3)", () => {
+  it("validates actual prices: blank clears, positive two-decimal accepted, bad rejected", () => {
+    expect(validateActualUnitPrice("")).toEqual({ success: true, value: null });
+    expect(validateActualUnitPrice("   ")).toEqual({ success: true, value: null });
+    expect(validateActualUnitPrice("3.4")).toEqual({ success: true, value: 3.4 });
+    expect(validateActualUnitPrice("2.55")).toEqual({ success: true, value: 2.55 });
+    expect(validateActualUnitPrice("0").success).toBe(false);
+    expect(validateActualUnitPrice("-1").success).toBe(false);
+    expect(validateActualUnitPrice("1.234").success).toBe(false);
+    expect(validateActualUnitPrice("abc").success).toBe(false);
+  });
+
+  it("records and clears the actual price only on purchased lines (AC 5.3.1)", () => {
+    const initial = checklistFromDetails();
+    const itemId = initial.items[0].id;
+
+    // Neutral lines and unknown ids reject the write.
+    expect(setChecklistItemActualPrice(initial, itemId, 4)).toBeNull();
+    expect(setChecklistItemActualPrice(initial, "missing", 4)).toBeNull();
+
+    const bought = toggleChecklistItemStatus(initial, itemId, "bought", "2026-09-13T01:00:00.000Z");
+    const recorded = setChecklistItemActualPrice(bought, itemId, 3.789, "2026-09-13T02:00:00.000Z")!;
+    expect(recorded.items[0].actualPriceRm).toBe(3.79);
+    expect(recorded.updatedAt).toBe("2026-09-13T02:00:00.000Z");
+    // The original checklist is untouched (immutable update).
+    expect(initial.items[0].actualPriceRm).toBeNull();
+
+    const cleared = setChecklistItemActualPrice(recorded, itemId, null)!;
+    expect(cleared.items[0].actualPriceRm).toBeNull();
+
+    // Non-positive and non-finite values are rejected.
+    expect(setChecklistItemActualPrice(bought, itemId, 0)).toBeNull();
+    expect(setChecklistItemActualPrice(bought, itemId, -2)).toBeNull();
+    expect(setChecklistItemActualPrice(bought, itemId, Number.NaN)).toBeNull();
+  });
+
+  it("recalculates the actual line total immediately and stays empty when unknown (AC 5.3.3)", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+
+    // items[0] quantity is 2 → 3.50 × 2 = 7.00
+    expect(actualLineTotalRm(recorded.items[0])).toBe(7);
+    expect(actualLineTotalRm(bought.items[0])).toBeNull();
+    expect(actualLineTotalRm(recorded.items[0])).not.toBe(0);
+  });
+
+  it("keeps the actual price separate from official and planned figures (AC 5.3.2)", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const line = recorded.items[0];
+
+    expect(line.unitPriceRm).toBe(4.25);
+    expect(line.lineTotalRm).toBe(8.5);
+    expect(line.priceSource).toBe("store");
+    expect(line.observedDate).toBe("2026-09-02");
+    expect(recorded.plannedSubtotalRm).toBe(15);
+    expect(recorded.plannedCombinedTotalRm).toBe(16);
+    expect(recorded.store).toEqual(initial.store);
+  });
+
+  it("keeps the recorded price when the line leaves the bought state", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const unmarked = toggleChecklistItemStatus(recorded, initial.items[0].id, "bought");
+    expect(unmarked.items[0].status).toBe("neutral");
+    expect(unmarked.items[0].actualPriceRm).toBe(3.5);
+  });
+
+  it("persists actual prices through serialization and upgrades v1 lines with null", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    expect(parseShoppingChecklist(serializeShoppingChecklist(recorded))).toEqual(recorded);
+
+    const legacy = JSON.parse(serializeShoppingChecklist(recorded)) as Record<string, unknown>;
+    legacy.version = 1;
+    legacy.items = (legacy.items as Record<string, unknown>[]).map(item => {
+      const copy = { ...item };
+      delete copy.actualPriceRm;
+      return copy;
+    });
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated).not.toBeNull();
+    expect(migrated?.items.every(item => item.actualPriceRm === null)).toBe(true);
   });
 });
