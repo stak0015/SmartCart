@@ -40,11 +40,25 @@ import {
   type RecommendationDetailRow,
 } from "@/lib/recommendation-detail";
 import { SuccessToast } from "@/components/success-toast";
+import { ConfirmationDialog, ShoppingChecklistScreen } from "@/components/shopping-checklist";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { uppercaseItemName } from "@/lib/item-name";
 import { localizedPackageSize } from "@/lib/package-size";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
+import {
+  SHOPPING_CHECKLIST_STORAGE_KEY,
+  addManualChecklistItem,
+  createShoppingChecklist,
+  deleteChecklistItem,
+  editChecklistItem as editChecklistItemModel,
+  parseShoppingChecklist,
+  serializeShoppingChecklist,
+  toggleChecklistItemStatus,
+  type ChecklistStatus,
+  type ManualChecklistItemInput,
+  type ShoppingChecklist,
+} from "@/lib/shopping-checklist";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -170,6 +184,14 @@ function IcoCheckbox({ color = "white" }: { color?: string }) {
   return (
     <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
       <path d={svgPathsLocation.pc296280} fill={color} />
+    </svg>
+  );
+}
+function IcoChecklist({ color = "#087f5b" }: { color?: string }) {
+  return (
+    <svg aria-hidden="true" width={20} height={20} viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="3" width="16" height="18" rx="2.5" stroke={color} strokeWidth="1.8" />
+      <path d="m8 9 1.4 1.4L12 7.8M8 15l1.4 1.4L12 13.8M14.5 9h2M14.5 15h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -433,6 +455,9 @@ function Header({
   basketCount,
   onBasket,
   basketActive,
+  checklistCount,
+  onChecklist,
+  checklistActive,
   onBack,
   locale,
   onToggleLanguage,
@@ -441,6 +466,9 @@ function Header({
   basketCount: number;
   onBasket: () => void;
   basketActive: boolean;
+  checklistCount: number;
+  onChecklist?: () => void;
+  checklistActive: boolean;
   onBack?: () => void;
   locale: Locale;
   onToggleLanguage: () => void;
@@ -462,11 +490,26 @@ function Header({
               <path d="M8 9.5 10 5m6 4.5L14 5M3.5 9.5h17M9 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </span>
-          SmartCart
+          <span className="hidden sm:inline">SmartCart</span>
         </Link>
 
         <div className="flex items-center gap-2 justify-self-end">
           <LanguageToggle locale={locale} onToggle={onToggleLanguage} />
+          {onChecklist && (
+            <button
+              type="button"
+              onClick={onChecklist}
+              aria-label={copy.openChecklistAria(checklistCount)}
+              aria-current={checklistActive ? "page" : undefined}
+              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${checklistActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
+            >
+              <IcoChecklist />
+              <span className="sr-only">{copy.checklist}</span>
+              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#286d67] px-1 text-[11px] font-bold text-white">
+                {checklistCount}
+              </span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onBasket}
@@ -1853,19 +1896,23 @@ function RecommendationBasketRow({
 function RecommendationOverview({
   store,
   basket,
+  activeChecklist,
   preferences,
   copy,
   costAssumptions,
   routeProvider,
   onSetBasket,
+  onCreateChecklist,
 }: {
   store: StoreRecommendation;
   basket: BasketItem[];
+  activeChecklist: ShoppingChecklist | null;
   preferences: TravelPreferences;
   copy: AppCopy;
   costAssumptions: Record<TransportMode, string> | undefined;
   routeProvider: "google" | "straight_line";
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
+  onCreateChecklist: (checklist: ShoppingChecklist) => void;
 }) {
   const routeEstimateNote = routeProvider === "straight_line"
     ? copy.straightLineFallbackNote
@@ -1877,6 +1924,7 @@ function RecommendationOverview({
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(true);
   const [alternativesError, setAlternativesError] = useState(false);
+  const [replaceChecklistOpen, setReplaceChecklistOpen] = useState(false);
   const alternativeRequestKey = JSON.stringify(toAlternativeLineRequests(basket));
 
   useEffect(() => {
@@ -1945,6 +1993,19 @@ function RecommendationOverview({
   const undoReplacement = (row: RecommendationDetailRow) => {
     if (!row.basketItem?.replacement) return;
     onSetBasket(current => undoBasketReplacement(current, row.basketItem!.id));
+  };
+
+  const createChecklist = () => {
+    onCreateChecklist(createShoppingChecklist(store, detailRows));
+    setReplaceChecklistOpen(false);
+  };
+
+  const beginChecklistCreation = () => {
+    if (activeChecklist) {
+      setReplaceChecklistOpen(true);
+      return;
+    }
+    createChecklist();
   };
 
   return (
@@ -2046,6 +2107,24 @@ function RecommendationOverview({
             </section>
           )}
 
+          {displayedLineCount > 0 && (
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={beginChecklistCreation}
+                disabled={alternativesLoading}
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(8,127,91,0.2)] disabled:cursor-not-allowed disabled:bg-[#9eb0a7] disabled:shadow-none"
+              >
+                <IcoChecklist color="white" />
+                {alternativesLoading
+                  ? copy.checklistPreparing
+                  : activeChecklist
+                    ? copy.replaceChecklist
+                    : copy.createChecklist}
+              </button>
+            </div>
+          )}
+
           {adjustedCombinedTotal != null && (
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -2068,6 +2147,16 @@ function RecommendationOverview({
           </details>
         </section>
       </div>
+      <ConfirmationDialog
+        open={replaceChecklistOpen}
+        title={copy.replaceChecklist}
+        body={copy.replaceChecklistConfirm}
+        confirmLabel={copy.replaceChecklist}
+        cancelLabel={copy.cancel}
+        destructive
+        onCancel={() => setReplaceChecklistOpen(false)}
+        onConfirm={createChecklist}
+      />
     </div>
   );
 }
@@ -2075,6 +2164,8 @@ function RecommendationOverview({
 function CompareScreen({
   basket,
   setBasket,
+  activeChecklist,
+  onCreateChecklist,
   selectedStore,
   setSelectedStore,
   preferences,
@@ -2083,6 +2174,8 @@ function CompareScreen({
 }: {
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
+  activeChecklist: ShoppingChecklist | null;
+  onCreateChecklist: (checklist: ShoppingChecklist) => void;
   selectedStore: StoreRecommendation | null;
   setSelectedStore: Dispatch<SetStateAction<StoreRecommendation | null>>;
   preferences: TravelPreferences;
@@ -2180,7 +2273,9 @@ function CompareScreen({
       <RecommendationOverview
         store={selectedStore}
         basket={basket}
+        activeChecklist={activeChecklist}
         onSetBasket={setBasket}
+        onCreateChecklist={onCreateChecklist}
         preferences={preferences}
         copy={copy}
         costAssumptions={result?.costAssumptions}
@@ -2291,6 +2386,9 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>("shop");
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
+  const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistStorageReady, setChecklistStorageReady] = useState(false);
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
     origin: null,
@@ -2304,7 +2402,7 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [screen]);
+  }, [checklistOpen, screen]);
 
   useEffect(() => {
     if (screen !== "compare") setSelectedStore(null);
@@ -2319,6 +2417,38 @@ export default function App() {
     document.documentElement.lang = locale === "ms" ? "ms-MY" : "en-MY";
     window.localStorage.setItem("smartcart-locale", locale);
   }, [locale]);
+
+  useEffect(() => {
+    try {
+      const serialized = window.localStorage.getItem(SHOPPING_CHECKLIST_STORAGE_KEY);
+      const savedChecklist = parseShoppingChecklist(serialized);
+      if (serialized && !savedChecklist) {
+        window.localStorage.removeItem(SHOPPING_CHECKLIST_STORAGE_KEY);
+      }
+      setChecklist(savedChecklist);
+    } catch {
+      setChecklist(null);
+    } finally {
+      setChecklistStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!checklistStorageReady) return;
+    try {
+      if (checklist) {
+        window.localStorage.setItem(
+          SHOPPING_CHECKLIST_STORAGE_KEY,
+          serializeShoppingChecklist(checklist),
+        );
+        return;
+      }
+      window.localStorage.removeItem(SHOPPING_CHECKLIST_STORAGE_KEY);
+    } catch {
+      // The active checklist remains usable in memory when storage is blocked
+      // or full; a later update can retry persistence.
+    }
+  }, [checklist, checklistStorageReady]);
 
   useEffect(() => {
     const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
@@ -2349,6 +2479,31 @@ export default function App() {
   const basketCount = basket.reduce((count, item) => count + item.qty, 0);
   const copy = COPY[locale];
   const toggleLanguage = () => setLocale(current => current === "en" ? "ms" : "en");
+  const updateChecklistStatus = (
+    itemId: string,
+    status: Exclude<ChecklistStatus, "neutral">,
+  ) => {
+    setChecklist(current => current
+      ? toggleChecklistItemStatus(current, itemId, status)
+      : current);
+  };
+  const addChecklistItem = (input: ManualChecklistItemInput) => {
+    setChecklist(current => current
+      ? addManualChecklistItem(current, input) ?? current
+      : current);
+  };
+  const editChecklistItem = (itemId: string, input: ManualChecklistItemInput) => {
+    setChecklist(current => current
+      ? editChecklistItemModel(current, itemId, input) ?? current
+      : current);
+  };
+  const removeChecklistItem = (itemId: string) => {
+    setChecklist(current => current ? deleteChecklistItem(current, itemId) : current);
+  };
+  const removeChecklist = () => {
+    setChecklist(null);
+    setChecklistOpen(false);
+  };
   const goBack = screen === "basket"
     ? () => setScreen("shop")
     : screen === "location"
@@ -2364,16 +2519,34 @@ export default function App() {
     <div className="min-h-full bg-[#f7f8f6]">
       <Header
         basketCount={basketCount}
-        basketActive={screen === "basket"}
-        onBasket={() => setScreen("basket")}
-        onBack={goBack}
+        basketActive={!checklistOpen && screen === "basket"}
+        onBasket={() => {
+          setChecklistOpen(false);
+          setScreen("basket");
+        }}
+        checklistCount={checklist?.items.length ?? 0}
+        checklistActive={checklistOpen}
+        onChecklist={checklist ? () => setChecklistOpen(true) : undefined}
+        onBack={checklistOpen ? () => setChecklistOpen(false) : goBack}
         locale={locale}
         onToggleLanguage={toggleLanguage}
         copy={copy}
       />
 
-      <main className={"mx-auto w-full pt-16 " + (screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
-        {screen === "shop" && (
+      <main className={"mx-auto w-full pt-16 " + (!checklistOpen && screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
+        {checklistOpen && checklist && (
+          <ShoppingChecklistScreen
+            checklist={checklist}
+            locale={locale}
+            copy={copy}
+            onToggleStatus={updateChecklistStatus}
+            onAddManual={addChecklistItem}
+            onEditItem={editChecklistItem}
+            onDeleteItem={removeChecklistItem}
+            onDeleteChecklist={removeChecklist}
+          />
+        )}
+        {!checklistOpen && screen === "shop" && (
           <BasketScreen
             view="shop"
             basket={basket}
@@ -2385,7 +2558,7 @@ export default function App() {
             locale={locale}
           />
         )}
-        {screen === "basket" && (
+        {!checklistOpen && screen === "basket" && (
           <BasketScreen
             view="basket"
             basket={basket}
@@ -2397,7 +2570,7 @@ export default function App() {
             locale={locale}
           />
         )}
-        {screen === "location" && (
+        {!checklistOpen && screen === "location" && (
           <LocationScreen
             preferences={preferences}
             onBack={() => setScreen("basket")}
@@ -2408,10 +2581,15 @@ export default function App() {
             }}
           />
         )}
-        {screen === "compare" && (
+        {!checklistOpen && screen === "compare" && (
           <CompareScreen
             basket={basket}
             setBasket={setBasket}
+            activeChecklist={checklist}
+            onCreateChecklist={nextChecklist => {
+              setChecklist(nextChecklist);
+              setChecklistOpen(true);
+            }}
             selectedStore={selectedStore}
             setSelectedStore={setSelectedStore}
             preferences={preferences}
