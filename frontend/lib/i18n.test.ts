@@ -167,6 +167,12 @@ describe("shopping checklist copy", () => {
     expect(COPY.ms.shopperRecorded).toContain("Dicatat");
     expect(COPY.en.actualUnitPrice).toContain("Actual unit price");
     expect(COPY.ms.actualUnitPrice).toContain("Harga seunit sebenar");
+    expect(COPY.en.actualQuantity).toBe("Actual quantity");
+    expect(COPY.ms.actualQuantity).toContain("Kuantiti sebenar");
+    expect(COPY.en.quantitySourcePlanned).toBe("planned");
+    expect(COPY.en.quantitySourceActual).toBe("actual");
+    expect(COPY.ms.quantitySourcePlanned).toContain("dirancang");
+    expect(COPY.ms.quantitySourceActual).toContain("sebenar");
     expect(COPY.en.deleteItemConfirm("Milk")).toContain("Milk");
     expect(COPY.ms.deleteItemConfirm("Susu")).toContain("Susu");
     expect(COPY.en.replaceChecklistConfirm).toContain("manually added items");

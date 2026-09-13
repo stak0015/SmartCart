@@ -1,12 +1,13 @@
 import type { BasketItemPrice, StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 
-export const SHOPPING_CHECKLIST_VERSION = 2 as const;
+export const SHOPPING_CHECKLIST_VERSION = 3 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought" | "out_of_stock";
 export type ChecklistPriceSource = "store" | "median" | "manual" | null;
 export type ChecklistItemSource = "catalogue" | "manual";
+export type ChecklistQuantitySource = "planned" | "actual";
 
 export interface ChecklistStore {
   premiseId: string;
@@ -29,6 +30,10 @@ export interface ChecklistItem {
   // AC 5.3.1/5.3.2: the shopper-observed unit price. Kept strictly separate
   // from the official/reference unitPriceRm; null means "not recorded".
   actualPriceRm: number | null;
+  // AC 5.3.4 (D5.5): the shopper may record an actual quantity; quantitySource
+  // says whether spending uses the planned quantity or an entered one.
+  actualQuantity: number | null;
+  quantitySource: ChecklistQuantitySource;
   priceSource: ChecklistPriceSource;
   observedDate: string | null;
   status: ChecklistStatus;
@@ -139,6 +144,8 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
     actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
     priceSource: cataloguePriceSource(current.priceSource, unitPriceRm),
     observedDate: current.observedDate,
     status: "neutral",
@@ -160,6 +167,8 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
     actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
     priceSource: cataloguePriceSource(price.priceSource, unitPriceRm),
     observedDate: price.priceObservedDate,
     status: "neutral",
@@ -281,6 +290,8 @@ export function addManualChecklistItem(
     unitPriceRm,
     lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
     actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
     priceSource: "manual",
     observedDate: null,
     status: "neutral",
@@ -365,9 +376,61 @@ export function setChecklistItemActualPrice(
 /**
  * AC 5.3.3: the actual line total exists only while an actual unit price is
  * recorded; a cleared/unknown price yields null (rendered blank, never 0.00).
+ * The quantity is the shopper-recorded actual quantity when present (AC
+ * 5.3.4), otherwise the planned quantity.
  */
 export function actualLineTotalRm(item: ChecklistItem): number | null {
-  return item.actualPriceRm == null ? null : money(item.actualPriceRm * item.quantity);
+  return item.actualPriceRm == null
+    ? null
+    : money(item.actualPriceRm * (item.actualQuantity ?? item.quantity));
+}
+
+/**
+ * AC 5.3.4: validates an actual quantity typed by the shopper. A blank input
+ * means "use the planned quantity" (success with null); anything else must be
+ * a positive whole number (same rule as AC 5.1.5).
+ */
+export function validateActualQuantity(
+  input: string,
+): { success: true; value: number | null } | { success: false } {
+  const trimmed = input.trim();
+  if (trimmed === "") return { success: true, value: null };
+  const parsed = parseQuantity(trimmed);
+  return parsed == null ? { success: false } : { success: true, value: parsed };
+}
+
+/**
+ * AC 5.3.4: records or clears the actual quantity on a Purchased line and
+ * marks the quantity source planned/actual accordingly. Returns null when the
+ * line does not exist or is not marked bought.
+ */
+export function setChecklistItemActualQuantity(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  actualQuantity: number | null,
+  updatedAt = nowIso(),
+): ShoppingChecklist | null {
+  const index = checklist.items.findIndex(item => item.id === itemId);
+  if (index < 0) return null;
+  const target = checklist.items[index];
+  if (target.status !== "bought") return null;
+  if (actualQuantity != null
+    && (!Number.isInteger(actualQuantity)
+      || actualQuantity < 1
+      || actualQuantity > Number.MAX_SAFE_INTEGER)) return null;
+  const nextSource: ChecklistQuantitySource = actualQuantity == null ? "planned" : "actual";
+  if (target.actualQuantity === actualQuantity && target.quantitySource === nextSource) {
+    return checklist;
+  }
+  return {
+    ...checklist,
+    updatedAt,
+    items: checklist.items.map((item, itemIndex) => (
+      itemIndex === index
+        ? { ...item, actualQuantity: actualQuantity ?? null, quantitySource: nextSource }
+        : item
+    )),
+  };
 }
 
 export function deleteChecklistItem(
@@ -449,12 +512,20 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && isFiniteMoneyOrNull(item.lineTotalRm)
     && (item.actualPriceRm === null
       || (typeof item.actualPriceRm === "number" && item.actualPriceRm > 0))
+    && (item.actualQuantity === null
+      || (typeof item.actualQuantity === "number"
+        && Number.isInteger(item.actualQuantity)
+        && item.actualQuantity >= 1))
+    && (item.quantitySource === "planned" || item.quantitySource === "actual")
     && priceSourceIsValid
     && isNullableString(item.observedDate)
     && statusIsValid;
   if (!commonFieldsAreValid) return false;
 
   if ((item.unitPriceRm === null) !== (item.lineTotalRm === null)) return false;
+  // AC 5.3.4: a recorded actual quantity must carry the "actual" source, and
+  // a cleared one must fall back to "planned".
+  if ((item.actualQuantity === null) !== (item.quantitySource === "planned")) return false;
   if (item.source === "manual") {
     return item.catalogueItemId === null
       && item.priceSource === "manual"
@@ -497,16 +568,19 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
 }
 
 /**
- * Migration chain (D5.0). v1 payloads written before the planned totals and
- * per-line actual prices existed are upgraded in place: missing planned
- * totals are filled with null and every line gains actualPriceRm: null.
+ * Migration chain (D5.0). v1 payloads (before planned totals, actual prices
+ * and actual quantities existed) and v2 payloads (before actual quantities)
+ * are upgraded in place: missing planned totals are filled with null and
+ * every line gains actualPriceRm / actualQuantity / quantitySource defaults.
  * Unknown versions are dropped safely.
  */
 export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Record<string, unknown>;
-  // v1 is the only legacy envelope; anything else unknown is dropped.
-  if (candidate.version !== 1 && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
+  // v1 and v2 are the only legacy envelopes; anything else unknown is dropped.
+  if (candidate.version !== 1
+    && candidate.version !== 2
+    && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
   const normalized = {
     ...candidate,
     version: SHOPPING_CHECKLIST_VERSION,
@@ -516,7 +590,12 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
     items: Array.isArray(candidate.items)
       ? candidate.items.map(item => (
           item && typeof item === "object"
-            ? { actualPriceRm: null, ...(item as Record<string, unknown>) }
+            ? {
+                actualPriceRm: null,
+                actualQuantity: null,
+                quantitySource: "planned",
+                ...(item as Record<string, unknown>),
+              }
             : item
         ))
       : candidate.items,

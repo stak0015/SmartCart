@@ -4,6 +4,7 @@ import type { StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 import {
   SHOPPING_CHECKLIST_STORAGE_KEY,
+  SHOPPING_CHECKLIST_VERSION,
   actualLineTotalRm,
   addManualChecklistItem,
   checklistProgress,
@@ -15,7 +16,9 @@ import {
   plannedChecklistSubtotal,
   serializeShoppingChecklist,
   setChecklistItemActualPrice,
+  setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
+  validateActualQuantity,
   validateActualUnitPrice,
   validateManualChecklistItem,
 } from "./shopping-checklist";
@@ -463,12 +466,14 @@ describe("shopping checklist persistence", () => {
     legacy.items = (legacy.items as Record<string, unknown>[]).map(item => {
       const copy = { ...item };
       delete copy.actualPriceRm;
+      delete copy.actualQuantity;
+      delete copy.quantitySource;
       return copy;
     });
 
     const migrated = parseShoppingChecklist(JSON.stringify(legacy));
     expect(migrated).not.toBeNull();
-    expect(migrated?.version).toBe(2);
+    expect(migrated?.version).toBe(SHOPPING_CHECKLIST_VERSION);
     expect(migrated?.plannedSubtotalRm).toBeNull();
     expect(migrated?.estimatedRoundTripCostRm).toBeNull();
     expect(migrated?.plannedCombinedTotalRm).toBeNull();
@@ -585,10 +590,117 @@ describe("actual price recording (AC 5.3.1-5.3.3)", () => {
     legacy.items = (legacy.items as Record<string, unknown>[]).map(item => {
       const copy = { ...item };
       delete copy.actualPriceRm;
+      delete copy.actualQuantity;
+      delete copy.quantitySource;
       return copy;
     });
     const migrated = parseShoppingChecklist(JSON.stringify(legacy));
     expect(migrated).not.toBeNull();
     expect(migrated?.items.every(item => item.actualPriceRm === null)).toBe(true);
+  });
+});
+
+describe("actual quantity recording (AC 5.3.4)", () => {
+  it("validates actual quantities: blank means planned, positive whole numbers accepted", () => {
+    expect(validateActualQuantity("")).toEqual({ success: true, value: null });
+    expect(validateActualQuantity("  ")).toEqual({ success: true, value: null });
+    expect(validateActualQuantity("3")).toEqual({ success: true, value: 3 });
+    expect(validateActualQuantity("120")).toEqual({ success: true, value: 120 });
+    expect(validateActualQuantity("0").success).toBe(false);
+    expect(validateActualQuantity("1.5").success).toBe(false);
+    expect(validateActualQuantity("-2").success).toBe(false);
+    expect(validateActualQuantity("abc").success).toBe(false);
+  });
+
+  it("records and clears the actual quantity only on purchased lines, marking the source", () => {
+    const initial = checklistFromDetails();
+    const itemId = initial.items[0].id;
+
+    // Neutral lines and unknown ids reject the write.
+    expect(setChecklistItemActualQuantity(initial, itemId, 3)).toBeNull();
+    expect(setChecklistItemActualQuantity(initial, "missing", 3)).toBeNull();
+
+    const bought = toggleChecklistItemStatus(initial, itemId, "bought");
+    const recorded = setChecklistItemActualQuantity(bought, itemId, 3, "2026-09-13T03:00:00.000Z")!;
+    expect(recorded.items[0].actualQuantity).toBe(3);
+    expect(recorded.items[0].quantitySource).toBe("actual");
+    // The planned quantity is untouched.
+    expect(recorded.items[0].quantity).toBe(2);
+    // The original checklist is untouched (immutable update).
+    expect(initial.items[0].actualQuantity).toBeNull();
+
+    const cleared = setChecklistItemActualQuantity(recorded, itemId, null)!;
+    expect(cleared.items[0].actualQuantity).toBeNull();
+    expect(cleared.items[0].quantitySource).toBe("planned");
+
+    // Non-whole and non-positive values are rejected.
+    expect(setChecklistItemActualQuantity(bought, itemId, 0)).toBeNull();
+    expect(setChecklistItemActualQuantity(bought, itemId, 1.5)).toBeNull();
+  });
+
+  it("recalculates the actual line total with the actual quantity", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const priced = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    // planned quantity is 2 → 3.50 × 2 = 7.00
+    expect(actualLineTotalRm(priced.items[0])).toBe(7);
+
+    const withQty = setChecklistItemActualQuantity(priced, initial.items[0].id, 3)!;
+    // actual quantity 3 → 3.50 × 3 = 10.50
+    expect(actualLineTotalRm(withQty.items[0])).toBe(10.5);
+    // Planned figures stay untouched.
+    expect(withQty.items[0].lineTotalRm).toBe(8.5);
+    expect(withQty.plannedSubtotalRm).toBe(15);
+  });
+
+  it("serializes actual quantities and upgrades v2 and v1 payloads in the chain", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const priced = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const withQty = setChecklistItemActualQuantity(priced, initial.items[0].id, 3)!;
+    expect(parseShoppingChecklist(serializeShoppingChecklist(withQty))).toEqual(withQty);
+
+    // v2 payload: carries actualPriceRm but lacks the quantity fields.
+    const v2 = JSON.parse(serializeShoppingChecklist(withQty)) as Record<string, unknown>;
+    v2.version = 2;
+    v2.items = (v2.items as Record<string, unknown>[]).map(item => {
+      const copy = { ...item };
+      delete copy.actualQuantity;
+      delete copy.quantitySource;
+      return copy;
+    });
+    const fromV2 = parseShoppingChecklist(JSON.stringify(v2));
+    expect(fromV2).not.toBeNull();
+    expect(fromV2?.version).toBe(SHOPPING_CHECKLIST_VERSION);
+    expect(fromV2?.items[0].actualPriceRm).toBe(3.5);
+    expect(fromV2?.items[0].actualQuantity).toBeNull();
+    expect(fromV2?.items[0].quantitySource).toBe("planned");
+
+    // v1 payload: lacks all three actual-entry fields entirely.
+    const v1 = { ...v2, version: 1 };
+    v1.items = (v2.items as Record<string, unknown>[]).map(item => {
+      const copy = { ...item };
+      delete copy.actualPriceRm;
+      return copy;
+    });
+    const fromV1 = parseShoppingChecklist(JSON.stringify(v1));
+    expect(fromV1).not.toBeNull();
+    expect(fromV1?.items.every(item => item.actualPriceRm === null
+      && item.actualQuantity === null
+      && item.quantitySource === "planned")).toBe(true);
+  });
+
+  it("rejects payloads whose quantity source disagrees with the actual quantity", () => {
+    const initial = checklistFromDetails();
+    const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    const withQty = setChecklistItemActualQuantity(bought, initial.items[0].id, 3)!;
+
+    const mislabelled = JSON.parse(serializeShoppingChecklist(withQty)) as Record<string, unknown>;
+    (mislabelled.items as Record<string, unknown>[])[0].quantitySource = "planned";
+    expect(parseShoppingChecklist(JSON.stringify(mislabelled))).toBeNull();
+
+    const missingQty = JSON.parse(serializeShoppingChecklist(withQty)) as Record<string, unknown>;
+    (missingQty.items as Record<string, unknown>[])[0].actualQuantity = null;
+    expect(parseShoppingChecklist(JSON.stringify(missingQty))).toBeNull();
   });
 });

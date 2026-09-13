@@ -12,6 +12,7 @@ import {
   actualLineTotalRm,
   checklistProgress,
   plannedChecklistSubtotal,
+  validateActualQuantity,
   validateActualUnitPrice,
   validateManualChecklistItem,
   type ChecklistItem,
@@ -51,6 +52,9 @@ export interface ShoppingChecklistCopy {
   itemQuantityError: string;
   itemPriceError: string;
   actualUnitPrice: string;
+  actualQuantity: string;
+  quantitySourcePlanned: string;
+  quantitySourceActual: string;
   shopperRecorded: string;
   saveItem: string;
   cancel: string;
@@ -70,6 +74,7 @@ export interface ShoppingChecklistScreenProps {
   onAddManual: (input: ManualChecklistItemInput) => void;
   onEditItem: (itemId: string, input: ManualChecklistItemInput) => void;
   onSetActualPrice: (itemId: string, actualPriceRm: number | null) => void;
+  onSetActualQuantity: (itemId: string, actualQuantity: number | null) => void;
   onDeleteItem: (itemId: string) => void;
   onDeleteChecklist: () => void;
 }
@@ -97,7 +102,7 @@ interface ChecklistItemDialogProps {
   locale: "en" | "ms";
   copy: ShoppingChecklistCopy;
   onSave: (input: ManualChecklistItemInput) => void;
-  onSaveActualPrice?: (actualPriceRm: number | null) => void;
+  onSaveActualEntry?: (entry: { actualPriceRm: number | null; actualQuantity: number | null }) => void;
   onCancel: () => void;
 }
 
@@ -204,7 +209,7 @@ export function ConfirmationDialog({
   );
 }
 
-function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPrice, onCancel }: ChecklistItemDialogProps) {
+function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualEntry, onCancel }: ChecklistItemDialogProps) {
   const titleId = useId();
   const nameId = useId();
   const quantityId = useId();
@@ -214,6 +219,8 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPri
   const priceErrorId = useId();
   const actualPriceId = useId();
   const actualPriceErrorId = useId();
+  const actualQuantityId = useId();
+  const actualQuantityErrorId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
   const { dialogRef, handleCancel } = useNativeDialog(open, onCancel, nameRef);
   const [itemName, setItemName] = useState(item ? localizedItemName(item, locale) : "");
@@ -222,12 +229,17 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPri
     item?.unitPriceRm == null ? "" : item.unitPriceRm.toFixed(2),
   );
   const [errors, setErrors] = useState<ChecklistItemErrors>({});
-  // AC 5.3.1: the actual-price field only exists for lines marked Purchased.
-  const showActualPrice = item != null && item.status === "bought" && onSaveActualPrice != null;
+  // AC 5.3.1/5.3.4: the actual price/quantity fields only exist for lines
+  // marked Purchased. A blank actual quantity means "use the planned one".
+  const showActualEntry = item != null && item.status === "bought" && onSaveActualEntry != null;
   const [actualPrice, setActualPrice] = useState(
     item?.actualPriceRm == null ? "" : item.actualPriceRm.toFixed(2),
   );
   const [actualPriceError, setActualPriceError] = useState<string | undefined>(undefined);
+  const [actualQuantity, setActualQuantity] = useState(
+    item?.actualQuantity == null ? "" : String(item.actualQuantity),
+  );
+  const [actualQuantityError, setActualQuantityError] = useState<string | undefined>(undefined);
 
   const changeActualPrice = (value: string) => {
     setActualPrice(value);
@@ -235,13 +247,19 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPri
     setActualPriceError(invalid ? copy.itemPriceError : undefined);
   };
 
-  const saveActualPrice = () => {
-    const validation = validateActualUnitPrice(actualPrice);
-    if (!validation.success) {
-      setActualPriceError(copy.itemPriceError);
-      return;
-    }
-    onSaveActualPrice?.(validation.value);
+  const changeActualQuantity = (value: string) => {
+    setActualQuantity(value);
+    const invalid = value.trim() !== "" && !validateActualQuantity(value).success;
+    setActualQuantityError(invalid ? copy.itemQuantityError : undefined);
+  };
+
+  const saveActualEntry = () => {
+    const price = validateActualUnitPrice(actualPrice);
+    const qty = validateActualQuantity(actualQuantity);
+    setActualPriceError(price.success ? undefined : copy.itemPriceError);
+    setActualQuantityError(qty.success ? undefined : copy.itemQuantityError);
+    if (!price.success || !qty.success) return;
+    onSaveActualEntry?.({ actualPriceRm: price.value, actualQuantity: qty.value });
   };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
@@ -364,14 +382,14 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPri
           </div>
         </div>
 
-        {showActualPrice && (
+        {showActualEntry && (
           <div className="mt-4 rounded-xl border border-[#dce5e0] bg-[#f8faf9] p-3">
-            <label htmlFor={actualPriceId} className="text-sm font-bold text-[#17362c]">
-              {copy.actualUnitPrice}
-            </label>
-            <p className="mt-0.5 text-[11px] font-semibold text-[#087f5b]">{copy.shopperRecorded}</p>
-            <div className="mt-1.5 flex items-start gap-2">
-              <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold text-[#087f5b]">{copy.shopperRecorded}</p>
+            <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor={actualPriceId} className="text-sm font-bold text-[#17362c]">
+                  {copy.actualUnitPrice}
+                </label>
                 <input
                   id={actualPriceId}
                   type="number"
@@ -382,7 +400,7 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPri
                   aria-invalid={Boolean(actualPriceError)}
                   aria-describedby={actualPriceError ? actualPriceErrorId : undefined}
                   onChange={event => changeActualPrice(event.target.value)}
-                  className="min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
+                  className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
                 />
                 {actualPriceError && (
                   <p id={actualPriceErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
@@ -390,10 +408,35 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualPri
                   </p>
                 )}
               </div>
+              <div>
+                <label htmlFor={actualQuantityId} className="text-sm font-bold text-[#17362c]">
+                  {copy.actualQuantity}
+                </label>
+                <input
+                  id={actualQuantityId}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  placeholder={item ? String(item.quantity) : undefined}
+                  value={actualQuantity}
+                  aria-invalid={Boolean(actualQuantityError)}
+                  aria-describedby={actualQuantityError ? actualQuantityErrorId : undefined}
+                  onChange={event => changeActualQuantity(event.target.value)}
+                  className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
+                />
+                {actualQuantityError && (
+                  <p id={actualQuantityErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
+                    {actualQuantityError}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
               <button
                 type="button"
-                onClick={saveActualPrice}
-                className="min-h-11 shrink-0 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+                onClick={saveActualEntry}
+                className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
               >
                 {copy.saveItem}
               </button>
@@ -494,6 +537,12 @@ function ChecklistRow({
   // price renders nothing — never RM0.00.
   const actualPrice = item.actualPriceRm;
   const actualTotal = actualLineTotalRm(item);
+  // AC 5.3.4: spending quantity is the recorded actual one when present;
+  // the row always says whether planned or actual quantity was used.
+  const effectiveQuantity = item.actualQuantity ?? item.quantity;
+  const quantitySourceLabel = item.quantitySource === "actual"
+    ? copy.quantitySourceActual
+    : copy.quantitySourcePlanned;
   const rowTone = bought
     ? "bg-[#f5fbf8] hover:bg-[#eff8f3]"
     : "bg-white hover:bg-[#f8faf9]";
@@ -529,7 +578,7 @@ function ChecklistRow({
             <p className="mt-0.5 text-[11px] font-semibold text-[#ba1a1a]">{copy.outOfStock}</p>
           )}
         </div>
-        <div className="w-28 shrink-0 text-right">
+        <div className={`${actualPrice != null || item.actualQuantity != null ? "w-40" : "w-28"} shrink-0 text-right`}>
           <p className="flex items-center justify-end gap-1 text-[14px] font-extrabold tabular-nums text-[#17362c]">
             {item.priceSource === "median" && item.lineTotalRm != null && (
               <>
@@ -546,10 +595,15 @@ function ChecklistRow({
             {item.quantity} × <span className="sr-only">{copy.checklistUnitPrice}: </span>
             {item.unitPriceRm == null ? "—" : formatRm(item.unitPriceRm)}
           </p>
+          {item.actualQuantity != null && (
+            <p className="mt-0.5 whitespace-normal text-[11px] font-semibold tabular-nums text-[#087f5b]">
+              {copy.actualQuantity}: {item.actualQuantity} ({quantitySourceLabel})
+            </p>
+          )}
           {actualPrice != null && actualTotal != null && (
-            <p className="mt-0.5 text-[11px] tabular-nums text-[#087f5b]">
+            <p className="mt-0.5 whitespace-normal text-[11px] tabular-nums text-[#087f5b]">
               <span className="sr-only">{copy.actualUnitPrice}: </span>
-              {formatRm(actualPrice)} × {item.quantity}
+              {formatRm(actualPrice)} × {effectiveQuantity} ({quantitySourceLabel})
               {" = "}<span className="font-bold">{formatRm(actualTotal)}</span>
               {" · "}{copy.shopperRecorded}
             </p>
@@ -616,6 +670,7 @@ export function ShoppingChecklistScreen({
   onAddManual,
   onEditItem,
   onSetActualPrice,
+  onSetActualQuantity,
   onDeleteItem,
   onDeleteChecklist,
 }: ShoppingChecklistScreenProps) {
@@ -645,9 +700,10 @@ export function ShoppingChecklistScreen({
     closeManualDialog();
   };
 
-  const saveActualPrice = (actualPriceRm: number | null) => {
+  const saveActualEntry = (entry: { actualPriceRm: number | null; actualQuantity: number | null }) => {
     if (!manualDialog.item) return;
-    onSetActualPrice(manualDialog.item.id, actualPriceRm);
+    onSetActualPrice(manualDialog.item.id, entry.actualPriceRm);
+    onSetActualQuantity(manualDialog.item.id, entry.actualQuantity);
     closeManualDialog();
   };
 
@@ -760,7 +816,7 @@ export function ShoppingChecklistScreen({
           locale={locale}
           copy={copy}
           onSave={saveManualItem}
-          onSaveActualPrice={manualDialog.item?.status === "bought" ? saveActualPrice : undefined}
+          onSaveActualEntry={manualDialog.item?.status === "bought" ? saveActualEntry : undefined}
           onCancel={closeManualDialog}
         />
       )}
