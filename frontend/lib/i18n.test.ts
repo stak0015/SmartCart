@@ -159,8 +159,8 @@ describe("shopping checklist copy", () => {
     expect(COPY.en.markNotBought("Rice")).toContain("not bought");
     expect(COPY.ms.markBought("Beras")).toContain("Beras");
     expect(COPY.ms.markNotBought("Beras")).toContain("belum dibeli");
-    expect(COPY.en.itemQuantityError).toContain("1 and 99");
-    expect(COPY.ms.itemQuantityError).toContain("1 hingga 99");
+    expect(COPY.en.itemQuantityError).toContain("positive whole number");
+    expect(COPY.ms.itemQuantityError).toContain("nombor bulat positif");
     expect(COPY.en.itemPriceError).toContain("two decimal places");
     expect(COPY.ms.itemPriceError).toContain("dua tempat perpuluhan");
     expect(COPY.en.deleteItemConfirm("Milk")).toContain("Milk");

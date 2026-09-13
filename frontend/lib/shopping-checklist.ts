@@ -4,7 +4,7 @@ import type { RecommendationDetailRow } from "./recommendation-detail";
 export const SHOPPING_CHECKLIST_VERSION = 1 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
-export type ChecklistStatus = "neutral" | "bought" | "not_bought";
+export type ChecklistStatus = "neutral" | "bought" | "not_bought" | "out_of_stock";
 export type ChecklistPriceSource = "store" | "median" | "manual" | null;
 export type ChecklistItemSource = "catalogue" | "manual";
 
@@ -37,19 +37,25 @@ export interface ShoppingChecklist {
   store: ChecklistStore;
   createdAt: string;
   updatedAt: string;
+  // AC 5.1.1: the snapshot keeps the planned subtotal, the estimated return
+  // transport (an estimate, never an observed price), and the planned
+  // combined total when known. Null when the source value was unknown.
+  plannedSubtotalRm: number | null;
+  estimatedRoundTripCostRm: number | null;
+  plannedCombinedTotalRm: number | null;
   items: ChecklistItem[];
 }
 
 export interface ManualChecklistItemInput {
   itemName: string;
   quantity: number | string;
-  unitPriceRm: number | string;
+  unitPriceRm: number | string | null;
 }
 
 export interface ValidatedManualChecklistItemInput {
   itemName: string;
   quantity: number;
-  unitPriceRm: number;
+  unitPriceRm: number | null;
 }
 
 export interface ManualChecklistItemErrors {
@@ -67,6 +73,7 @@ export interface ChecklistProgress {
   completed: number;
   bought: number;
   notBought: number;
+  outOfStock: number;
   neutral: number;
   percent: number;
 }
@@ -96,7 +103,7 @@ function nowIso(): string {
 }
 
 function normalizeQuantity(value: number): number {
-  return Number.isInteger(value) && value >= 1 && value <= 99 ? value : 1;
+  return Number.isInteger(value) && value >= 1 ? value : 1;
 }
 
 function normalizeCataloguePrice(value: number | null): number | null {
@@ -179,6 +186,13 @@ export function createShoppingChecklist(
     },
     createdAt,
     updatedAt: createdAt,
+    plannedSubtotalRm: store.basketSubtotalRm == null ? null : money(store.basketSubtotalRm),
+    estimatedRoundTripCostRm: Number.isFinite(store.estimatedRoundTripCostRm)
+      ? money(store.estimatedRoundTripCostRm)
+      : null,
+    plannedCombinedTotalRm: store.estimatedTotalCostRm == null
+      ? null
+      : money(store.estimatedTotalCostRm),
     items,
   };
 }
@@ -203,9 +217,12 @@ export function toggleChecklistItemStatus(
 }
 
 function parseQuantity(value: number | string): number | null {
-  if (typeof value === "string" && !/^\d{1,2}$/.test(value)) return null;
+  if (typeof value === "string" && !/^\d+$/.test(value)) return null;
   const parsed = typeof value === "string" ? Number(value) : value;
-  return Number.isInteger(parsed) && parsed >= 1 && parsed <= 99 ? parsed : null;
+  // AC 5.1.5: any positive whole number is accepted; no upper bound.
+  return Number.isInteger(parsed) && parsed >= 1 && parsed <= Number.MAX_SAFE_INTEGER
+    ? parsed
+    : null;
 }
 
 function parseManualUnitPrice(value: number | string): number | null {
@@ -222,15 +239,20 @@ export function validateManualChecklistItem(
 ): ManualChecklistItemValidation {
   const itemName = input.itemName.trim();
   const quantity = parseQuantity(input.quantity);
-  const unitPriceRm = parseManualUnitPrice(input.unitPriceRm);
+  // AC 5.1.5: the price may be left blank when the shopper does not know it
+  // yet; a blank string means "unknown", not an error. A provided price must
+  // still be a positive amount with no more than two decimals.
+  const priceIsBlank = input.unitPriceRm == null
+    || (typeof input.unitPriceRm === "string" && input.unitPriceRm.trim() === "");
+  const unitPriceRm = priceIsBlank ? null : parseManualUnitPrice(input.unitPriceRm!);
   const errors: ManualChecklistItemErrors = {};
   if (!itemName) errors.itemName = "required";
   if (quantity == null) errors.quantity = "invalid";
-  if (unitPriceRm == null) errors.unitPriceRm = "invalid";
+  if (!priceIsBlank && unitPriceRm == null) errors.unitPriceRm = "invalid";
   if (Object.keys(errors).length > 0) return { success: false, errors };
   return {
     success: true,
-    value: { itemName, quantity: quantity!, unitPriceRm: unitPriceRm! },
+    value: { itemName, quantity: quantity!, unitPriceRm },
   };
 }
 
@@ -252,7 +274,7 @@ export function addManualChecklistItem(
     packageSize: null,
     quantity,
     unitPriceRm,
-    lineTotalRm: money(unitPriceRm * quantity),
+    lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
     priceSource: "manual",
     observedDate: null,
     status: "neutral",
@@ -286,7 +308,7 @@ export function editChecklistItem(
       itemNameMs: null,
       quantity,
       unitPriceRm,
-      lineTotalRm: money(unitPriceRm * quantity),
+      lineTotalRm: unitPriceRm == null ? null : money(unitPriceRm * quantity),
       priceSource: "manual",
       observedDate: null,
     } : item),
@@ -318,6 +340,7 @@ export function plannedChecklistSubtotal(checklist: ShoppingChecklist): number |
 export function checklistProgress(checklist: ShoppingChecklist): ChecklistProgress {
   const bought = checklist.items.filter(item => item.status === "bought").length;
   const notBought = checklist.items.filter(item => item.status === "not_bought").length;
+  const outOfStock = checklist.items.filter(item => item.status === "out_of_stock").length;
   const total = checklist.items.length;
   // A red "not bought" choice records the outcome but does not count towards
   // the shopping-completion indicator.
@@ -327,7 +350,8 @@ export function checklistProgress(checklist: ShoppingChecklist): ChecklistProgre
     completed,
     bought,
     notBought,
-    neutral: total - bought - notBought,
+    outOfStock,
+    neutral: total - bought - notBought - outOfStock,
     percent: total === 0 ? 0 : Math.round((completed / total) * 100),
   };
 }
@@ -348,7 +372,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
   const sourceIsValid = item.source === "catalogue" || item.source === "manual";
-  const statusIsValid = item.status === "neutral" || item.status === "bought" || item.status === "not_bought";
+  const statusIsValid = item.status === "neutral" || item.status === "bought"
+    || item.status === "not_bought" || item.status === "out_of_stock";
   const priceSourceIsValid = item.priceSource === null
     || item.priceSource === "store"
     || item.priceSource === "median"
@@ -365,7 +390,6 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && typeof item.quantity === "number"
     && Number.isInteger(item.quantity)
     && item.quantity >= 1
-    && item.quantity <= 99
     && isFiniteMoneyOrNull(item.unitPriceRm)
     && isFiniteMoneyOrNull(item.lineTotalRm)
     && priceSourceIsValid
@@ -377,8 +401,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   if (item.source === "manual") {
     return item.catalogueItemId === null
       && item.priceSource === "manual"
-      && typeof item.unitPriceRm === "number"
-      && item.unitPriceRm > 0
+      && (item.unitPriceRm === null
+        || (typeof item.unitPriceRm === "number" && item.unitPriceRm > 0))
       && item.observedDate === null;
   }
   return typeof item.catalogueItemId === "string"
@@ -395,6 +419,9 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || checklist.id.length === 0
     || !isIsoDate(checklist.createdAt)
     || !isIsoDate(checklist.updatedAt)
+    || !isFiniteMoneyOrNull(checklist.plannedSubtotalRm)
+    || !isFiniteMoneyOrNull(checklist.estimatedRoundTripCostRm)
+    || !isFiniteMoneyOrNull(checklist.plannedCombinedTotalRm)
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 
@@ -412,11 +439,29 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
   return JSON.stringify(checklist);
 }
 
+/**
+ * Migration chain entry point (D5.0). v1 payloads written before the planned
+ * totals existed are filled with null; unknown versions are dropped safely.
+ * The first real version-to-version migration lands with the v2 envelope.
+ */
+export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
+  if (!raw || typeof raw !== "object") return null;
+  const candidate = raw as Record<string, unknown>;
+  if (candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
+  const normalized = {
+    ...candidate,
+    plannedSubtotalRm: candidate.plannedSubtotalRm ?? null,
+    estimatedRoundTripCostRm: candidate.estimatedRoundTripCostRm ?? null,
+    plannedCombinedTotalRm: candidate.plannedCombinedTotalRm ?? null,
+  };
+  return isShoppingChecklist(normalized) ? normalized : null;
+}
+
 export function parseShoppingChecklist(serialized: string | null | undefined): ShoppingChecklist | null {
   if (!serialized) return null;
   try {
     const value: unknown = JSON.parse(serialized);
-    return isShoppingChecklist(value) ? value : null;
+    return migrateShoppingChecklist(value);
   } catch {
     return null;
   }

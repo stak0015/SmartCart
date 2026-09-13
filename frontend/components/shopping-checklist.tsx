@@ -35,8 +35,10 @@ export interface ShoppingChecklistCopy {
   manualItem: string;
   bought: string;
   notBought: string;
+  outOfStock: string;
   markBought: (name: string) => string;
   markNotBought: (name: string) => string;
+  markOutOfStock: (name: string) => string;
   clearItemStatus: (name: string) => string;
   addChecklistItem: string;
   editChecklistItem: string;
@@ -288,7 +290,6 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={99}
                 step={1}
                 value={quantity}
                 aria-invalid={Boolean(errors.quantity)}
@@ -404,6 +405,8 @@ function ChecklistRow({
   locale,
   copy,
   onToggleBought,
+  onToggleNotBought,
+  onToggleOutOfStock,
   onEdit,
   onDelete,
 }: {
@@ -411,11 +414,15 @@ function ChecklistRow({
   locale: "en" | "ms";
   copy: ShoppingChecklistCopy;
   onToggleBought: () => void;
+  onToggleNotBought: () => void;
+  onToggleOutOfStock: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const name = localizedItemName(item, locale);
   const bought = item.status === "bought";
+  const notBought = item.status === "not_bought";
+  const outOfStock = item.status === "out_of_stock";
   const rowTone = bought
     ? "bg-[#f5fbf8] hover:bg-[#eff8f3]"
     : "bg-white hover:bg-[#f8faf9]";
@@ -444,6 +451,12 @@ function ChecklistRow({
           {item.packageSize && (
             <p className="mt-0.5 truncate text-[11px] text-[#718078]">{item.packageSize}</p>
           )}
+          {notBought && (
+            <p className="mt-0.5 text-[11px] font-semibold text-[#8a5a00]">{copy.notBought}</p>
+          )}
+          {outOfStock && (
+            <p className="mt-0.5 text-[11px] font-semibold text-[#ba1a1a]">{copy.outOfStock}</p>
+          )}
         </div>
         <div className="w-28 shrink-0 text-right">
           <p className="flex items-center justify-end gap-1 text-[14px] font-extrabold tabular-nums text-[#17362c]">
@@ -462,6 +475,34 @@ function ChecklistRow({
             {item.quantity} × <span className="sr-only">{copy.checklistUnitPrice}: </span>
             {item.unitPriceRm == null ? "—" : formatRm(item.unitPriceRm)}
           </p>
+          <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
+            <button
+              type="button"
+              aria-pressed={notBought}
+              aria-label={notBought ? copy.clearItemStatus(name) : copy.markNotBought(name)}
+              onClick={onToggleNotBought}
+              className={`min-h-7 rounded-full border px-2 text-[10px] font-bold ${
+                notBought
+                  ? "border-[#8a5a00] bg-[#fdf3e0] text-[#8a5a00]"
+                  : "border-[#c4d2ca] text-[#53635c] hover:bg-[#f1f5f3]"
+              }`}
+            >
+              {copy.notBought}
+            </button>
+            <button
+              type="button"
+              aria-pressed={outOfStock}
+              aria-label={outOfStock ? copy.clearItemStatus(name) : copy.markOutOfStock(name)}
+              onClick={onToggleOutOfStock}
+              className={`min-h-7 rounded-full border px-2 text-[10px] font-bold ${
+                outOfStock
+                  ? "border-[#ba1a1a] bg-[#fff2f2] text-[#ba1a1a]"
+                  : "border-[#c4d2ca] text-[#53635c] hover:bg-[#f1f5f3]"
+              }`}
+            >
+              {copy.outOfStock}
+            </button>
+          </div>
           <div className="mt-0.5 flex items-center justify-end gap-0.5">
             <button
               type="button"
@@ -505,7 +546,9 @@ export function ShoppingChecklistScreen({
   const [itemPendingDelete, setItemPendingDelete] = useState<ChecklistItem | null>(null);
   const [deleteChecklistOpen, setDeleteChecklistOpen] = useState(false);
   const progress = checklistProgress(checklist);
-  const subtotal = plannedChecklistSubtotal(checklist);
+  // Prefer the snapshot's persisted planned subtotal (AC 5.1.1); fall back to
+  // live derivation for legacy payloads migrated without it.
+  const subtotal = checklist.plannedSubtotalRm ?? plannedChecklistSubtotal(checklist);
   const unavailableCount = checklist.items.filter(item => item.lineTotalRm == null).length;
   const containsEstimate = checklist.items.some(
     item => item.priceSource === "median" && item.lineTotalRm != null,
@@ -599,6 +642,8 @@ export function ShoppingChecklistScreen({
                     locale={locale}
                     copy={copy}
                     onToggleBought={() => onToggleStatus(item.id, "bought")}
+                    onToggleNotBought={() => onToggleStatus(item.id, "not_bought")}
+                    onToggleOutOfStock={() => onToggleStatus(item.id, "out_of_stock")}
                     onEdit={() => setManualDialog({ open: true, item })}
                     onDelete={() => setItemPendingDelete(item)}
                   />

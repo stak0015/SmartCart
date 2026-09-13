@@ -9,6 +9,7 @@ import {
   createShoppingChecklist,
   deleteChecklistItem,
   editChecklistItem,
+  migrateShoppingChecklist,
   parseShoppingChecklist,
   plannedChecklistSubtotal,
   serializeShoppingChecklist,
@@ -242,6 +243,30 @@ describe("shopping checklist snapshots", () => {
     });
     expect(plannedChecklistSubtotal(checklist)).toBe(15);
   });
+
+  it("keeps planned totals on the persisted snapshot (AC 5.1.1)", () => {
+    const checklist = checklistFromDetails();
+
+    expect(checklist.plannedSubtotalRm).toBe(15);
+    expect(checklist.estimatedRoundTripCostRm).toBe(1);
+    expect(checklist.plannedCombinedTotalRm).toBe(16);
+  });
+
+  it("stores null planned totals when the recommendation has no priced lines", () => {
+    const unpriced: StoreRecommendation = {
+      ...store,
+      basketSubtotalRm: null,
+      estimatedTotalCostRm: null,
+    };
+    const checklist = createShoppingChecklist(unpriced, [], {
+      checklistId: "checklist-3",
+      createdAt: "2026-09-13T00:00:00.000Z",
+    });
+
+    expect(checklist.plannedSubtotalRm).toBeNull();
+    expect(checklist.estimatedRoundTripCostRm).toBe(1);
+    expect(checklist.plannedCombinedTotalRm).toBeNull();
+  });
 });
 
 describe("shopping checklist mutations", () => {
@@ -255,12 +280,46 @@ describe("shopping checklist mutations", () => {
       completed: 1,
       bought: 1,
       notBought: 1,
+      outOfStock: 0,
       neutral: 0,
       percent: 50,
     });
     const neutralAgain = toggleChecklistItemStatus(notBought, notBought.items[0].id, "bought");
     expect(neutralAgain.items[0].status).toBe("neutral");
     expect(checklistProgress(neutralAgain).completed).toBe(0);
+  });
+
+  it("keeps purchased, not-purchased and out-of-stock mutually exclusive (AC 5.2.2)", () => {
+    const initial = checklistFromDetails();
+    const itemId = initial.items[0].id;
+
+    const bought = toggleChecklistItemStatus(initial, itemId, "bought");
+    expect(bought.items[0].status).toBe("bought");
+
+    const outOfStock = toggleChecklistItemStatus(bought, itemId, "out_of_stock");
+    expect(outOfStock.items[0].status).toBe("out_of_stock");
+    expect(checklistProgress(outOfStock)).toMatchObject({
+      bought: 0,
+      notBought: 0,
+      outOfStock: 1,
+      neutral: 1,
+      completed: 0,
+    });
+
+    const notBought = toggleChecklistItemStatus(outOfStock, itemId, "not_bought");
+    expect(notBought.items[0].status).toBe("not_bought");
+
+    const backToBought = toggleChecklistItemStatus(notBought, itemId, "bought");
+    expect(backToBought.items[0].status).toBe("bought");
+
+    const cleared = toggleChecklistItemStatus(backToBought, itemId, "bought");
+    expect(cleared.items[0].status).toBe("neutral");
+  });
+
+  it("persists out-of-stock rows through serialization", () => {
+    const initial = checklistFromDetails();
+    const marked = toggleChecklistItemStatus(initial, initial.items[0].id, "out_of_stock");
+    expect(parseShoppingChecklist(serializeShoppingChecklist(marked))).toEqual(marked);
   });
 
   it("adds, edits, and deletes manual rows while preserving their status", () => {
@@ -329,20 +388,53 @@ describe("shopping checklist mutations", () => {
 });
 
 describe("manual item validation", () => {
-  it("accepts trimmed names, whole quantities 1-99, and positive two-decimal prices", () => {
+  it("accepts trimmed names, any positive whole quantity, and positive two-decimal prices", () => {
     expect(validateManualChecklistItem({
       itemName: "  Bread ", quantity: "99", unitPriceRm: "3.40",
     })).toEqual({
       success: true,
       value: { itemName: "Bread", quantity: 99, unitPriceRm: 3.4 },
     });
+    expect(validateManualChecklistItem({
+      itemName: "Bread", quantity: "120", unitPriceRm: "3.40",
+    })).toEqual({
+      success: true,
+      value: { itemName: "Bread", quantity: 120, unitPriceRm: 3.4 },
+    });
+  });
+
+  it("accepts a blank price as unknown and stores a null line total", () => {
+    expect(validateManualChecklistItem({
+      itemName: "Bread", quantity: "2", unitPriceRm: "",
+    })).toEqual({
+      success: true,
+      value: { itemName: "Bread", quantity: 2, unitPriceRm: null },
+    });
+    expect(validateManualChecklistItem({
+      itemName: "Bread", quantity: "2", unitPriceRm: "   ",
+    })).toEqual({
+      success: true,
+      value: { itemName: "Bread", quantity: 2, unitPriceRm: null },
+    });
+
+    const checklist = checklistFromDetails();
+    const added = addManualChecklistItem(checklist, {
+      itemName: "Mystery item", quantity: "2", unitPriceRm: "",
+    }, { itemId: "manual-blank", updatedAt: "2026-09-13T01:00:00.000Z" })!;
+    expect(added.items.at(-1)).toMatchObject({
+      unitPriceRm: null,
+      lineTotalRm: null,
+      priceSource: "manual",
+    });
+    expect(parseShoppingChecklist(serializeShoppingChecklist(added))).toEqual(added);
   });
 
   it.each([
     { itemName: "", quantity: 1, unitPriceRm: 1 },
     { itemName: "Bread", quantity: 0, unitPriceRm: 1 },
-    { itemName: "Bread", quantity: 100, unitPriceRm: 1 },
     { itemName: "Bread", quantity: 1.5, unitPriceRm: 1 },
+    { itemName: "Bread", quantity: -3, unitPriceRm: 1 },
+    { itemName: "Bread", quantity: "abc", unitPriceRm: 1 },
     { itemName: "Bread", quantity: 1, unitPriceRm: 0 },
     { itemName: "Bread", quantity: 1, unitPriceRm: "1.234" },
     { itemName: "Bread", quantity: 1, unitPriceRm: Number.POSITIVE_INFINITY },
@@ -356,6 +448,30 @@ describe("shopping checklist persistence", () => {
     const checklist = checklistFromDetails();
     expect(SHOPPING_CHECKLIST_STORAGE_KEY).toContain("v1");
     expect(parseShoppingChecklist(serializeShoppingChecklist(checklist))).toEqual(checklist);
+  });
+
+  it("migrates legacy v1 payloads written before the planned-total fields", () => {
+    const checklist = checklistFromDetails();
+    const legacy = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    delete legacy.plannedSubtotalRm;
+    delete legacy.estimatedRoundTripCostRm;
+    delete legacy.plannedCombinedTotalRm;
+
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated).not.toBeNull();
+    expect(migrated?.plannedSubtotalRm).toBeNull();
+    expect(migrated?.estimatedRoundTripCostRm).toBeNull();
+    expect(migrated?.plannedCombinedTotalRm).toBeNull();
+    expect(migrated?.items).toEqual(checklist.items);
+    expect(migrated?.store).toEqual(checklist.store);
+  });
+
+  it("drops unknown versions and non-object payloads without throwing", () => {
+    const checklist = checklistFromDetails();
+    expect(migrateShoppingChecklist(null)).toBeNull();
+    expect(migrateShoppingChecklist("checklist")).toBeNull();
+    expect(migrateShoppingChecklist({ ...checklist, version: 2 })).toBeNull();
+    expect(migrateShoppingChecklist({ ...checklist, version: 0 })).toBeNull();
   });
 
   it("rejects malformed, unsupported, and internally inconsistent storage", () => {
