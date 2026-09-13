@@ -63,6 +63,10 @@ export interface ShoppingChecklistCopy {
   deleteChecklist: string;
   deleteChecklistConfirm: string;
   checklistEmpty: string;
+  recordTrip: string;
+  recordTripConfirm: string;
+  recordTripAgain: string;
+  tripRecorded: string;
   close: string;
 }
 
@@ -77,6 +81,8 @@ export interface ShoppingChecklistScreenProps {
   onSetActualQuantity: (itemId: string, actualQuantity: number | null) => void;
   onDeleteItem: (itemId: string) => void;
   onDeleteChecklist: () => void;
+  alreadyRecorded: boolean;
+  onRecordTrip: () => void;
 }
 
 export interface ConfirmationDialogProps {
@@ -673,6 +679,8 @@ export function ShoppingChecklistScreen({
   onSetActualQuantity,
   onDeleteItem,
   onDeleteChecklist,
+  alreadyRecorded,
+  onRecordTrip,
 }: ShoppingChecklistScreenProps) {
   const [manualDialog, setManualDialog] = useState<{ open: boolean; item: ChecklistItem | null }>({
     open: false,
@@ -680,6 +688,7 @@ export function ShoppingChecklistScreen({
   });
   const [itemPendingDelete, setItemPendingDelete] = useState<ChecklistItem | null>(null);
   const [deleteChecklistOpen, setDeleteChecklistOpen] = useState(false);
+  const [recordTripOpen, setRecordTripOpen] = useState(false);
   const progress = checklistProgress(checklist);
   // Prefer the snapshot's persisted planned subtotal (AC 5.1.1); fall back to
   // live derivation for legacy payloads migrated without it.
@@ -801,6 +810,14 @@ export function ShoppingChecklistScreen({
 
         <button
           type="button"
+          onClick={() => setRecordTripOpen(true)}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+        >
+          <CheckIcon /> {copy.recordTrip}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setDeleteChecklistOpen(true)}
           className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#ba1a1a] hover:bg-[#fff2f2]"
         >
@@ -832,6 +849,19 @@ export function ShoppingChecklistScreen({
         onConfirm={() => {
           if (itemPendingDelete) onDeleteItem(itemPendingDelete.id);
           setItemPendingDelete(null);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={recordTripOpen}
+        title={copy.recordTrip}
+        body={alreadyRecorded ? copy.recordTripAgain : copy.recordTripConfirm}
+        confirmLabel={copy.recordTrip}
+        cancelLabel={copy.cancel}
+        onCancel={() => setRecordTripOpen(false)}
+        onConfirm={() => {
+          setRecordTripOpen(false);
+          onRecordTrip();
         }}
       />
 

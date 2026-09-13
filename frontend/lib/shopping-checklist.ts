@@ -1,13 +1,26 @@
 import type { BasketItemPrice, StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 
-export const SHOPPING_CHECKLIST_VERSION = 3 as const;
+export const SHOPPING_CHECKLIST_VERSION = 4 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought" | "out_of_stock";
 export type ChecklistPriceSource = "store" | "median" | "manual" | null;
 export type ChecklistItemSource = "catalogue" | "manual";
 export type ChecklistQuantitySource = "planned" | "actual";
+
+/**
+ * Epic 8 interface point (D8.0 / gap G4): the estimated trip cost of each
+ * alternative store at snapshot time. These are estimates, never observed
+ * prices; they let later epics compare "what if I had shopped elsewhere"
+ * on-device without re-querying recommendations.
+ */
+export interface AlternativeStoreEstimate {
+  premiseId: string;
+  name: string;
+  estimatedRoundTripCostRm: number;
+  estimatedTotalCostRm: number | null;
+}
 
 export interface ChecklistStore {
   premiseId: string;
@@ -51,6 +64,9 @@ export interface ShoppingChecklist {
   plannedSubtotalRm: number | null;
   estimatedRoundTripCostRm: number | null;
   plannedCombinedTotalRm: number | null;
+  // Gap G4: the alternative stores' estimated trip costs at snapshot time.
+  // Empty for payloads created before this field existed (migrated v1-v3).
+  alternativeStoreEstimates: AlternativeStoreEstimate[];
   items: ChecklistItem[];
 }
 
@@ -89,6 +105,7 @@ export interface ChecklistProgress {
 interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
+  alternativeStores?: StoreRecommendation[];
 }
 
 interface AddManualItemOptions {
@@ -188,6 +205,18 @@ export function createShoppingChecklist(
   const items = rows.length > 0
     ? rows.map(checklistItemFromDetail)
     : store.basketPrices.map(checklistItemFromBasketPrice);
+  const alternativeStoreEstimates: AlternativeStoreEstimate[] = (
+    options.alternativeStores ?? []
+  )
+    .filter(candidate => candidate.premiseId !== store.premiseId)
+    .map(candidate => ({
+      premiseId: candidate.premiseId,
+      name: candidate.name,
+      estimatedRoundTripCostRm: money(candidate.estimatedRoundTripCostRm),
+      estimatedTotalCostRm: candidate.estimatedTotalCostRm == null
+        ? null
+        : money(candidate.estimatedTotalCostRm),
+    }));
 
   return {
     version: SHOPPING_CHECKLIST_VERSION,
@@ -207,6 +236,7 @@ export function createShoppingChecklist(
     plannedCombinedTotalRm: store.estimatedTotalCostRm == null
       ? null
       : money(store.estimatedTotalCostRm),
+    alternativeStoreEstimates,
     items,
   };
 }
@@ -539,6 +569,19 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && (item.unitPriceRm === null ? item.priceSource === null : item.priceSource !== null);
 }
 
+function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEstimate {
+  if (!value || typeof value !== "object") return false;
+  const estimate = value as Record<string, unknown>;
+  return typeof estimate.premiseId === "string"
+    && estimate.premiseId.length > 0
+    && typeof estimate.name === "string"
+    && estimate.name.length > 0
+    && typeof estimate.estimatedRoundTripCostRm === "number"
+    && Number.isFinite(estimate.estimatedRoundTripCostRm)
+    && estimate.estimatedRoundTripCostRm >= 0
+    && isFiniteMoneyOrNull(estimate.estimatedTotalCostRm);
+}
+
 export function isShoppingChecklist(value: unknown): value is ShoppingChecklist {
   if (!value || typeof value !== "object") return false;
   const checklist = value as Record<string, unknown>;
@@ -550,6 +593,8 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || !isFiniteMoneyOrNull(checklist.plannedSubtotalRm)
     || !isFiniteMoneyOrNull(checklist.estimatedRoundTripCostRm)
     || !isFiniteMoneyOrNull(checklist.plannedCombinedTotalRm)
+    || !Array.isArray(checklist.alternativeStoreEstimates)
+    || !checklist.alternativeStoreEstimates.every(isAlternativeStoreEstimate)
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 
@@ -569,17 +614,19 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
 
 /**
  * Migration chain (D5.0). v1 payloads (before planned totals, actual prices
- * and actual quantities existed) and v2 payloads (before actual quantities)
- * are upgraded in place: missing planned totals are filled with null and
- * every line gains actualPriceRm / actualQuantity / quantitySource defaults.
- * Unknown versions are dropped safely.
+ * and actual quantities existed), v2 payloads (before actual quantities) and
+ * v3 payloads (before alternative store estimates, gap G4) are upgraded in
+ * place: missing planned totals and estimates are filled with null / empty
+ * defaults and every line gains actualPriceRm / actualQuantity /
+ * quantitySource defaults. Unknown versions are dropped safely.
  */
 export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Record<string, unknown>;
-  // v1 and v2 are the only legacy envelopes; anything else unknown is dropped.
+  // v1, v2 and v3 are the only legacy envelopes; anything else unknown is dropped.
   if (candidate.version !== 1
     && candidate.version !== 2
+    && candidate.version !== 3
     && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
   const normalized = {
     ...candidate,
@@ -587,6 +634,9 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
     plannedSubtotalRm: candidate.plannedSubtotalRm ?? null,
     estimatedRoundTripCostRm: candidate.estimatedRoundTripCostRm ?? null,
     plannedCombinedTotalRm: candidate.plannedCombinedTotalRm ?? null,
+    // Missing entirely (legacy payloads) → empty list; a present-but-malformed
+    // value is left as-is so validation rejects it instead of hiding corruption.
+    alternativeStoreEstimates: candidate.alternativeStoreEstimates ?? [],
     items: Array.isArray(candidate.items)
       ? candidate.items.map(item => (
           item && typeof item === "object"

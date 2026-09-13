@@ -704,3 +704,86 @@ describe("actual quantity recording (AC 5.3.4)", () => {
     expect(parseShoppingChecklist(JSON.stringify(missingQty))).toBeNull();
   });
 });
+
+describe("alternative store estimates snapshot (gap G4)", () => {
+  const altA: StoreRecommendation = {
+    ...store,
+    premiseId: "20",
+    premiseCode: "P20",
+    name: "Alt Store A",
+    estimatedRoundTripCostRm: 2.345,
+    estimatedTotalCostRm: 17.895,
+  };
+  const altB: StoreRecommendation = {
+    ...store,
+    premiseId: "30",
+    premiseCode: "P30",
+    name: "Alt Store B",
+    estimatedRoundTripCostRm: 4,
+    estimatedTotalCostRm: null,
+  };
+
+  it("saves alternative stores' estimated trip costs, excluding the selected store", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-alt",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      alternativeStores: [store, altA, altB],
+    });
+
+    expect(checklist.alternativeStoreEstimates).toEqual([
+      {
+        premiseId: "20",
+        name: "Alt Store A",
+        estimatedRoundTripCostRm: 2.35,
+        estimatedTotalCostRm: 17.9,
+      },
+      {
+        premiseId: "30",
+        name: "Alt Store B",
+        estimatedRoundTripCostRm: 4,
+        estimatedTotalCostRm: null,
+      },
+    ]);
+    expect(
+      checklist.alternativeStoreEstimates.some(estimate => estimate.premiseId === store.premiseId),
+    ).toBe(false);
+  });
+
+  it("defaults to an empty list when no alternatives are given", () => {
+    expect(checklistFromDetails().alternativeStoreEstimates).toEqual([]);
+  });
+
+  it("migrates v3 payloads written before the alternative-store-estimates field", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-legacy3",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      alternativeStores: [altA],
+    });
+    const legacy = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    legacy.version = 3;
+    delete legacy.alternativeStoreEstimates;
+
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated).not.toBeNull();
+    expect(migrated?.version).toBe(SHOPPING_CHECKLIST_VERSION);
+    expect(migrated?.alternativeStoreEstimates).toEqual([]);
+    expect(migrated?.items).toEqual(checklist.items);
+  });
+
+  it("round-trips the estimates and rejects malformed entries", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-alt-rt",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      alternativeStores: [altA],
+    });
+    expect(parseShoppingChecklist(serializeShoppingChecklist(checklist))).toEqual(checklist);
+
+    const malformed = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    malformed.alternativeStoreEstimates = [{ premiseId: "20" }];
+    expect(parseShoppingChecklist(JSON.stringify(malformed))).toBeNull();
+
+    const notArray = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    notArray.alternativeStoreEstimates = "nope";
+    expect(parseShoppingChecklist(JSON.stringify(notArray))).toBeNull();
+  });
+});

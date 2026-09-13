@@ -1,0 +1,35 @@
+US 5.4 Build Notes / 构建说明
+Record a Completed Shopping Trip
+保存已完成的购物行程
+
+------------------------------------------------------------
+1. 中文
+
+清单页新增 "Record shopping trip" 按钮：确认后把当前清单冻结为一份支出记录，保存在本机（浏览器 localStorage，独立存储键 smartcart.trip-history.v1），数据永不离开设备。记录包含保存日期时间、门店、全部目录行与自定义行、各行的购买结果（已购/未购/缺货/未完成）、实际数量及其 planned/actual 来源标注、实际单价与实际行小计；自定义行保留用户输入的名称并始终标注为购物者添加，绝不匹配官方商品。保存成功弹出确认提示，记录即时写入本机历史，无需刷新；重复保存会提示该清单已记录过。
+
+English:
+The checklist screen gains a "Record shopping trip" button: once confirmed, the current checklist is frozen into an expense record stored on the device (browser localStorage, dedicated key smartcart.trip-history.v1) and never leaves it. The record keeps the save date and time, the store, every catalogue and custom line, each line's outcome (purchased / not purchased / out of stock / unfinished), the actual quantity with its planned/actual source label, and the actual unit price and line total when entered; custom lines keep the name the shopper typed and stay marked as shopper-added — never matched to an official item. A confirmation toast appears after a successful save and the record is written to the on-device history immediately, no reload needed; recording the same checklist again shows an already-recorded notice.
+
+------------------------------------------------------------
+2. 中文
+
+合计口径与隐私：记录的实际支出总额只合计"已购且实际价已知"的行小计；未购、缺货、缺价与参考价（median）行一律排除并在记录中保留原有标注，估算往返交通费仅作计划元数据保存、绝不计入支出，无已知已购行小计时总额为空而非虚构的零。行程记录格式带版本号（version 1），损坏或未知版本的记录被安全忽略、绝不崩溃或虚构总额。清单快照同步扩展保存备选门店的估算行程成本列表（店标识、估算往返交通费、可得时的估算合计），为后续"换店对比"功能提供端侧数据来源；清单存储格式升级至 version 4，旧版（v1–v3）本地数据自动迁移、不丢失。
+
+English:
+Totals and privacy: a record's actual expense total sums only the known line totals of purchased lines; unpurchased, out-of-stock, missing-price and reference-price (median) lines are excluded and keep their explicit labels in the record, the estimated return transport is kept as planned metadata only and never counted as spending, and the total stays empty rather than showing a made-up zero when no purchased line total is known. Trip records are versioned (version 1); malformed or unknown-version records are ignored safely without crashing or inventing totals. The checklist snapshot now also stores the alternative stores' estimated trip costs (store identity, estimated return transport, and estimated combined total when known), providing the on-device data source for a future store-comparison feature; the checklist storage format moves to version 4 and legacy local data (v1–v3) migrates automatically without loss.
+
+------------------------------------------------------------
+3. 中文
+
+测试与验证：前端 vitest 150 项全部通过（新增 18 项：记录构建与字段完整性、合计排除口径、交通费不计入、空记录不虚构零、版本化持久化与损坏记录忽略、设备本地隐私扫描、备选店估算快照与迁移），ESLint 零告警，生产构建通过；后端 pytest 74 项回归通过（本次无后端改动）。真实环境验证：以 Kota Bharu 为起点实测，清单含 2 行（一行标记已购并录入实际价 RM25.90 与实际数量 2，行小计 RM51.80 标注 Shopper recorded；一行标记未购），保存后记录总额 RM51.80 仅含已购行，估算交通费 RM87.16 未计入，快照含 24 家备选店估算；确认提示与对话框截图存于 docs/evidence/epic5.4screenshot-Zhihao/。手动核对方式：启动后端与前端后，搜索 beras 加两件商品入篮，选起点与门店后 Start checklist，勾选一行并在 Edit item 中录入实际价，点 Record shopping trip 确认，看到成功提示后刷新页面，记录仍在浏览器 localStorage 的 smartcart.trip-history.v1 中。
+
+English:
+Testing and verification: the frontend vitest suite passes 150 tests (18 new: record construction and field completeness, total exclusion rules, transport never counted, no invented zero totals, versioned persistence with safe ignoring of broken records, a device-local privacy scan, and alternative-store estimate snapshotting with migration), ESLint reports no warnings, the production build passes, and the backend pytest suite passes 74 tests unchanged (no backend changes in this commit). Verified against live services from Kota Bharu: a two-line checklist (one line marked purchased with an actual price of RM25.90 and actual quantity 2, line total RM51.80 labelled Shopper recorded; one line marked not purchased) saved with a record total of RM51.80 covering only the purchased line, the estimated transport of RM87.16 excluded, and 24 alternative-store estimates in the snapshot; screenshots of the confirmation dialog and success toast are stored in docs/evidence/epic5.4screenshot-Zhihao/. To verify manually: with backend and frontend running, search beras and add two items, pick a starting point and a store, start the checklist, tick one line and enter an actual price via Edit item, press Record shopping trip and confirm, then reload the page — the record persists in the browser's localStorage under smartcart.trip-history.v1.
+
+------------------------------------------------------------
+4. 中文
+
+变更文件：frontend/lib/trip-history.ts（新增，行程记录模型、合计、版本化序列化纯函数）、frontend/lib/trip-history.test.ts（新增测试）、frontend/lib/shopping-checklist.ts 与其测试（快照增备选店估算字段、版本升至 v4 并扩展迁移链）、frontend/components/shopping-checklist.tsx（Record 按钮与确认对话框）、frontend/components/smartcart-app.tsx（创建清单传入备选店、历史记录状态与本机持久化、保存成功提示）、frontend/lib/i18n.ts（英/马双语文案）、docs/evidence/epic5.4screenshot-Zhihao/（验证截图）。
+
+English:
+Files changed: frontend/lib/trip-history.ts (new — trip record model, totals, and versioned serialization pure functions), frontend/lib/trip-history.test.ts (new tests), frontend/lib/shopping-checklist.ts and its tests (snapshot gains alternative-store estimates, storage version moves to v4 with an extended migration chain), frontend/components/shopping-checklist.tsx (Record button and confirmation dialog), frontend/components/smartcart-app.tsx (alternative stores passed at checklist creation, history state with on-device persistence, save confirmation toast), frontend/lib/i18n.ts (English and Malay copy), docs/evidence/epic5.4screenshot-Zhihao/ (verification screenshots).
