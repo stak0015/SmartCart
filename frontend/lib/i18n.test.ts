@@ -135,3 +135,41 @@ describe("combined total labels (iteration1 feedback)", () => {
     expect(`${COPY.ms.partialTotal} + ${COPY.ms.returnTravel}`).toContain("+");
   });
 });
+
+describe("savings insights copy (AC 8.2.1-8.2.3)", () => {
+  it("exposes the insight keys in both English and Bahasa Melayu", () => {
+    for (const copy of [COPY.en, COPY.ms]) {
+      expect(copy.savingsInsightsTitle.trim().length).toBeGreaterThan(0);
+      expect(copy.travelSavingsLabel.trim().length).toBeGreaterThan(0);
+      expect(copy.potentialPriceSavingsLabel.trim().length).toBeGreaterThan(0);
+      expect(copy.estimateBadge.trim().length).toBeGreaterThan(0);
+      expect(copy.potentialBadge.trim().length).toBeGreaterThan(0);
+      expect(copy.noSavingsInsights.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("labels travel savings as an estimate, never as realised savings", () => {
+    expect(COPY.en.travelSavingsLabel).toContain("Estimated");
+    expect(COPY.en.travelEstimateNote).toContain("estimated");
+  });
+
+  it("labels price savings as potential, never as money already saved", () => {
+    expect(COPY.en.potentialPriceSavingsLabel).toContain("Potential");
+    // AC 8.2.3: potential savings are never presented as money actually saved.
+    expect(COPY.en.potentialNotActualNote).toContain("not money you have already saved");
+    expect(COPY.en.potentialPriceSavingsDetail("RM 4.00", "Cheaper Mart"))
+      .toContain("could save");
+  });
+
+  it("keeps the two badges distinct in both languages", () => {
+    expect(COPY.en.estimateBadge).not.toBe(COPY.en.potentialBadge);
+    expect(COPY.ms.estimateBadge).not.toBe(COPY.ms.potentialBadge);
+  });
+
+  it("discloses the comparison basis and mixed price sources", () => {
+    expect(COPY.en.comparableItemsNote(2, 3)).toBe("Based on 2 of 3 comparable items.");
+    expect(COPY.ms.comparableItemsNote(2, 3)).toContain("2");
+    expect(COPY.en.mixedPriceSourcesNote).toContain("estimates");
+    expect(COPY.en.straightLineTravelNote).toContain("straight-line");
+  });
+});

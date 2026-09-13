@@ -226,6 +226,25 @@ export const COPY = {
     affectedItemsTotal: "Changed items",
     savingsUnavailable: "Cost change unavailable because a comparison price is missing.",
     savingsBreakdownTitle: "Saving per replaced item",
+    // AC 8.2.1/8.2.2/8.2.3: savings insights copy. The estimate/potential
+    // badges are driven by the insight kind so the UI can never reword a
+    // potential price saving as money the shopper already saved.
+    savingsInsightsTitle: "Savings insights",
+    travelSavingsLabel: "Estimated travel savings",
+    travelSavingsDetail: (amount: string, cheaperStore: string) =>
+      `The return trip to ${cheaperStore} is estimated to cost ${amount} less.`,
+    potentialPriceSavingsLabel: "Potential price savings",
+    potentialPriceSavingsDetail: (amount: string, cheaperStore: string) =>
+      `Lower prices for your basket items could save ${amount} at ${cheaperStore}.`,
+    comparableItemsNote: (comparable: number, total: number) =>
+      `Based on ${comparable} of ${total} comparable items.`,
+    mixedPriceSourcesNote: "Some compared prices are cached cross-store estimates rather than prices observed at the store.",
+    straightLineTravelNote: "Travel cost is based on a straight-line distance estimate.",
+    estimateBadge: "Estimate",
+    potentialBadge: "Potential",
+    potentialNotActualNote: "Potential savings are a price comparison you have not made yet, not money you have already saved.",
+    travelEstimateNote: "Travel cost is estimated and may differ from your actual trip.",
+    noSavingsInsights: "No cheaper travel or basket price option found.",
     ignoredPriceNote: "Items without a price at this store are shown below but excluded from the basket subtotal and combined cost.",
     oneWay: "One way",
     route: "Route",
@@ -475,6 +494,23 @@ export const COPY = {
     affectedItemsTotal: "Item yang ditukar",
     savingsUnavailable: "Perubahan kos tidak tersedia kerana harga perbandingan tiada.",
     savingsBreakdownTitle: "Penjimatan bagi setiap item yang diganti",
+    // AC 8.2.1/8.2.2/8.2.3: savings insights copy.
+    savingsInsightsTitle: "Cerapan penjimatan",
+    travelSavingsLabel: "Anggaran penjimatan perjalanan",
+    travelSavingsDetail: (amount: string, cheaperStore: string) =>
+      `Perjalanan balik ke ${cheaperStore} dianggarkan kurang ${amount}.`,
+    potentialPriceSavingsLabel: "Potensi penjimatan harga",
+    potentialPriceSavingsDetail: (amount: string, cheaperStore: string) =>
+      `Harga lebih rendah untuk item bakul anda boleh menjimatkan ${amount} di ${cheaperStore}.`,
+    comparableItemsNote: (comparable: number, total: number) =>
+      `Berdasarkan ${comparable} daripada ${total} item yang boleh dibandingkan.`,
+    mixedPriceSourcesNote: "Sesetengah harga perbandingan ialah anggaran antara kedai yang disimpan, bukan harga yang diperhatikan di kedai.",
+    straightLineTravelNote: "Kos perjalanan berdasarkan anggaran jarak garis lurus.",
+    estimateBadge: "Anggaran",
+    potentialBadge: "Potensi",
+    potentialNotActualNote: "Potensi penjimatan ialah perbandingan harga yang belum anda lakukan, bukan wang yang telah anda jimatkan.",
+    travelEstimateNote: "Kos perjalanan dianggarkan dan mungkin berbeza daripada perjalanan sebenar anda.",
+    noSavingsInsights: "Tiada pilihan perjalanan atau harga bakul yang lebih murah ditemui.",
     ignoredPriceNote: "Item tanpa harga di kedai ini dipaparkan di bawah tetapi dikecualikan daripada jumlah kecil bakul dan kos gabungan.",
     oneWay: "Sehala",
     route: "Laluan",

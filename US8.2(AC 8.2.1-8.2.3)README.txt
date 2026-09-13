@@ -1,0 +1,233 @@
+US 8.2 - See what SmartCart saved me (AC 8.2.1-8.2.3)
+US 8.2 - 显示 SmartCart 为我省下的钱（AC 8.2.1-8.2.3）
+
+[What this change does / 本次提交内容]
+
+Frontend - calculation layer (steps 1, 2, 3)
+- New frontend/lib/savings-insights.ts, a pure module with no React and no
+  API calls. It reads only the StoreRecommendation list that Epic 2 already
+  returns, so it does not depend on US 5.4 expense records (not yet merged
+  into this branch).
+- travelSavingsInsight (AC 8.2.1): my store's estimatedRoundTripCostRm minus
+  the cheapest reachable alternative's. Stores carrying exceedsLimit are
+  excluded from the candidate pool, because they were returned only when
+  nothing matched inside the travel limit and recommending one as a saving
+  would be unusable for a household that cannot travel that far.
+- potentialPriceSavingsInsight (AC 8.2.2): comparison basis is the best
+  single store (one trip, achievable), not a per-line theoretical minimum
+  spread across several stores. Only basket lines priced at BOTH stores are
+  compared, so a line my store has no price for can never read as a saving I
+  never had. The result exposes comparableLineCount / basketLineCount so the
+  UI can state "based on N comparable items".
+- Lines whose price came from the cached cross-store median are counted
+  (medianLineCount) and disclosed, following the existing store/median split
+  convention in recommendation-detail.ts.
+- Both insights return a structured state instead of a bare number:
+  available, savingsRm, reason, and the store names. Savings of zero or less
+  are reported as unavailable rather than shown as "you saved RM0", which
+  would read as a result when no cheaper option exists.
+- AC 8.2.3: each insight carries kind: "estimate" | "potential". Route
+  metadata (routeProvider, routeWarning) travels with the travel insight, so
+  the straight-line fallback cannot be displayed without its caveat.
+
+前端 - 计算层（步骤 1、2、3）
+- 新增 frontend/lib/savings-insights.ts，纯函数模块，不含 React、不发
+  任何请求。它只读取 Epic 2 已返回的 StoreRecommendation 列表，因此
+  不依赖 US 5.4 的消费记录（该代码尚未合并进本分支）。
+- travelSavingsInsight（AC 8.2.1）：我的门店 estimatedRoundTripCostRm
+  减去最便宜的可达替代门店的同一字段。带 exceedsLimit 的门店被排除在
+  候选池之外——这类门店只在出行限制内无匹配时才会返回，把它当作省钱
+  推荐给走不到那么远的家庭并不成立。
+- potentialPriceSavingsInsight（AC 8.2.2）：比价口径为「最优单店」
+  （一次行程、可执行），而非跨多店逐行取理论最低价。只比较两家店
+  「都有价格」的购物篮行，因此我的店缺价的商品永远不会被算成我省下
+  的钱。结果暴露 comparableLineCount / basketLineCount，供界面说明
+  「基于 N 件可比商品」。
+- 价格来源为跨店缓存中位价的行会被单独计数（medianLineCount）并披露，
+  沿用 recommendation-detail.ts 中既有的 store/median 双源约定。
+- 两个洞察都返回结构化状态而非裸数字：available、savingsRm、reason 与
+  门店名。省钱额为零或负数时报告为不可用，而不是显示「你省了 RM0」——
+  那会在实际没有更便宜选项时被误读为一种结果。
+- AC 8.2.3：每个洞察都带 kind："estimate" | "potential"。路线元数据
+  （routeProvider、routeWarning）随差旅洞察一起返回，因此直线距离兜底
+  不可能在不带警示的情况下被展示。
+
+Frontend - copy and component (steps 5, 6)
+- frontend/lib/i18n.ts: 13 new keys in BOTH the English and the Bahasa
+  Melayu blocks (AppCopy is inferred from COPY.en, so a missing ms key is a
+  compile error). Wording is fixed by the AC: travel savings are always
+  "Estimated", price savings are always "Potential", and
+  potentialNotActualNote states plainly that potential savings are not money
+  already saved.
+- New frontend/components/savings-insights.tsx: a stateless summary that
+  renders whatever insights it is handed. The estimate/potential badge is
+  driven by insight.kind, not chosen by the component, so the wording cannot
+  drift from the calculation. Deliberately not wired into any page yet: its
+  placement is decided when US 5.4 expense records land, and keeping it in a
+  standalone file avoids an "defined but never used" lint warning.
+
+前端 - 文案与组件（步骤 5、6）
+- frontend/lib/i18n.ts：英文与马来文两个块各新增 13 个键（AppCopy 类型
+  由 COPY.en 推导，缺 ms 键即编译失败）。措辞按 AC 固定：差旅省钱一律
+  用 "Estimated"，比价省钱一律用 "Potential"，potentialNotActualNote
+  明确写出潜在省钱不等于已经省下的钱。
+- 新增 frontend/components/savings-insights.tsx：无状态摘要组件，给它
+  数据就渲染。estimate/potential 徽章由 insight.kind 驱动，而非组件自行
+  选择措辞，因此文案不会偏离计算结果。本次刻意不接线到任何页面：展示
+  位置待 US 5.4 消费记录落地后再定；放在独立文件也避免了「已定义但未
+  使用」的 lint 告警。
+
+[Problems found and how they were resolved / 遇到的问题与处理]
+
+1. Wrong expectation in my own test (my error, not a code defect).
+   The case "picks the single best store" asserted a saving of RM11, but
+   Store B totals 9 + 12 = 21 against my 30, which is RM9. The
+   implementation was correct; the arithmetic in the test comment and
+   assertion was wrong. Fixed the expectation to 9 and re-ran: 17/17 pass.
+
+1. 我自己测试里的期望值算错（是我的笔误，不是代码缺陷）。
+   用例「选取最优单店」断言省 RM11，但 Store B 合计 9 + 12 = 21，
+   对比我的 30 应为省 RM9。实现是对的，测试注释与断言里的减法算错了。
+   已将期望值改为 9 并重跑：17/17 通过。
+
+2. Pre-existing test failure, NOT introduced by this change - left untouched.
+   lib/i18n.test.ts > "keeps category candidates distinct from verified
+   eligibility" fails because it expects COPY.en.saraCategoryCandidate to
+   contain "verify", but the shipped value is "Potential SARA item".
+   Evidence it predates this work: `git diff -- lib/i18n.ts` shows my edits
+   are additions only (36 insertions, 0 deletions); the diff contains no
+   occurrence of saraCategoryCandidate; and `git show HEAD:frontend/lib/i18n.ts`
+   returns the identical value. The copy was changed without updating its
+   test. It is a one-line decision (widen the copy or relax the assertion)
+   that belongs to whoever owns that string, so it was left as-is and
+   recorded here instead of being silently "fixed".
+
+2. 改动前就已存在的测试失败，非本次引入 —— 未做改动。
+   lib/i18n.test.ts 的 "keeps category candidates distinct from verified
+   eligibility" 失败：断言要求 COPY.en.saraCategoryCandidate 含 "verify"，
+   但实际值为 "Potential SARA item"。
+   证明与本次无关：`git diff -- lib/i18n.ts` 显示我的改动纯为追加
+   （36 行新增、0 行删除），diff 中不含 saraCategoryCandidate；且
+   `git show HEAD:frontend/lib/i18n.ts` 返回完全相同的值。属于文案被改
+   过但测试未同步。修法是一行的决定（改文案或放宽断言），应由该字符串
+   的负责人决定，因此原样保留并在此记录，而不擅自「修好」。
+
+3. Branch state differed from what was assumed.
+   Epic 5 code (frontend/lib/shopping-checklist.ts, US 5.1-5.3) exists only
+   on origin/Zhihao/US5.3 and is NOT on this branch; HEAD is fefeee9.
+   Consequence: AC 8.2.1 says "Given I shopped at a store", which strictly
+   read needs a recorded trip. The calculation layer therefore takes a
+   StoreRecommendation as "my store" instead of an expense record, so it can
+   be built and tested now; when US 5.4 lands, only a small adapter
+   (record -> myStore) is needed and no signature has to change.
+   Also noted: the team renamed US 3.4's `swap` to `replacement`
+   (currentReplacementImpactRm in basket-state.ts, CompactSavingsFooter in
+   smartcart-app.tsx). New code follows that naming.
+
+3. 分支实际状态与预期不同。
+   Epic 5 代码（frontend/lib/shopping-checklist.ts，US 5.1-5.3）只存在于
+   origin/Zhihao/US5.3，不在本分支上；HEAD 为 fefeee9。
+   影响：AC 8.2.1 写的是「Given I shopped at a store」，严格读需要一次
+   已记录的行程。因此计算层以 StoreRecommendation 作为「我的门店」而非
+   消费记录，使其现在即可构建与测试；待 US 5.4 落地，只需一个小的适配
+   函数（record -> myStore），签名无需变更。
+   另记：团队已将 US 3.4 的 `swap` 改名为 `replacement`（basket-state.ts
+   的 currentReplacementImpactRm、smartcart-app.tsx 的 CompactSavingsFooter）。
+   新代码沿用该命名。
+
+[How it was verified / 验证方式]
+
+- Unit tests: frontend/lib/savings-insights.test.ts, 17 cases, all passing.
+  Coverage per AC:
+  AC 8.2.1 - difference against a cheaper reachable store; no invented
+    saving when my store is already cheapest; equal costs report no saving
+    rather than RM0; a cheaper store beyond the travel limit is excluded;
+    the cheapest candidate wins, not merely a cheaper one; straight-line
+    fallback sets routeEstimated and carries routeWarning; amounts round to
+    whole sen.
+  AC 8.2.2 - only lines priced at both stores are compared, with the count
+    reported; best single store wins over a per-line mix across stores;
+    disjoint pricing yields no comparable lines; my store's missing prices
+    are not counted as savings; stores beyond the travel limit are excluded;
+    median-sourced lines are counted; an empty basket yields nothing.
+  AC 8.2.3 - travel and price insights keep distinct kinds; hasAny is false
+    when neither applies; the route caveat survives on the travel insight.
+- i18n tests: 5 new cases assert both locales expose every key, that travel
+  wording contains "Estimated", that price wording contains "Potential" and
+  "could save", that potentialNotActualNote contains "not money you have
+  already saved", that the two badges differ in both languages, and that the
+  comparison basis and mixed-price-source disclosures exist.
+- Type check: tsc --noEmit clean.
+- Lint: eslint clean on all five touched/added files (0 errors, 0 warnings).
+- Build: next build succeeded (compiled in 69s, 5 static pages).
+- Full suite: 117 tests, 116 passed, 1 failed - the single failure is the
+  pre-existing saraCategoryCandidate case described above.
+- Not yet verified: no browser run. The component is intentionally unwired,
+  so there is nothing on screen to click until placement is decided with
+  US 5.4.
+
+- 单元测试：frontend/lib/savings-insights.test.ts 共 17 个用例，全部通过。
+  按 AC 覆盖：
+  AC 8.2.1 - 与更便宜可达门店的差额；我的店已最便宜时不虚构省钱；
+    成本相等时报告无省钱而非 RM0；超出出行限制的更便宜门店被排除；
+    取最便宜者而非任意更便宜者；直线兜底设置 routeEstimated 并携带
+    routeWarning；金额四舍五入到分。
+  AC 8.2.2 - 只比较两家店都有价的行并报告数量；最优单店胜过跨店逐行
+    混合；价格无交集时无可比行；我的店缺价不计为省钱；超出出行限制的
+    门店被排除；中位价来源的行被计数；空购物篮不产出结果。
+  AC 8.2.3 - 差旅与比价洞察保持不同 kind；两者皆不适用时 hasAny 为假；
+    路线警示保留在差旅洞察上。
+- i18n 测试：新增 5 个用例，断言两种语言都暴露全部键、差旅措辞含
+  "Estimated"、比价措辞含 "Potential" 与 "could save"、
+  potentialNotActualNote 含 "not money you have already saved"、两种语言
+  的徽章互不相同、以及比价基准与混合价格来源的披露存在。
+- 类型检查：tsc --noEmit 通过。
+- Lint：eslint 对全部 5 个新增/改动文件零错误零告警。
+- 构建：next build 成功（69 秒编译，5 个静态页）。
+- 全量测试：117 项，116 通过、1 失败 —— 唯一失败即上文所述的既有
+  saraCategoryCandidate 用例。
+- 尚未验证：未做浏览器实测。组件按设计暂未接线，因此在展示位置随
+  US 5.4 确定之前，界面上没有可点击的内容。
+
+[Files changed / 变更文件清单]
+
+New files
+- frontend/lib/savings-insights.ts            - AC 8.2.1/8.2.2/8.2.3 calculation layer (pure functions)
+- frontend/lib/savings-insights.test.ts       - 17 unit tests covering all three ACs
+- frontend/components/savings-insights.tsx    - stateless summary component, intentionally unwired
+- US8.2(AC 8.2.1-8.2.3)README.txt             - this change record
+
+Modified files (additions only, no deletions)
+- frontend/lib/i18n.ts                        - 13 new keys x 2 locales (savings insights copy)
+- frontend/lib/i18n.test.ts                   - 5 new copy-assertion cases
+
+新增文件
+- frontend/lib/savings-insights.ts            - AC 8.2.1/8.2.2/8.2.3 计算层（纯函数）
+- frontend/lib/savings-insights.test.ts       - 覆盖三条 AC 的 17 个单元测试
+- frontend/components/savings-insights.tsx    - 无状态摘要组件，按设计暂未接线
+- US8.2(AC 8.2.1-8.2.3)README.txt             - 本变更记录
+
+改动文件（纯追加，无删除）
+- frontend/lib/i18n.ts                        - 新增 13 个键 × 2 种语言（省钱洞察文案）
+- frontend/lib/i18n.test.ts                   - 新增 5 个文案断言用例
+
+[Decisions taken from the team discussion / 来自团队讨论的决定]
+
+- Price comparison basis: best single store (option A), not a per-line
+  theoretical minimum.
+- Partial baskets: compare only lines priced at both stores, and state
+  "based on N comparable items" in the UI.
+- routeProvider === "straight_line": still show travel savings, but always
+  with routeWarning and more conservative wording.
+- Placement of the summary: deferred until US 5.4 records land; the
+  component is built stateless ("give it data and it renders") meanwhile.
+- Build order followed: step 0 -> 1 -> 2 -> 4 -> 3 -> 5 -> 6, with step 7
+  (verification) run after each.
+
+- 比价口径：最优单店（方案 A），而非跨店逐行理论最低价。
+- 部分购物篮：只比较两家店都有价格的行，并在界面说明「基于 N 件可比商品」。
+- routeProvider === "straight_line"：仍显示差旅省钱，但必须带 routeWarning
+  且措辞更保守。
+- 摘要展示位置：待 US 5.4 记录落地后再定；在此之前组件按无状态方式构建
+  （给数据即渲染）。
+- 执行顺序：步骤 0 → 1 → 2 → 4 → 3 → 5 → 6，每步之后执行步骤 7（验证）。
