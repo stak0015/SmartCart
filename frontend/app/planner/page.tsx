@@ -1,5 +1,5 @@
-import SmartCartApp from "@/components/smartcart-app";
+import { redirect } from "next/navigation";
 
-export default function PlannerPage() {
-  return <SmartCartApp />;
+export default function LegacyPlannerPage() {
+  redirect("/trip/travel");
 }

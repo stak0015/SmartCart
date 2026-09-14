@@ -9,8 +9,9 @@ import type {
   ShoppingChecklist,
 } from "./shopping-checklist";
 import { actualLineTotalRm } from "./shopping-checklist";
+import { isEstimatedSavingsSnapshot, type EstimatedSavingsSnapshot } from "./estimated-savings";
 
-export const TRIP_HISTORY_VERSION = 1 as const;
+export const TRIP_HISTORY_VERSION = 2 as const;
 export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
 
 /**
@@ -58,6 +59,7 @@ export interface TripRecord {
   estimatedRoundTripCostRm: number | null;
   plannedCombinedTotalRm: number | null;
   alternativeStoreEstimates: AlternativeStoreEstimate[];
+  savingsSnapshot: EstimatedSavingsSnapshot | null;
   // AC 5.4.2: the sum of the known purchased line totals; null when no
   // purchased line has a known actual total (never a made-up 0, AC 5.2.3).
   actualTotalRm: number | null;
@@ -145,6 +147,7 @@ export function buildTripRecord(
     alternativeStoreEstimates: checklist.alternativeStoreEstimates.map(estimate => ({
       ...estimate,
     })),
+    savingsSnapshot: checklist.savingsSnapshot ?? null,
     actualTotalRm: actualExpenseTotal(lines),
     lines,
   };
@@ -249,6 +252,7 @@ export function isTripRecord(value: unknown): value is TripRecord {
     || !isFiniteMoneyOrNull(record.plannedCombinedTotalRm)
     || !Array.isArray(record.alternativeStoreEstimates)
     || !record.alternativeStoreEstimates.every(isAlternativeStoreEstimate)
+    || !(record.savingsSnapshot === null || isEstimatedSavingsSnapshot(record.savingsSnapshot))
     || !isFiniteMoneyOrNull(record.actualTotalRm)
     || !Array.isArray(record.lines)
     || !record.lines.every(isTripRecordLine)) return false;
@@ -271,16 +275,20 @@ export function isTripRecord(value: unknown): value is TripRecord {
 export function migrateTripHistory(raw: unknown): TripRecord[] {
   if (!raw || typeof raw !== "object") return [];
   const envelope = raw as Record<string, unknown>;
-  if (envelope.version !== TRIP_HISTORY_VERSION || !Array.isArray(envelope.records)) return [];
+  if ((envelope.version !== 1 && envelope.version !== TRIP_HISTORY_VERSION)
+    || !Array.isArray(envelope.records)) return [];
   return envelope.records
     .map(record => {
       if (!record || typeof record !== "object") return record;
       const candidate = record as Record<string, unknown>;
-      if (!Array.isArray(candidate.lines)) return record;
+      if ((candidate.version !== 1 && candidate.version !== TRIP_HISTORY_VERSION)
+        || !Array.isArray(candidate.lines)) return record;
       // Out-of-stock registration was abolished: legacy out_of_stock lines
       // degrade to not_bought instead of dropping the whole record.
       return {
         ...candidate,
+        version: TRIP_HISTORY_VERSION,
+        savingsSnapshot: candidate.savingsSnapshot ?? null,
         lines: candidate.lines.map(line => (
           line && typeof line === "object"
             && (line as Record<string, unknown>).status === "out_of_stock"

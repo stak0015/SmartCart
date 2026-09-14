@@ -26,9 +26,34 @@ export interface TravelPreferencesRequest {
   saraFilter: SaraFilter;
 }
 
-export interface RecommendationRequest {
+export interface LegacyRecommendationRequest {
   basket?: BasketLineRequest[];
   travel: TravelPreferencesRequest;
+}
+
+export interface PreparedRecommendationRequest {
+  basket?: BasketLineRequest[];
+  candidatePreparationId: string;
+}
+
+/** New clients send a prepared candidate handle; travel remains for compatibility. */
+export type RecommendationRequest = LegacyRecommendationRequest | PreparedRecommendationRequest;
+
+export interface CandidatePreparationRequest {
+  travel: TravelPreferencesRequest;
+}
+
+export type CandidatePreparationStatus = "ready" | "no_reachable_stores" | "unverified";
+
+export interface CandidatePreparationResponse {
+  preparationId: string;
+  candidateCount: number;
+  totalCandidatesEvaluated: number;
+  status: CandidatePreparationStatus;
+  routeProvider: "google" | "straight_line";
+  routeWarning: string | null;
+  generatedAt: string;
+  expiresAt: string;
 }
 
 export interface LocationSuggestion {

@@ -128,9 +128,8 @@ def rank_reachable_stores(
     """Rank candidate stores, filtering to those within the travel limit.
 
     Pass ``limit_type="distance"`` with ``limit_value=float("inf")`` to rank
-    without applying a travel limit. The API uses this for the iteration1
-    fallback that shows the nearest stores when none match the shopper's
-    chosen limit (the caller flags those stores via ``exceeds_limit``).
+    without applying a travel limit. The public recommendation endpoints do not
+    use this mode to bypass a verified shopper travel limit.
     """
     # This optional argument is retained for E2 callers. The API's richer path
     # first ranks by transport, then applies StoreBasketSummary below.

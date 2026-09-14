@@ -13,11 +13,13 @@ import {
 } from "./shopping-checklist";
 import {
   TRIP_HISTORY_STORAGE_KEY,
+  TRIP_HISTORY_VERSION,
   addTripRecord,
   actualExpenseTotal,
   buildTripRecord,
   isTripRecord,
   listTripRecords,
+  migrateTripHistory,
   parseTripHistory,
   serializeTripHistory,
 } from "./trip-history";
@@ -149,7 +151,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       recordedAt: "2026-09-14T10:30:00.000Z",
     });
 
-    expect(record.version).toBe(1);
+    expect(record.version).toBe(2);
     expect(record.id).toBe("trip-1");
     expect(record.recordedAt).toBe("2026-09-14T10:30:00.000Z");
     expect(record.checklistId).toBe("checklist-trip");
@@ -242,7 +244,7 @@ describe("actualExpenseTotal (AC 5.4.2)", () => {
     const record = buildTripRecord(finishedChecklist(), { recordId: "trip-7" });
     expect(record.estimatedRoundTripCostRm).toBe(3);
     expect(record.plannedSubtotalRm).toBe(24.5);
-    expect(record.plannedCombinedTotalRm).toBe(20);
+    expect(record.plannedCombinedTotalRm).toBe(27.5);
     expect(record.actualTotalRm).toBe(15.5);
     expect(record.alternativeStoreEstimates).toEqual([
       { premiseId: "20", name: "Alt Store", estimatedRoundTripCostRm: 5, estimatedTotalCostRm: 30 },
@@ -289,6 +291,17 @@ describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
       recordedAt: "2026-09-14T10:30:00.000Z",
     });
     expect(parseTripHistory(serializeTripHistory([record]))).toEqual([record]);
+  });
+
+  it("upgrades v1 trip records and keeps them without an estimated-savings snapshot", () => {
+    const record = buildTripRecord(finishedChecklist(), { recordId: "trip-v1" });
+    const legacyRecord = { ...record, version: 1 } as Record<string, unknown>;
+    delete legacyRecord.savingsSnapshot;
+
+    const migrated = migrateTripHistory({ version: 1, records: [legacyRecord] });
+    expect(migrated).toHaveLength(1);
+    expect(migrated[0].version).toBe(TRIP_HISTORY_VERSION);
+    expect(migrated[0].savingsSnapshot).toBeNull();
   });
 
   it("ignores malformed or unknown-version records individually without throwing", () => {

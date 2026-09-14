@@ -2,7 +2,7 @@
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Path, Query, Response
 from starlette.concurrency import run_in_threadpool
 
 from .catalogue import (
@@ -13,6 +13,7 @@ from .catalogue import (
 )
 from .config import get_settings
 from .errors import AppError
+from .candidate_cache import PreparedCandidateSet, candidate_preparations
 from .alternatives import (
     get_basket_alternatives,
     get_basket_alternatives_with_pack_options,
@@ -26,6 +27,8 @@ from .models import (
     LocationSearchResponse,
     RecommendationRequest,
     RecommendationResponse,
+    CandidatePreparationRequest,
+    CandidatePreparationResponse,
     ResolvedLocation,
     BasketAlternativesRequest,
     BasketLineRequest,
@@ -79,6 +82,149 @@ def _load_basket_alternatives(
         )
         return True, lines, pack_options
     return get_basket_alternatives_with_pack_options(premise_id, basket)
+
+
+def _ranking_method(*, route_provider: str, has_basket: bool) -> str:
+    if route_provider == "straight_line":
+        if has_basket:
+            return (
+                "Nearest 25 premises by straight-line distance; stores are ranked by "
+                "exact store-price coverage, then effective coverage including cached "
+                "median estimates, then estimated combined cost using rough travel estimates. "
+                "Google Routes is not configured, so travel limits and route feasibility "
+                "are not verified."
+            )
+        return (
+            "Nearest premises by straight-line distance; travel times and costs "
+            "are rough planning estimates because Google Routes is not configured."
+        )
+    if has_basket:
+        return (
+            "Stores ranked by exact store-price coverage, then effective coverage "
+            "including cached median estimates, then lowest combined cost: effective "
+            "basket subtotal plus estimated return transport cost; ties by shortest "
+            "travel time, route distance, store name, then premise ID."
+        )
+    return (
+        "Lowest estimated return transport cost, then shortest travel time "
+        "and route distance."
+    )
+
+
+async def _prepare_candidates(travel) -> PreparedCandidateSet:
+    """Build the route-filtered candidate set without retaining the origin."""
+    settings = get_settings()
+    use_straight_line_fallback = not settings.google_routes_api_key
+    maximum_straight_line_km = (
+        travel.limit.value
+        if travel.limit.type == "distance"
+        else travel.limit.distance_km
+        if travel.limit.type == "both"
+        else None
+    )
+    if use_straight_line_fallback:
+        # Without Routes there is no reliable way to apply distance/time
+        # reachability. Keep the documented nearest-25 approximation.
+        maximum_straight_line_km = None
+    candidates = await run_in_threadpool(
+        find_nearest_premises,
+        latitude=travel.origin.latitude,
+        longitude=travel.origin.longitude,
+        sara_filter=travel.sara_filter,
+        maximum_straight_line_km=maximum_straight_line_km,
+        limit=(
+            FALLBACK_NEAREST_LIMIT
+            if use_straight_line_fallback
+            else settings.route_matrix_candidate_limit
+        ),
+        maximum_coordinate_age_days=settings.premise_location_max_age_days,
+    )
+    if use_straight_line_fallback:
+        candidates = candidates[:FALLBACK_NEAREST_LIMIT]
+
+    if not candidates:
+        routable, fresh = await run_in_threadpool(
+            get_premise_location_coverage,
+            settings.premise_location_max_age_days,
+        )
+        if routable > 0 and fresh == 0:
+            raise AppError(
+                "PREMISE_LOCATIONS_NOT_READY",
+                "Store locations need to be prepared before recommendations can run.",
+                503,
+            )
+
+    if not candidates:
+        route_results = []
+        route_limit_type = travel.limit.type
+        route_limit_value = travel.limit.value
+    elif use_straight_line_fallback:
+        route_results = straight_line_route_results(candidates, travel.transport_mode)
+        # Synthetic straight-line values are estimates only, never route proof.
+        route_limit_type = "distance"
+        route_limit_value = float("inf")
+    else:
+        route_results = await get_maps_provider().compute_route_matrix(
+            {
+                "latitude": travel.origin.latitude,
+                "longitude": travel.origin.longitude,
+            },
+            [candidate.google_place_id for candidate in candidates],
+            travel.transport_mode,
+        )
+        route_limit_type = travel.limit.type
+        route_limit_value = travel.limit.value
+
+    cost_model = get_travel_cost_model(settings)
+    recommendations = rank_reachable_stores(
+        candidates=candidates,
+        route_results=route_results,
+        limit_type=route_limit_type,
+        limit_value=route_limit_value,
+        cost_rate=cost_model[travel.transport_mode],
+        limit_distance_km=travel.limit.distance_km,
+        limit_time_minutes=travel.limit.time_minutes,
+    )
+    route_warning_parts = []
+    if use_straight_line_fallback:
+        route_warning_parts.append(
+            "Google Routes is not configured. Showing the 25 nearest stores by "
+            "straight-line distance with approximate travel times; the selected "
+            "travel limit and route feasibility are not verified."
+        )
+    elif not recommendations:
+        route_warning_parts.append(
+            "No store was found inside your travel limit. Widen the limit or change "
+            "the travel preferences and prepare candidates again."
+        )
+    if travel.transport_mode in ROUTE_WARNING_MODES:
+        route_warning_parts.append(
+            "Walking and motorcycle routes are beta estimates and may omit suitable "
+            "paths or road restrictions. Check the route before travelling."
+        )
+    if travel.transport_mode == "public_transport":
+        route_warning_parts.append(
+            "Public transport estimates include walking to and from transit stops."
+        )
+
+    route_provider = "straight_line" if use_straight_line_fallback else "google"
+    return PreparedCandidateSet(
+        # Recommendations contain only derived store/route data. The selected
+        # origin and the original travel request are intentionally discarded.
+        recommendations=tuple(recommendations),
+        total_candidates_evaluated=len(candidates),
+        status=(
+            "unverified"
+            if use_straight_line_fallback
+            else "ready"
+            if recommendations
+            else "no_reachable_stores"
+        ),
+        route_provider=route_provider,
+        route_warning=" ".join(route_warning_parts) if route_warning_parts else None,
+        cost_assumptions={mode: rate.description for mode, rate in cost_model.items()},
+        generated_at=datetime.now(timezone.utc),
+    )
 
 
 @router.get("/health")
@@ -197,187 +343,79 @@ async def basket_alternatives(
     )
 
 
+@router.post(
+    "/recommendation-candidates",
+    response_model=CandidatePreparationResponse,
+)
+async def prepare_recommendation_candidates(
+    payload: CandidatePreparationRequest,
+) -> CandidatePreparationResponse:
+    prepared = await _prepare_candidates(payload.travel)
+    preparation_id, prepared = candidate_preparations.put(prepared)
+    return CandidatePreparationResponse(
+        preparation_id=preparation_id,
+        candidate_count=len(prepared.recommendations),
+        total_candidates_evaluated=prepared.total_candidates_evaluated,
+        status=prepared.status,
+        route_provider=prepared.route_provider,
+        route_warning=prepared.route_warning,
+        generated_at=prepared.generated_at,
+        expires_at=prepared.expires_at,
+    )
+
+
+@router.delete(
+    "/recommendation-candidates/{preparation_id}",
+    status_code=204,
+    response_class=Response,
+)
+def delete_recommendation_candidates(
+    preparation_id: str = Path(min_length=16, max_length=128),
+) -> Response:
+    # Do not disclose whether a handle existed or had already expired.
+    candidate_preparations.delete(preparation_id)
+    return Response(status_code=204)
+
+
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
-    settings = get_settings()
-    travel = payload.travel
-    use_straight_line_fallback = not settings.google_routes_api_key
-    maximum_straight_line_km = (
-        travel.limit.value
-        if travel.limit.type == "distance"
-        else travel.limit.distance_km
-        if travel.limit.type == "both"
-        else None
-    )
-    if use_straight_line_fallback:
-        # Without Routes there is no reliable way to apply a distance/time
-        # route limit. Keep the fallback intentionally simple and bounded:
-        # return the nearest 25 fresh premises and explain the approximation
-        # in the response warning.
-        maximum_straight_line_km = None
-    candidates = await run_in_threadpool(
-        find_nearest_premises,
-        latitude=travel.origin.latitude,
-        longitude=travel.origin.longitude,
-        sara_filter=travel.sara_filter,
-        maximum_straight_line_km=maximum_straight_line_km,
-        limit=(FALLBACK_NEAREST_LIMIT if use_straight_line_fallback else settings.route_matrix_candidate_limit),
-        maximum_coordinate_age_days=settings.premise_location_max_age_days,
-    )
-
-    if use_straight_line_fallback:
-        # The SQL query is already ordered by proximity, but slicing here
-        # keeps the public fallback guarantee even for alternate query
-        # implementations and makes the bound explicit.
-        candidates = candidates[:FALLBACK_NEAREST_LIMIT]
-
-    if not candidates:
-        routable, fresh = await run_in_threadpool(
-            get_premise_location_coverage,
-            settings.premise_location_max_age_days,
-        )
-        if routable > 0 and fresh == 0:
+    if payload.candidate_preparation_id is not None:
+        prepared = candidate_preparations.get(payload.candidate_preparation_id)
+        if prepared is None:
             raise AppError(
-                "PREMISE_LOCATIONS_NOT_READY",
-                "Store locations need to be prepared before recommendations can run.",
-                503,
+                "CANDIDATE_PREPARATION_EXPIRED",
+                "Travel candidates expired. Prepare your travel preferences again.",
+                410,
             )
-
-    if use_straight_line_fallback:
-        route_results = straight_line_route_results(candidates, travel.transport_mode)
-        route_limit_type = "distance"
-        route_limit_value = float("inf")
     else:
-        route_results = await get_maps_provider().compute_route_matrix(
-            {
-                "latitude": travel.origin.latitude,
-                "longitude": travel.origin.longitude,
-            },
-            [candidate.google_place_id for candidate in candidates],
-            travel.transport_mode,
-        )
-        route_limit_type = travel.limit.type
-        route_limit_value = travel.limit.value
-    cost_model = get_travel_cost_model(settings)
-    recommendations = rank_reachable_stores(
-        candidates=candidates,
-        route_results=route_results,
-        limit_type=route_limit_type,
-        limit_value=route_limit_value,
-        cost_rate=cost_model[travel.transport_mode],
-        limit_distance_km=travel.limit.distance_km,
-        limit_time_minutes=travel.limit.time_minutes,
-    )
-    ranking_method = (
-        "Nearest premises by straight-line distance; travel times and costs "
-        "are rough planning estimates because Google Routes is not configured."
-        if use_straight_line_fallback
-        else "Lowest estimated return transport cost, then shortest travel time "
-        "and route distance."
-    )
-    if payload.basket:
+        # The travel-bodied request remains available for existing clients.
+        # It uses the same reachability rules, but does not need a cache entry.
+        prepared = await _prepare_candidates(payload.travel)
+
+    recommendations = [
+        store.model_copy(deep=True) for store in prepared.recommendations
+    ]
+    if payload.basket and recommendations:
+        # Always perform a fresh pricing query for each Search activation. The
+        # route preparation may be reused, but basket prices never are.
         pricing = await run_in_threadpool(
             get_basket_pricing,
             [store.premise_id for store in recommendations],
             payload.basket,
         )
         recommendations = apply_basket_pricing(recommendations, pricing)
-        ranking_method = (
-            "Nearest 25 premises by straight-line distance; stores are ranked by "
-            "exact store-price coverage, then effective coverage including cached "
-            "median estimates, then estimated combined cost using rough travel estimates. "
-            "Google Routes is not configured, so travel limits and route feasibility "
-            "are not verified."
-            if use_straight_line_fallback
-            else "Stores ranked by exact store-price coverage, then effective "
-            "coverage including cached median estimates, then lowest combined cost: "
-            "effective basket subtotal plus estimated return transport cost; ties by "
-            "shortest travel time, route distance, store name, then premise ID."
-        )
-    route_warning_parts = []
-    expanded_search = False
-    evaluated_count = len(candidates)
-    # Iteration1 feedback: when no store is inside the shopper's travel limit,
-    # widen the search so the nearest stores are still shown instead of nothing.
-    # These stores are flagged as exceeding the limit; the limit is intentionally
-    # ignored for this fallback ranking. The straight-line fallback already
-    # ignores the limit, so it never needs this pass.
-    if not recommendations and not use_straight_line_fallback:
-        expanded_candidates = await run_in_threadpool(
-            find_nearest_premises,
-            latitude=travel.origin.latitude,
-            longitude=travel.origin.longitude,
-            sara_filter=travel.sara_filter,
-            maximum_straight_line_km=None,
-            limit=settings.route_matrix_candidate_limit,
-            maximum_coordinate_age_days=settings.premise_location_max_age_days,
-        )
-        if expanded_candidates:
-            expanded_route_results = await get_maps_provider().compute_route_matrix(
-                {
-                    "latitude": travel.origin.latitude,
-                    "longitude": travel.origin.longitude,
-                },
-                [candidate.google_place_id for candidate in expanded_candidates],
-                travel.transport_mode,
-            )
-            recommendations = rank_reachable_stores(
-                candidates=expanded_candidates,
-                route_results=expanded_route_results,
-                limit_type="distance",
-                limit_value=float("inf"),
-                cost_rate=cost_model[travel.transport_mode],
-                limit_distance_km=None,
-                limit_time_minutes=None,
-            )
-            evaluated_count = len(expanded_candidates)
-            for store in recommendations:
-                store.exceeds_limit = True
-            if payload.basket:
-                pricing = await run_in_threadpool(
-                    get_basket_pricing,
-                    [store.premise_id for store in recommendations],
-                    payload.basket,
-                )
-                recommendations = apply_basket_pricing(recommendations, pricing)
-                for store in recommendations:
-                    store.exceeds_limit = True
-            expanded_search = True
-            ranking_method = (
-                "No store matched your travel limit, so the nearest stores are "
-                "shown instead. They are ranked by exact store-price coverage, "
-                "then effective coverage including cached median estimates, then "
-                "lowest combined cost (effective basket subtotal plus estimated "
-                "return transport cost); these stores exceed your chosen limit."
-            )
-            route_warning_parts.append(
-                "No store was found inside your travel limit, so the nearest "
-                "stores are shown instead. These exceed the distance or time you "
-                "set; check the route before travelling."
-            )
-    if use_straight_line_fallback:
-        route_warning_parts.append(
-            "Google Routes is not configured. Showing the 25 nearest stores by "
-            "straight-line distance with approximate travel times; the selected "
-            "travel limit and route feasibility are not verified."
-        )
-    if travel.transport_mode in ROUTE_WARNING_MODES:
-        route_warning_parts.append(
-            "Walking and motorcycle routes are beta estimates and may omit suitable "
-            "paths or road restrictions. Check the route before travelling."
-        )
-    if travel.transport_mode == "public_transport":
-        route_warning_parts.append(
-            "Public transport estimates include walking to and from transit stops."
-        )
+
     return RecommendationResponse(
         recommendations=recommendations,
-        total_candidates_evaluated=evaluated_count,
-        total_reachable=len(recommendations),
+        total_candidates_evaluated=prepared.total_candidates_evaluated,
+        total_reachable=len(prepared.recommendations),
         generated_at=datetime.now(timezone.utc),
-        ranking_method=ranking_method,
-        cost_assumptions={mode: rate.description for mode, rate in cost_model.items()},
-        route_provider="straight_line" if use_straight_line_fallback else "google",
-        route_warning=" ".join(route_warning_parts) if route_warning_parts else None,
-        expanded_search=expanded_search,
+        ranking_method=_ranking_method(
+            route_provider=prepared.route_provider,
+            has_basket=bool(payload.basket),
+        ),
+        cost_assumptions=prepared.cost_assumptions,
+        route_provider=prepared.route_provider,
+        route_warning=prepared.route_warning,
+        expanded_search=False,
     )

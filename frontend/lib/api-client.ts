@@ -2,11 +2,13 @@ import type {
   ApiErrorBody,
   BasketAlternativesResponse,
   BasketLineRequest,
+  CandidatePreparationResponse,
   LocationSearchResponse,
   RecommendationRequest,
   RecommendationResponse,
   ReverseLocationResponse,
   ResolvedLocation,
+  TravelPreferencesRequest,
 } from "./contracts";
 import { API_BASE_URL } from "./api-base";
 
@@ -39,7 +41,30 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     );
   }
 
+  if (response.status === 204) return undefined as T;
+
   return response.json() as Promise<T>;
+}
+
+export function prepareRecommendationCandidates(
+  travel: TravelPreferencesRequest,
+  signal?: AbortSignal,
+): Promise<CandidatePreparationResponse> {
+  return request<CandidatePreparationResponse>("/recommendation-candidates", {
+    method: "POST",
+    body: JSON.stringify({ travel }),
+    signal,
+  });
+}
+
+export function deleteRecommendationCandidates(
+  preparationId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return request<void>(`/recommendation-candidates/${encodeURIComponent(preparationId)}`, {
+    method: "DELETE",
+    signal,
+  });
 }
 
 export function getRecommendations(

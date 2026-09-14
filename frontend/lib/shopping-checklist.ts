@@ -1,7 +1,8 @@
 import type { BasketItemPrice, StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
+import { isEstimatedSavingsSnapshot, type EstimatedSavingsSnapshot } from "./estimated-savings";
 
-export const SHOPPING_CHECKLIST_VERSION = 4 as const;
+export const SHOPPING_CHECKLIST_VERSION = 5 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought";
@@ -67,6 +68,9 @@ export interface ShoppingChecklist {
   // Gap G4: the alternative stores' estimated trip costs at snapshot time.
   // Empty for payloads created before this field existed (migrated v1-v3).
   alternativeStoreEstimates: AlternativeStoreEstimate[];
+  // Frozen estimate for History and future Epic 8 reports. Null on legacy
+  // checklists or when the estimate was unavailable at trip creation.
+  savingsSnapshot: EstimatedSavingsSnapshot | null;
   items: ChecklistItem[];
 }
 
@@ -105,6 +109,7 @@ interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
   alternativeStores?: StoreRecommendation[];
+  savingsSnapshot?: EstimatedSavingsSnapshot | null;
 }
 
 interface AddManualItemOptions {
@@ -216,6 +221,15 @@ export function createShoppingChecklist(
         ? null
         : money(candidate.estimatedTotalCostRm),
     }));
+  const pricedLines = items
+    .map(item => item.lineTotalRm)
+    .filter((lineTotal): lineTotal is number => lineTotal != null);
+  const plannedSubtotalRm = pricedLines.length > 0
+    ? money(pricedLines.reduce((total, lineTotal) => total + lineTotal, 0))
+    : null;
+  const estimatedRoundTripCostRm = Number.isFinite(store.estimatedRoundTripCostRm)
+    ? money(store.estimatedRoundTripCostRm)
+    : null;
 
   return {
     version: SHOPPING_CHECKLIST_VERSION,
@@ -228,14 +242,13 @@ export function createShoppingChecklist(
     },
     createdAt,
     updatedAt: createdAt,
-    plannedSubtotalRm: store.basketSubtotalRm == null ? null : money(store.basketSubtotalRm),
-    estimatedRoundTripCostRm: Number.isFinite(store.estimatedRoundTripCostRm)
-      ? money(store.estimatedRoundTripCostRm)
-      : null,
-    plannedCombinedTotalRm: store.estimatedTotalCostRm == null
+    plannedSubtotalRm,
+    estimatedRoundTripCostRm,
+    plannedCombinedTotalRm: plannedSubtotalRm == null || estimatedRoundTripCostRm == null
       ? null
-      : money(store.estimatedTotalCostRm),
+      : money(plannedSubtotalRm + estimatedRoundTripCostRm),
     alternativeStoreEstimates,
+    savingsSnapshot: options.savingsSnapshot ?? null,
     items,
   };
 }
@@ -592,6 +605,7 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || !isFiniteMoneyOrNull(checklist.plannedCombinedTotalRm)
     || !Array.isArray(checklist.alternativeStoreEstimates)
     || !checklist.alternativeStoreEstimates.every(isAlternativeStoreEstimate)
+    || !(checklist.savingsSnapshot === null || isEstimatedSavingsSnapshot(checklist.savingsSnapshot))
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 
@@ -612,8 +626,9 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
 /**
  * Migration chain (D5.0). v1 payloads (before planned totals, actual prices
  * and actual quantities existed), v2 payloads (before actual quantities) and
- * v3 payloads (before alternative store estimates, gap G4) are upgraded in
- * place: missing planned totals and estimates are filled with null / empty
+ * v3 payloads (before alternative store estimates, gap G4) and v4 payloads
+ * (before the savings snapshot) are upgraded in place: missing planned totals
+ * and estimates are filled with null / empty
  * defaults and every line gains actualPriceRm / actualQuantity /
  * quantitySource defaults. Out-of-stock registration was abolished, so
  * legacy out_of_stock statuses degrade to not_bought. Unknown versions are
@@ -626,6 +641,7 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
   if (candidate.version !== 1
     && candidate.version !== 2
     && candidate.version !== 3
+    && candidate.version !== 4
     && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
   const normalized = {
     ...candidate,
@@ -636,6 +652,7 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
     // Missing entirely (legacy payloads) → empty list; a present-but-malformed
     // value is left as-is so validation rejects it instead of hiding corruption.
     alternativeStoreEstimates: candidate.alternativeStoreEstimates ?? [],
+    savingsSnapshot: candidate.savingsSnapshot ?? null,
     items: Array.isArray(candidate.items)
       ? candidate.items.map(item => {
           if (!item || typeof item !== "object") return item;

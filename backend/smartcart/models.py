@@ -80,7 +80,40 @@ class RecommendationRequest(CamelModel):
     # An omitted or empty basket keeps transport-first ranking. The bounded
     # list preserves the E2 request contract and prevents oversized queries.
     basket: list[BasketLineRequest] = Field(default_factory=list, max_length=100)
+    # ``travel`` is the compatibility path. New clients prepare routes first,
+    # then send only the opaque preparation handle so every activation prices
+    # the current basket against the same prepared travel candidates.
+    travel: TravelPreferences | None = None
+    candidate_preparation_id: str | None = Field(default=None, min_length=16, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_request_mode(self) -> "RecommendationRequest":
+        if (self.travel is None) == (self.candidate_preparation_id is None):
+            raise PydanticCustomError(
+                "invalid_recommendation_mode",
+                "Provide either travel preferences or a candidate preparation ID.",
+            )
+        return self
+
+
+class CandidatePreparationRequest(CamelModel):
     travel: TravelPreferences
+
+
+CandidatePreparationStatus = Literal[
+    "ready", "no_reachable_stores", "unverified"
+]
+
+
+class CandidatePreparationResponse(CamelModel):
+    preparation_id: str
+    candidate_count: int
+    total_candidates_evaluated: int
+    status: CandidatePreparationStatus
+    route_provider: Literal["google", "straight_line"]
+    route_warning: str | None
+    generated_at: datetime
+    expires_at: datetime
 
 
 class LocationResolveRequest(CamelModel):
@@ -270,9 +303,8 @@ class StoreRecommendation(CamelModel):
     # Age in days of the store's oldest directly observed basket-line price
     # (AC 2.3.5); cached medians never contribute an observation date.
     price_observed_days_ago: int | None = None
-    # True when the store is beyond the shopper's chosen travel limit and was
-    # only shown because no store matched inside it (iteration1 feedback: show
-    # something rather than nothing).
+    # Compatibility field retained for older clients. Current API responses
+    # never include stores outside the selected verified travel limit.
     exceeds_limit: bool = False
 
 
@@ -285,6 +317,6 @@ class RecommendationResponse(CamelModel):
     ranking_method: str
     cost_assumptions: dict[TransportMode, str]
     route_warning: str | None
-    # True when no store matched the shopper's travel limit and the nearest
-    # stores were returned anyway (iteration1 feedback: always show something).
+    # Compatibility field retained for older clients; new responses keep this
+    # false because verified out-of-limit stores are not returned.
     expanded_search: bool = False

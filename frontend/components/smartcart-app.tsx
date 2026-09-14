@@ -1,12 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import {
+  SmartCartApiError,
   getRecommendations,
+  prepareRecommendationCandidates,
+  deleteRecommendationCandidates,
   getBasketAlternatives,
   resolveLocation,
   reverseLocation,
@@ -20,6 +24,8 @@ import type {
   SelectedLocation,
   StoreRecommendation,
   BasketAlternativeLine,
+  CandidatePreparationResponse,
+  TravelPreferencesRequest,
   TransportMode,
   TravelLimitType,
 } from "@/lib/contracts";
@@ -43,6 +49,7 @@ import { SuccessToast } from "@/components/success-toast";
 import { ConfirmationDialog, ShoppingChecklistScreen } from "@/components/shopping-checklist";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
+import { calculateEstimatedSavingsSnapshot } from "@/lib/estimated-savings";
 import { uppercaseItemName } from "@/lib/item-name";
 import { localizedPackageSize } from "@/lib/package-size";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -67,15 +74,39 @@ import {
   buildTripRecord,
   parseTripHistory,
   serializeTripHistory,
+  listTripRecords,
   type TripRecord,
 } from "@/lib/trip-history";
+import { checklistProgress } from "@/lib/shopping-checklist";
+import { INBOX_STORAGE_KEY, parseInbox, serializeInbox, setInboxMessageRead, unreadInboxCount, type InboxMessage } from "@/lib/inbox";
+import type { EstimatedSavingsSnapshot } from "@/lib/estimated-savings";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
 import svgPathsSaved from "@/components/icons/saved";
 
 // ── Types ───────────────────────────────────────────────────────────────────
-type Screen = "shop" | "basket" | "location" | "compare";
+type Screen = "home" | "shop" | "basket" | "location" | "compare" | "checklist" | "history" | "inbox";
+const DEFAULT_PREFERENCES: TravelPreferences = {
+  origin: null,
+  transportMode: "motorcycle",
+  limitType: "distance",
+  limitValue: 5,
+  distanceKm: 5,
+  timeMinutes: 20,
+  saraFilter: "any",
+};
+
+function routeScreen(pathname: string): Screen {
+  if (pathname === "/trip/travel") return "location";
+  if (pathname === "/trip/shop") return "shop";
+  if (pathname === "/trip/review") return "basket";
+  if (pathname === "/trip/results" || pathname.startsWith("/trip/results/")) return "compare";
+  if (pathname === "/checklist") return "checklist";
+  if (pathname === "/history") return "history";
+  if (pathname === "/inbox") return "inbox";
+  return "home";
+}
 
 interface TravelPreferences {
   origin: SelectedLocation | null;
@@ -465,20 +496,14 @@ function Header({
   basketCount,
   onBasket,
   basketActive,
-  checklistCount,
-  onChecklist,
-  checklistActive,
   onBack,
   locale,
   onToggleLanguage,
   copy,
 }: {
   basketCount: number;
-  onBasket: () => void;
+  onBasket?: () => void;
   basketActive: boolean;
-  checklistCount: number;
-  onChecklist?: () => void;
-  checklistActive: boolean;
   onBack?: () => void;
   locale: Locale;
   onToggleLanguage: () => void;
@@ -486,7 +511,7 @@ function Header({
 }) {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-[#e7ece9] bg-white/95 backdrop-blur">
-      <div className="mx-auto grid h-16 w-full max-w-[760px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6">
+      <div className="mx-auto grid h-16 w-full max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 lg:px-10">
         {onBack ? (
           <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-sm font-bold text-[#087f5b]">
             <IcoArrowBack /> {copy.back}
@@ -505,22 +530,7 @@ function Header({
 
         <div className="flex items-center gap-2 justify-self-end">
           <LanguageToggle locale={locale} onToggle={onToggleLanguage} />
-          {onChecklist && (
-            <button
-              type="button"
-              onClick={onChecklist}
-              aria-label={copy.openChecklistAria(checklistCount)}
-              aria-current={checklistActive ? "page" : undefined}
-              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${checklistActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
-            >
-              <IcoChecklist />
-              <span className="sr-only">{copy.checklist}</span>
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#286d67] px-1 text-[11px] font-bold text-white">
-                {checklistCount}
-              </span>
-            </button>
-          )}
-          <button
+          {onBasket && <button
             type="button"
             onClick={onBasket}
             aria-label={copy.viewBasketAria(basketCount)}
@@ -533,7 +543,7 @@ function Header({
                 {basketCount}
               </span>
             )}
-          </button>
+          </button>}
         </div>
       </div>
     </header>
@@ -543,9 +553,9 @@ function Header({
 // ── Progress indicator ────────────────────────────────────────────────────────
 function ProgressIndicator({ step, copy }: { step: 1 | 2 | 3 | 4; copy: AppCopy }) {
   const steps = [
-    { n: 1, label: copy.shop },
-    { n: 2, label: copy.basket },
-    { n: 3, label: copy.travel },
+    { n: 1, label: copy.travel },
+    { n: 2, label: copy.shop },
+    { n: 3, label: copy.basket },
     { n: 4, label: copy.compare },
   ] as const;
 
@@ -647,6 +657,8 @@ function BasketScreen({
   onViewBasket,
   onBackToShop,
   onContinue,
+  preferences,
+  candidateCount,
   copy,
   locale,
 }: {
@@ -656,6 +668,8 @@ function BasketScreen({
   onViewBasket: () => void;
   onBackToShop: () => void;
   onContinue: () => void;
+  preferences?: TravelPreferences;
+  candidateCount?: number;
   copy: AppCopy;
   locale: Locale;
 }) {
@@ -903,12 +917,12 @@ function BasketScreen({
   );
 
   return (
-    <div className={"screen-enter pb-32 " + (view === "shop" ? "lg:grid lg:grid-cols-[minmax(0,1fr)_360px] xl:grid xl:grid-cols-[360px_minmax(0,760px)_360px] xl:justify-center lg:items-start lg:gap-4" : "")}>
+    <div className={"screen-enter pb-32 " + (view === "shop" ? "lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-8 xl:px-12" : "")}>
       {view === "shop" && (
-        <div className="min-w-0 lg:col-start-1 xl:col-start-2">
+        <div className="min-w-0">
       {/* Progress */}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={1} copy={copy} />
+        <ProgressIndicator step={2} copy={copy} />
       </div>
 
       {/* Page header */}
@@ -1113,22 +1127,34 @@ function BasketScreen({
 
       {/* Your basket */}
       {view === "shop" && (
-        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_8px_24px_rgba(16,35,29,0.07)] lg:col-start-2 xl:col-start-3 lg:block">
+        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_8px_24px_rgba(16,35,29,0.07)] lg:col-start-2 lg:block">
           {basketPanel}
         </aside>
       )}
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       {view === "basket" && (
-        <>
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-7 lg:px-12">
+          <div className="min-w-0">
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={2} copy={copy} />
+        <ProgressIndicator step={3} copy={copy} />
         <p className="mb-1 mt-6 text-sm font-bold text-[#087f5b]">{copy.basketEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1>
         <p className="mt-2 text-[16px] leading-6 text-[#53635c]">{copy.basketDescription}</p>
       </div>
 
       {basketPanel}
-        </>
+          </div>
+          <aside className="mx-4 mb-28 rounded-2xl border border-[#dce5e0] bg-white p-5 shadow-[0_8px_24px_rgba(16,35,29,0.06)] sm:mx-6 lg:sticky lg:top-20 lg:mx-0 lg:mt-8">
+            <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#087f5b]">{locale === "ms" ? "Ringkasan perjalanan" : "Trip summary"}</p>
+            <h2 className="mt-2 text-xl font-extrabold text-[#17362c]">{preferences?.origin?.label ?? (locale === "ms" ? "Lokasi belum dipilih" : "No location selected")}</h2>
+            {preferences && <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Pengangkutan" : "Transport"}</dt><dd className="font-bold text-[#17362c]">{transportLabel(copy, preferences.transportMode)}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Had" : "Limit"}</dt><dd className="font-bold text-[#17362c]">{preferences.limitType === "both" ? `${preferences.distanceKm} km · ${preferences.timeMinutes} min` : `${preferences.limitValue} ${preferences.limitType === "distance" ? "km" : "min"}`}</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Kedai disediakan" : "Prepared stores"}</dt><dd className="font-bold text-[#17362c]">{candidateCount ?? 0}</dd></div>
+            </dl>}
+            <p className="mt-5 text-sm leading-6 text-[#617069]">{locale === "ms" ? "Harga akan dimuatkan semula untuk bakul semasa apabila anda memilih Cari kedai." : "Prices will be refreshed for this basket when you choose Search stores."}</p>
+          </aside>
+        </div>
       )}
 
       {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className={(view === "shop" ? "lg:hidden " : "") + "fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur"}>
@@ -1142,7 +1168,7 @@ function BasketScreen({
               onClick={handleContinue}
               className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
             >
-              {copy.chooseLocation}
+              {locale === "ms" ? "Cari kedai" : "Search stores"}
             </button>
           </div>
         ) : (
@@ -1197,6 +1223,20 @@ function createLocationSessionToken(): string {
   return "smartcart-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 }
 
+function travelRequestFromPreferences(preferences: TravelPreferences): TravelPreferencesRequest {
+  if (!preferences.origin) {
+    throw new Error("A selected origin is required before preparing stores.");
+  }
+  return {
+    origin: preferences.origin,
+    transportMode: preferences.transportMode,
+    limit: preferences.limitType === "both"
+      ? { type: "both", distanceKm: preferences.distanceKm, timeMinutes: preferences.timeMinutes }
+      : { type: preferences.limitType, value: preferences.limitValue },
+    saraFilter: preferences.saraFilter,
+  };
+}
+
 const DISTANCE_LIMITS = [2, 5, 10, 15] as const;
 const TIME_LIMITS = [10, 20, 30, 45] as const;
 
@@ -1204,11 +1244,15 @@ function LocationScreen({
   preferences,
   onBack,
   onCompare,
+  onPreparationChange,
+  locale,
   copy,
 }: {
   preferences: TravelPreferences;
   onBack: () => void;
   onCompare: (preferences: TravelPreferences) => void;
+  onPreparationChange: (preparation: CandidatePreparationResponse | null) => void;
+  locale: Locale;
   copy: AppCopy;
 }) {
   const [locationInput, setLocationInput] = useState(preferences.origin?.label ?? "");
@@ -1226,11 +1270,72 @@ function LocationScreen({
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [searchState, setSearchState] = useState<"idle" | "searching" | "resolving" | "locating">("idle");
   const [locationError, setLocationError] = useState("");
+  const [preparationStatus, setPreparationStatus] = useState<"idle" | "preparing" | "ready" | "no_reachable_stores" | "unverified" | "expired" | "error">("idle");
+  const [preparationResponse, setPreparationResponse] = useState<CandidatePreparationResponse | null>(null);
+  const [preparationError, setPreparationError] = useState("");
+  const preparationFingerprint = useRef("");
 
   const locationGeneration = useRef(0);
   const reverseController = useRef<AbortController | null>(null);
   const [notification, setNotification] = useState({ id: 0, message: "" });
   useEffect(() => () => { locationGeneration.current += 1; reverseController.current?.abort(); }, []);
+
+  useEffect(() => {
+    if (!selectedOrigin) {
+      preparationFingerprint.current = "";
+      setPreparationResponse(null);
+      setPreparationStatus("idle");
+      setPreparationError("");
+      onPreparationChange(null);
+      return;
+    }
+
+    const travel = travelRequestFromPreferences({ origin: selectedOrigin, transportMode, limitType, limitValue, distanceKm, timeMinutes, saraFilter });
+    const fingerprint = JSON.stringify(travel);
+    if (fingerprint === preparationFingerprint.current) return;
+    preparationFingerprint.current = fingerprint;
+    setPreparationResponse(null);
+    onPreparationChange(null);
+    setPreparationStatus("preparing");
+    setPreparationError("");
+    const controller = new AbortController();
+    let expiryTimer: number | undefined;
+    let completed = false;
+    const debounceTimer = window.setTimeout(() => {
+      prepareRecommendationCandidates(travel, controller.signal)
+        .then(preparation => {
+          if (controller.signal.aborted) return;
+          completed = true;
+          setPreparationResponse(preparation);
+          setPreparationStatus(preparation.status);
+          onPreparationChange(preparation);
+          const remaining = Date.parse(preparation.expiresAt) - Date.now();
+          if (remaining > 0) {
+            expiryTimer = window.setTimeout(() => {
+              setPreparationResponse(null);
+              setPreparationStatus("expired");
+              onPreparationChange(null);
+            }, remaining);
+          } else {
+            setPreparationResponse(null);
+            setPreparationStatus("expired");
+            onPreparationChange(null);
+          }
+        })
+        .catch(error => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          completed = true;
+          setPreparationStatus("error");
+          setPreparationError(error instanceof Error ? error.message : "Candidate search is temporarily unavailable.");
+        });
+    }, 300);
+    return () => {
+      window.clearTimeout(debounceTimer);
+      if (expiryTimer !== undefined) window.clearTimeout(expiryTimer);
+      controller.abort();
+      if (!completed && preparationFingerprint.current === fingerprint) preparationFingerprint.current = "";
+    };
+  }, [distanceKm, limitType, limitValue, onPreparationChange, saraFilter, selectedOrigin, timeMinutes, transportMode]);
 
   useEffect(() => {
     const query = locationInput.trim();
@@ -1398,7 +1503,7 @@ function LocationScreen({
     <div className="screen-enter">
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={3} copy={copy} />
+        <ProgressIndicator step={1} copy={copy} />
       </div>
 
       <div className="px-4 pb-5 sm:px-6">
@@ -1409,8 +1514,8 @@ function LocationScreen({
         </p>
       </div>
 
-      <div className="flex flex-col gap-6 px-4 pb-36 sm:px-6">
-        <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+      <div className="grid gap-6 px-4 pb-36 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:px-12">
+        <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5 lg:col-start-1">
           <div className="flex items-center gap-2">
             <IcoLocation />
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.startingPoint}</h2>
@@ -1507,7 +1612,7 @@ function LocationScreen({
           </div>
         </section>
 
-        <section className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4 lg:col-start-1">
           <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.transportMode}</h2>
           <div className="grid grid-cols-2 gap-3">
             {TRANSPORT_OPTS.map(option => {
@@ -1530,7 +1635,7 @@ function LocationScreen({
 
         {transportMode === "public_transport" && <p className="text-sm text-[#53635c]">{copy.transitWalking}</p>}
 
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-3 lg:col-start-1">
           <div>
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.travelLimit}</h2>
             <p className="mt-1 text-[16px] text-[#3e494a]">{copy.travelLimitDescription}</p>
@@ -1564,7 +1669,7 @@ function LocationScreen({
           ))}
         </section>
 
-        <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
+        <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] lg:col-start-1">
           <div>
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.saraPlanning} <span className="text-sm font-normal text-[#53635c]">({copy.optional})</span></h2>
           </div>
@@ -1586,27 +1691,49 @@ function LocationScreen({
           type="button"
           onClick={() => setRemember(!remember)}
           aria-pressed={remember}
-          className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#dce5e0] bg-white px-4 py-3 text-left"
+          className="flex min-h-14 w-full items-center gap-3 rounded-2xl border border-[#dce5e0] bg-white px-4 py-3 text-left lg:col-start-1"
         >
           <span className={"flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[2px] border " + (remember ? "border-[#00535b] bg-[#00535b]" : "border-[#bec8ca] bg-white")}>
             {remember && <IcoCheckbox />}
           </span>
           <span className="text-[16px] leading-6 text-[#191c1d]">{copy.rememberPreferences}</span>
         </button>
+        {preparationStatus !== "idle" && <div aria-live="polite" role={preparationStatus === "error" ? "alert" : "status"} className={`rounded-2xl border p-4 text-sm leading-5 lg:col-start-1 ${preparationStatus === "error" ? "border-[#f0b8b8] bg-[#fff5f5] text-[#93000a]" : "border-[#dce5e0] bg-white text-[#53635c]"}`}>
+          {preparationStatus === "preparing" && (locale === "ms" ? "Menyediakan kedai berdekatan…" : "Preparing nearby stores…")}
+          {preparationStatus === "ready" && (locale === "ms" ? `${preparationResponse?.candidateCount ?? 0} kedai sedia untuk dibandingkan.` : `${preparationResponse?.candidateCount ?? 0} stores are ready to compare.`)}
+          {preparationStatus === "no_reachable_stores" && (locale === "ms" ? "Tiada kedai disahkan dalam had perjalanan ini." : "No verified stores were found within these travel limits.")}
+          {preparationStatus === "unverified" && (preparationResponse?.routeWarning || (locale === "ms" ? "Anggaran garis lurus digunakan. Kebolehcapaian dan had perjalanan belum disahkan." : "Straight-line estimates are in use. Reachability and travel limits are unverified."))}
+          {preparationStatus === "expired" && (locale === "ms" ? "Persediaan perjalanan telah tamat tempoh. Tetapan akan disediakan semula." : "This travel preparation expired. Update a setting to prepare it again.")}
+          {preparationStatus === "error" && (preparationError || (locale === "ms" ? "Kedai tidak dapat disediakan sekarang." : "Stores could not be prepared right now."))}
+        </div>}
+        <aside className="rounded-2xl border border-[#cfe1d8] bg-[#eff8f3] p-5 lg:sticky lg:top-20 lg:col-start-2 lg:row-start-1 lg:row-span-6">
+          <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#087f5b]">{locale === "ms" ? "Perjalanan anda" : "Your trip"}</p>
+          <h2 className="mt-2 break-words text-xl font-extrabold text-[#17362c]">{selectedOrigin?.label ?? (locale === "ms" ? "Pilih lokasi permulaan" : "Choose a starting point")}</h2>
+          <dl className="mt-5 space-y-3 text-sm">
+            <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Pengangkutan" : "Transport"}</dt><dd className="font-bold text-[#17362c]">{transportLabel(copy, transportMode)}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Had" : "Limit"}</dt><dd className="font-bold text-[#17362c]">{limitType === "both" ? `${distanceKm} km · ${timeMinutes} min` : `${limitValue} ${limitType === "distance" ? "km" : "min"}`}</dd></div>
+            <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Status" : "Status"}</dt><dd className="text-right font-bold text-[#17362c]">{preparationStatus === "ready" ? (locale === "ms" ? "Sedia" : "Ready") : preparationStatus === "unverified" ? (locale === "ms" ? "Tidak disahkan" : "Unverified") : preparationStatus === "preparing" ? (locale === "ms" ? "Menyediakan" : "Preparing") : "—"}</dd></div>
+          </dl>
+          <p className="mt-5 text-sm leading-6 text-[#53635c]">{locale === "ms" ? "Lokasi anda dan senarai kedai sementara kekal dalam sesi ini sahaja." : "Your location and temporary store preparation stay in this session only."}</p>
+        </aside>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur">
         <div className="mx-auto flex w-full max-w-[712px] gap-3">
           <button type="button" onClick={onBack} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
-            {copy.backToBasket}
+            {copy.back}
           </button>
           <button
             type="button"
             onClick={handleCompare}
-            disabled={!selectedOrigin || searchState === "resolving" || searchState === "locating"}
+            disabled={!selectedOrigin
+              || searchState === "resolving"
+              || searchState === "locating"
+              || (preparationStatus !== "ready" && preparationStatus !== "unverified")
+              || (preparationResponse?.candidateCount ?? 0) === 0}
             className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none"
           >
-            {copy.findStores}
+            {copy.shop}
           </button>
         </div>
       </div>
@@ -1906,23 +2033,31 @@ function RecommendationBasketRow({
 function RecommendationOverview({
   store,
   alternativeStores,
+  recommendations,
   basket,
   activeChecklist,
   preferences,
   copy,
   costAssumptions,
   routeProvider,
+  routeWarning,
+  resultIsStale,
+  onReviewAgain,
   onSetBasket,
   onCreateChecklist,
 }: {
   store: StoreRecommendation;
   alternativeStores: StoreRecommendation[];
+  recommendations: StoreRecommendation[];
   basket: BasketItem[];
   activeChecklist: ShoppingChecklist | null;
   preferences: TravelPreferences;
   copy: AppCopy;
   costAssumptions: Record<TransportMode, string> | undefined;
   routeProvider: "google" | "straight_line";
+  routeWarning: string | null;
+  resultIsStale: boolean;
+  onReviewAgain: () => void;
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
 }) {
@@ -1986,6 +2121,13 @@ function RecommendationOverview({
   const adjustedCombinedTotal = displayedSubtotal == null
     ? null
     : Number((displayedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
+  const savingsSnapshot = useMemo(
+    () => calculateEstimatedSavingsSnapshot(store, recommendations, basket, {
+      routeProvider,
+      routeWarning,
+    }),
+    [basket, recommendations, routeProvider, routeWarning, store],
+  );
 
   const applyAlternative = (line: BasketAlternativeLine) => {
     if (line.source.priceSource === "median") return;
@@ -2008,7 +2150,11 @@ function RecommendationOverview({
   };
 
   const createChecklist = () => {
-    onCreateChecklist(createShoppingChecklist(store, detailRows, { alternativeStores }));
+    if (resultIsStale) return;
+    onCreateChecklist(createShoppingChecklist(store, detailRows, {
+      alternativeStores,
+      savingsSnapshot,
+    }));
     setReplaceChecklistOpen(false);
   };
 
@@ -2023,6 +2169,17 @@ function RecommendationOverview({
   return (
     <div className="screen-enter pb-8">
       <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
+        {resultIsStale && (
+          <div role="alert" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-6 text-[#7a4d00]">
+            <p className="font-extrabold">{copy === COPY.ms ? "Bakul anda telah berubah" : "Your basket has changed"}</p>
+            <p className="mt-1">{copy === COPY.ms
+              ? "Semak bakul dan cari semula sebelum memilih kedai atau memulakan senarai semak."
+              : "Review your basket and search again before selecting a store or starting a checklist."}</p>
+            <button type="button" onClick={onReviewAgain} className="mt-3 min-h-11 rounded-xl border border-[#9b6a12] bg-white px-4 font-bold text-[#7a4d00]">
+              {copy === COPY.ms ? "Semak dan cari semula" : "Review and search again"}
+            </button>
+          </div>
+        )}
         <section className="rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
           <header className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#edf3ef]"><IcoStore /></div>
@@ -2124,7 +2281,7 @@ function RecommendationOverview({
               <button
                 type="button"
                 onClick={beginChecklistCreation}
-                disabled={alternativesLoading}
+                disabled={alternativesLoading || resultIsStale}
                 className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(8,127,91,0.2)] disabled:cursor-not-allowed disabled:bg-[#9eb0a7] disabled:shadow-none"
               >
                 <IcoChecklist color="white" />
@@ -2158,6 +2315,7 @@ function RecommendationOverview({
             <p className="mt-2 leading-5 text-[#53635c]">{routeEstimateNote} {copy.stockNotVerified}</p>
           </details>
         </section>
+        {!resultIsStale && <SavingsEstimatePanel snapshot={savingsSnapshot} locale={copy === COPY.ms ? "ms" : "en"} />}
       </div>
       <ConfirmationDialog
         open={replaceChecklistOpen}
@@ -2180,8 +2338,13 @@ function CompareScreen({
   onCreateChecklist,
   selectedStore,
   setSelectedStore,
+  selectedPremiseId,
+  onOpenStore,
+  candidatePreparation,
+  onPreparationChange,
   preferences,
-  onBack,
+  onReviewAgain,
+  onChangeTravel,
   copy,
 }: {
   basket: BasketItem[];
@@ -2190,8 +2353,13 @@ function CompareScreen({
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
   selectedStore: StoreRecommendation | null;
   setSelectedStore: Dispatch<SetStateAction<StoreRecommendation | null>>;
+  selectedPremiseId: string | null;
+  onOpenStore: (store: StoreRecommendation) => void;
+  candidatePreparation: CandidatePreparationResponse | null;
+  onPreparationChange: (preparation: CandidatePreparationResponse | null) => void;
   preferences: TravelPreferences;
-  onBack: () => void;
+  onReviewAgain: () => void;
+  onChangeTravel: () => void;
   copy: AppCopy;
 }) {
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -2204,27 +2372,18 @@ function CompareScreen({
   // filtered out. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
-  const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
+  const [requestBasketLines] = useState(() => basketLines);
   const hasBasket = requestBasketLines.length > 0;
-  const previousSelectedStore = useRef(selectedStore);
+  const candidatePreparationRef = useRef(candidatePreparation);
+  candidatePreparationRef.current = candidatePreparation;
+  const requestCopyRef = useRef(copy);
+  requestCopyRef.current = copy;
+  const basketIsStale = JSON.stringify(basketLines) !== JSON.stringify(requestBasketLines);
 
   useEffect(() => {
-    if (previousSelectedStore.current && !selectedStore) {
-      const nextBasketLines = toBasketLineRequests(basket);
-      const basketChanged = JSON.stringify(nextBasketLines) !== JSON.stringify(requestBasketLines);
-      // Returning without changing the basket can reuse the existing list;
-      // only swaps require a fresh recommendation request.
-      if (basketChanged) {
-        setLoading(true);
-        setRequestBasketLines(nextBasketLines);
-      }
-    }
-    previousSelectedStore.current = selectedStore;
-  }, [basket, requestBasketLines, selectedStore]);
-
-  useEffect(() => {
+    const requestCopy = requestCopyRef.current;
     if (!preferences.origin) {
-      setError(copy.chooseStartingLocation);
+      setError(requestCopy.chooseStartingLocation);
       setLoading(false);
       return;
     }
@@ -2236,32 +2395,49 @@ function CompareScreen({
     setVisibleCount(VISIBLE_STEP);
     setExpandedStoreId(null);
 
-    getRecommendations({
-      ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
-      travel: {
-        origin: preferences.origin,
-        transportMode: preferences.transportMode,
-        limit: preferences.limitType === "both" ? { type: "both", distanceKm: preferences.distanceKm, timeMinutes: preferences.timeMinutes } : { type: preferences.limitType, value: preferences.limitValue },
-        saraFilter: preferences.saraFilter,
-      },
-    }, controller.signal)
-      .then(response => {
+    const loadRecommendations = async () => {
+      try {
+        const preparation = candidatePreparationRef.current;
+        if (!preparation || Date.parse(preparation.expiresAt) <= Date.now()) {
+          onPreparationChange(null);
+          setError(requestCopy === COPY.ms
+            ? "Persediaan perjalanan telah tamat tempoh. Sila sediakan semula tetapan perjalanan."
+            : "Your travel preparation expired. Please prepare your travel settings again.");
+          return;
+        }
+        const payload = {
+          ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
+          candidatePreparationId: preparation.preparationId,
+        };
+        const response = await getRecommendations(payload, controller.signal);
+        if (controller.signal.aborted) return;
         setResult(response);
-            setVisibleCount(VISIBLE_STEP);
+        setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
-      })
-      .catch(requestError => {
-        if (requestError instanceof DOMException && requestError.name === "AbortError") return;
-        setError(copy.recommendationsUnavailable);
-      })
-      .finally(() => {
+      } catch (requestError) {
+        if (controller.signal.aborted || (requestError instanceof DOMException && requestError.name === "AbortError")) return;
+        if (requestError instanceof SmartCartApiError && requestError.code === "CANDIDATE_PREPARATION_EXPIRED") {
+          onPreparationChange(null);
+          setError(requestCopy === COPY.ms
+            ? "Persediaan perjalanan telah tamat tempoh. Sila sediakan semula tetapan perjalanan."
+            : "Your travel preparation expired. Please prepare your travel settings again.");
+        } else {
+          setError(requestCopy.recommendationsUnavailable);
+        }
+      } finally {
         if (!controller.signal.aborted) setLoading(false);
-      });
+      }
+    };
+    void loadRecommendations();
 
     return () => controller.abort();
-  }, [requestBasketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [requestBasketLines, onPreparationChange, preferences]);
 
-  const recommendations = result?.recommendations ?? [];
+  const recommendations = useMemo(() => result?.recommendations ?? [], [result]);
+  useEffect(() => {
+    if (!selectedPremiseId || loading || !result) return;
+    setSelectedStore(recommendations.find(store => store.premiseId === selectedPremiseId) ?? null);
+  }, [loading, recommendations, result, selectedPremiseId, setSelectedStore]);
   const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
   const visibleStores = recommendations.slice(0, visibleCount);
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
@@ -2285,6 +2461,7 @@ function CompareScreen({
       <RecommendationOverview
         store={selectedStore}
         alternativeStores={recommendations.filter(store => store.premiseId !== selectedStore.premiseId)}
+        recommendations={recommendations}
         basket={basket}
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}
@@ -2293,6 +2470,9 @@ function CompareScreen({
         copy={copy}
         costAssumptions={result?.costAssumptions}
         routeProvider={result?.routeProvider ?? "google"}
+        routeWarning={result?.routeWarning ?? null}
+        resultIsStale={basketIsStale}
+        onReviewAgain={onReviewAgain}
       />
     );
   }
@@ -2329,17 +2509,12 @@ function CompareScreen({
           <div role="alert" className="rounded-2xl border border-[#f0b8b8] bg-[#fff5f5] p-5 text-center">
             <div className="mx-auto mb-2 flex w-fit items-center gap-2 font-bold text-[#93000a]"><IcoWarn /> {copy.recommendationUnavailable}</div>
             <p className="text-sm leading-5 text-[#6f3030]">{error}</p>
-            <button type="button" onClick={onBack} className="mt-4 min-h-11 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#93000a]">{copy.changeTravel}</button>
+            <button type="button" onClick={onChangeTravel} className="mt-4 min-h-11 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#93000a]">{copy.changeTravel}</button>
           </div>
         )}
 
         {!loading && !error && result && (
           <section className="flex flex-col gap-4">
-            {result.expandedSearch && (
-              <div role="status" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a4d00]">
-                {copy.expandedSearchNotice}
-              </div>
-            )}
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
@@ -2357,7 +2532,7 @@ function CompareScreen({
                   routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, store, preferences.transportMode) : undefined}
                   pricesExpanded={expandedStoreId === store.premiseId}
                   onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
-                  onSelectStore={() => setSelectedStore(store)}
+                  onSelectStore={() => onOpenStore(store)}
                   copy={copy}
                   transportMode={preferences.transportMode}
                 />
@@ -2374,7 +2549,7 @@ function CompareScreen({
                 <div className="rounded-2xl border border-[#bec8ca] bg-white p-5 text-center">
                   <p className="font-semibold text-[#191c1d]">{copy.noStores}</p>
                   <p className="mt-1 text-sm text-[#617069]">{copy.noStoresHint}</p>
-                  <button type="button" onClick={onBack} className="mt-3 min-h-11 px-3 font-bold text-[#00535b]">{copy.changeTravel}</button>
+                  <button type="button" onClick={onChangeTravel} className="mt-3 min-h-11 px-3 font-bold text-[#00535b]">{copy.changeTravel}</button>
                 </div>
               )}
             </div>
@@ -2394,35 +2569,162 @@ function CompareScreen({
   );
 }
 
+function AppCard({ className = "", children }: { className?: string; children: ReactNode }) {
+  return <section className={`rounded-3xl border border-[#e0e9e4] bg-white p-5 shadow-[0_8px_28px_rgba(16,35,29,0.045)] sm:p-7 ${className}`}>{children}</section>;
+}
+
+function SavingsEstimatePanel({ snapshot, locale }: { snapshot: EstimatedSavingsSnapshot | null; locale: Locale }) {
+  const isMs = locale === "ms";
+  return <section aria-label={isMs ? "Anggaran penjimatan" : "Estimated savings"} className="rounded-2xl border border-[#b8ddcc] bg-[#eff8f3] p-5">
+    <div className="flex flex-wrap items-end justify-between gap-3"><div><p className="text-sm font-bold text-[#286d67]">{isMs ? "Anggaran penjimatan" : "Estimated savings"}</p><p className="mt-1 text-3xl font-extrabold tracking-tight text-[#175f4b]">{snapshot?.totalEstimatedSavingsRm == null ? "—" : formatRm(snapshot.totalEstimatedSavingsRm)}</p></div><p className="text-xs font-semibold text-[#53635c]">{snapshot && snapshot.comparableStoreCount >= 2 ? (isMs ? `Median ${snapshot.comparableStoreCount} kedai setara` : `Median across ${snapshot.comparableStoreCount} comparable stores`) : (isMs ? "Data kedai setara terhad" : "Limited comparable store data")}</p></div>
+    <div className="mt-4 grid gap-2 border-t border-[#d3e9dd] pt-3 text-sm sm:grid-cols-2"><p className="flex justify-between gap-3"><span className="text-[#53635c]">{isMs ? "Pilihan kedai" : "Store choice"}</span><strong className="text-[#17362c]">{snapshot?.storeChoiceSavingsRm == null ? "—" : formatRm(snapshot.storeChoiceSavingsRm)}</strong></p><p className="flex justify-between gap-3"><span className="text-[#53635c]">{isMs ? "Penggantian item" : "Swaps"}</span><strong className="text-[#17362c]">{snapshot && snapshot.comparableSwapCount > 0 ? formatRm(snapshot.swapSavingsRm) : "—"}</strong></p></div>
+    {snapshot && <details className="mt-3 border-t border-[#d3e9dd] pt-3 text-xs leading-5 text-[#617069]"><summary className="cursor-pointer font-bold">{isMs ? "Bagaimana anggaran ini dikira" : "How this estimate is calculated"}</summary><p className="mt-2">{snapshot.disclosures.estimatedTravelIncluded ? (isMs ? "Jumlah termasuk anggaran kos perjalanan pergi balik." : "Combined totals include estimated return travel.") : (isMs ? "Kos perjalanan tidak tersedia dalam anggaran ini." : "Travel cost was not available in this estimate.")} {snapshot.disclosures.medianPriceCount > 0 ? (isMs ? `${snapshot.disclosures.medianPriceCount} harga item menggunakan median dan merupakan anggaran.` : `${snapshot.disclosures.medianPriceCount} item prices use market medians and are estimates.`) : ""}</p>{snapshot.disclosures.routeWarning && <p className="mt-2">{snapshot.disclosures.routeWarning}</p>}</details>}
+  </section>;
+}
+
+function HomeDashboard({
+  checklist,
+  history,
+  unreadCount,
+  locale,
+  hasDraft,
+  onStartTrip,
+  onContinueTrip,
+  onStartNewTrip,
+}: {
+  checklist: ShoppingChecklist | null;
+  history: TripRecord[];
+  unreadCount: number;
+  locale: Locale;
+  hasDraft: boolean;
+  onStartTrip: () => void;
+  onContinueTrip: () => void;
+  onStartNewTrip: () => void;
+}) {
+  const isMs = locale === "ms";
+  const progress = checklist ? checklistProgress(checklist) : null;
+  const recent = listTripRecords(history).slice(0, 3);
+  const tripLabel = hasDraft ? (isMs ? "Teruskan perjalanan membeli-belah" : "Continue your shopping trip") : (isMs ? "Mulakan perjalanan membeli-belah" : "Start a shopping trip");
+  return (
+    <div className="mx-auto w-full max-w-[1440px] px-4 pb-12 pt-8 sm:px-7 lg:px-12 lg:pt-12">
+      <section className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div>
+          <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">SmartCart</p>
+          <h1 className="mt-2 text-4xl font-extrabold tracking-[-0.06em] text-[#10231d] sm:text-5xl">{isMs ? "Selamat datang kembali" : "Welcome back"}</h1>
+          <p className="mt-3 max-w-2xl text-base leading-7 text-[#53635c]">{isMs ? "Rancang barangan rumah, semak senarai anda dan lihat sejarah perbelanjaan." : "Plan household essentials, pick up your checklist, and keep an eye on past spending."}</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/checklist" className="inline-flex min-h-11 items-center rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2]">{isMs ? "Senarai semak" : "Checklist"}</Link>
+          <Link href="/history" className="inline-flex min-h-11 items-center rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2]">{isMs ? "Sejarah" : "History"}</Link>
+          <Link href="/inbox" className="inline-flex min-h-11 items-center rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2]">{isMs ? "Peti masuk" : "Inbox"}{unreadCount > 0 && <span className="ml-2 rounded-full bg-[#e8590c] px-2 py-0.5 text-xs text-white">{unreadCount}</span>}</Link>
+        </div>
+      </section>
+
+      <div className="grid gap-5 lg:grid-cols-12 lg:gap-6">
+        <AppCard className="relative overflow-hidden !bg-[#087f5b] text-white lg:col-span-7 lg:min-h-[330px] lg:p-9">
+          <div aria-hidden="true" className="absolute -right-24 -top-24 h-72 w-72 rounded-full border-[36px] border-white/10" />
+          <p className="relative text-sm font-extrabold uppercase tracking-[0.14em] text-[#bce9d7]">{isMs ? "Perancangan membeli-belah" : "Shopping planner"}</p>
+          <h2 className="relative mt-3 max-w-xl text-3xl font-extrabold tracking-[-0.04em] sm:text-4xl">{tripLabel}</h2>
+          <p className="relative mt-3 max-w-xl leading-6 text-[#d7efe5]">{hasDraft ? (isMs ? "Perjalanan anda masih tersedia pada peranti ini. Sambung dari langkah terakhir." : "Your trip draft is still available in this session. Continue from where you left off.") : (isMs ? "Pilih cara perjalanan dahulu, kemudian bina bakul dan bandingkan kedai yang boleh dicapai." : "Set your travel preferences, build a basket, then compare stores you can reach.")}</p>
+          <div className="relative mt-7 flex flex-wrap gap-3">
+            <button type="button" onClick={hasDraft ? onContinueTrip : onStartTrip} className="min-h-12 rounded-xl bg-white px-5 text-sm font-extrabold text-[#087f5b] shadow-sm hover:bg-[#eff8f4]">{hasDraft ? (isMs ? "Teruskan" : "Continue trip") : (isMs ? "Mulakan perjalanan" : "Start a trip")}</button>
+            {hasDraft && <button type="button" onClick={onStartNewTrip} className="min-h-12 rounded-xl border border-white/50 bg-white/10 px-5 text-sm font-bold text-white hover:bg-white/20">{isMs ? "Perjalanan baharu" : "Start new trip"}</button>}
+          </div>
+        </AppCard>
+
+        <Link href="/checklist" className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087f5b] lg:col-span-5">
+          <AppCard className="h-full transition-colors group-hover:border-[#9fcdb9]">
+            <div className="flex items-start justify-between gap-3">
+              <div><p className="text-sm font-bold text-[#687970]">{isMs ? "Perjalanan semasa" : "Current trip"}</p><h2 className="mt-2 text-2xl font-extrabold text-[#17362c]">{isMs ? "Senarai semak" : "Shopping checklist"}</h2></div>
+              <span className="rounded-xl bg-[#e7f7f0] px-3 py-2 text-sm font-extrabold text-[#087f5b]">{checklist?.items.length ?? 0}</span>
+            </div>
+            {checklist && progress ? <><p className="mt-5 font-bold text-[#17362c]">{checklist.store.name}</p><p className="mt-1 text-sm text-[#617069]">{isMs ? `${progress.bought}/${progress.total} selesai` : `${progress.bought} of ${progress.total} complete`}</p><div className="mt-4 h-2 overflow-hidden rounded-full bg-[#e7efeb]"><div className="h-full rounded-full bg-[#087f5b]" style={{ width: `${progress.total ? (progress.bought / progress.total) * 100 : 0}%` }} /></div></> : <p className="mt-5 text-sm leading-6 text-[#617069]">{isMs ? "Senarai yang anda mulakan akan muncul di sini." : "Your active checklist will appear here when you start one."}</p>}
+            <p className="mt-5 text-sm font-extrabold text-[#087f5b]">{isMs ? "Buka senarai →" : "Open checklist →"}</p>
+          </AppCard>
+        </Link>
+
+        <Link href="/history" className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087f5b] lg:col-span-7">
+          <AppCard className="h-full transition-colors group-hover:border-[#9fcdb9]">
+            <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-[#687970]">{isMs ? "Perbelanjaan lalu" : "Past spending"}</p><h2 className="mt-2 text-2xl font-extrabold text-[#17362c]">{isMs ? "Sejarah membeli-belah" : "Shopping history"}</h2></div><span className="text-sm font-bold text-[#087f5b]">{history.length} {isMs ? "rekod" : history.length === 1 ? "trip" : "trips"}</span></div>
+            {recent.length ? <ul className="mt-5 divide-y divide-[#e6ede9]">{recent.map(record => <li key={record.id} className="flex items-center justify-between gap-4 py-3"><div className="min-w-0"><p className="truncate font-bold text-[#17362c]">{record.store.name}</p><p className="mt-1 text-xs text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(record.recordedAt))}</p></div><span className="shrink-0 font-extrabold text-[#17362c]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</span></li>)}</ul> : <p className="mt-5 text-sm leading-6 text-[#617069]">{isMs ? "Rekod perjalanan yang disimpan akan muncul di sini." : "Recorded trips and known spending will appear here."}</p>}
+          </AppCard>
+        </Link>
+
+        <Link href="/inbox" className="group block focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087f5b] lg:col-span-5">
+          <AppCard className="h-full bg-[#f2f8f4] transition-colors group-hover:border-[#9fcdb9]">
+            <p className="text-sm font-bold text-[#687970]">{isMs ? "Kemas kini akaun" : "Account updates"}</p><div className="mt-2 flex items-center justify-between gap-3"><h2 className="text-2xl font-extrabold text-[#17362c]">{isMs ? "Peti masuk" : "Inbox"}</h2><span className="rounded-full bg-white px-3 py-1 text-sm font-bold text-[#087f5b]">{unreadCount} {isMs ? "belum dibaca" : "unread"}</span></div><p className="mt-4 text-sm leading-6 text-[#617069]">{isMs ? "Laporan simpanan dan perbelanjaan mingguan atau bulanan akan tersedia di sini." : "Weekly and monthly savings and spending reports will be collected here."}</p><p className="mt-5 text-sm font-extrabold text-[#087f5b]">{isMs ? "Buka peti masuk →" : "Open inbox →"}</p>
+          </AppCard>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function TripHistoryScreen({ records, locale }: { records: TripRecord[]; locale: Locale }) {
+  const isMs = locale === "ms";
+  const ordered = listTripRecords(records);
+  return <div className="mx-auto w-full max-w-[1440px] px-4 pb-12 pt-8 sm:px-7 lg:px-12 lg:pt-12"><div className="mb-7"><p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">{isMs ? "Perjalanan lalu" : "Past trips"}</p><h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-[#10231d]">{isMs ? "Sejarah membeli-belah" : "Shopping history"}</h1><p className="mt-3 text-[#617069]">{isMs ? "Jumlah perbelanjaan menggunakan harga sebenar yang anda rekodkan sahaja." : "Spending totals include only actual prices you recorded."}</p></div>
+    {ordered.length === 0 ? <AppCard><p className="font-bold text-[#17362c]">{isMs ? "Belum ada perjalanan direkodkan." : "No trips recorded yet."}</p><p className="mt-2 text-sm text-[#617069]">{isMs ? "Rekodkan perjalanan daripada senarai semak untuk melihatnya di sini." : "Record a trip from your checklist to see it here."}</p><Link href="/trip/travel" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white">{isMs ? "Mulakan perjalanan" : "Start a trip"}</Link></AppCard> : <div className="grid gap-4 lg:grid-cols-2">{ordered.map(record => <AppCard key={record.id} className="!p-0"><details className="group"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 sm:p-7"><div className="min-w-0"><p className="truncate text-xl font-extrabold text-[#17362c]">{record.store.name}</p><p className="mt-1 text-sm text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "long", timeStyle: "short" }).format(new Date(record.recordedAt))}</p><p className="mt-2 text-xs text-[#617069]">{record.lines.filter(line => line.status === "bought").length}/{record.lines.length} {isMs ? "dibeli" : "items bought"}</p></div><div className="shrink-0 text-right"><p className="text-xs font-bold uppercase tracking-wide text-[#718078]">{isMs ? "Perbelanjaan sebenar" : "Actual spending"}</p><p className="mt-1 text-xl font-extrabold text-[#087f5b]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</p>{record.savingsSnapshot?.totalEstimatedSavingsRm != null && <p className="mt-1 text-xs font-bold text-[#087f5b]">{isMs ? "Anggaran simpanan" : "Estimated savings"} {formatRm(record.savingsSnapshot.totalEstimatedSavingsRm)}</p>}<span className="mt-2 block text-xs font-bold text-[#087f5b] group-open:hidden">{isMs ? "Butiran ↓" : "Details ↓"}</span></div></summary><div className="border-t border-[#e6ede9] px-5 py-4 sm:px-7">{record.savingsSnapshot && <SavingsEstimatePanel snapshot={record.savingsSnapshot} locale={locale} />}<p className="mb-2 mt-4 text-xs text-[#718078]">{isMs ? "Jumlah baris menggunakan harga sebenar yang diketahui sahaja." : "Line totals show known actual prices only."}</p>{record.lines.length ? <ul className="divide-y divide-[#e6ede9]">{record.lines.map(line => <li key={line.id} className="flex justify-between gap-4 py-3 text-sm"><div className="min-w-0"><p className="font-bold text-[#17362c]">{line.itemName}</p><p className="mt-1 text-xs text-[#718078]">{line.quantity} × {line.status === "bought" ? (isMs ? "dibeli" : "bought") : line.status === "not_bought" ? (isMs ? "tidak dibeli" : "not bought") : (isMs ? "belum selesai" : "unfinished")}</p></div><span className="shrink-0 font-extrabold text-[#17362c]">{line.actualLineTotalRm == null ? "—" : formatRm(line.actualLineTotalRm)}</span></li>)}</ul> : <p className="text-sm text-[#617069]">{isMs ? "Tiada item dalam rekod ini." : "This record has no items."}</p>}</div></details></AppCard>)}</div>}
+  </div>;
+}
+
+function InboxScreen({ messages, locale, onRead }: { messages: InboxMessage[]; locale: Locale; onRead: (id: string) => void }) {
+  const isMs = locale === "ms";
+  return <div className="mx-auto w-full max-w-[1440px] px-4 pb-12 pt-8 sm:px-7 lg:px-12 lg:pt-12"><div className="mb-7"><p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">SmartCart</p><h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-[#10231d]">{isMs ? "Peti masuk" : "Inbox"}</h1><p className="mt-3 text-[#617069]">{isMs ? "Laporan simpanan dan perbelanjaan anda akan dihantar ke sini." : "Your savings and spending reports will be delivered here."}</p></div>
+    {messages.length === 0 ? <AppCard><div className="mx-auto max-w-xl py-8 text-center"><span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e7f7f0] text-2xl text-[#087f5b]">✉</span><h2 className="mt-4 text-xl font-extrabold text-[#17362c]">{isMs ? "Peti masuk anda kosong" : "Your inbox is clear"}</h2><p className="mt-2 text-sm leading-6 text-[#617069]">{isMs ? "Laporan mingguan atau bulanan akan muncul di sini apabila tersedia." : "Weekly or monthly reports will appear here when they’re available."}</p></div></AppCard> : <div className="grid gap-4 lg:grid-cols-2">{messages.map(message => <button type="button" key={message.id} onClick={() => onRead(message.id)} className={`rounded-3xl border p-5 text-left shadow-[0_8px_28px_rgba(16,35,29,0.045)] transition-colors sm:p-7 ${message.readAt ? "border-[#e0e9e4] bg-white" : "border-[#aad6c2] bg-[#f2f8f4]"}`}><div className="flex items-start justify-between gap-4"><div><span className="text-xs font-extrabold uppercase tracking-wide text-[#087f5b]">{message.type === "weekly_report" ? (isMs ? "Laporan mingguan" : "Weekly report") : (isMs ? "Laporan bulanan" : "Monthly report")}</span><h2 className="mt-2 text-xl font-extrabold text-[#17362c]">{message.title}</h2></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#087f5b]">{message.readAt ? (isMs ? "Dibaca" : "Read") : (isMs ? "Baharu" : "New")}</span></div><p className="mt-3 leading-6 text-[#53635c]">{message.summary}</p><div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-white/80 p-3 text-sm"><p><span className="block text-xs text-[#718078]">{isMs ? "Perbelanjaan" : "Spending"}</span><strong className="text-[#17362c]">{message.spendingRm == null ? "—" : formatRm(message.spendingRm)}</strong></p><p><span className="block text-xs text-[#718078]">{isMs ? "Penjimatan" : "Savings"}</span><strong className="text-[#17362c]">{message.savingsRm == null ? "—" : formatRm(message.savingsRm)}</strong></p></div><p className="mt-4 text-xs text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.createdAt))} · {new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.periodStart))}–{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.periodEnd))}</p></button>)}</div>}
+  </div>;
+}
+
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("shop");
+  const pathname = usePathname();
+  const router = useRouter();
+  const screen = routeScreen(pathname);
+  const go = (path: string) => router.push(path);
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
-  const [checklistOpen, setChecklistOpen] = useState(false);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
   const [tripHistory, setTripHistory] = useState<TripRecord[]>([]);
   const [tripHistoryStorageReady, setTripHistoryStorageReady] = useState(false);
   const [tripNotification, setTripNotification] = useState({ id: 0, message: "" });
   const [locale, setLocale] = useState<Locale>("en");
-  const [preferences, setPreferences] = useState<TravelPreferences>({
-    origin: null,
-    transportMode: "motorcycle",
-    limitType: "distance",
-    limitValue: 5,
-    distanceKm: 5,
-    timeMinutes: 20,
-    saraFilter: "any",
-  });
+  const [preferences, setPreferences] = useState<TravelPreferences>(DEFAULT_PREFERENCES);
+  const [candidatePreparation, setCandidatePreparation] = useState<CandidatePreparationResponse | null>(null);
+  const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
+  const [inboxStorageReady, setInboxStorageReady] = useState(false);
+
+  const acceptCandidatePreparation = useCallback((preparation: CandidatePreparationResponse | null) => {
+    setCandidatePreparation(current => {
+      if (current?.preparationId && current.preparationId !== preparation?.preparationId) {
+        void deleteRecommendationCandidates(current.preparationId).catch(() => undefined);
+      }
+      return preparation;
+    });
+  }, []);
 
   useEffect(() => {
+    if (pathname === "/planner") router.replace("/trip/travel");
     window.scrollTo(0, 0);
-  }, [checklistOpen, screen]);
+  }, [pathname, router]);
 
   useEffect(() => {
-    if (screen !== "compare") setSelectedStore(null);
-  }, [screen]);
+    if (screen !== "shop" && screen !== "basket" && screen !== "compare") return;
+    const preparationIsUsable = candidatePreparation != null
+      && candidatePreparation.candidateCount > 0
+      && Date.parse(candidatePreparation.expiresAt) > Date.now();
+    if (!preferences.origin || !preparationIsUsable) {
+      router.replace("/trip/travel");
+      return;
+    }
+    if (screen === "compare" && basket.length === 0) {
+      router.replace("/trip/review");
+    }
+  }, [basket.length, candidatePreparation, preferences.origin, router, screen]);
+
+  useEffect(() => {
+    if (!pathname.startsWith("/trip/results/")) setSelectedStore(null);
+  }, [pathname]);
 
   useEffect(() => {
     const savedLocale = window.localStorage.getItem("smartcart-locale");
@@ -2490,6 +2792,25 @@ export default function App() {
   }, [tripHistory, tripHistoryStorageReady]);
 
   useEffect(() => {
+    try {
+      setInboxMessages(parseInbox(window.localStorage.getItem(INBOX_STORAGE_KEY)));
+    } catch {
+      setInboxMessages([]);
+    } finally {
+      setInboxStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!inboxStorageReady) return;
+    try {
+      window.localStorage.setItem(INBOX_STORAGE_KEY, serializeInbox(inboxMessages));
+    } catch {
+      // Inbox controls remain usable in memory when device storage is blocked.
+    }
+  }, [inboxMessages, inboxStorageReady]);
+
+  useEffect(() => {
     const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
     if (!savedPreferences) return;
     try {
@@ -2551,7 +2872,7 @@ export default function App() {
   };
   const removeChecklist = () => {
     setChecklist(null);
-    setChecklistOpen(false);
+    go("/");
   };
   const recordTrip = () => {
     if (!checklist) return;
@@ -2562,99 +2883,151 @@ export default function App() {
     setTripNotification(current => ({ id: current.id + 1, message: copy.tripRecorded }));
   };
   const goBack = screen === "basket"
-    ? () => setScreen("shop")
-    : screen === "location"
-      ? () => setScreen("basket")
-      : screen === "compare"
-        ? () => {
-            if (selectedStore) setSelectedStore(null);
-            else setScreen("location");
-          }
-        : undefined;
+    ? () => go("/trip/shop")
+    : screen === "shop"
+      ? () => go("/trip/travel")
+      : screen === "location"
+        ? () => go("/")
+        : screen === "compare"
+          ? () => go(pathname.startsWith("/trip/results/") ? "/trip/results" : "/trip/review")
+          : undefined;
+
+  const hasDraft = basket.length > 0 || preferences.origin != null;
+  const unreadCount = unreadInboxCount(inboxMessages);
+  const continueTrip = () => {
+    if (pathname.startsWith("/trip/results/") && selectedStore) {
+      go(`/trip/results/${encodeURIComponent(selectedStore.premiseId)}`);
+    } else if (preferences.origin && basket.length > 0) {
+      go("/trip/review");
+    } else if (preferences.origin) {
+      go("/trip/shop");
+    } else {
+      go("/trip/travel");
+    }
+  };
+  const startNewTrip = () => {
+    if (hasDraft && !window.confirm(locale === "ms"
+      ? "Buang perjalanan semasa dan mulakan perjalanan baharu?"
+      : "Discard this trip draft and start a new one?")) return;
+    setBasket(INIT_BASKET);
+    setSelectedStore(null);
+    acceptCandidatePreparation(null);
+    setPreferences(current => ({ ...current, origin: null }));
+    go("/trip/travel");
+  };
 
   return (
     <div className="min-h-full bg-[#f7f8f6]">
       <Header
         basketCount={basketCount}
-        basketActive={!checklistOpen && screen === "basket"}
-        onBasket={() => {
-          setChecklistOpen(false);
-          setScreen("basket");
-        }}
-        checklistCount={checklist?.items.length ?? 0}
-        checklistActive={checklistOpen}
-        onChecklist={checklist ? () => setChecklistOpen(true) : undefined}
-        onBack={checklistOpen ? () => setChecklistOpen(false) : goBack}
+        basketActive={screen === "basket"}
+        onBasket={screen === "shop" || screen === "basket" || screen === "compare" ? () => go("/trip/review") : undefined}
+        onBack={goBack}
         locale={locale}
         onToggleLanguage={toggleLanguage}
         copy={copy}
       />
 
-      <main className={"mx-auto w-full pt-16 " + (!checklistOpen && screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
-        {checklistOpen && checklist && (
-          <ShoppingChecklistScreen
+      <main className="mx-auto w-full max-w-[1440px] pt-16">
+        {screen === "home" && (
+          <HomeDashboard
             checklist={checklist}
+            history={tripHistory}
+            unreadCount={unreadCount}
             locale={locale}
-            copy={copy}
-            onToggleStatus={updateChecklistStatus}
-            onAddManual={addChecklistItem}
-            onEditItem={editChecklistItem}
-            onSetActualPrice={setActualPrice}
-            onSetActualQuantity={setActualQuantity}
-            onDeleteItem={removeChecklistItem}
-            onDeleteChecklist={removeChecklist}
-            alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
-            onRecordTrip={recordTrip}
+            hasDraft={hasDraft}
+            onStartTrip={() => go("/trip/travel")}
+            onContinueTrip={continueTrip}
+            onStartNewTrip={startNewTrip}
           />
         )}
-        {!checklistOpen && screen === "shop" && (
+        {screen === "checklist" && checklist && (
+          <div className="mx-auto grid w-full max-w-[1440px] gap-5 px-3 pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-7 lg:px-12">
+            <ShoppingChecklistScreen
+              checklist={checklist}
+              locale={locale}
+              copy={copy}
+              onToggleStatus={updateChecklistStatus}
+              onAddManual={addChecklistItem}
+              onEditItem={editChecklistItem}
+              onSetActualPrice={setActualPrice}
+              onSetActualQuantity={setActualQuantity}
+              onDeleteItem={removeChecklistItem}
+              onDeleteChecklist={removeChecklist}
+              alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
+              onRecordTrip={recordTrip}
+            />
+            <aside className="lg:sticky lg:top-20">{checklist.savingsSnapshot && <SavingsEstimatePanel snapshot={checklist.savingsSnapshot} locale={locale} />}</aside>
+          </div>
+        )}
+        {screen === "checklist" && !checklist && (
+          <div className="mx-auto w-full max-w-[960px] px-4 pb-12 pt-8 sm:px-7 lg:pt-12">
+            <AppCard className="py-12 text-center"><span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e7f7f0] text-2xl text-[#087f5b]">☑</span><h1 className="mt-4 text-2xl font-extrabold text-[#17362c]">{locale === "ms" ? "Tiada senarai semak aktif" : "No active checklist"}</h1><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#617069]">{locale === "ms" ? "Bandingkan kedai dan mulakan senarai semak daripada perjalanan membeli-belah." : "Compare stores and start a checklist from a shopping trip."}</p><Link href="/trip/travel" className="mt-6 inline-flex min-h-12 items-center rounded-xl bg-[#087f5b] px-5 text-sm font-extrabold text-white">{locale === "ms" ? "Mulakan perjalanan" : "Start a trip"}</Link></AppCard>
+          </div>
+        )}
+        {screen === "history" && <TripHistoryScreen records={tripHistory} locale={locale} />}
+        {screen === "inbox" && <InboxScreen messages={inboxMessages} locale={locale} onRead={id => setInboxMessages(current => setInboxMessageRead(current, id, true))} />}
+        {screen === "shop" && (
           <BasketScreen
             view="shop"
             basket={basket}
             setBasket={setBasket}
-            onViewBasket={() => setScreen("basket")}
-            onBackToShop={() => setScreen("shop")}
-            onContinue={() => setScreen("location")}
+            onViewBasket={() => go("/trip/review")}
+            onBackToShop={() => go("/trip/shop")}
+            onContinue={() => go("/trip/review")}
             copy={copy}
             locale={locale}
           />
         )}
-        {!checklistOpen && screen === "basket" && (
+        {screen === "basket" && (
           <BasketScreen
             view="basket"
             basket={basket}
             setBasket={setBasket}
-            onViewBasket={() => setScreen("basket")}
-            onBackToShop={() => setScreen("shop")}
-            onContinue={() => setScreen("location")}
+            onViewBasket={() => go("/trip/review")}
+            onBackToShop={() => go("/trip/shop")}
+            onContinue={() => go("/trip/results")}
+            preferences={preferences}
+            candidateCount={candidatePreparation?.candidateCount}
             copy={copy}
             locale={locale}
           />
         )}
-        {!checklistOpen && screen === "location" && (
+        {screen === "location" && (
           <LocationScreen
             preferences={preferences}
-            onBack={() => setScreen("basket")}
+            onBack={() => go("/")}
+            onPreparationChange={acceptCandidatePreparation}
+            locale={locale}
             copy={copy}
             onCompare={nextPreferences => {
               setPreferences(nextPreferences);
-              setScreen("compare");
+              setSelectedStore(null);
+              go("/trip/shop");
             }}
           />
         )}
-        {!checklistOpen && screen === "compare" && (
+        {screen === "compare" && (
           <CompareScreen
             basket={basket}
             setBasket={setBasket}
             activeChecklist={checklist}
             onCreateChecklist={nextChecklist => {
               setChecklist(nextChecklist);
-              setChecklistOpen(true);
+              go("/checklist");
             }}
             selectedStore={selectedStore}
             setSelectedStore={setSelectedStore}
+            candidatePreparation={candidatePreparation}
+            onPreparationChange={acceptCandidatePreparation}
+            selectedPremiseId={pathname.startsWith("/trip/results/") ? decodeURIComponent(pathname.split("/").at(-1) ?? "") : null}
+            onOpenStore={store => {
+              setSelectedStore(store);
+              go(`/trip/results/${encodeURIComponent(store.premiseId)}`);
+            }}
             preferences={preferences}
-            onBack={() => setScreen("location")}
+            onReviewAgain={() => go("/trip/review")}
+            onChangeTravel={() => go("/trip/travel")}
             copy={copy}
           />
         )}

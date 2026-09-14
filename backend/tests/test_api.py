@@ -74,7 +74,6 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
     )
 
     response = TestClient(create_app()).post("/api/recommendations", json=VALID_REQUEST)
-
     assert response.status_code == 200
     body = response.json()
     assert body["totalCandidatesEvaluated"] == 1
@@ -248,10 +247,10 @@ def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch)
     assert captured["maximum_straight_line_km"] is None
 
 
-def test_recommendation_expands_search_when_no_store_within_limit(
+def test_recommendation_does_not_expand_beyond_verified_travel_limit(
     monkeypatch,
 ) -> None:
-    """Iteration1 feedback: show the nearest stores when none match the limit."""
+    """A verified search never shows a store that failed the selected limit."""
     from smartcart import api
     from smartcart.pricing import StoreBasketSummary
 
@@ -280,14 +279,13 @@ def test_recommendation_expands_search_when_no_store_within_limit(
 
     monkeypatch.setattr(api, "find_nearest_premises", fake_find)
 
-    class ExpandingProvider:
+    class SinglePassProvider:
         async def compute_route_matrix(self, origin, destination_place_ids, mode):
             captured["route_calls"] += 1
-            # 6 km route is beyond the 5 km distance limit, so the limited
-            # pass yields nothing and the expansion pass must recover it.
+            # 6 km is beyond the inclusive 5 km limit.
             return [RouteMatrixResult(0, 6_000, 1_200)]
 
-    monkeypatch.setattr(api, "get_maps_provider", lambda: ExpandingProvider())
+    monkeypatch.setattr(api, "get_maps_provider", lambda: SinglePassProvider())
     monkeypatch.setattr(
         api,
         "get_basket_pricing",
@@ -303,18 +301,136 @@ def test_recommendation_expands_search_when_no_store_within_limit(
         },
     )
 
-    response = TestClient(create_app()).post("/api/recommendations", json=VALID_REQUEST)
+    client = TestClient(create_app())
+    preparation = client.post(
+        "/api/recommendation-candidates",
+        json={"travel": VALID_REQUEST["travel"]},
+    )
+    assert preparation.status_code == 200
+    assert preparation.json()["status"] == "no_reachable_stores"
+    assert preparation.json()["candidateCount"] == 0
 
+    response = client.post(
+        "/api/recommendations",
+        json={
+            "candidatePreparationId": preparation.json()["preparationId"],
+            "basket": VALID_REQUEST["basket"],
+        },
+    )
     assert response.status_code == 200
     body = response.json()
-    assert body["expandedSearch"] is True
-    assert body["recommendations"][0]["exceedsLimit"] is True
+    assert body["expandedSearch"] is False
+    assert body["recommendations"] == []
     assert "No store was found inside your travel limit" in body["routeWarning"]
-    # The expansion pass requests candidates without a distance pre-filter.
-    assert any(
-        call["maximum_straight_line_km"] is None for call in captured["find_calls"]
+    assert len(captured["find_calls"]) == 1
+    assert captured["route_calls"] == 1
+
+
+def test_candidate_preparation_reuses_routes_and_reprices_each_search(monkeypatch) -> None:
+    from smartcart import api
+
+    monkeypatch.setattr(
+        api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
     )
-    assert captured["route_calls"] == 2
+    monkeypatch.setattr(
+        api,
+        "find_nearest_premises",
+        lambda **_options: [
+            PremiseCandidate(
+                premise_id="1",
+                premise_code="P1",
+                name="Kedai Test",
+                address="Jalan Test",
+                district="Kota Bharu",
+                state="Kelantan",
+                google_place_id="google-place-1",
+                straight_line_distance_km=1.5,
+                sara_status="candidate",
+            )
+        ],
+    )
+    captured = {"route_calls": 0, "pricing_calls": []}
+
+    class CountingProvider:
+        async def compute_route_matrix(self, origin, destination_place_ids, mode):
+            captured["route_calls"] += 1
+            return await FakeMapsProvider().compute_route_matrix(
+                origin, destination_place_ids, mode
+            )
+
+    def fake_pricing(premise_ids, basket):
+        captured["pricing_calls"].append((list(premise_ids), list(basket)))
+        return {}
+
+    monkeypatch.setattr(api, "get_maps_provider", lambda: CountingProvider())
+    monkeypatch.setattr(api, "get_basket_pricing", fake_pricing)
+    client = TestClient(create_app())
+
+    prepared_response = client.post(
+        "/api/recommendation-candidates", json={"travel": VALID_REQUEST["travel"]}
+    )
+
+    assert prepared_response.status_code == 200
+    prepared = prepared_response.json()
+    assert prepared["status"] == "ready"
+    assert prepared["candidateCount"] == 1
+    assert prepared["routeProvider"] == "google"
+    assert prepared["expiresAt"]
+    assert len(prepared["preparationId"]) >= 16
+
+    search_payload = {
+        "candidatePreparationId": prepared["preparationId"],
+        "basket": VALID_REQUEST["basket"],
+    }
+    first = client.post("/api/recommendations", json=search_payload)
+    second = client.post("/api/recommendations", json=search_payload)
+
+    assert first.status_code == second.status_code == 200
+    assert captured["route_calls"] == 1
+    assert len(captured["pricing_calls"]) == 2
+    assert first.json()["recommendations"][0]["basketSubtotalRm"] is None
+
+
+def test_missing_candidate_preparation_returns_expired_code() -> None:
+    response = TestClient(create_app()).post(
+        "/api/recommendations",
+        json={"candidatePreparationId": "missing-preparation-handle-1234", "basket": []},
+    )
+    assert response.status_code == 410
+    assert response.json()["error"]["code"] == "CANDIDATE_PREPARATION_EXPIRED"
+
+
+def test_candidate_preparation_delete_is_best_effort(monkeypatch) -> None:
+    from smartcart import api
+
+    monkeypatch.setattr(
+        api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+    )
+    monkeypatch.setattr(api, "find_nearest_premises", lambda **_options: [])
+    monkeypatch.setattr(api, "get_premise_location_coverage", lambda _age: (0, 0))
+    monkeypatch.setattr(api, "get_maps_provider", lambda: FakeMapsProvider())
+    client = TestClient(create_app())
+    prepared = client.post(
+        "/api/recommendation-candidates", json={"travel": VALID_REQUEST["travel"]}
+    )
+    assert prepared.status_code == 200
+
+    deleted = client.delete(
+        f"/api/recommendation-candidates/{prepared.json()['preparationId']}"
+    )
+    assert deleted.status_code == 204
+    assert client.post(
+        "/api/recommendations",
+        json={
+            "candidatePreparationId": prepared.json()["preparationId"],
+            "basket": [],
+        },
+    ).json()["error"]["code"] == "CANDIDATE_PREPARATION_EXPIRED"
+
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

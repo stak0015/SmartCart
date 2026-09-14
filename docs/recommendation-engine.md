@@ -54,8 +54,10 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    Geocoding key is configured; an unavailable address never blocks nearby
    store search. Remembered local preferences exclude all origin labels,
    coordinates, and Place IDs.
-3. `POST /api/recommendations` validates the basket item IDs and quantities,
-   origin, transport mode, travel limit, and SARA filter.
+3. `POST /api/recommendation-candidates` validates the origin, transport mode,
+   travel limit, and SARA filter, then prepares a bounded, temporary candidate
+   snapshot. The response contains an opaque preparation ID, candidate count,
+   route-provider status, warnings, and expiry time.
 4. PostgreSQL first excludes every premise whose last imported Google business
    state is not exactly `open`, then computes Haversine distance over fresh
    premise coordinates and selects the nearest candidates. `unknown`, missing,
@@ -75,9 +77,12 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    only when Google route results are available. A combined limit uses an
    inclusive AND: both the route distance and route duration must be within
    their selected thresholds.
-7. PostgreSQL retrieves each requested basket item's latest PriceCatcher price
-   at every candidate premise. When that premise-item row is unavailable, the
-   API uses the ingestion-maintained `item.median_price_rm`, computed from all
+7. On Review basket, `POST /api/recommendations` receives the current basket and
+   preparation ID. It reuses the prepared premise and route data but performs a
+   fresh PostgreSQL price lookup on every activation. PostgreSQL retrieves each
+   requested basket item's latest PriceCatcher price at every candidate
+   premise. When that premise-item row is unavailable, the API uses the
+   ingestion-maintained `item.median_price_rm`, computed from all
    positive latest store prices for that item and rounded to cents. Quantity is
    applied to produce line totals and the store basket subtotal. A missing item
    remains an explicit null only when neither a premise price nor a cached
@@ -94,10 +99,18 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    English label from `item.item_name_en`; the official `item_name` is the
    Malay/original label and fallback.
 
-At the default 25-candidate cap, one recommendation costs no more than 25 route
-matrix elements, so the current 10,000-element free cap supports about 400 full
-comparisons per month. Reducing the cap lowers cost but increases the chance
-that a useful store is not evaluated, particularly for a time-based limit.
+The preparation is held only in bounded process memory, stores no selected
+origin, expires after 30 minutes by default, and may be deleted explicitly when
+travel settings change. It is never written to PostgreSQL or browser storage.
+An expired or unknown ID returns `CANDIDATE_PREPARATION_EXPIRED`, allowing the
+UI to return the shopper to Travel preferences. The legacy travel-bodied
+recommendation request remains temporarily supported for compatibility.
+
+At the default 25-candidate cap, one prepared trip costs no more than 25 route
+matrix elements. Repeated basket searches against the same preparation refresh
+prices without spending more route-matrix quota. Reducing the cap lowers cost
+but increases the chance that a useful store is not evaluated, particularly
+for a time-based limit.
 
 ## Travel-cost assumptions
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
+import { calculateEstimatedSavingsSnapshot } from "./estimated-savings";
 import {
   SHOPPING_CHECKLIST_STORAGE_KEY,
   SHOPPING_CHECKLIST_VERSION,
@@ -253,9 +254,11 @@ describe("shopping checklist snapshots", () => {
   it("keeps planned totals on the persisted snapshot (AC 5.1.1)", () => {
     const checklist = checklistFromDetails();
 
-    expect(checklist.plannedSubtotalRm).toBe(15);
+    // The selected replacement-aware rows total RM20.50; the original store
+    // basket snapshot was RM15.00 and must not leak into the new checklist.
+    expect(checklist.plannedSubtotalRm).toBe(20.5);
     expect(checklist.estimatedRoundTripCostRm).toBe(1);
-    expect(checklist.plannedCombinedTotalRm).toBe(16);
+    expect(checklist.plannedCombinedTotalRm).toBe(21.5);
   });
 
   it("stores null planned totals when the recommendation has no priced lines", () => {
@@ -263,6 +266,14 @@ describe("shopping checklist snapshots", () => {
       ...store,
       basketSubtotalRm: null,
       estimatedTotalCostRm: null,
+      pricedItemCount: 0,
+      pricedCount: 0,
+      basketPrices: store.basketPrices.map(price => ({
+        ...price,
+        unitPriceRm: null,
+        lineTotalRm: null,
+        priceSource: null,
+      })),
     };
     const checklist = createShoppingChecklist(unpriced, [], {
       checklistId: "checklist-3",
@@ -565,8 +576,8 @@ describe("actual price recording (AC 5.3.1-5.3.3)", () => {
     expect(line.lineTotalRm).toBe(8.5);
     expect(line.priceSource).toBe("store");
     expect(line.observedDate).toBe("2026-09-02");
-    expect(recorded.plannedSubtotalRm).toBe(15);
-    expect(recorded.plannedCombinedTotalRm).toBe(16);
+    expect(recorded.plannedSubtotalRm).toBe(20.5);
+    expect(recorded.plannedCombinedTotalRm).toBe(21.5);
     expect(recorded.store).toEqual(initial.store);
   });
 
@@ -650,7 +661,7 @@ describe("actual quantity recording (AC 5.3.4)", () => {
     expect(actualLineTotalRm(withQty.items[0])).toBe(10.5);
     // Planned figures stay untouched.
     expect(withQty.items[0].lineTotalRm).toBe(8.5);
-    expect(withQty.plannedSubtotalRm).toBe(15);
+    expect(withQty.plannedSubtotalRm).toBe(20.5);
   });
 
   it("serializes actual quantities and upgrades v2 and v1 payloads in the chain", () => {
@@ -677,7 +688,7 @@ describe("actual quantity recording (AC 5.3.4)", () => {
     expect(fromV2?.items[0].quantitySource).toBe("planned");
 
     // v1 payload: lacks all three actual-entry fields entirely.
-    const v1 = { ...v2, version: 1 };
+    const v1: Record<string, unknown> = { ...v2, version: 1 };
     v1.items = (v2.items as Record<string, unknown>[]).map(item => {
       const copy = { ...item };
       delete copy.actualPriceRm;
@@ -753,6 +764,23 @@ describe("alternative store estimates snapshot (gap G4)", () => {
     expect(checklistFromDetails().alternativeStoreEstimates).toEqual([]);
   });
 
+  it("preserves the savings snapshot for History and reports", () => {
+    const savingsSnapshot = calculateEstimatedSavingsSnapshot(
+      store,
+      [altA],
+      [],
+      { routeProvider: "google", routeWarning: null },
+    );
+    const checklist = createShoppingChecklist(store, [], {
+      checklistId: "checklist-savings",
+      savingsSnapshot,
+    });
+
+    expect(checklist.savingsSnapshot).toEqual(savingsSnapshot);
+    expect(parseShoppingChecklist(serializeShoppingChecklist(checklist))?.savingsSnapshot)
+      .toEqual(savingsSnapshot);
+  });
+
   it("migrates v3 payloads written before the alternative-store-estimates field", () => {
     const checklist = createShoppingChecklist(store, details, {
       checklistId: "checklist-legacy3",
@@ -767,7 +795,19 @@ describe("alternative store estimates snapshot (gap G4)", () => {
     expect(migrated).not.toBeNull();
     expect(migrated?.version).toBe(SHOPPING_CHECKLIST_VERSION);
     expect(migrated?.alternativeStoreEstimates).toEqual([]);
+    expect(migrated?.savingsSnapshot).toBeNull();
     expect(migrated?.items).toEqual(checklist.items);
+  });
+
+  it("migrates v4 payloads written before the savings snapshot", () => {
+    const checklist = createShoppingChecklist(store, [], { checklistId: "checklist-v4" });
+    const legacy = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    legacy.version = 4;
+    delete legacy.savingsSnapshot;
+
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated?.version).toBe(SHOPPING_CHECKLIST_VERSION);
+    expect(migrated?.savingsSnapshot).toBeNull();
   });
 
   it("round-trips the estimates and rejects malformed entries", () => {

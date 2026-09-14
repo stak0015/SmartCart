@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
+import SmartCartApp from "@/components/smartcart-app";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -6,10 +8,10 @@ export const metadata: Metadata = {
   description: "Plan an affordable household basket by comparing item prices, travel time, and return transport costs.",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-MY">
-      <body>{children}</body>
+      <body><SmartCartApp />{children}</body>
     </html>
   );
 }
