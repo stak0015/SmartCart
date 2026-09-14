@@ -61,6 +61,14 @@ import {
   type ManualChecklistItemInput,
   type ShoppingChecklist,
 } from "@/lib/shopping-checklist";
+import {
+  TRIP_HISTORY_STORAGE_KEY,
+  addTripRecord,
+  buildTripRecord,
+  parseTripHistory,
+  serializeTripHistory,
+  type TripRecord,
+} from "@/lib/trip-history";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -1897,6 +1905,7 @@ function RecommendationBasketRow({
 // so the shopper can compare and swap without jumping between sections.
 function RecommendationOverview({
   store,
+  alternativeStores,
   basket,
   activeChecklist,
   preferences,
@@ -1907,6 +1916,7 @@ function RecommendationOverview({
   onCreateChecklist,
 }: {
   store: StoreRecommendation;
+  alternativeStores: StoreRecommendation[];
   basket: BasketItem[];
   activeChecklist: ShoppingChecklist | null;
   preferences: TravelPreferences;
@@ -1998,7 +2008,7 @@ function RecommendationOverview({
   };
 
   const createChecklist = () => {
-    onCreateChecklist(createShoppingChecklist(store, detailRows));
+    onCreateChecklist(createShoppingChecklist(store, detailRows, { alternativeStores }));
     setReplaceChecklistOpen(false);
   };
 
@@ -2274,6 +2284,7 @@ function CompareScreen({
     return (
       <RecommendationOverview
         store={selectedStore}
+        alternativeStores={recommendations.filter(store => store.premiseId !== selectedStore.premiseId)}
         basket={basket}
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}
@@ -2391,6 +2402,9 @@ export default function App() {
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
+  const [tripHistory, setTripHistory] = useState<TripRecord[]>([]);
+  const [tripHistoryStorageReady, setTripHistoryStorageReady] = useState(false);
+  const [tripNotification, setTripNotification] = useState({ id: 0, message: "" });
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
     origin: null,
@@ -2451,6 +2465,29 @@ export default function App() {
       // or full; a later update can retry persistence.
     }
   }, [checklist, checklistStorageReady]);
+
+  // AC 5.4.3: trip records live on this device only (localStorage), mirroring
+  // the checklist persistence pattern above.
+  useEffect(() => {
+    try {
+      const serialized = window.localStorage.getItem(TRIP_HISTORY_STORAGE_KEY);
+      setTripHistory(parseTripHistory(serialized));
+    } catch {
+      setTripHistory([]);
+    } finally {
+      setTripHistoryStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!tripHistoryStorageReady) return;
+    try {
+      window.localStorage.setItem(TRIP_HISTORY_STORAGE_KEY, serializeTripHistory(tripHistory));
+    } catch {
+      // Records remain usable in memory when storage is blocked or full; a
+      // later update can retry persistence.
+    }
+  }, [tripHistory, tripHistoryStorageReady]);
 
   useEffect(() => {
     const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
@@ -2516,6 +2553,14 @@ export default function App() {
     setChecklist(null);
     setChecklistOpen(false);
   };
+  const recordTrip = () => {
+    if (!checklist) return;
+    const record = buildTripRecord(checklist);
+    // The record appears in the in-memory history immediately (no reload) and
+    // is persisted by the storage effect above.
+    setTripHistory(current => addTripRecord(current, record));
+    setTripNotification(current => ({ id: current.id + 1, message: copy.tripRecorded }));
+  };
   const goBack = screen === "basket"
     ? () => setScreen("shop")
     : screen === "location"
@@ -2558,6 +2603,8 @@ export default function App() {
             onSetActualQuantity={setActualQuantity}
             onDeleteItem={removeChecklistItem}
             onDeleteChecklist={removeChecklist}
+            alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
+            onRecordTrip={recordTrip}
           />
         )}
         {!checklistOpen && screen === "shop" && (
@@ -2612,6 +2659,14 @@ export default function App() {
           />
         )}
       </main>
+      {tripNotification.message && (
+        <SuccessToast
+          notificationId={tripNotification.id}
+          message={tripNotification.message}
+          dismissLabel={copy.dismiss}
+          onDismiss={() => setTripNotification(current => ({ ...current, message: "" }))}
+        />
+      )}
     </div>
   );
 }

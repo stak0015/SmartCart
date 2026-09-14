@@ -140,6 +140,17 @@ AC 5.2.2 — Not bought and out-of-stock states / 未购买与缺货状态
 - 进度计数单独统计缺货行；状态随清单一并本地持久化。
 - Out-of-stock lines are counted separately in the progress data and persist
   locally with the checklist.
+- 2026-09-14 修订：缺货登记因违反选题禁区"无论坛博客众包"废除，
+  out_of_stock 状态已从前端回退移除，AC 5.2.2 原文同步改写为仅
+  Not purchased 口径（EpicsUser StoriesAC_实际v4.txt）；旧本地数据
+  读取时自动降级为 not_bought。本节上文为废除前的历史对齐记录，
+  保留备查。
+- 2026-09-14 revision: out-of-stock marking was abolished under the
+  "no crowdsourcing" topic ban; the out_of_stock state was rolled back
+  from the frontend and AC 5.2.2 was rewritten to the Not-purchased-only
+  wording (EpicsUser StoriesAC_实际v4.txt). Legacy on-device data degrades
+  to not_bought on read. The section above is the pre-abolition historical
+  record, kept for reference.
 
 --------------------------------------------------
 
