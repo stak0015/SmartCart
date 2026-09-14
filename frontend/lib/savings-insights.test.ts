@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { BasketLineDetail, StoreRecommendation } from "./contracts";
+import type { TripRecord } from "./trip-history";
 import {
   potentialPriceSavingsInsight,
   savingsInsights,
+  tripTravelSavingsInsight,
   travelSavingsInsight,
   type SavingsRouteContext,
+  type TravelSavingsInsight,
 } from "./savings-insights";
 
 // StoreRecommendation carries many fields that this feature never reads; a
@@ -278,5 +281,143 @@ describe("savingsInsights (AC 8.2.3)", () => {
 
     expect(insights.travel.routeEstimated).toBe(true);
     expect(insights.travel.routeWarning).not.toBeNull();
+  });
+});
+
+// AC 8.2.1 from a recorded trip: the estimates frozen by US 5.4 let the saving
+// be computed on-device without re-querying recommendations.
+const tripRecord = (overrides: Partial<TripRecord> = {}): TripRecord => ({
+  version: 1,
+  id: "trip-1",
+  recordedAt: "2026-09-14T09:00:00.000Z",
+  checklistId: "checklist-1",
+  store: { premiseId: "1", premiseCode: "P-1", name: "My Store", address: null },
+  plannedSubtotalRm: 10,
+  estimatedRoundTripCostRm: 6,
+  plannedCombinedTotalRm: 16,
+  alternativeStoreEstimates: [],
+  actualTotalRm: null,
+  lines: [],
+  ...overrides,
+});
+
+describe("tripTravelSavingsInsight (AC 8.2.1, recorded trip)", () => {
+  it("reports the saving against the cheapest recorded alternative", () => {
+    const record = tripRecord({
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Cheaper Mart", estimatedRoundTripCostRm: 2, estimatedTotalCostRm: 12 },
+        { premiseId: "3", name: "Pricier Mart", estimatedRoundTripCostRm: 4, estimatedTotalCostRm: 14 },
+      ],
+    });
+    const insight = tripTravelSavingsInsight(record);
+
+    expect(insight.kind).toBe("estimate");
+    expect(insight.available).toBe(true);
+    expect(insight.savingsRm).toBe(4);
+    expect(insight.cheaperStoreName).toBe("Cheaper Mart");
+    expect(insight.myTravelCostRm).toBe(6);
+  });
+
+  it("reports nothing when my store was already the cheapest", () => {
+    const record = tripRecord({
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Pricier Mart", estimatedRoundTripCostRm: 9, estimatedTotalCostRm: 19 },
+      ],
+    });
+    const insight = tripTravelSavingsInsight(record);
+
+    expect(insight.available).toBe(false);
+    expect(insight.reason).toBe("my-store-is-cheapest");
+    expect(insight.savingsRm).toBeNull();
+  });
+
+  it("reports nothing when the trip recorded no alternative stores", () => {
+    const insight = tripTravelSavingsInsight(tripRecord());
+
+    expect(insight.available).toBe(false);
+    expect(insight.reason).toBe("no-alternative-store");
+  });
+
+  it("reports nothing when the trip has no recorded travel cost", () => {
+    const record = tripRecord({
+      estimatedRoundTripCostRm: null,
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Cheaper Mart", estimatedRoundTripCostRm: 2, estimatedTotalCostRm: 12 },
+      ],
+    });
+    const insight = tripTravelSavingsInsight(record);
+
+    expect(insight.available).toBe(false);
+    expect(insight.reason).toBe("no-recorded-travel-cost");
+  });
+
+  it("never reports a saving of zero when costs are equal", () => {
+    const record = tripRecord({
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Same Cost Mart", estimatedRoundTripCostRm: 6, estimatedTotalCostRm: 16 },
+      ],
+    });
+    const insight = tripTravelSavingsInsight(record);
+
+    expect(insight.available).toBe(false);
+    expect(insight.reason).toBe("my-store-is-cheapest");
+  });
+
+  it("keeps the straight-line caveat from the frozen record (AC 8.2.3)", () => {
+    // The recommendation response is gone by review time, so the caveat must
+    // survive in the record itself, not in a caller-supplied context.
+    const record = tripRecord({
+      routeProvider: "straight_line",
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Cheaper Mart", estimatedRoundTripCostRm: 2, estimatedTotalCostRm: 12 },
+      ],
+    });
+    const insight = tripTravelSavingsInsight(record);
+
+    expect(insight.available).toBe(true);
+    expect(insight.routeEstimated).toBe(true);
+  });
+
+  it("treats a google-routed trip as not estimated", () => {
+    const record = tripRecord({
+      routeProvider: "google",
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Cheaper Mart", estimatedRoundTripCostRm: 2, estimatedTotalCostRm: 12 },
+      ],
+    });
+    expect(tripTravelSavingsInsight(record).routeEstimated).toBe(false);
+  });
+
+  it("falls back to the caller context when a legacy record has no provenance", () => {
+    // routeProvider is optional: trips frozen before it existed must still
+    // validate and simply defer to the caller's context.
+    const record = tripRecord({
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Cheaper Mart", estimatedRoundTripCostRm: 2, estimatedTotalCostRm: 12 },
+      ],
+    });
+    expect(tripTravelSavingsInsight(record).routeEstimated).toBe(false);
+    expect(tripTravelSavingsInsight(record, straightLine).routeEstimated).toBe(true);
+  });
+
+  it("returns the same shape as the live insight so one component renders both", () => {
+    const record = tripRecord({
+      alternativeStoreEstimates: [
+        { premiseId: "2", name: "Cheaper Mart", estimatedRoundTripCostRm: 2, estimatedTotalCostRm: 12 },
+      ],
+    });
+    // Structural check: every field the shared TravelSavingsInsight type
+    // promises is present, so SavingsInsightsSummary can render a trip insight.
+    const insight: TravelSavingsInsight = tripTravelSavingsInsight(record);
+    expect(insight).toEqual(expect.objectContaining({
+      kind: "estimate",
+      available: true,
+      savingsRm: 4,
+      myStoreName: "My Store",
+      cheaperStoreName: "Cheaper Mart",
+      routeEstimated: false,
+      routeWarning: null,
+      reason: "found",
+    }));
   });
 });

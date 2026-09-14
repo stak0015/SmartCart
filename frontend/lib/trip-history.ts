@@ -61,6 +61,12 @@ export interface TripRecord {
   // AC 5.4.2: the sum of the known purchased line totals; null when no
   // purchased line has a known actual total (never a made-up 0, AC 5.2.3).
   actualTotalRm: number | null;
+  // AC 8.2.3: how the frozen travel estimates were produced. Copied from the
+  // checklist so an old trip can still disclose that its travel figure came
+  // from the straight-line fallback (the recommendation response, and its
+  // routeWarning, are long gone by review time). Optional: trips frozen before
+  // this field existed carry no provenance and must still validate.
+  routeProvider?: "google" | "straight_line";
   lines: TripRecordLine[];
 }
 
@@ -146,6 +152,10 @@ export function buildTripRecord(
       ...estimate,
     })),
     actualTotalRm: actualExpenseTotal(lines),
+    // AC 8.2.3: carry the frozen route provenance onto the record, but only
+    // when the checklist actually knew it (mirrors createShoppingChecklist so
+    // serialised output is unchanged for callers that predate it).
+    ...(checklist.routeProvider ? { routeProvider: checklist.routeProvider } : {}),
     lines,
   };
 }

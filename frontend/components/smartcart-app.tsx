@@ -33,6 +33,8 @@ import {
   type BasketItem,
 } from "@/lib/basket-state";
 import { basketSavingsSummary } from "@/lib/savings-summary";
+import { savingsInsights } from "@/lib/savings-insights";
+import { SavingsInsightsSummary } from "@/components/savings-insights";
 import {
   buildRecommendationDetailRows,
   recommendationDetailTotals,
@@ -2008,7 +2010,10 @@ function RecommendationOverview({
   };
 
   const createChecklist = () => {
-    onCreateChecklist(createShoppingChecklist(store, detailRows, { alternativeStores }));
+    // AC 8.2.3: freeze the route provenance into the checklist so a trip
+    // recorded through the straight-line fallback keeps disclosing it later,
+    // when the recommendation response (and its routeWarning) is long gone.
+    onCreateChecklist(createShoppingChecklist(store, detailRows, { alternativeStores, routeProvider }));
     setReplaceChecklistOpen(false);
   };
 
@@ -2151,6 +2156,22 @@ function RecommendationOverview({
             </div>
           )}
 
+          <div className="mt-4">
+            {/* AC 8.2.1/8.2.2/8.2.3: routeWarning is left null on purpose. The
+                backend's warning string is hard-coded English, and the summary
+                already renders the localised copy.straightLineTravelNote from
+                routeEstimated (driven by routeProvider), so passing it through
+                would mix languages on the Malay UI. */}
+            <SavingsInsightsSummary
+              insights={savingsInsights(
+                store,
+                alternativeStores,
+                { routeProvider, routeWarning: null },
+              )}
+              copy={copy}
+            />
+          </div>
+
           <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>
             <p className="mt-2 leading-5 text-[#53635c]">{localizedRankingMethod}</p>
@@ -2284,7 +2305,16 @@ function CompareScreen({
     return (
       <RecommendationOverview
         store={selectedStore}
-        alternativeStores={recommendations.filter(store => store.premiseId !== selectedStore.premiseId)}
+        // AC 8.2.1 counts only a cheaper *reachable* alternative. Stores
+        // outside the shopper's travel limit are returned by the ranking only
+        // as an expanded-search fallback (they carry exceedsLimit), and the
+        // frozen estimate keeps no such flag — so over-limit stores are
+        // excluded here, before they are recorded, and can never later be
+        // presented as a reachable saving. alternativeStores is consumed only
+        // by createShoppingChecklist, so this does not affect any listing.
+        alternativeStores={recommendations.filter(store => (
+          store.premiseId !== selectedStore.premiseId && !store.exceedsLimit
+        ))}
         basket={basket}
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}

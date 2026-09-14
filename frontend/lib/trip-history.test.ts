@@ -218,6 +218,25 @@ describe("buildTripRecord (AC 5.4.1)", () => {
     buildTripRecord(checklist, { recordId: "trip-4" });
     expect(JSON.stringify(checklist)).toBe(snapshotJson);
   });
+
+  it("carries the frozen route provenance onto the record (AC 8.2.3)", () => {
+    const checklist = createShoppingChecklist(store, [], {
+      checklistId: "checklist-route",
+      alternativeStores: [
+        { ...store, premiseId: "20", name: "Alt Store", estimatedRoundTripCostRm: 5 },
+      ],
+      routeProvider: "straight_line",
+    });
+    expect(buildTripRecord(checklist, { recordId: "trip-route" }).routeProvider).toBe("straight_line");
+  });
+
+  it("omits the provenance when the checklist never knew it (legacy callers)", () => {
+    // No routeProvider passed → the field stays absent, so serialised output is
+    // unchanged for callers that predate AC 8.2.3 and the record still validates.
+    const record = buildTripRecord(finishedChecklist(), { recordId: "trip-noroute" });
+    expect(record.routeProvider).toBeUndefined();
+    expect(isTripRecord(record)).toBe(true);
+  });
 });
 
 describe("actualExpenseTotal (AC 5.4.2)", () => {

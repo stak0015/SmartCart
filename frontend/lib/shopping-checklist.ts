@@ -67,6 +67,13 @@ export interface ShoppingChecklist {
   // Gap G4: the alternative stores' estimated trip costs at snapshot time.
   // Empty for payloads created before this field existed (migrated v1-v3).
   alternativeStoreEstimates: AlternativeStoreEstimate[];
+  // AC 8.2.3 (Epic 8): how the frozen travel estimates were produced. A
+  // straight_line fallback is a cruder estimate than a Google route, and the
+  // summary must say so later — the recommendation response is gone by then,
+  // so the provenance has to travel with the record.
+  // Optional: payloads frozen before this field existed have no provenance to
+  // report, and must still validate (never be discarded as corrupt).
+  routeProvider?: "google" | "straight_line";
   items: ChecklistItem[];
 }
 
@@ -105,6 +112,10 @@ interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
   alternativeStores?: StoreRecommendation[];
+  // AC 8.2.3: provenance of the frozen travel estimates. Passed from the
+  // recommendation response; omitted when unknown so legacy callers are
+  // unaffected.
+  routeProvider?: "google" | "straight_line";
 }
 
 interface AddManualItemOptions {
@@ -236,6 +247,9 @@ export function createShoppingChecklist(
       ? null
       : money(store.estimatedTotalCostRm),
     alternativeStoreEstimates,
+    // Frozen only when the caller knows it; the field stays absent otherwise
+    // so serialised output is unchanged for callers that predate AC 8.2.3.
+    ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}),
     items,
   };
 }

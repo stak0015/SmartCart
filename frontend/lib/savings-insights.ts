@@ -1,4 +1,5 @@
 import type { StoreRecommendation } from "./contracts";
+import type { TripRecord } from "./trip-history";
 
 // AC 8.2.3: the insight kind drives the wording, so a component can never
 // relabel a potential saving as money the shopper actually saved. "estimate"
@@ -48,7 +49,16 @@ export interface TravelSavingsInsight {
   // Google Routes. The UI must then surface routeWarning and soften wording.
   routeEstimated: boolean;
   routeWarning: string | null;
-  reason: "found" | "my-store-is-cheapest" | "no-reachable-alternative";
+  // One union for both sources of the same insight: a live recommendation list
+  // ("no-reachable-alternative") and a frozen trip record
+  // ("no-recorded-travel-cost" / "no-alternative-store"). Sharing the type is
+  // what lets one summary component render either without a second code path.
+  reason:
+    | "found"
+    | "my-store-is-cheapest"
+    | "no-reachable-alternative"
+    | "no-recorded-travel-cost"
+    | "no-alternative-store";
 }
 
 export function travelSavingsInsight(
@@ -100,6 +110,75 @@ export function travelSavingsInsight(
     cheaperTravelCostRm: cheapest.estimatedRoundTripCostRm,
     routeEstimated,
     routeWarning: context.routeWarning,
+    reason: "found",
+  };
+}
+
+/**
+ * AC 8.2.1 from a recorded trip (US 5.4). The estimates were frozen at
+ * record time by createShoppingChecklist, so this is a pure on-device
+ * calculation — it never re-queries recommendations (AC 8.4.1). Over-limit
+ * stores are already excluded at freeze time, so every alternative here is a
+ * store the shopper could actually have reached.
+ *
+ * AC 8.2.3: `record.routeProvider` is the provenance frozen alongside those
+ * estimates. A trip recorded through the straight-line fallback must keep
+ * saying so here, because the recommendation response (and its routeWarning)
+ * no longer exists by the time the shopper reviews an old trip — the label has
+ * to survive in the record itself.
+ */
+export function tripTravelSavingsInsight(
+  record: TripRecord,
+  context: SavingsRouteContext = { routeProvider: "google", routeWarning: null },
+): TravelSavingsInsight {
+  // Prefer the provenance frozen in the record; fall back to the caller's
+  // context for records created before routeProvider existed (optional field).
+  // The warning *text* is not frozen: the summary renders the localised
+  // straight-line note on its own, so an old trip still carries its caveat.
+  const routeProvider = record.routeProvider ?? context.routeProvider;
+  const routeEstimated = routeProvider === "straight_line";
+  const routeWarning = routeEstimated ? context.routeWarning : null;
+
+  const unavailable = (
+    reason: TravelSavingsInsight["reason"],
+  ): TravelSavingsInsight => ({
+    kind: "estimate",
+    available: false,
+    savingsRm: null,
+    myStoreName: record.store.name,
+    myTravelCostRm: record.estimatedRoundTripCostRm,
+    cheaperStoreName: null,
+    cheaperTravelCostRm: null,
+    routeEstimated,
+    routeWarning,
+    reason,
+  });
+
+  if (record.estimatedRoundTripCostRm == null) return unavailable("no-recorded-travel-cost");
+  if (record.alternativeStoreEstimates.length === 0) return unavailable("no-alternative-store");
+
+  let cheapest = record.alternativeStoreEstimates[0];
+  for (const estimate of record.alternativeStoreEstimates) {
+    if (estimate.estimatedRoundTripCostRm < cheapest.estimatedRoundTripCostRm) {
+      cheapest = estimate;
+    }
+  }
+
+  const savingsRm = money(record.estimatedRoundTripCostRm - cheapest.estimatedRoundTripCostRm);
+  // Never report a saving of zero: showing "you saved RM0" reads as a result
+  // when the real answer is that no cheaper option existed.
+  if (savingsRm <= 0) return unavailable("my-store-is-cheapest");
+
+  return {
+    kind: "estimate",
+    available: true,
+    savingsRm,
+    myStoreName: record.store.name,
+    myTravelCostRm: record.estimatedRoundTripCostRm,
+    cheaperStoreName: cheapest.name,
+    cheaperTravelCostRm: cheapest.estimatedRoundTripCostRm,
+    routeEstimated,
+    routeWarning,
     reason: "found",
   };
 }
