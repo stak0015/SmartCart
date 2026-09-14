@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
-import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
+import { DEFAULT_QTY, MAX_QTY, basketDetails, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import {
   SmartCartApiError,
@@ -494,7 +494,8 @@ function LanguageToggle({ locale, onToggle }: { locale: Locale; onToggle: () => 
 
 function Header({
   basketCount,
-  onBasket,
+  basket,
+  showBasket,
   basketActive,
   onBack,
   locale,
@@ -502,16 +503,31 @@ function Header({
   copy,
 }: {
   basketCount: number;
-  onBasket?: () => void;
+  basket: BasketItem[];
+  showBasket: boolean;
   basketActive: boolean;
   onBack?: () => void;
   locale: Locale;
   onToggleLanguage: () => void;
   copy: AppCopy;
 }) {
+  const basketPopoverRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!basketPopoverRef.current?.contains(event.target as Node)) {
+        basketPopoverRef.current?.removeAttribute("open");
+      }
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, []);
+
+  const closeBasketPopover = () => basketPopoverRef.current?.removeAttribute("open");
+
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-[#e7ece9] bg-white/95 backdrop-blur">
-      <div className="mx-auto grid h-16 w-full max-w-[1440px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 lg:px-10">
+      <div className="mx-auto grid h-16 w-full max-w-[1200px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 lg:px-8">
         {onBack ? (
           <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-sm font-bold text-[#087f5b]">
             <IcoArrowBack /> {copy.back}
@@ -530,20 +546,37 @@ function Header({
 
         <div className="flex items-center gap-2 justify-self-end">
           <LanguageToggle locale={locale} onToggle={onToggleLanguage} />
-          {onBasket && <button
-            type="button"
-            onClick={onBasket}
-            aria-label={copy.viewBasketAria(basketCount)}
-            aria-current={basketActive ? "page" : undefined}
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${basketActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
-          >
-            <IcoBasket color="#087f5b" size={22} />
-            {basketCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-bold text-white">
-                {basketCount}
-              </span>
-            )}
-          </button>}
+          {showBasket && <details ref={basketPopoverRef} className="group relative">
+            <summary
+              aria-label={copy.viewBasketAria(basketCount)}
+              aria-current={basketActive ? "page" : undefined}
+              className={`relative flex h-11 w-11 cursor-pointer list-none items-center justify-center rounded-xl border [&::-webkit-details-marker]:hidden ${basketActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
+              onKeyDown={event => {
+                if (event.key === "Escape" && basketPopoverRef.current?.open) {
+                  closeBasketPopover();
+                  (event.currentTarget as HTMLElement).focus();
+                }
+              }}
+            >
+              <IcoBasket color="#087f5b" size={22} />
+              {basketCount > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-bold text-white">{basketCount}</span>}
+            </summary>
+            <div className="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[min(390px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#dce5e0] bg-white shadow-[0_18px_50px_rgba(16,35,29,0.18)] group-hover:block group-focus-within:block group-open:block">
+              <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-3">
+                <h2 className="font-extrabold text-[#17362c]">{copy.basketItems}</h2>
+                <span className="rounded-full bg-[#e7f7f0] px-2.5 py-1 text-xs font-bold text-[#087f5b]">{basketCount}</span>
+              </div>
+              {basket.length === 0 ? <p className="px-4 py-5 text-sm text-[#617069]">{copy.basketEmpty}</p> : <ul className="max-h-[min(55vh,420px)] divide-y divide-[#edf1ef] overflow-y-auto px-4">
+                {basket.map(item => <li key={item.id} className="flex items-start justify-between gap-4 py-3">
+                  <div className="min-w-0"><p className="break-words text-sm font-bold text-[#17362c]">{localizedName(copy, item.name, item)}</p><p className="mt-0.5 text-xs text-[#718078]">{packageSizeForCopy(copy, item.size)}{item.replacement ? ` · ${item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}` : ""}</p></div>
+                  <span className="shrink-0 rounded-lg bg-[#f3f7f4] px-2.5 py-1 text-sm font-extrabold text-[#17362c]">× {item.qty}</span>
+                </li>)}
+              </ul>}
+              <div className="border-t border-[#edf1ef] bg-[#fbfcfb] p-3">
+                <Link href="/trip/review" onClick={closeBasketPopover} className="flex min-h-11 items-center justify-center rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white">{copy.viewBasket}</Link>
+              </div>
+            </div>
+          </details>}
         </div>
       </div>
     </header>
@@ -567,7 +600,7 @@ function ProgressIndicator({ step, copy }: { step: 1 | 2 | 3 | 4; copy: AppCopy 
       aria-valuemax={steps.length}
       aria-valuenow={step}
       aria-valuetext={copy.step(step)}
-      className="-mx-2 w-[calc(100%+1rem)] px-3 py-3 sm:px-5"
+      className="w-full py-2"
     >
       <div className="relative">
         <div aria-hidden="true" className="absolute left-[12.5%] right-[12.5%] top-4 h-1 -translate-y-1/2 rounded-full bg-[#dce5e0]">
@@ -831,17 +864,12 @@ function BasketScreen({
     onContinue();
   };
 
-  const { itemCount } = basketSummary(basket);
   const basketCostSummary = basketSavingsSummary(basket);
-  const isDesktopBasketRail = view === "shop";
-
   const basketPanel = (
-      <div className={isDesktopBasketRail ? "h-full" : "px-4 pb-8 sm:px-6"}>
-        <div className={isDesktopBasketRail
-          ? "flex h-full min-h-0 flex-col overflow-hidden bg-white"
-          : "overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]"}>
+      <div className="pb-8">
+        <div className="overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_4px_18px_rgba(16,35,29,0.05)]">
           {/* Heading */}
-          <div className={"flex items-center justify-between border-b border-[#edf1ef] " + (isDesktopBasketRail ? "px-5 py-4" : "px-4 py-4")}>
+          <div className="flex items-center justify-between border-b border-[#edf1ef] px-4 py-4">
             <div className="flex items-center gap-2">
               <IcoBasket color="#087f5b" size={22} />
               <div>
@@ -850,7 +878,7 @@ function BasketScreen({
             </div>
           </div>
 
-          <div className={isDesktopBasketRail ? "min-h-0 flex-1 overflow-y-auto px-5" : "p-4"}>
+          <div className="p-4">
 
           {basket.length === 0 ? (
             <p className="text-[16px] text-[#3e494a] text-center py-4">{copy.basketEmpty}</p>
@@ -858,7 +886,7 @@ function BasketScreen({
             <div className="flex flex-col gap-2">
               {basket.map((item, idx) => (
                 <div key={item.id}>
-                  <div className={"flex min-w-0 py-3 " + (isDesktopBasketRail ? "flex-col gap-3" : "flex-col gap-3 sm:flex-row sm:items-center sm:justify-between")}>
+                  <div className="flex min-w-0 flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 flex-col gap-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="break-words text-[15px] font-bold leading-5 text-[#10231d]">{localizedName(copy, item.name, item)}</p>
@@ -873,7 +901,7 @@ function BasketScreen({
                         </div>
                       )}
                     </div>
-                    <div className={"flex shrink-0 items-center gap-1 " + (isDesktopBasketRail ? "self-start" : "self-start sm:self-auto")}>
+                    <div className="flex shrink-0 items-center gap-1 self-start sm:self-auto">
                       <QuantitySelector
                         value={basketQtyById[item.id] ?? String(item.qty)}
                         onChange={raw => typeBasketQty(item.id, raw)}
@@ -905,28 +933,19 @@ function BasketScreen({
             netSavingRm={basketCostSummary.netSavingRm}
             totalsLabel={copy.affectedItemsTotal}
           />
-          {isDesktopBasketRail && (
-            <div className="border-t border-[#dce5e0] bg-[#fbfcfb] px-5 py-4">
-              <button type="button" onClick={onViewBasket} disabled={basket.length === 0} className="min-h-12 w-full rounded-xl bg-[#087f5b] px-4 text-[15px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none">
-                {copy.viewBasket}
-              </button>
-            </div>
-          )}
         </div>
       </div>
   );
 
   return (
-    <div className={"screen-enter pb-32 " + (view === "shop" ? "lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-6 lg:px-8 xl:px-12" : "")}>
+    <div className="screen-enter pb-28">
       {view === "shop" && (
-        <div className="min-w-0">
-      {/* Progress */}
-      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={2} copy={copy} />
-      </div>
+        <>
+      <JourneyProgress step={2} copy={copy} />
+      <div className="mx-auto w-full max-w-[1120px] px-4 sm:px-6 lg:px-8">
 
       {/* Page header */}
-      <div className="px-4 pb-5 pt-1 sm:px-6 sm:pt-0">
+      <div className="pb-5 pt-1">
         <p className="mb-1 text-sm font-bold text-[#087f5b]">{copy.shopEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.shopTitle}</h1>
         <p className="mt-2 max-w-[580px] text-[16px] leading-6 text-[#53635c]">
@@ -935,7 +954,7 @@ function BasketScreen({
       </div>
 
       {/* Search —— now calls the real backend API (Step 6) */}
-      <div className="sticky top-16 z-30 bg-[#f7f8f6]/95 px-4 pb-3 pt-2 backdrop-blur sm:px-6">
+      <div className="sticky top-16 z-30 bg-[#f7f8f6]/95 pb-3 pt-2 backdrop-blur">
         <div className="relative h-14">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
             <IcoSearch />
@@ -957,7 +976,7 @@ function BasketScreen({
       </div>
 
       {/* Multi-select category filter */}
-      <div className="sticky top-[8.75rem] z-[60] bg-[#f7f8f6]/95 px-4 pb-6 pt-1 backdrop-blur sm:px-6">
+      <div className="sticky top-[8.75rem] z-40 bg-[#f7f8f6]/95 pb-6 pt-1 backdrop-blur">
         <button
           type="button"
           aria-expanded={categoryOpen}
@@ -975,7 +994,7 @@ function BasketScreen({
         </button>
 
         {categoryOpen && (
-          <div id="category-options" className="absolute left-4 right-4 top-[60px] rounded-2xl border border-[#d7e1dc] bg-white p-3 shadow-[0_14px_34px_rgba(16,35,29,0.16)] sm:left-6 sm:right-6">
+          <div id="category-options" className="absolute left-0 right-0 top-[60px] rounded-2xl border border-[#d7e1dc] bg-white p-3 shadow-[0_14px_34px_rgba(16,35,29,0.16)]">
             <div className="mb-2 flex items-center justify-between border-b border-[#edf1ef] px-1 pb-2">
               <p className="text-sm font-extrabold text-[#10231d]">{copy.filterByCategory}</p>
               {activeCategories.length > 0 && (
@@ -1003,7 +1022,7 @@ function BasketScreen({
       </div>
 
       {/* Matching items —— now shows real backend data with prices (Step 7) */}
-      <div id="catalogue-results" className="scroll-mt-36 px-4 pb-7 sm:px-6">
+      <div id="catalogue-results" className="scroll-mt-36 pb-7">
         <div className="mb-3 flex items-end justify-between gap-3">
           <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">
             {search.trim().length >= 2 || activeCategories.length > 0 ? copy.searchResults : copy.allEssentials}
@@ -1038,7 +1057,7 @@ function BasketScreen({
 
         {/* Real results list */}
         {!apiLoading && apiResults.length > 0 && (
-          <div className="grid grid-cols-1 gap-2.5">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               const rawQty = qtyById[item.item_id] ?? String(DEFAULT_QTY);
@@ -1122,29 +1141,23 @@ function BasketScreen({
         )}
       </div>
 
-        </div>
-      )}
-
-      {/* Your basket */}
-      {view === "shop" && (
-        <aside aria-label={copy.basketTitle} className="sticky top-20 hidden h-[calc(100dvh-6rem)] min-h-0 overflow-hidden rounded-2xl border border-[#e2e9e5] bg-white shadow-[0_8px_24px_rgba(16,35,29,0.07)] lg:col-start-2 lg:block">
-          {basketPanel}
-        </aside>
+      </div>
+        </>
       )}
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       {view === "basket" && (
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-7 lg:px-12">
-          <div className="min-w-0">
-      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={3} copy={copy} />
-        <p className="mb-1 mt-6 text-sm font-bold text-[#087f5b]">{copy.basketEyebrow}</p>
+        <>
+      <JourneyProgress step={3} copy={copy} />
+      <div className="mx-auto w-full max-w-[1120px] px-4 sm:px-6 lg:px-8">
+      <div className="pb-5 pt-1">
+        <p className="mb-1 text-sm font-bold text-[#087f5b]">{copy.basketEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1>
         <p className="mt-2 text-[16px] leading-6 text-[#53635c]">{copy.basketDescription}</p>
       </div>
 
-      {basketPanel}
-          </div>
-          <aside className="mx-4 mb-28 rounded-2xl border border-[#dce5e0] bg-white p-5 shadow-[0_8px_24px_rgba(16,35,29,0.06)] sm:mx-6 lg:sticky lg:top-20 lg:mx-0 lg:mt-8">
+      <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
+        <div className="min-w-0">{basketPanel}</div>
+          <aside className="rounded-2xl border border-[#dce5e0] bg-white p-5 shadow-[0_8px_24px_rgba(16,35,29,0.06)] lg:sticky lg:top-20">
             <p className="text-xs font-extrabold uppercase tracking-[0.12em] text-[#087f5b]">{locale === "ms" ? "Ringkasan perjalanan" : "Trip summary"}</p>
             <h2 className="mt-2 text-xl font-extrabold text-[#17362c]">{preferences?.origin?.label ?? (locale === "ms" ? "Lokasi belum dipilih" : "No location selected")}</h2>
             {preferences && <dl className="mt-4 space-y-3 text-sm">
@@ -1153,13 +1166,19 @@ function BasketScreen({
               <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Kedai disediakan" : "Prepared stores"}</dt><dd className="font-bold text-[#17362c]">{candidateCount ?? 0}</dd></div>
             </dl>}
             <p className="mt-5 text-sm leading-6 text-[#617069]">{locale === "ms" ? "Harga akan dimuatkan semula untuk bakul semasa apabila anda memilih Cari kedai." : "Prices will be refreshed for this basket when you choose Search stores."}</p>
+            <button type="button" onClick={handleContinue} disabled={basket.length === 0} className="mt-5 hidden min-h-12 w-full rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.22)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] lg:block">
+              {locale === "ms" ? "Cari kedai" : "Search stores"}
+            </button>
           </aside>
         </div>
+      </div>
+        </>
       )}
 
-      {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className={(view === "shop" ? "lg:hidden " : "") + "fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur"}>
+      {view === "basket" && <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 lg:hidden">
+        <div className="pointer-events-auto mx-auto flex w-full max-w-[560px] gap-3 rounded-2xl border border-[#dfe7e2] bg-white/96 p-2 shadow-[0_-4px_28px_rgba(16,35,29,0.16)] backdrop-blur">
         {view === "basket" ? (
-          <div className="mx-auto flex w-full max-w-[712px] gap-3">
+          <>
             <button type="button" onClick={onBackToShop} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
               {copy.backToShop}
             </button>
@@ -1170,22 +1189,21 @@ function BasketScreen({
             >
               {locale === "ms" ? "Cari kedai" : "Search stores"}
             </button>
-          </div>
+          </>
         ) : (
-          <div className="mx-auto flex w-full max-w-[712px] flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div className="flex w-full">
             <button
               type="button"
               onClick={onViewBasket}
-              className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#087f5b] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
+              className="flex min-h-12 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-xl bg-[#087f5b] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
             >
               {copy.viewBasket}
               <IcoArrowRight />
             </button>
           </div>
         )}
-        {emptyError && (
-          <p role="alert" className="mx-auto mt-2 max-w-[712px] text-right text-sm font-medium text-[#ba1a1a]">{copy.addOneItem}</p>
-        )}
+        </div>
+        {emptyError && <p role="alert" className="mx-auto mt-2 max-w-[560px] text-right text-sm font-medium text-[#ba1a1a]">{copy.addOneItem}</p>}
       </div>}
     </div>
   );
@@ -1221,6 +1239,12 @@ function createLocationSessionToken(): string {
     return crypto.randomUUID();
   }
   return "smartcart-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+}
+
+function JourneyProgress({ step, copy }: { step: 1 | 2 | 3 | 4; copy: AppCopy }) {
+  return <div className="mx-auto w-full max-w-[1120px] px-4 pb-4 pt-5 sm:px-6 sm:pt-7 lg:px-8">
+    <ProgressIndicator step={step} copy={copy} />
+  </div>;
 }
 
 function travelRequestFromPreferences(preferences: TravelPreferences): TravelPreferencesRequest {
@@ -1278,6 +1302,11 @@ function LocationScreen({
   const locationGeneration = useRef(0);
   const reverseController = useRef<AbortController | null>(null);
   const [notification, setNotification] = useState({ id: 0, message: "" });
+  const continueDisabled = !selectedOrigin
+    || searchState === "resolving"
+    || searchState === "locating"
+    || (preparationStatus !== "ready" && preparationStatus !== "unverified")
+    || (preparationResponse?.candidateCount ?? 0) === 0;
   useEffect(() => () => { locationGeneration.current += 1; reverseController.current?.abort(); }, []);
 
   useEffect(() => {
@@ -1502,11 +1531,9 @@ function LocationScreen({
   return (
     <div className="screen-enter">
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
-      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={1} copy={copy} />
-      </div>
+      <JourneyProgress step={1} copy={copy} />
 
-      <div className="px-4 pb-5 sm:px-6">
+      <div className="mx-auto w-full max-w-[1120px] px-4 pb-5 sm:px-6 lg:px-8">
         <p className="mb-1 text-sm font-bold text-[#087f5b]">{copy.locationEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.locationTitle}</h1>
         <p className="mt-2 text-[16px] leading-6 text-[#53635c]">
@@ -1514,7 +1541,7 @@ function LocationScreen({
         </p>
       </div>
 
-      <div className="grid gap-6 px-4 pb-36 sm:px-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:px-12">
+      <div className="mx-auto grid w-full max-w-[1120px] gap-6 px-4 pb-32 sm:px-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-7 lg:px-8">
         <section className="flex flex-col gap-4 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5 lg:col-start-1">
           <div className="flex items-center gap-2">
             <IcoLocation />
@@ -1715,22 +1742,21 @@ function LocationScreen({
             <div className="flex justify-between gap-4"><dt className="text-[#617069]">{locale === "ms" ? "Status" : "Status"}</dt><dd className="text-right font-bold text-[#17362c]">{preparationStatus === "ready" ? (locale === "ms" ? "Sedia" : "Ready") : preparationStatus === "unverified" ? (locale === "ms" ? "Tidak disahkan" : "Unverified") : preparationStatus === "preparing" ? (locale === "ms" ? "Menyediakan" : "Preparing") : "—"}</dd></div>
           </dl>
           <p className="mt-5 text-sm leading-6 text-[#53635c]">{locale === "ms" ? "Lokasi anda dan senarai kedai sementara kekal dalam sesi ini sahaja." : "Your location and temporary store preparation stay in this session only."}</p>
+          <div className="mt-6 hidden border-t border-[#d5e8de] pt-4 lg:block">
+            <button type="button" onClick={handleCompare} disabled={continueDisabled} className="min-h-11 w-full rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#8aa69d]">{copy.shop}</button>
+          </div>
         </aside>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur">
-        <div className="mx-auto flex w-full max-w-[712px] gap-3">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 lg:hidden">
+        <div className="pointer-events-auto mx-auto flex w-full max-w-[560px] gap-3 rounded-2xl border border-[#dfe7e2] bg-white/96 p-2 shadow-[0_-4px_28px_rgba(16,35,29,0.16)] backdrop-blur">
           <button type="button" onClick={onBack} className="h-14 flex-[0.8] rounded-2xl border border-[#cbd8d1] bg-white text-[14px] font-bold text-[#087f5b]">
             {copy.back}
           </button>
           <button
             type="button"
             onClick={handleCompare}
-            disabled={!selectedOrigin
-              || searchState === "resolving"
-              || searchState === "locating"
-              || (preparationStatus !== "ready" && preparationStatus !== "unverified")
-              || (preparationResponse?.candidateCount ?? 0) === 0}
+            disabled={continueDisabled}
             className="h-14 flex-1 rounded-2xl bg-[#087f5b] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] disabled:cursor-not-allowed disabled:bg-[#8aa69d] disabled:shadow-none"
           >
             {copy.shop}
@@ -2168,7 +2194,8 @@ function RecommendationOverview({
 
   return (
     <div className="screen-enter pb-8">
-      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
+      <JourneyProgress step={4} copy={copy} />
+      <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 pb-6 sm:gap-8 sm:px-6 lg:px-8">
         {resultIsStale && (
           <div role="alert" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-6 text-[#7a4d00]">
             <p className="font-extrabold">{copy === COPY.ms ? "Bakul anda telah berubah" : "Your basket has changed"}</p>
@@ -2479,10 +2506,8 @@ function CompareScreen({
 
   return (
     <div className="screen-enter pb-8">
-      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
-        <div>
-          <ProgressIndicator step={4} copy={copy} />
-        </div>
+      <JourneyProgress step={4} copy={copy} />
+      <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-6 px-4 pb-6 sm:gap-8 sm:px-6 lg:px-8">
 
         <div className="flex flex-col gap-2">
           <p className="text-sm font-bold text-[#087f5b]">{copy.recommendationEyebrow}</p>
@@ -2606,17 +2631,12 @@ function HomeDashboard({
   const recent = listTripRecords(history).slice(0, 3);
   const tripLabel = hasDraft ? (isMs ? "Teruskan perjalanan membeli-belah" : "Continue your shopping trip") : (isMs ? "Mulakan perjalanan membeli-belah" : "Start a shopping trip");
   return (
-    <div className="mx-auto w-full max-w-[1440px] px-4 pb-12 pt-8 sm:px-7 lg:px-12 lg:pt-12">
-      <section className="mb-8 flex flex-col justify-between gap-5 md:flex-row md:items-end">
+    <div className="mx-auto w-full max-w-[1200px] px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-10">
+      <section className="mb-7 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">SmartCart</p>
           <h1 className="mt-2 text-4xl font-extrabold tracking-[-0.06em] text-[#10231d] sm:text-5xl">{isMs ? "Selamat datang kembali" : "Welcome back"}</h1>
           <p className="mt-3 max-w-2xl text-base leading-7 text-[#53635c]">{isMs ? "Rancang barangan rumah, semak senarai anda dan lihat sejarah perbelanjaan." : "Plan household essentials, pick up your checklist, and keep an eye on past spending."}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/checklist" className="inline-flex min-h-11 items-center rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2]">{isMs ? "Senarai semak" : "Checklist"}</Link>
-          <Link href="/history" className="inline-flex min-h-11 items-center rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2]">{isMs ? "Sejarah" : "History"}</Link>
-          <Link href="/inbox" className="inline-flex min-h-11 items-center rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2]">{isMs ? "Peti masuk" : "Inbox"}{unreadCount > 0 && <span className="ml-2 rounded-full bg-[#e8590c] px-2 py-0.5 text-xs text-white">{unreadCount}</span>}</Link>
         </div>
       </section>
 
@@ -2663,15 +2683,15 @@ function HomeDashboard({
 function TripHistoryScreen({ records, locale }: { records: TripRecord[]; locale: Locale }) {
   const isMs = locale === "ms";
   const ordered = listTripRecords(records);
-  return <div className="mx-auto w-full max-w-[1440px] px-4 pb-12 pt-8 sm:px-7 lg:px-12 lg:pt-12"><div className="mb-7"><p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">{isMs ? "Perjalanan lalu" : "Past trips"}</p><h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-[#10231d]">{isMs ? "Sejarah membeli-belah" : "Shopping history"}</h1><p className="mt-3 text-[#617069]">{isMs ? "Jumlah perbelanjaan menggunakan harga sebenar yang anda rekodkan sahaja." : "Spending totals include only actual prices you recorded."}</p></div>
-    {ordered.length === 0 ? <AppCard><p className="font-bold text-[#17362c]">{isMs ? "Belum ada perjalanan direkodkan." : "No trips recorded yet."}</p><p className="mt-2 text-sm text-[#617069]">{isMs ? "Rekodkan perjalanan daripada senarai semak untuk melihatnya di sini." : "Record a trip from your checklist to see it here."}</p><Link href="/trip/travel" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white">{isMs ? "Mulakan perjalanan" : "Start a trip"}</Link></AppCard> : <div className="grid gap-4 lg:grid-cols-2">{ordered.map(record => <AppCard key={record.id} className="!p-0"><details className="group"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5 sm:p-7"><div className="min-w-0"><p className="truncate text-xl font-extrabold text-[#17362c]">{record.store.name}</p><p className="mt-1 text-sm text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "long", timeStyle: "short" }).format(new Date(record.recordedAt))}</p><p className="mt-2 text-xs text-[#617069]">{record.lines.filter(line => line.status === "bought").length}/{record.lines.length} {isMs ? "dibeli" : "items bought"}</p></div><div className="shrink-0 text-right"><p className="text-xs font-bold uppercase tracking-wide text-[#718078]">{isMs ? "Perbelanjaan sebenar" : "Actual spending"}</p><p className="mt-1 text-xl font-extrabold text-[#087f5b]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</p>{record.savingsSnapshot?.totalEstimatedSavingsRm != null && <p className="mt-1 text-xs font-bold text-[#087f5b]">{isMs ? "Anggaran simpanan" : "Estimated savings"} {formatRm(record.savingsSnapshot.totalEstimatedSavingsRm)}</p>}<span className="mt-2 block text-xs font-bold text-[#087f5b] group-open:hidden">{isMs ? "Butiran ↓" : "Details ↓"}</span></div></summary><div className="border-t border-[#e6ede9] px-5 py-4 sm:px-7">{record.savingsSnapshot && <SavingsEstimatePanel snapshot={record.savingsSnapshot} locale={locale} />}<p className="mb-2 mt-4 text-xs text-[#718078]">{isMs ? "Jumlah baris menggunakan harga sebenar yang diketahui sahaja." : "Line totals show known actual prices only."}</p>{record.lines.length ? <ul className="divide-y divide-[#e6ede9]">{record.lines.map(line => <li key={line.id} className="flex justify-between gap-4 py-3 text-sm"><div className="min-w-0"><p className="font-bold text-[#17362c]">{line.itemName}</p><p className="mt-1 text-xs text-[#718078]">{line.quantity} × {line.status === "bought" ? (isMs ? "dibeli" : "bought") : line.status === "not_bought" ? (isMs ? "tidak dibeli" : "not bought") : (isMs ? "belum selesai" : "unfinished")}</p></div><span className="shrink-0 font-extrabold text-[#17362c]">{line.actualLineTotalRm == null ? "—" : formatRm(line.actualLineTotalRm)}</span></li>)}</ul> : <p className="text-sm text-[#617069]">{isMs ? "Tiada item dalam rekod ini." : "This record has no items."}</p>}</div></details></AppCard>)}</div>}
+  return <div className="mx-auto w-full max-w-[1020px] px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-10"><div className="mb-7"><p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">{isMs ? "Perjalanan lalu" : "Past trips"}</p><h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-[#10231d]">{isMs ? "Sejarah membeli-belah" : "Shopping history"}</h1><p className="mt-3 text-[#617069]">{isMs ? "Jumlah perbelanjaan menggunakan harga sebenar yang anda rekodkan sahaja." : "Actual spending includes only prices you recorded. Trips are ordered newest first."}</p></div>
+    {ordered.length === 0 ? <AppCard><p className="font-bold text-[#17362c]">{isMs ? "Belum ada perjalanan direkodkan." : "No trips recorded yet."}</p><p className="mt-2 text-sm text-[#617069]">{isMs ? "Rekodkan perjalanan daripada senarai semak untuk melihatnya di sini." : "Record a trip from your checklist to see it here."}</p><Link href="/trip/travel" className="mt-5 inline-flex min-h-11 items-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white">{isMs ? "Mulakan perjalanan" : "Start a trip"}</Link></AppCard> : <div className="flex flex-col gap-3">{ordered.map(record => <AppCard key={record.id} className="!p-0"><details className="group"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-4 sm:p-5"><div className="min-w-0"><p className="truncate text-xl font-extrabold text-[#17362c]">{record.store.name}</p><p className="mt-1 text-sm text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "long", timeStyle: "short" }).format(new Date(record.recordedAt))}</p><p className="mt-2 text-xs text-[#617069]">{record.lines.filter(line => line.status === "bought").length}/{record.lines.length} {isMs ? "dibeli" : "items bought"}</p></div><div className="shrink-0 text-right"><p className="text-xs font-bold uppercase tracking-wide text-[#718078]">{isMs ? "Perbelanjaan sebenar" : "Actual spending"}</p><p className="mt-1 text-xl font-extrabold text-[#087f5b]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</p>{record.savingsSnapshot?.totalEstimatedSavingsRm != null && <p className="mt-1 text-xs font-bold text-[#087f5b]">{isMs ? "Anggaran simpanan" : "Estimated savings"} {formatRm(record.savingsSnapshot.totalEstimatedSavingsRm)}</p>}<span className="mt-2 block text-xs font-bold text-[#087f5b] group-open:hidden">{isMs ? "Butiran ↓" : "Details ↓"}</span></div></summary><div className="border-t border-[#e6ede9] px-5 py-4 sm:px-7">{record.savingsSnapshot && <SavingsEstimatePanel snapshot={record.savingsSnapshot} locale={locale} />}<p className="mb-2 mt-4 text-xs text-[#718078]">{isMs ? "Jumlah baris menggunakan harga sebenar yang diketahui sahaja." : "Line totals show known actual prices only."}</p>{record.lines.length ? <ul className="divide-y divide-[#e6ede9]">{record.lines.map(line => <li key={line.id} className="flex justify-between gap-4 py-3 text-sm"><div className="min-w-0"><p className="font-bold text-[#17362c]">{line.itemName}</p><p className="mt-1 text-xs text-[#718078]">{line.quantity} × {line.status === "bought" ? (isMs ? "dibeli" : "bought") : line.status === "not_bought" ? (isMs ? "tidak dibeli" : "not bought") : (isMs ? "belum selesai" : "unfinished")}</p></div><span className="shrink-0 font-extrabold text-[#17362c]">{line.actualLineTotalRm == null ? "—" : formatRm(line.actualLineTotalRm)}</span></li>)}</ul> : <p className="text-sm text-[#617069]">{isMs ? "Tiada item dalam rekod ini." : "This record has no items."}</p>}</div></details></AppCard>)}</div>}
   </div>;
 }
 
 function InboxScreen({ messages, locale, onRead }: { messages: InboxMessage[]; locale: Locale; onRead: (id: string) => void }) {
   const isMs = locale === "ms";
-  return <div className="mx-auto w-full max-w-[1440px] px-4 pb-12 pt-8 sm:px-7 lg:px-12 lg:pt-12"><div className="mb-7"><p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">SmartCart</p><h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-[#10231d]">{isMs ? "Peti masuk" : "Inbox"}</h1><p className="mt-3 text-[#617069]">{isMs ? "Laporan simpanan dan perbelanjaan anda akan dihantar ke sini." : "Your savings and spending reports will be delivered here."}</p></div>
-    {messages.length === 0 ? <AppCard><div className="mx-auto max-w-xl py-8 text-center"><span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e7f7f0] text-2xl text-[#087f5b]">✉</span><h2 className="mt-4 text-xl font-extrabold text-[#17362c]">{isMs ? "Peti masuk anda kosong" : "Your inbox is clear"}</h2><p className="mt-2 text-sm leading-6 text-[#617069]">{isMs ? "Laporan mingguan atau bulanan akan muncul di sini apabila tersedia." : "Weekly or monthly reports will appear here when they’re available."}</p></div></AppCard> : <div className="grid gap-4 lg:grid-cols-2">{messages.map(message => <button type="button" key={message.id} onClick={() => onRead(message.id)} className={`rounded-3xl border p-5 text-left shadow-[0_8px_28px_rgba(16,35,29,0.045)] transition-colors sm:p-7 ${message.readAt ? "border-[#e0e9e4] bg-white" : "border-[#aad6c2] bg-[#f2f8f4]"}`}><div className="flex items-start justify-between gap-4"><div><span className="text-xs font-extrabold uppercase tracking-wide text-[#087f5b]">{message.type === "weekly_report" ? (isMs ? "Laporan mingguan" : "Weekly report") : (isMs ? "Laporan bulanan" : "Monthly report")}</span><h2 className="mt-2 text-xl font-extrabold text-[#17362c]">{message.title}</h2></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#087f5b]">{message.readAt ? (isMs ? "Dibaca" : "Read") : (isMs ? "Baharu" : "New")}</span></div><p className="mt-3 leading-6 text-[#53635c]">{message.summary}</p><div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-white/80 p-3 text-sm"><p><span className="block text-xs text-[#718078]">{isMs ? "Perbelanjaan" : "Spending"}</span><strong className="text-[#17362c]">{message.spendingRm == null ? "—" : formatRm(message.spendingRm)}</strong></p><p><span className="block text-xs text-[#718078]">{isMs ? "Penjimatan" : "Savings"}</span><strong className="text-[#17362c]">{message.savingsRm == null ? "—" : formatRm(message.savingsRm)}</strong></p></div><p className="mt-4 text-xs text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.createdAt))} · {new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.periodStart))}–{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.periodEnd))}</p></button>)}</div>}
+  return <div className="mx-auto w-full max-w-[1020px] px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-10"><div className="mb-7"><p className="text-sm font-extrabold uppercase tracking-[0.14em] text-[#087f5b]">SmartCart</p><h1 className="mt-2 text-4xl font-extrabold tracking-[-0.05em] text-[#10231d]">{isMs ? "Peti masuk" : "Inbox"}</h1><p className="mt-3 text-[#617069]">{isMs ? "Laporan simpanan dan perbelanjaan anda akan dihantar ke sini." : "Your savings and spending reports will be delivered here."}</p></div>
+    {messages.length === 0 ? <AppCard><div className="mx-auto max-w-xl py-8 text-center"><span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e7f7f0] text-2xl text-[#087f5b]">✉</span><h2 className="mt-4 text-xl font-extrabold text-[#17362c]">{isMs ? "Peti masuk anda kosong" : "Your inbox is clear"}</h2><p className="mt-2 text-sm leading-6 text-[#617069]">{isMs ? "Laporan mingguan atau bulanan akan muncul di sini apabila tersedia." : "Weekly or monthly reports will appear here when they’re available."}</p></div></AppCard> : <div className="flex flex-col gap-3">{messages.map(message => <button type="button" key={message.id} onClick={() => onRead(message.id)} className={`rounded-2xl border p-4 text-left shadow-[0_4px_18px_rgba(16,35,29,0.045)] transition-colors sm:p-5 ${message.readAt ? "border-[#e0e9e4] bg-white" : "border-[#aad6c2] bg-[#f2f8f4]"}`}><div className="flex items-start justify-between gap-4"><div><span className="text-xs font-extrabold uppercase tracking-wide text-[#087f5b]">{message.type === "weekly_report" ? (isMs ? "Laporan mingguan" : "Weekly report") : (isMs ? "Laporan bulanan" : "Monthly report")}</span><h2 className="mt-2 text-xl font-extrabold text-[#17362c]">{message.title}</h2></div><span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#087f5b]">{message.readAt ? (isMs ? "Dibaca" : "Read") : (isMs ? "Baharu" : "New")}</span></div><p className="mt-3 leading-6 text-[#53635c]">{message.summary}</p><div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-white/80 p-3 text-sm"><p><span className="block text-xs text-[#718078]">{isMs ? "Perbelanjaan" : "Spending"}</span><strong className="text-[#17362c]">{message.spendingRm == null ? "—" : formatRm(message.spendingRm)}</strong></p><p><span className="block text-xs text-[#718078]">{isMs ? "Penjimatan" : "Savings"}</span><strong className="text-[#17362c]">{message.savingsRm == null ? "—" : formatRm(message.savingsRm)}</strong></p></div><p className="mt-4 text-xs text-[#718078]">{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.createdAt))} · {new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.periodStart))}–{new Intl.DateTimeFormat(isMs ? "ms-MY" : "en-MY", { dateStyle: "medium" }).format(new Date(message.periodEnd))}</p></button>)}</div>}
   </div>;
 }
 
@@ -2920,8 +2940,9 @@ export default function App() {
     <div className="min-h-full bg-[#f7f8f6]">
       <Header
         basketCount={basketCount}
+        basket={basket}
+        showBasket={screen === "shop" || screen === "basket" || screen === "compare"}
         basketActive={screen === "basket"}
-        onBasket={screen === "shop" || screen === "basket" || screen === "compare" ? () => go("/trip/review") : undefined}
         onBack={goBack}
         locale={locale}
         onToggleLanguage={toggleLanguage}
@@ -2942,7 +2963,7 @@ export default function App() {
           />
         )}
         {screen === "checklist" && checklist && (
-          <div className="mx-auto grid w-full max-w-[1440px] gap-5 px-3 pb-10 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start lg:gap-7 lg:px-12">
+          <div className="mx-auto w-full max-w-[1020px] px-4 pb-10 sm:px-6 lg:px-8">
             <ShoppingChecklistScreen
               checklist={checklist}
               locale={locale}
@@ -2957,11 +2978,11 @@ export default function App() {
               alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
               onRecordTrip={recordTrip}
             />
-            <aside className="lg:sticky lg:top-20">{checklist.savingsSnapshot && <SavingsEstimatePanel snapshot={checklist.savingsSnapshot} locale={locale} />}</aside>
+            {checklist.savingsSnapshot && <div className="mx-4 mb-6 sm:mx-6"><SavingsEstimatePanel snapshot={checklist.savingsSnapshot} locale={locale} /></div>}
           </div>
         )}
         {screen === "checklist" && !checklist && (
-          <div className="mx-auto w-full max-w-[960px] px-4 pb-12 pt-8 sm:px-7 lg:pt-12">
+          <div className="mx-auto w-full max-w-[960px] px-4 pb-12 pt-8 sm:px-6 lg:px-8 lg:pt-10">
             <AppCard className="py-12 text-center"><span aria-hidden="true" className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e7f7f0] text-2xl text-[#087f5b]">☑</span><h1 className="mt-4 text-2xl font-extrabold text-[#17362c]">{locale === "ms" ? "Tiada senarai semak aktif" : "No active checklist"}</h1><p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#617069]">{locale === "ms" ? "Bandingkan kedai dan mulakan senarai semak daripada perjalanan membeli-belah." : "Compare stores and start a checklist from a shopping trip."}</p><Link href="/trip/travel" className="mt-6 inline-flex min-h-12 items-center rounded-xl bg-[#087f5b] px-5 text-sm font-extrabold text-white">{locale === "ms" ? "Mulakan perjalanan" : "Start a trip"}</Link></AppCard>
           </div>
         )}
