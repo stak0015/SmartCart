@@ -132,24 +132,59 @@ def get_pack_options(
     the client renders as "no pack comparison" without any error state.
     """
 
+    if not basket:
+        return {}
+    sources = {
+        str(row[0]): row for row in _source_rows([line.item_id for line in basket])
+    }
+    return get_pack_options_from_rows(basket, sources, _premise_pack_rows(premise_id))
+
+
+def get_pack_options_from_premise_rows(
+    basket: list[BasketLineRequest],
+    premise_rows: list[tuple],
+) -> dict[str, list[PackSizeOption]]:
+    """Build pack options from one already-fetched premise-wide row set.
+
+    The request-level alternatives service uses this builder so the same
+    priced rows power both strict alternatives and pack-size comparisons.
+    """
+
+    sources = {
+        str(row[0]): row
+        for row in premise_rows
+        if row[0] in {line.item_id for line in basket}
+    }
+    return get_pack_options_from_rows(basket, sources, premise_rows)
+
+
+def get_pack_options_from_rows(
+    basket: list[BasketLineRequest],
+    sources: dict[str, tuple],
+    premise_rows: list[tuple],
+) -> dict[str, list[PackSizeOption]]:
+    """Pure pack comparison builder for already-loaded database rows."""
+
     options: dict[str, list[PackSizeOption]] = {
         str(line.item_id): [] for line in basket
     }
     if not basket:
         return options
 
-    sources = {
-        str(row[0]): row for row in _source_rows([line.item_id for line in basket])
-    }
-
     by_family: dict[str, list[tuple]] = {}
-    for row in _premise_pack_rows(premise_id):
+    for row in premise_rows:
+        quantity_index = 4 if len(row) >= 10 else 3
+        kind_index = 5 if len(row) >= 10 else 4
+        if row[quantity_index] is None or row[kind_index] is None:
+            continue
         family = product_family(row[1])
         if family:
             by_family.setdefault(family, []).append(row)
 
     for item_id, source in sources.items():
-        if len(source) == 5:
+        if len(source) >= 10:
+            _sid, source_name, _source_name_en, source_unit, source_qty, source_kind = source[:6]
+        elif len(source) == 5:
             _sid, source_name, source_unit, source_qty, source_kind = source
         else:
             _sid, source_name, _source_name_en, source_unit, source_qty, source_kind = source

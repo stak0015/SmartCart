@@ -1,0 +1,75 @@
+US 5.3 (AC 5.3.1-5.3.3) — Record the Prices I Actually Saw
+US 5.3（AC 5.3.1-5.3.3）——记录我实际看到的价格
+==================================================
+
+Scope / 范围
+This note records how the shopping checklist was aligned with acceptance
+criteria AC 5.3.1, AC 5.3.2, and AC 5.3.3.
+本文档记录购物清单与验收标准 AC 5.3.1、AC 5.3.2、AC 5.3.3 的对齐情况。
+
+--------------------------------------------------
+
+AC 5.3.1 — Record the price I actually saw / 记录实际看到的价格
+
+对齐内容 / Alignment target
+- Purchased 行可录入/编辑实际单价（RM），须为正数数值、显示两位小数；
+  非法值给出可理解的报错。
+- A line marked Purchased accepts an actual unit price in RM; it must be
+  positive, numeric, shown to two decimals; bad values are rejected with an
+  understandable error.
+
+对齐所作的修改 / Changes made for alignment
+- 行模型新增 actualPriceRm 字段；仅 Purchased 行可在编辑对话框中录入、
+  修改或清空实际单价。
+- A new actualPriceRm field was added to the line model; only Purchased
+  lines offer an "Actual unit price (RM)" entry in the edit dialog.
+- 录入值须为正数、最多两位小数，输入即校验并复用既有双语报错；留空视为
+  "未知"而非错误。
+- Entries must be positive with at most two decimals, validated as typed with
+  the existing bilingual error; a blank entry means "unknown", not an error.
+
+--------------------------------------------------
+
+AC 5.3.2 — My price kept separate from the official price / 实际价与官方价分开
+
+对齐内容 / Alignment target
+- 实际价标注 "Shopper recorded"，原 PriceCatcher 或参考价并列保留；编辑
+  实际价绝不改写官方价、推荐小计或商店排名。
+- The actual price is labelled "Shopper recorded" while the original
+  PriceCatcher or reference value stays visible separately; editing it never
+  overwrites the official price, the recommendation subtotal, or the store
+  ranking.
+
+对齐所作的修改 / Changes made for alignment
+- 实际价存于独立字段 actualPriceRm，与官方/参考价在行上并列显示，行尾
+  标注 "Shopper recorded"（马来语 "Dicatat oleh pembeli"）。
+- The actual price lives in the separate actualPriceRm field and renders
+  alongside the official/reference price with a "Shopper recorded" label
+  (Malay: "Dicatat oleh pembeli").
+- 实际价相关计算全部为本地纯函数，官方价、计划小计与推荐数据不被触碰，
+  并有隔离测试守护。
+- All actual-price computation is local pure functions; the official price,
+  planned subtotal, and recommendation data are never touched, guarded by
+  isolation tests.
+
+--------------------------------------------------
+
+AC 5.3.3 — Actual line totals / 实际行小计
+
+对齐内容 / Alignment target
+- 有实际单价与数量时行小计即时重算（价 × 数量）；实际价清空或未知时
+  行小计留空，绝不显示 RM0.00。
+- With an actual unit price and purchased quantity, the line total
+  recalculates immediately (price × quantity); when the actual price is
+  cleared or unknown, the line total stays empty — never RM0.00.
+
+对齐所作的修改 / Changes made for alignment
+- 新增派生函数 actualLineTotalRm：有实际价时按 价 × 数量 即时重算；
+  实际价为 null 时返回 null，界面渲染为空白（绝不 RM0.00）。
+- A derived actualLineTotalRm recomputes price × quantity immediately; a
+  null actual price yields null and renders blank (never RM0.00).
+- 实际价随清单本地持久化；存储信封版本升至 v2，旧版已存清单经迁移链
+  自动补齐字段，不丢数据。
+- The actual price persists locally with the checklist; the storage envelope
+  rises to v2 and older saved checklists are upgraded by the migration chain
+  without data loss.

@@ -189,3 +189,72 @@ def test_median_source_suppresses_pack_comparison_query(monkeypatch) -> None:
     assert line["source"]["priceSource"] == "median"
     assert line["alternative"] is None
     assert line["packOptions"] == []
+
+
+def test_endpoint_uses_one_cursor_and_one_shared_premise_scan(monkeypatch) -> None:
+    source_rows = [
+        (
+            1, 1, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "425 g",
+            "IKAN DALAM TIN", None, Decimal("8.00"), None, TODAY,
+        ),
+    ]
+    premise_rows = [
+        (
+            1, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "425 g",
+            Decimal("0.425"), "KG", Decimal("8.00"), TODAY,
+            "IKAN DALAM TIN", None,
+        ),
+        (
+            2, "SARDIN CAP CHEAP (SOS TOMATO)", "SARDIN EN", "425 g",
+            Decimal("0.425"), "KG", Decimal("5.00"), TODAY,
+            "IKAN DALAM TIN", None,
+        ),
+        (
+            3, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "850 g",
+            Decimal("0.850"), "KG", Decimal("14.00"), TODAY,
+            "IKAN DALAM TIN", None,
+        ),
+    ]
+
+    class Cursor:
+        def __init__(self) -> None:
+            self.queries: list[str] = []
+            self.rows: list[tuple] = []
+
+        def execute(self, query, _params) -> None:
+            self.queries.append(query)
+            if "FROM premise" in query:
+                return
+            if "WITH requested" in query:
+                self.rows = source_rows
+            else:
+                self.rows = premise_rows
+
+        def fetchone(self):
+            return (1,)
+
+        def fetchall(self):
+            return self.rows
+
+    cursor = Cursor()
+    scopes = {"entered": 0, "exited": 0}
+
+    @contextmanager
+    def fake_cursor():
+        scopes["entered"] += 1
+        try:
+            yield cursor
+        finally:
+            scopes["exited"] += 1
+
+    monkeypatch.setattr("smartcart.alternatives.database_cursor", fake_cursor)
+    response = TestClient(create_app()).post(
+        "/api/premises/10/basket-alternatives",
+        json={"basket": [{"itemId": "1", "quantity": 1}]},
+    )
+
+    assert response.status_code == 200
+    assert scopes == {"entered": 1, "exited": 1}
+    assert len(cursor.queries) == 3  # premise check, source lookup, shared scan
+    assert sum("JOIN current_status" in query and "WHERE current_status.current_price > 0" in query for query in cursor.queries) == 1
+    assert response.json()["lines"][0]["alternative"]["itemId"] == "2"

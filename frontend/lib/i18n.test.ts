@@ -136,40 +136,46 @@ describe("combined total labels (iteration1 feedback)", () => {
   });
 });
 
-describe("savings insights copy (AC 8.2.1-8.2.3)", () => {
-  it("exposes the insight keys in both English and Bahasa Melayu", () => {
-    for (const copy of [COPY.en, COPY.ms]) {
-      expect(copy.savingsInsightsTitle.trim().length).toBeGreaterThan(0);
-      expect(copy.travelSavingsLabel.trim().length).toBeGreaterThan(0);
-      expect(copy.potentialPriceSavingsLabel.trim().length).toBeGreaterThan(0);
-      expect(copy.estimateBadge.trim().length).toBeGreaterThan(0);
-      expect(copy.potentialBadge.trim().length).toBeGreaterThan(0);
-      expect(copy.noSavingsInsights.trim().length).toBeGreaterThan(0);
-    }
+describe("shopping checklist copy", () => {
+  it("keeps the English and Bahasa Melayu copy shapes identical", () => {
+    expect(Object.keys(COPY.ms).sort()).toEqual(Object.keys(COPY.en).sort());
   });
 
-  it("labels travel savings as an estimate, never as realised savings", () => {
-    expect(COPY.en.travelSavingsLabel).toContain("Estimated");
-    expect(COPY.en.travelEstimateNote).toContain("estimated");
+  it("provides localized checklist access, progress, and price copy", () => {
+    expect(COPY.en.openChecklistAria(1)).toBe("Open shopping checklist, 1 item");
+    expect(COPY.en.openChecklistAria(3)).toBe("Open shopping checklist, 3 items");
+    expect(COPY.ms.openChecklistAria(3)).toContain("3 item");
+    expect(COPY.en.checklistProgress(2, 3)).toBe("2 of 3 items bought");
+    expect(COPY.ms.checklistProgress(2, 3)).toBe("2 daripada 3 item dibeli");
+    expect(COPY.en.checklistPriceDisclosure(1)).toContain("1 item has no price");
+    expect(COPY.en.checklistPriceDisclosure(2)).toContain("2 items have no price");
+    expect(COPY.ms.checklistPriceDisclosure(2)).toContain("2 item");
+    expect(COPY.en.plannedSubtotal).not.toBe(COPY.en.estimatedPlannedSubtotal);
+    expect(COPY.ms.plannedSubtotal).not.toBe(COPY.ms.estimatedPlannedSubtotal);
   });
 
-  it("labels price savings as potential, never as money already saved", () => {
-    expect(COPY.en.potentialPriceSavingsLabel).toContain("Potential");
-    // AC 8.2.3: potential savings are never presented as money actually saved.
-    expect(COPY.en.potentialNotActualNote).toContain("not money you have already saved");
-    expect(COPY.en.potentialPriceSavingsDetail("RM 4.00", "Cheaper Mart"))
-      .toContain("could save");
-  });
-
-  it("keeps the two badges distinct in both languages", () => {
-    expect(COPY.en.estimateBadge).not.toBe(COPY.en.potentialBadge);
-    expect(COPY.ms.estimateBadge).not.toBe(COPY.ms.potentialBadge);
-  });
-
-  it("discloses the comparison basis and mixed price sources", () => {
-    expect(COPY.en.comparableItemsNote(2, 3)).toBe("Based on 2 of 3 comparable items.");
-    expect(COPY.ms.comparableItemsNote(2, 3)).toContain("2");
-    expect(COPY.en.mixedPriceSourcesNote).toContain("estimates");
-    expect(COPY.en.straightLineTravelNote).toContain("straight-line");
+  it("provides status actions, manual-item validation, and destructive confirmations", () => {
+    expect(COPY.en.markBought("Rice")).toContain("Rice");
+    expect(COPY.en.markNotBought("Rice")).toContain("not bought");
+    expect(COPY.ms.markBought("Beras")).toContain("Beras");
+    expect(COPY.ms.markNotBought("Beras")).toContain("belum dibeli");
+    expect(COPY.en.itemQuantityError).toContain("positive whole number");
+    expect(COPY.ms.itemQuantityError).toContain("nombor bulat positif");
+    expect(COPY.en.itemPriceError).toContain("two decimal places");
+    expect(COPY.ms.itemPriceError).toContain("dua tempat perpuluhan");
+    expect(COPY.en.shopperRecorded).toBe("Shopper recorded");
+    expect(COPY.ms.shopperRecorded).toContain("Dicatat");
+    expect(COPY.en.actualUnitPrice).toContain("Actual unit price");
+    expect(COPY.ms.actualUnitPrice).toContain("Harga seunit sebenar");
+    expect(COPY.en.actualQuantity).toBe("Actual quantity");
+    expect(COPY.ms.actualQuantity).toContain("Kuantiti sebenar");
+    expect(COPY.en.quantitySourcePlanned).toBe("planned");
+    expect(COPY.en.quantitySourceActual).toBe("actual");
+    expect(COPY.ms.quantitySourcePlanned).toContain("dirancang");
+    expect(COPY.ms.quantitySourceActual).toContain("sebenar");
+    expect(COPY.en.deleteItemConfirm("Milk")).toContain("Milk");
+    expect(COPY.ms.deleteItemConfirm("Susu")).toContain("Susu");
+    expect(COPY.en.replaceChecklistConfirm).toContain("manually added items");
+    expect(COPY.ms.deleteChecklistConfirm).toContain("secara kekal");
   });
 });

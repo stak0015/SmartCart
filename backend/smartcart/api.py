@@ -13,7 +13,11 @@ from .catalogue import (
 )
 from .config import get_settings
 from .errors import AppError
-from .alternatives import get_basket_alternatives, premise_exists
+from .alternatives import (
+    get_basket_alternatives,
+    get_basket_alternatives_with_pack_options,
+    premise_exists,
+)
 from .maps import get_maps_provider
 from .models import (
     LocationResolveRequest,
@@ -24,6 +28,7 @@ from .models import (
     RecommendationResponse,
     ResolvedLocation,
     BasketAlternativesRequest,
+    BasketLineRequest,
     BasketAlternativesResponse,
     BasketAlternativeLine,
     AlternativePriceItem,
@@ -43,6 +48,37 @@ router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
 FALLBACK_NEAREST_LIMIT = 25
+
+# Keep the historical helper imports as an intentionally small compatibility
+# seam for callers/tests that override the old endpoint dependencies. The
+# normal production path below uses the cohesive request service instead.
+_DEFAULT_PREMISE_EXISTS = premise_exists
+_DEFAULT_GET_BASKET_ALTERNATIVES = get_basket_alternatives
+_DEFAULT_GET_PACK_OPTIONS = get_pack_options
+
+
+def _load_basket_alternatives(
+    premise_id: str,
+    basket: list[BasketLineRequest],
+) -> tuple[bool, list, dict]:
+    if (
+        premise_exists is not _DEFAULT_PREMISE_EXISTS
+        or get_basket_alternatives is not _DEFAULT_GET_BASKET_ALTERNATIVES
+        or get_pack_options is not _DEFAULT_GET_PACK_OPTIONS
+    ):
+        # Backward-compatible dependency overrides. This branch is only used
+        # when an integration explicitly replaces the legacy helpers; normal
+        # requests use one cursor via get_basket_alternatives_with_pack_options.
+        if not premise_exists(premise_id):
+            return False, [], {}
+        lines = get_basket_alternatives(premise_id, basket)
+        pack_options = (
+            get_pack_options(premise_id, basket)
+            if any(line.source.price_source == "store" for line in lines)
+            else {}
+        )
+        return True, lines, pack_options
+    return get_basket_alternatives_with_pack_options(premise_id, basket)
 
 
 @router.get("/health")
@@ -126,29 +162,17 @@ async def basket_alternatives(
     payload: BasketAlternativesRequest,
     premise_id: int = Path(ge=1, le=2**63 - 1),
 ) -> BasketAlternativesResponse:
-    if not await run_in_threadpool(premise_exists, str(premise_id)):
+    premise_found, lines, pack_options = await run_in_threadpool(
+        _load_basket_alternatives,
+        str(premise_id),
+        payload.basket,
+    )
+    if not premise_found:
         raise AppError(
             "PREMISE_NOT_FOUND",
             "That store is no longer available for price comparison.",
             404,
         )
-    lines = await run_in_threadpool(
-        get_basket_alternatives,
-        str(premise_id),
-        payload.basket,
-    )
-    # Pack-size comparisons are meaningful only for a source price observed at
-    # this store. A median source is useful for the selected-item display, but
-    # must not become the baseline for a store-specific comparison.
-    pack_options = (
-        await run_in_threadpool(
-            get_pack_options,
-            str(premise_id),
-            payload.basket,
-        )
-        if any(line.source.price_source == "store" for line in lines)
-        else {}
-    )
     response_lines = [
         BasketAlternativeLine(
             quantity=line.quantity,

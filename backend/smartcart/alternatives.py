@@ -107,6 +107,21 @@ def premise_exists(premise_id: str) -> bool:
         return cursor.fetchone() is not None
 
 
+def _premise_is_open(cursor, premise_id: str) -> bool:
+    """Check a premise using an already-open request cursor."""
+
+    cursor.execute(
+        """
+        SELECT 1
+        FROM premise
+        WHERE premise_id = %s
+          AND open_closed_status = 'open'
+        """,
+        (int(premise_id),),
+    )
+    return cursor.fetchone() is not None
+
+
 def _item_from_row(
     row: tuple,
     quantity: int,
@@ -225,6 +240,23 @@ def get_basket_alternatives(
         )
         candidate_rows = cursor.fetchall()
 
+    return _build_basket_alternatives(source_rows, candidate_rows, basket, today)
+
+
+def _build_basket_alternatives(
+    source_rows: list[tuple],
+    candidate_rows: list[tuple],
+    basket: list[BasketLineRequest],
+    today: date,
+) -> list[BasketAlternative]:
+    """Build alternatives from rows already fetched for the request.
+
+    ``candidate_rows`` uses the eight-column shape returned by the legacy
+    alternatives query.  The request-level service converts the shared
+    premise-wide rows into this shape before calling this pure builder.
+    """
+
+    quantities = [line.quantity for line in basket]
     candidates_by_key: dict[tuple[str | None, str], list[tuple]] = {}
     for row in candidate_rows:
         if len(row) == 7:
@@ -297,3 +329,97 @@ def get_basket_alternatives(
             )
         )
     return results
+
+
+def get_basket_alternatives_with_pack_options(
+    premise_id: str,
+    basket: list[BasketLineRequest],
+    today: date | None = None,
+) -> tuple[bool, list[BasketAlternative], dict[str, list[object]]]:
+    """Load all basket comparison data in one database scope.
+
+    The premise-wide priced rows are fetched once and shared by strict
+    cheaper-equivalent matching and pack-size comparisons.  The boolean is
+    false when the premise is not open; callers can map that to the public 404
+    response without issuing a second database request.
+    """
+
+    today = today or date.today()
+    item_ids = [line.item_id for line in basket]
+    quantities = [line.quantity for line in basket]
+
+    # Imported lazily to avoid the alternatives -> pack_ratios -> alternatives
+    # module import cycle.  The builder itself is pure and performs no I/O.
+    from .pack_ratios import get_pack_options_from_premise_rows
+
+    with database_cursor() as cursor:
+        if not _premise_is_open(cursor, premise_id):
+            return False, [], {}
+        if not basket:
+            return True, [], {}
+
+        cursor.execute(
+            """
+            WITH requested AS (
+                SELECT item_id, quantity, position
+                FROM unnest(%s::BIGINT[], %s::INTEGER[])
+                    WITH ORDINALITY AS input(item_id, quantity, position)
+            )
+            SELECT requested.item_id, requested.quantity, item.item_name,
+                   item.item_name_en, item.unit, item.item_category,
+                   item.sara_eligible,
+                   current_status.current_price,
+                   item.median_price_rm,
+                   current_status.price_observed_date
+            FROM requested
+            LEFT JOIN item ON item.item_id = requested.item_id
+            LEFT JOIN current_status
+              ON current_status.item_id = requested.item_id
+             AND current_status.premise_id = %s
+            ORDER BY requested.position
+            """,
+            (item_ids, quantities, int(premise_id)),
+        )
+        source_rows = cursor.fetchall()
+
+        # This is the only premise-wide scan.  It includes the quantity
+        # columns needed by pack comparisons, so no second item lookup is
+        # needed for the requested source lines.
+        cursor.execute(
+            """
+            SELECT item.item_id, item.item_name, item.item_name_en, item.unit,
+                   item.quantity_value, item.quantity_unit,
+                   current_status.current_price,
+                   current_status.price_observed_date,
+                   item.item_category, item.sara_eligible
+            FROM item
+            JOIN current_status
+              ON current_status.item_id = item.item_id
+             AND current_status.premise_id = %s
+            WHERE current_status.current_price > 0
+            """,
+            (int(premise_id),),
+        )
+        premise_rows = cursor.fetchall()
+
+    # Adapt the shared rows to the strict-alternative builder's historical
+    # eight-column candidate shape (the quantity fields are pack-only data).
+    candidate_rows = [
+        (
+            row[0], row[1], row[2], row[3], row[8], row[9], row[6], row[7],
+        )
+        for row in premise_rows
+        if row[0] not in item_ids
+    ]
+    lines = _build_basket_alternatives(source_rows, candidate_rows, basket, today)
+    store_source_ids = {
+        line.source.item_id
+        for line in lines
+        if line.source.price_source == "store"
+    }
+    pack_options = (
+        get_pack_options_from_premise_rows(basket, premise_rows)
+        if store_source_ids
+        else {}
+    )
+    return True, lines, pack_options
