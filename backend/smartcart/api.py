@@ -1,6 +1,12 @@
 """HTTP endpoints for catalogue, location, and store recommendation features."""
 
-from datetime import datetime, timezone
+from collections import OrderedDict
+from copy import deepcopy
+from datetime import datetime, timedelta, timezone
+from hashlib import sha256
+import json
+from time import monotonic
+from uuid import uuid4
 
 from fastapi import APIRouter, Path, Query
 from starlette.concurrency import run_in_threadpool
@@ -26,6 +32,9 @@ from .models import (
     LocationSearchResponse,
     RecommendationRequest,
     RecommendationResponse,
+    CandidatePreparationRequest,
+    CandidatePreparationResponse,
+    TravelPreferences,
     ResolvedLocation,
     BasketAlternativesRequest,
     BasketLineRequest,
@@ -48,6 +57,13 @@ router = APIRouter(prefix="/api")
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
 FALLBACK_NEAREST_LIMIT = 25
+CANDIDATE_CACHE_TTL_SECONDS = 30 * 60
+CANDIDATE_CACHE_MAX_ENTRIES = 128
+
+# Process-local and deliberately short-lived. Entries contain the routed store
+# snapshot, not the selected origin; only a SHA-256 travel fingerprint is kept
+# to prevent an opaque token being reused with changed travel settings.
+_candidate_cache: OrderedDict[str, tuple[float, str, RecommendationResponse]] = OrderedDict()
 
 # Keep the historical helper imports as an intentionally small compatibility
 # seam for callers/tests that override the old endpoint dependencies. The
@@ -55,6 +71,83 @@ FALLBACK_NEAREST_LIMIT = 25
 _DEFAULT_PREMISE_EXISTS = premise_exists
 _DEFAULT_GET_BASKET_ALTERNATIVES = get_basket_alternatives
 _DEFAULT_GET_PACK_OPTIONS = get_pack_options
+
+
+def _travel_fingerprint(travel: TravelPreferences) -> str:
+    serialized = json.dumps(
+        travel.model_dump(mode="json", by_alias=True),
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _prune_candidate_cache(now: float) -> None:
+    expired = [key for key, (expires_at, _, _) in _candidate_cache.items() if expires_at <= now]
+    for key in expired:
+        _candidate_cache.pop(key, None)
+    while len(_candidate_cache) > CANDIDATE_CACHE_MAX_ENTRIES:
+        _candidate_cache.popitem(last=False)
+
+
+def _store_candidate_snapshot(
+    travel: TravelPreferences,
+    response: RecommendationResponse,
+) -> tuple[str, datetime]:
+    now = monotonic()
+    _prune_candidate_cache(now)
+    cache_id = uuid4().hex
+    _candidate_cache[cache_id] = (
+        now + CANDIDATE_CACHE_TTL_SECONDS,
+        _travel_fingerprint(travel),
+        deepcopy(response),
+    )
+    _prune_candidate_cache(now)
+    expires_at = datetime.now(timezone.utc) + timedelta(seconds=CANDIDATE_CACHE_TTL_SECONDS)
+    return cache_id, expires_at
+
+
+def _get_candidate_snapshot(
+    cache_id: str | None,
+    travel: TravelPreferences,
+) -> RecommendationResponse | None:
+    if not cache_id:
+        return None
+    now = monotonic()
+    _prune_candidate_cache(now)
+    entry = _candidate_cache.get(cache_id)
+    if not entry:
+        return None
+    _, fingerprint, response = entry
+    if fingerprint != _travel_fingerprint(travel):
+        return None
+    _candidate_cache.move_to_end(cache_id)
+    return deepcopy(response)
+
+
+def _priced_ranking_method(route_provider: str, expanded_search: bool) -> str:
+    if expanded_search:
+        return (
+            "No store matched your travel limit, so the nearest stores are shown instead. "
+            "They are ranked by exact store-price coverage, then effective coverage "
+            "including cached median estimates, then lowest combined cost (effective "
+            "basket subtotal plus estimated return transport cost); these stores exceed "
+            "your chosen limit."
+        )
+    if route_provider == "straight_line":
+        return (
+            "Nearest 25 premises by straight-line distance; stores are ranked by exact "
+            "store-price coverage, then effective coverage including cached median "
+            "estimates, then estimated combined cost using rough travel estimates. "
+            "Google Routes is not configured, so travel limits and route feasibility "
+            "are not verified."
+        )
+    return (
+        "Stores ranked by exact store-price coverage, then effective coverage including "
+        "cached median estimates, then lowest combined cost: effective basket subtotal "
+        "plus estimated return transport cost; ties by shortest travel time, route "
+        "distance, store name, then premise ID."
+    )
 
 
 def _load_basket_alternatives(
@@ -197,10 +290,46 @@ async def basket_alternatives(
     )
 
 
+@router.post("/recommendations/prepare", response_model=CandidatePreparationResponse)
+async def prepare_recommendation_candidates(
+    payload: CandidatePreparationRequest,
+) -> CandidatePreparationResponse:
+    """Warm one short-lived route snapshot before the shopper builds a basket."""
+    response = await recommend_stores(RecommendationRequest(travel=payload.travel))
+    cache_id, expires_at = _store_candidate_snapshot(payload.travel, response)
+    return CandidatePreparationResponse(
+        candidate_cache_id=cache_id,
+        candidate_count=response.total_candidates_evaluated,
+        reachable_count=sum(
+            not recommendation.exceeds_limit
+            for recommendation in response.recommendations
+        ),
+        generated_at=response.generated_at,
+        expires_at=expires_at,
+    )
+
+
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
     settings = get_settings()
     travel = payload.travel
+    cached = _get_candidate_snapshot(payload.candidate_cache_id, travel)
+    if cached is not None and payload.basket:
+        recommendations = cached.recommendations
+        pricing = await run_in_threadpool(
+            get_basket_pricing,
+            [store.premise_id for store in recommendations],
+            payload.basket,
+        )
+        recommendations = apply_basket_pricing(recommendations, pricing)
+        return cached.model_copy(update={
+            "recommendations": recommendations,
+            "generated_at": datetime.now(timezone.utc),
+            "ranking_method": _priced_ranking_method(
+                cached.route_provider,
+                cached.expanded_search,
+            ),
+        })
     use_straight_line_fallback = not settings.google_routes_api_key
     maximum_straight_line_km = (
         travel.limit.value

@@ -116,6 +116,81 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
     }
 
 
+def test_prepared_candidates_reuse_routes_and_price_the_current_basket(
+    monkeypatch,
+) -> None:
+    from smartcart import api
+    from smartcart.pricing import StoreBasketSummary
+
+    class CountingMapsProvider:
+        calls = 0
+
+        async def compute_route_matrix(self, origin, destination_place_ids, mode):
+            self.calls += 1
+            assert origin == {"latitude": 6.1254, "longitude": 102.2381}
+            assert destination_place_ids == ["google-place-1"]
+            assert mode == "motorcycle"
+            return [RouteMatrixResult(0, 2_000, 601)]
+
+    provider = CountingMapsProvider()
+    api._candidate_cache.clear()
+    monkeypatch.setattr(
+        api,
+        "get_settings",
+        lambda: replace(get_settings(), google_routes_api_key="test-routes-key"),
+    )
+    monkeypatch.setattr(
+        api,
+        "find_nearest_premises",
+        lambda **_options: [
+            PremiseCandidate(
+                premise_id="1",
+                premise_code="P1",
+                name="Kedai Test",
+                address="Jalan Test",
+                district="Kota Bharu",
+                state="Kelantan",
+                google_place_id="google-place-1",
+                straight_line_distance_km=1.5,
+                sara_status="candidate",
+            )
+        ],
+    )
+    monkeypatch.setattr(api, "get_maps_provider", lambda: provider)
+    monkeypatch.setattr(
+        api,
+        "get_basket_pricing",
+        lambda premise_ids, basket: {
+            premise_id: StoreBasketSummary(
+                subtotal_rm=12.34,
+                priced_count=1,
+                basket_line_count=1,
+                sara_credit_rm=5.0,
+                cash_needed_rm=7.34,
+            )
+            for premise_id in premise_ids
+        },
+    )
+
+    client = TestClient(create_app())
+    prepared = client.post(
+        "/api/recommendations/prepare",
+        json={"travel": VALID_REQUEST["travel"]},
+    )
+    assert prepared.status_code == 200
+    cache_id = prepared.json()["candidateCacheId"]
+    assert prepared.json()["reachableCount"] == 1
+
+    priced = client.post(
+        "/api/recommendations",
+        json={**VALID_REQUEST, "candidateCacheId": cache_id},
+    )
+    assert priced.status_code == 200
+    assert priced.json()["recommendations"][0]["basketSubtotalRm"] == 12.34
+    assert provider.calls == 1
+    api._candidate_cache.clear()
+
+
 def test_recommendation_endpoint_without_basket_keeps_transport_ranking(
     monkeypatch,
 ) -> None:

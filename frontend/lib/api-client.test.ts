@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getBasketAlternatives, reverseLocation } from "./api-client";
+import { getBasketAlternatives, prepareRecommendationCandidates, reverseLocation } from "./api-client";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,6 +19,37 @@ describe("getBasketAlternatives", () => {
       expect.objectContaining({
         method: "POST",
         body: JSON.stringify({ basket: [{ itemId: "1", quantity: 2 }] }),
+      }),
+    );
+  });
+});
+
+describe("prepareRecommendationCandidates", () => {
+  it("warms travel candidates without sending a basket", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ candidateCacheId: "cache-1234567890", candidateCount: 2, reachableCount: 2 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const travel = {
+      origin: {
+        label: "Kota Bharu",
+        latitude: 6.1254,
+        longitude: 102.2381,
+        source: "search" as const,
+      },
+      transportMode: "motorcycle" as const,
+      limit: { type: "distance" as const, value: 5 },
+      saraFilter: "any" as const,
+    };
+
+    await prepareRecommendationCandidates(travel);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8000/api/recommendations/prepare",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ travel }),
       }),
     );
   });

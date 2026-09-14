@@ -9,6 +9,10 @@ import type {
   ShoppingChecklist,
 } from "./shopping-checklist";
 import { actualLineTotalRm } from "./shopping-checklist";
+import {
+  isEstimatedSavingsSnapshot,
+  type EstimatedSavingsSnapshot,
+} from "./estimated-savings";
 
 export const TRIP_HISTORY_VERSION = 1 as const;
 export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
@@ -58,6 +62,8 @@ export interface TripRecord {
   estimatedRoundTripCostRm: number | null;
   plannedCombinedTotalRm: number | null;
   alternativeStoreEstimates: AlternativeStoreEstimate[];
+  // Optional for records created before the unified savings summary shipped.
+  estimatedSavings?: EstimatedSavingsSnapshot | null;
   // AC 5.4.2: the sum of the known purchased line totals; null when no
   // purchased line has a known actual total (never a made-up 0, AC 5.2.3).
   actualTotalRm: number | null;
@@ -145,6 +151,9 @@ export function buildTripRecord(
     alternativeStoreEstimates: checklist.alternativeStoreEstimates.map(estimate => ({
       ...estimate,
     })),
+    estimatedSavings: checklist.estimatedSavings
+      ? { ...checklist.estimatedSavings }
+      : null,
     actualTotalRm: actualExpenseTotal(lines),
     lines,
   };
@@ -249,6 +258,9 @@ export function isTripRecord(value: unknown): value is TripRecord {
     || !isFiniteMoneyOrNull(record.plannedCombinedTotalRm)
     || !Array.isArray(record.alternativeStoreEstimates)
     || !record.alternativeStoreEstimates.every(isAlternativeStoreEstimate)
+    || (record.estimatedSavings !== undefined
+      && record.estimatedSavings !== null
+      && !isEstimatedSavingsSnapshot(record.estimatedSavings))
     || !isFiniteMoneyOrNull(record.actualTotalRm)
     || !Array.isArray(record.lines)
     || !record.lines.every(isTripRecordLine)) return false;

@@ -81,6 +81,21 @@ class RecommendationRequest(CamelModel):
     # list preserves the E2 request contract and prevents oversized queries.
     basket: list[BasketLineRequest] = Field(default_factory=list, max_length=100)
     travel: TravelPreferences
+    # Opaque, short-lived token returned by candidate preparation. The server
+    # validates that it belongs to the same travel settings before reuse.
+    candidate_cache_id: str | None = Field(default=None, min_length=16, max_length=128)
+
+
+class CandidatePreparationRequest(CamelModel):
+    travel: TravelPreferences
+
+
+class CandidatePreparationResponse(CamelModel):
+    candidate_cache_id: str
+    candidate_count: int
+    reachable_count: int
+    generated_at: datetime
+    expires_at: datetime
 
 
 class LocationResolveRequest(CamelModel):
