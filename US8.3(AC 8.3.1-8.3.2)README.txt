@@ -1,0 +1,151 @@
+US 8.3 Build Notes / 构建说明
+See My Progress Over Time (AC 8.3.1-8.3.2)
+查看我随时间的进展（AC 8.3.1-8.3.2）
+
+Scope note / 范围说明
+AC 8.3.3 ("Only one day of activity") is marked as an open decision (D8-a) in
+the Iteration 2 draft and was deliberately NOT implemented as a separate
+behaviour. It is satisfied incidentally: periodSummaryForStart filters records
+by period and never requires a full week of activity, so a single day already
+counts. If the team later rules that a partial week must be handled
+differently, only the comparison card's disclosure needs to change.
+AC 8.3.3（"仅一天活跃"）在 Iteration 2 草案中被标注为未决项（D8-a），本次刻意
+不作为独立行为实现。它已被附带满足：periodSummaryForStart 按周期过滤记录，从不
+要求满一周活跃，因此单天已会计入。若团队日后裁定部分周需另行处理，只需改对比
+卡的披露文案。
+
+Comparison baseline / 对比基准
+Team decision (2026-09-16): compare the FULL current period against the FULL
+previous period (option B1), not a like-for-like same-weekday cutoff. Because a
+mid-week comparison is systematically understated, the card carries a
+disclosure line whenever the current period has not finished, e.g. "This
+period has 2 of 7 days so far; the previous period is complete, so the two
+totals are not like-for-like." This is a mandated disclosure for B1, not an
+optional nicety.
+团队决定（2026-09-16）：以「本周期全量」对「上周期全量」直接比较（方案 B1），而非
+同星期几的同期截断。由于周中对比系统性偏低，卡片在当前周期尚未结束时附带披露行，
+例如「本周期至今 7 天中的 2 天；上周期已完整，因此两个总额并非同口径」。这是 B1 的
+强制披露，而非可选提示。
+
+------------------------------------------------------------
+1. 中文
+
+计算层：period-summary.ts 重构为两个导出函数。periodSummaryForStart(records,
+cadence, start) 汇总任意周期，periodSummary 保留原签名（内部委托给它），因此 US 8.1
+的既有调用与全部 15 个既有测试不受影响。新增 periodComparison(records, cadence, now)
+返回 { current, previous, hasPrevious-in-effect, inProgress, daysElapsed, daysInPeriod }：
+上一周期用「本周期起点减一天再求周期起点」推算，周、月两种口径跨月跨年都正确（已测
+2026-09 跨 8 月、2027-01 跨 2026-12）。
+
+省钱聚合（AC 8.3.1 的 savings 部分）：从每条记录的 estimatedSavings 快照取
+netSavingRm / storeChoiceImpactRm / itemChangeImpactRm 分别求和。关键防护：快照缺失的
+记录被「跳过」而非计 0——老记录没有该可选字段，把它们当成"省了 0 元"会污染平均值。
+结果带 savingsAvailable 与 savingsIncomplete 两个标记，界面据此显示「不可用」或说明
+部分缺失，绝不显示 RM0。
+
+AC 8.3.2：上一周期无记录时 previous 为 null，对比卡只显示一行「上周期无已记录行程，
+因此不作对比」，不补零、不伪造上周列。本周有而上周无、上周有而本周无、两周都无三种
+情形分别处理（第三种返回 null 让 AC 8.1.3 的空态说话）。
+
+方向语义：支出下降是好事、省钱上升是好事，不能共用"绿色=上升"。每行自选好坏方向，
+否则"这周少花钱"会被显示成红色。省钱行带 ESTIMATE 徽章，与已确认支出在视觉上分离
+（AC 8.1.2「估算保持为估算」的延续）。
+
+界面：journey-screens.tsx 新增 PeriodComparisonCard，接线到 InboxScreen（替换
+periodSummary 为 periodComparison，周期自动跟随 weekly/monthly 切换）。补 en/ms 双语
+共 10 个文案键。组件为无状态纯渲染；四种状态：两周有数据（对比表）/ 仅本周（单列 +
+说明）/ 都没有（不渲染，交由 8.1.3 空态）/ 快照缺失（该指标显示「不可用」）。
+
+English:
+Calculation layer: period-summary.ts was refactored into two exported
+functions. periodSummaryForStart(records, cadence, start) summarises any
+period; periodSummary keeps its original signature (delegating internally), so
+US 8.1's existing callers and all 15 existing tests are unaffected. The new
+periodComparison(records, cadence, now) returns { current, previous, in-effect
+hasPrevious, inProgress, daysElapsed, daysInPeriod }: the previous period is
+derived by stepping one day back from the current period's start and re-
+deriving the period start, which is correct across month and year boundaries
+for both cadences (tested 2026-09 back into August and 2027-01 back into
+December 2026).
+
+Savings aggregation (the savings half of AC 8.3.1): netSavingRm,
+storeChoiceImpactRm and itemChangeImpactRm are summed separately from each
+record's estimatedSavings snapshot. Key guard: records without a snapshot are
+SKIPPED, not counted as zero - older records lack the optional field, and
+reading them as "saved RM0" would corrupt the figures. The result carries
+savingsAvailable and savingsIncomplete flags so the UI shows "Unavailable" or
+explains the partial basis instead of ever rendering RM0.
+
+AC 8.3.2: when the previous period holds no records, previous is null and the
+card shows a single line, "No recorded trips in the previous period, so no
+comparison is shown." - no zero-filled last-week column, no faked comparison.
+Current-only, previous-only and neither are handled distinctly (the last
+returns null and lets the AC 8.1.3 empty state speak).
+
+Direction semantics: spending less is good while saving more is good, so one
+shared "green means up" rule would show a good week as bad. Each row picks its
+own good/bad direction. Savings rows carry an ESTIMATE badge, visually
+separated from confirmed spending (AC 8.1.2 "estimates stay estimates").
+
+UI: journey-screens.tsx gains PeriodComparisonCard, wired into InboxScreen
+(periodSummary replaced by periodComparison; the period follows the existing
+weekly/monthly switch). Ten copy keys added per language. The component is
+stateless pure rendering with four states: both periods have data (comparison
+table) / current only (single column plus explanation) / neither (not rendered,
+the AC 8.1.3 empty state speaks) / snapshot missing (that metric shows
+"Unavailable").
+
+------------------------------------------------------------
+2. 中文
+
+测试：period-summary.test.ts 新增 13 个用例，覆盖——两周有数据的支出与省钱对比；
+负省钱不 clamp 到 0；上周无数据时 previous 为 null 且不回填；老记录（更早周期）不会
+被误当上周；本周空而上周有数据；两周皆空；快照缺失记录被跳过且 savingsIncomplete 为
+真；全无快照时 savingsAvailable 为假；两个分项独立求和；monthly 跨月与跨年边界；周期
+起点当天 inProgress 为真且 daysElapsed 为 1；单天活跃计入（8.3.3 附带满足）。既有 15 个
+用例全部保持通过。
+
+验证：tsc --noEmit 通过；ESLint（lib + components）零错误零警告；vitest 23 个文件 220
+项全部通过（较此前 207 新增 13）；next build 编译成功（35.5s，静态页 5/5）。
+
+尚未执行浏览器实测：对比卡为纯渲染组件，其四种分支与方向语义（含负值红色/绿色、
+ESTIMATE 徽章、进行中披露行）仍需在 Inbox 页面人工核对，特别是"本周 2 天 vs 上周 7 天"
+时披露行是否出现。
+
+English:
+Tests: 13 new cases in period-summary.test.ts covering - two-week spending and
+savings comparison; negative savings not clamped to zero; previous null with no
+backfill when the previous period is empty; older records not misread as last
+week; current empty with previous populated; both empty; snapshot-less records
+skipped with savingsIncomplete true; savingsAvailable false when no record
+carries a snapshot; the two impact components summed independently; monthly
+cadence across month and year boundaries; inProgress true with daysElapsed 1
+at the period start; a single day of activity counted (8.3.3 satisfied
+incidentally). All 15 existing cases still pass.
+
+Verification: tsc --noEmit clean; ESLint (lib + components) zero errors and
+zero warnings; vitest 23 files / 220 tests all passing (13 new over the prior
+207); next build compiled successfully (35.5s, static pages 5/5).
+
+Browser verification not yet performed: the comparison card is a pure render
+component; its four branches and direction semantics (negative values in
+red/green, the ESTIMATE badge, the in-progress disclosure line) still need a
+manual check on the Inbox page - in particular that the disclosure line appears
+when comparing "2 days this week" against a complete last week.
+
+------------------------------------------------------------
+3. 中文
+
+变更文件：frontend/lib/period-summary.ts（重构为 periodSummaryForStart +
+periodComparison，新增省钱聚合字段与周期进度字段）、frontend/lib/period-summary.test.ts
+（新增 13 用例与快照夹具）、frontend/components/journey-screens.tsx（新增
+PeriodComparisonCard、InboxScreen 改用 periodComparison、en/ms 各补 10 个文案键）。
+后端无改动。
+
+English:
+Files changed: frontend/lib/period-summary.ts (refactored into
+periodSummaryForStart + periodComparison, new savings aggregation fields and
+period-progress fields), frontend/lib/period-summary.test.ts (13 new cases plus
+a snapshot fixture), frontend/components/journey-screens.tsx (new
+PeriodComparisonCard, InboxScreen switched to periodComparison, 10 copy keys
+per language). No backend changes.

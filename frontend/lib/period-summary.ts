@@ -1,8 +1,10 @@
 import { nextPeriod, periodStart, type ReportCadence } from "./inbox";
 import type { TripRecord } from "./trip-history";
 
+const DAY_MS = 86_400_000;
+
 /**
- * AC 8.1.1: the weekly summary for the period the shopper is currently in.
+ * AC 8.1.1: the spending summary for one period (week or month).
  *
  * This is deliberately separate from the archived reports in inbox.ts: those
  * are frozen once a period has *finished* (syncInboxReports skips the current
@@ -32,18 +34,56 @@ export interface PeriodSummary {
   confirmedSpendingRm: number | null;
   /** Some bought lines had no actual price, so the total is partial. */
   spendingIncomplete: boolean;
+  /**
+   * AC 8.3.1: estimated savings figures frozen per trip at record time.
+   * Estimates only - a caller must never present them with the same weight as
+   * confirmed spending (AC 8.1.2 "estimates stay estimates").
+   */
+  estimatedNetSavingsRm: number | null;
+  storeChoiceImpactRm: number | null;
+  itemChangeImpactRm: number | null;
+  /**
+   * At least one record in the period carries a savings snapshot. Records
+   * created before the snapshot existed carry none and must not be read as
+   * "saved RM0" - absence is not zero.
+   */
+  savingsAvailable: boolean;
+  /** Some records carry a snapshot and some do not, so savings totals are partial. */
+  savingsIncomplete: boolean;
+}
+
+/**
+ * AC 8.3.1/8.3.2: the current period against the previous one of the same
+ * cadence. `previous` is null when the previous period holds no records at
+ * all - absence, not zeros, because AC 8.3.2 forbids faking a comparison.
+ */
+export interface PeriodComparison {
+  cadence: ReportCadence;
+  current: PeriodSummary;
+  previous: PeriodSummary | null;
+  /** The current period has not finished yet (e.g. comparing on a Tuesday). */
+  inProgress: boolean;
+  daysElapsed: number;
+  daysInPeriod: number;
 }
 
 function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
-export function periodSummary(
+function sumSigned(values: Array<number | null>): number | null {
+  const known = values.filter((value): value is number => value != null);
+  return known.length > 0 ? money(known.reduce((total, value) => total + value, 0)) : null;
+}
+
+type SavingsSnapshot = NonNullable<TripRecord["estimatedSavings"]>;
+
+/** Summarise an arbitrary period. Exported so AC 8.3 can reuse it verbatim. */
+export function periodSummaryForStart(
   records: TripRecord[],
-  cadence: ReportCadence = "weekly",
-  now = new Date(),
+  cadence: ReportCadence,
+  start: Date,
 ): PeriodSummary {
-  const start = periodStart(now, cadence);
   const end = nextPeriod(start, cadence);
 
   // AC 5.5.4 spirit: a record with an unparseable date is skipped, never
@@ -74,6 +114,12 @@ export function periodSummary(
     || record.lines.some(line => line.status === "bought" && line.actualLineTotalRm == null)
   ));
 
+  // AC 8.3.1: savings are summed only over records that actually carry a
+  // snapshot; a missing snapshot is skipped, never counted as zero.
+  const snapshots = inPeriod
+    .map(record => record.estimatedSavings ?? null)
+    .filter((snapshot): snapshot is SavingsSnapshot => snapshot != null);
+
   return {
     cadence,
     periodStart: start.toISOString(),
@@ -84,5 +130,52 @@ export function periodSummary(
     hasEstimatedOnly: inPeriod.length > 0 && confirmedSpendingRm == null && hasEstimate,
     confirmedSpendingRm,
     spendingIncomplete,
+    estimatedNetSavingsRm: sumSigned(snapshots.map(snapshot => snapshot.netSavingRm)),
+    storeChoiceImpactRm: sumSigned(snapshots.map(snapshot => snapshot.storeChoiceImpactRm)),
+    itemChangeImpactRm: sumSigned(snapshots.map(snapshot => snapshot.itemChangeImpactRm)),
+    savingsAvailable: snapshots.length > 0,
+    savingsIncomplete: snapshots.length > 0 && snapshots.length < inPeriod.length,
+  };
+}
+
+export function periodSummary(
+  records: TripRecord[],
+  cadence: ReportCadence = "weekly",
+  now = new Date(),
+): PeriodSummary {
+  return periodSummaryForStart(records, cadence, periodStart(now, cadence));
+}
+
+/**
+ * AC 8.3.1/8.3.2. The previous period is found by stepping one day back from
+ * the current period's start and re-deriving the period start, which stays
+ * correct across month and year boundaries for either cadence.
+ */
+export function periodComparison(
+  records: TripRecord[],
+  cadence: ReportCadence = "weekly",
+  now = new Date(),
+): PeriodComparison {
+  const currentStart = periodStart(now, cadence);
+  const current = periodSummaryForStart(records, cadence, currentStart);
+
+  const previousStart = periodStart(new Date(currentStart.getTime() - DAY_MS), cadence);
+  const previousSummary = periodSummaryForStart(records, cadence, previousStart);
+
+  const end = nextPeriod(currentStart, cadence);
+  const daysInPeriod = Math.max(1, Math.round((end.getTime() - currentStart.getTime()) / DAY_MS));
+  const daysElapsed = Math.min(
+    daysInPeriod,
+    Math.max(1, Math.floor((now.getTime() - currentStart.getTime()) / DAY_MS) + 1),
+  );
+
+  return {
+    cadence,
+    current,
+    // AC 8.3.2: no previous data means no comparison object at all.
+    previous: previousSummary.hasRecords ? previousSummary : null,
+    inProgress: now.getTime() < end.getTime(),
+    daysElapsed,
+    daysInPeriod,
   };
 }

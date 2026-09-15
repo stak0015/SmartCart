@@ -3,7 +3,7 @@
 import { formatRm } from "@/lib/format-rm";
 import type { InboxState, ReportCadence, SavingsReportMessage } from "@/lib/inbox";
 import type { Locale } from "@/lib/i18n";
-import { periodSummary, type PeriodSummary } from "@/lib/period-summary";
+import { periodComparison, type PeriodComparison, type PeriodSummary } from "@/lib/period-summary";
 import { tripTravelSavingsInsight } from "@/lib/savings-insights";
 import { checklistProgress, type ShoppingChecklist } from "@/lib/shopping-checklist";
 import { listTripRecords, type TripRecord } from "@/lib/trip-history";
@@ -84,6 +84,19 @@ const TEXT = {
     tripTravelNoCost: "No travel cost was recorded for this trip.",
     travelEstimateNote: "Travel cost is estimated and may differ from your actual trip.",
     straightLineTravelNote: "Travel cost is based on a straight-line distance estimate.",
+    // AC 8.3.1/8.3.2: week-over-week comparison. Spending is confirmed actual
+    // money; savings stay labelled as estimates so the two are never read as
+    // equally factual (AC 8.1.2).
+    previousWeek: "Last week",
+    previousMonth: "Last month",
+    compareSpent: "Confirmed spending",
+    compareTrips: "Trips recorded",
+    compareNetSavings: "Estimated net savings",
+    estimateBadge: "Estimate",
+    comparisonInProgress: (elapsed: number, total: number) =>
+      `This period has ${elapsed} of ${total} days so far; the previous period is complete, so the two totals are not like-for-like.`,
+    comparisonUnavailable: "No recorded trips in the previous period, so no comparison is shown.",
+    comparisonChange: "Change",
   },
   ms: {
     eyebrow: "Laman utama SmartCart anda",
@@ -160,6 +173,19 @@ const TEXT = {
     tripTravelNoCost: "Tiada kos perjalanan direkodkan untuk perjalanan ini.",
     travelEstimateNote: "Kos perjalanan dianggarkan dan mungkin berbeza daripada perjalanan sebenar anda.",
     straightLineTravelNote: "Kos perjalanan berdasarkan anggaran jarak garis lurus.",
+    // AC 8.3.1/8.3.2: week-over-week comparison. Spending is confirmed actual
+    // money; savings stay labelled as estimates so the two are never read as
+    // equally factual (AC 8.1.2).
+    previousWeek: "Minggu lepas",
+    previousMonth: "Bulan lepas",
+    compareSpent: "Perbelanjaan disahkan",
+    compareTrips: "Perjalanan direkodkan",
+    compareNetSavings: "Anggaran penjimatan bersih",
+    estimateBadge: "Anggaran",
+    comparisonInProgress: (elapsed: number, total: number) =>
+      `Tempoh ini mempunyai ${elapsed} daripada ${total} hari setakat ini; tempoh sebelumnya lengkap, jadi kedua-dua jumlah bukan setara.`,
+    comparisonUnavailable: "Tiada perjalanan direkodkan dalam tempoh sebelumnya, jadi tiada perbandingan dipaparkan.",
+    comparisonChange: "Perubahan",
   },
 } as const;
 
@@ -444,6 +470,123 @@ function WeeklySpendingSummary({ summary, locale }: { summary: PeriodSummary; lo
   );
 }
 
+/**
+ * AC 8.3.1/8.3.2: the current period against the previous one of the same
+ * cadence.
+ *
+ * Direction semantics differ per row on purpose: spending LESS is good while
+ * saving MORE is good, so a single "green means up" rule would show a good
+ * week as bad (or vice versa). Each row picks its own good/bad direction.
+ *
+ * Savings rows carry an ESTIMATE badge because they are modelled figures,
+ * never to be read with the same weight as confirmed spending (AC 8.1.2).
+ */
+function PeriodComparisonCard({
+  comparison,
+  locale,
+}: {
+  comparison: PeriodComparison;
+  locale: Locale;
+}) {
+  const text = TEXT[locale];
+  const { current, previous } = comparison;
+  const currentLabel = comparison.cadence === "weekly" ? text.thisWeek : text.thisMonth;
+  const previousLabel = comparison.cadence === "weekly" ? text.previousWeek : text.previousMonth;
+
+  // Nothing on either side: the AC 8.1.3 empty state above already explains it.
+  if (!current.hasRecords && previous == null) return null;
+
+  const delta = (a: number | null, b: number | null): number | null =>
+    a == null || b == null ? null : a - b;
+
+  const deltaCell = (value: number | null, lowerIsGood: boolean) => {
+    if (value == null) return <span className="text-[11px] text-[#617069]">—</span>;
+    const good = lowerIsGood ? value <= 0 : value >= 0;
+    const tone = value === 0 ? "text-[#617069]" : good ? "text-[#087f5b]" : "text-[#9b3d00]";
+    return (
+      <span className={`text-sm font-extrabold ${tone}`}>
+        {value > 0 ? "+" : value < 0 ? "−" : ""}{value === 0 ? formatRm(0) : formatRm(Math.abs(value))}
+      </span>
+    );
+  };
+
+  const moneyCell = (value: number | null) =>
+    value == null
+      ? <span className="text-[11px] text-[#617069]">{text.unavailable}</span>
+      : <span className="text-sm font-extrabold text-[#17362c]">{formatRm(value)}</span>;
+
+  return (
+    <section
+      aria-label={currentLabel}
+      className="mt-5 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5"
+    >
+      <h2 className="text-lg font-extrabold leading-6 text-[#10231d]">
+        {currentLabel} vs {previousLabel}
+      </h2>
+
+      {previous == null ? (
+        <p className="mt-2 text-sm leading-5 text-[#53635c]">{text.comparisonUnavailable}</p>
+      ) : (
+        <table className="mt-3 w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-[#edf1ef]">
+              <th className="py-2 pr-2 text-[11px] font-bold text-[#617069]"></th>
+              <th className="py-2 pr-2 text-[11px] font-bold text-[#617069]">{currentLabel}</th>
+              <th className="py-2 pr-2 text-[11px] font-bold text-[#617069]">{previousLabel}</th>
+              <th className="py-2 text-[11px] font-bold text-[#617069]">{text.comparisonChange}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-[#f1f4f2]">
+              <td className="py-2 pr-2 text-[13px] font-bold text-[#17362c]">{text.compareSpent}</td>
+              <td className="py-2 pr-2">{moneyCell(current.confirmedSpendingRm)}</td>
+              <td className="py-2 pr-2">{moneyCell(previous.confirmedSpendingRm)}</td>
+              <td className="py-2">{deltaCell(delta(current.confirmedSpendingRm, previous.confirmedSpendingRm), true)}</td>
+            </tr>
+            <tr className="border-b border-[#f1f4f2]">
+              <td className="py-2 pr-2 text-[13px] font-bold text-[#17362c]">{text.compareTrips}</td>
+              <td className="py-2 pr-2 text-sm font-extrabold text-[#17362c]">{current.tripCount}</td>
+              <td className="py-2 pr-2 text-sm font-extrabold text-[#17362c]">{previous.tripCount}</td>
+              <td className="py-2">{deltaCell(current.tripCount - previous.tripCount, false)}</td>
+            </tr>
+            <tr>
+              <td className="py-2 pr-2 text-[13px] font-bold text-[#17362c]">
+                <span className="inline-flex items-center gap-1">
+                  {text.compareNetSavings}
+                  <span className="rounded-sm bg-[#dceef2] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#00535b]">
+                    {text.estimateBadge}
+                  </span>
+                </span>
+              </td>
+              <td className="py-2 pr-2">
+                {current.savingsAvailable
+                  ? <span className="text-sm font-extrabold text-[#17362c]">{current.estimatedNetSavingsRm == null ? "—" : formatRm(current.estimatedNetSavingsRm)}</span>
+                  : <span className="text-[11px] text-[#617069]">{text.unavailable}</span>}
+              </td>
+              <td className="py-2 pr-2">
+                {previous.savingsAvailable
+                  ? <span className="text-sm font-extrabold text-[#17362c]">{previous.estimatedNetSavingsRm == null ? "—" : formatRm(previous.estimatedNetSavingsRm)}</span>
+                  : <span className="text-[11px] text-[#617069]">{text.unavailable}</span>}
+              </td>
+              <td className="py-2">
+                {current.savingsAvailable && previous.savingsAvailable
+                  ? deltaCell(delta(current.estimatedNetSavingsRm, previous.estimatedNetSavingsRm), false)
+                  : <span className="text-[11px] text-[#617069]">—</span>}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      )}
+
+      {comparison.inProgress ? (
+        <p className="mt-3 text-[11px] leading-4 text-[#617069]">
+          {text.comparisonInProgress(comparison.daysElapsed, comparison.daysInPeriod)}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function InboxScreen({
   state,
   locale,
@@ -458,10 +601,12 @@ export function InboxScreen({
   history: TripRecord[];
 }) {
   const text = TEXT[locale];
-  // AC 8.1.1: the in-progress period summary follows the same cadence switch
-  // as the archived reports below it, so "this week" and the weekly reports
-  // never disagree about where a period starts.
-  const currentPeriod = periodSummary(history, state.cadence);
+  // AC 8.1.1 / AC 8.3.1: the in-progress period summary and the period-over-
+  // period comparison both follow the same cadence switch as the archived
+  // reports below, so "this week" and the weekly reports never disagree about
+  // where a period starts.
+  const comparison = periodComparison(history, state.cadence);
+  const currentPeriod = comparison.current;
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
       <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.inboxTitle}</h1>
@@ -487,6 +632,8 @@ export function InboxScreen({
       <div className="mt-5">
         <WeeklySpendingSummary summary={currentPeriod} locale={locale} />
       </div>
+
+      <PeriodComparisonCard comparison={comparison} locale={locale} />
 
       {state.messages.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">
