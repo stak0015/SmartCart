@@ -4,6 +4,7 @@ import { formatRm } from "@/lib/format-rm";
 import type { InboxState, ReportCadence, SavingsReportMessage } from "@/lib/inbox";
 import type { Locale } from "@/lib/i18n";
 import { periodSummary, type PeriodSummary } from "@/lib/period-summary";
+import { tripTravelSavingsInsight } from "@/lib/savings-insights";
 import { checklistProgress, type ShoppingChecklist } from "@/lib/shopping-checklist";
 import { listTripRecords, type TripRecord } from "@/lib/trip-history";
 
@@ -70,6 +71,19 @@ const TEXT = {
     thisPeriodNoConfirmedHint: "Trips are recorded, but none has a shopper-recorded actual price yet.",
     thisPeriodEstimatesOnly: "Planned estimates are not confirmed spending, so no amount is shown.",
     thisPeriodIncomplete: "Some bought items had no actual price, so this total is partial.",
+    // AC 8.2.1 from a recorded trip. Wording is deliberately narrower than the
+    // net-savings figure above it: this compares the RETURN TRAVEL COST ONLY
+    // against the CHEAPEST reachable alternative, whereas estimated net savings
+    // compares basket plus travel against the MEDIAN of comparable stores. Two
+    // different baselines, so neither label may imply it includes the other.
+    tripTravelSavings: "Travel-cost saving vs cheapest alternative",
+    tripTravelSavingsDetail: (amount: string, cheaperStore: string) =>
+      `The return trip to ${cheaperStore} was estimated to cost ${amount} less than this store.`,
+    tripTravelCheapestAlready: "This store was already the cheapest reachable option for travel.",
+    tripTravelNoAlternative: "No alternative store was recorded for this trip, so no travel saving can be shown.",
+    tripTravelNoCost: "No travel cost was recorded for this trip.",
+    travelEstimateNote: "Travel cost is estimated and may differ from your actual trip.",
+    straightLineTravelNote: "Travel cost is based on a straight-line distance estimate.",
   },
   ms: {
     eyebrow: "Laman utama SmartCart anda",
@@ -133,6 +147,19 @@ const TEXT = {
     thisPeriodNoConfirmedHint: "Perjalanan direkodkan, tetapi tiada yang mempunyai harga sebenar yang direkodkan pembeli lagi.",
     thisPeriodEstimatesOnly: "Anggaran perancangan bukan perbelanjaan disahkan, jadi tiada jumlah dipaparkan.",
     thisPeriodIncomplete: "Sesetengah item dibeli tiada harga sebenar, jadi jumlah ini separa.",
+    // AC 8.2.1 from a recorded trip. Wording is deliberately narrower than the
+    // net-savings figure above it: this compares the RETURN TRAVEL COST ONLY
+    // against the CHEAPEST reachable alternative, whereas estimated net savings
+    // compares basket plus travel against the MEDIAN of comparable stores. Two
+    // different baselines, so neither label may imply it includes the other.
+    tripTravelSavings: "Penjimatan kos perjalanan vs alternatif termurah",
+    tripTravelSavingsDetail: (amount: string, cheaperStore: string) =>
+      `Perjalanan balik ke ${cheaperStore} dianggarkan kurang ${amount} daripada kedai ini.`,
+    tripTravelCheapestAlready: "Kedai ini sudah pilihan paling murah yang boleh dicapai untuk perjalanan.",
+    tripTravelNoAlternative: "Tiada kedai alternatif direkodkan untuk perjalanan ini, jadi tiada penjimatan perjalanan boleh dipaparkan.",
+    tripTravelNoCost: "Tiada kos perjalanan direkodkan untuk perjalanan ini.",
+    travelEstimateNote: "Kos perjalanan dianggarkan dan mungkin berbeza daripada perjalanan sebenar anda.",
+    straightLineTravelNote: "Kos perjalanan berdasarkan anggaran jarak garis lurus.",
   },
 } as const;
 
@@ -281,6 +308,11 @@ export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; 
           {records.map(record => {
             const bought = record.lines.filter(line => line.status === "bought").length;
             const saving = record.estimatedSavings?.netSavingRm ?? null;
+            // AC 8.2.1 from the frozen record. The route provenance comes from
+            // the record itself, so a trip recorded through the straight-line
+            // fallback keeps its caveat long after the recommendation response
+            // is gone.
+            const travel = tripTravelSavingsInsight(record);
             return (
               <li key={record.id} className="rounded-2xl border border-[#dce5e0] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -305,6 +337,36 @@ export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; 
                     </div>
                   ) : null}
                 </dl>
+
+                {/* AC 8.2.1: travel-cost saving derived from the frozen trip
+                    record. Labelled as travel-only against the cheapest
+                    alternative, because the net-savings figure above uses a
+                    different baseline (median of comparable stores, basket plus
+                    travel); showing both without distinct labels would read as
+                    double-counting. When unavailable the reason is stated
+                    rather than leaving the absence unexplained. */}
+                <div className="mt-3 border-t border-[#edf1ef] pt-3">
+                  {travel.available && travel.savingsRm != null && travel.cheaperStoreName ? (
+                    <>
+                      <p className="text-[11px] font-bold text-[#617069]">{text.tripTravelSavings}</p>
+                      <p className="mt-0.5 text-sm font-extrabold text-[#087f5b]">{formatRm(travel.savingsRm)}</p>
+                      <p className="mt-1 text-[11px] leading-4 text-[#53635c]">
+                        {text.tripTravelSavingsDetail(formatRm(travel.savingsRm), travel.cheaperStoreName)}
+                      </p>
+                      <p className="mt-1 text-[11px] leading-4 text-[#617069]">
+                        {travel.routeEstimated ? text.straightLineTravelNote : text.travelEstimateNote}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-[11px] leading-4 text-[#617069]">
+                      {travel.reason === "my-store-is-cheapest"
+                        ? text.tripTravelCheapestAlready
+                        : travel.reason === "no-recorded-travel-cost"
+                          ? text.tripTravelNoCost
+                          : text.tripTravelNoAlternative}
+                    </p>
+                  )}
+                </div>
               </li>
             );
           })}

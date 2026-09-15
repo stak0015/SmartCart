@@ -2,6 +2,129 @@ US 8.2 - See what SmartCart saved me (AC 8.2.1-8.2.3)
 US 8.2 - 显示 SmartCart 为我省下的钱（AC 8.2.1-8.2.3）
 
 ============================================================
+[2026-09-15 update / 接通行程路径 AC 8.2.1 + 归属更正]
+============================================================
+
+1. Trip-path AC 8.2.1 is now rendered (it was orphaned code)
+1. 行程路径 AC 8.2.1 现已渲染（此前是孤立代码）
+
+- tripTravelSavingsInsight() existed with 8 passing tests but nothing called
+  it: it was defined in savings-insights.ts and exercised only by its own test
+  file. AC 8.2.1's literal reading is "Given I shopped at a store", i.e. a
+  recorded trip, and that path was never reachable in the UI.
+- tripTravelSavingsInsight() 已存在且有 8 个通过的测试，但无任何调用方：
+  它只在 savings-insights.ts 中定义、只被自己的测试文件执行。AC 8.2.1 的字面
+  读法是「Given I shopped at a store」，即已记录的行程，而该路径在界面上从未
+  可达。
+- Fix: frontend/components/journey-screens.tsx — TripHistoryScreen now calls
+  tripTravelSavingsInsight(record) per trip card and renders the amount plus
+  its localised estimate caveat. When unavailable it states the reason
+  (cheapest already / no travel cost recorded / no alternative recorded)
+  instead of silently omitting the row.
+- 修复：frontend/components/journey-screens.tsx —— TripHistoryScreen 现对每张
+  行程卡调用 tripTravelSavingsInsight(record)，渲染金额与本地化的估算警示。
+  不可用时明确说明原因（已是最便宜 / 未记录差旅费 / 未记录替代门店），而不是
+  静默省略该行。
+- Route provenance reads record.routeProvider, so a trip recorded through the
+  straight-line fallback keeps its caveat after the recommendation response is
+  gone. This is the consumer the 2026-09-14 routeProvider work was for; it now
+  actually reaches the screen.
+- 路线来源读取 record.routeProvider，因此经直线兜底记录的行程在推荐响应消失后
+  仍保留警示。这正是 2026-09-14 那次 routeProvider 工作的消费方；它现在真正
+  到达界面了。
+- Deliberate labelling: this row says "Travel-cost saving vs cheapest
+  alternative" because the net-savings figure already shown on the same card
+  uses a DIFFERENT baseline (estimated-savings.ts compares basket plus travel
+  against the MEDIAN of comparable stores). Two different baselines on one
+  card without distinct labels would read as double-counting.
+- 刻意措辞：该行写作「差旅费省钱 vs 最便宜替代店」，因为同一张卡上已显示的净
+  省钱用的是不同基准（estimated-savings.ts 以可比门店的中位数对比购物篮加
+  车费）。同卡两个不同基准若不加区分，会被读成重复计算。
+- Not wired: trip-path AC 8.2.2 (price savings from a recorded trip). See
+  section 3 below for why, and what would be needed.
+- 未接线：行程路径的 AC 8.2.2（从已记录行程算比价省钱）。原因与所需条件见下方
+  第 3 节。
+
+2. Correction of an attribution error in commit 531f32e
+2. 更正提交 531f32e 中的归属错误
+
+- That commit message says the six type errors were "left behind by the merge
+  of origin/shun/us5.5 (not introduced here)". That was wrong for four of the
+  six, and was stated before a cross-branch check was run.
+- 该提交信息称六个类型错误是「合并 origin/shun/us5.5 时遗留（非本次引入）」。
+  其中四个的说法是错的，且是在未做跨分支核验前就下的结论。
+- Verified facts (git grep / git show across branches):
+  经核验的事实（跨分支 git grep / git show）：
+  - The 4 routeProvider errors were OURS. The reference
+    `checklist.routeProvider` was added by commit 161cd48 ("US8.2 fix", author
+    Randy Mong) when both sides of the chain existed. The merge resolution
+    then took Shun's version of shopping-checklist.ts, which never contained
+    the field, dropping the definition while keeping the reference. On
+    origin/shun/us5.5 itself: shopping-checklist.ts has ZERO occurrences of
+    routeProvider and trip-history.ts has ZERO occurrences of
+    checklist.routeProvider — his branch is self-consistent and compiles.
+  - 四个 routeProvider 错误是我们的。引用 `checklist.routeProvider` 由提交
+    161cd48（"US8.2 fix"，作者 Randy Mong）加入，当时链路两端都在。合并解决
+    冲突时取了 Shun 版本的 shopping-checklist.ts（其中从无该字段），定义被丢、
+    引用被留。而在 origin/shun/us5.5 分支自身：shopping-checklist.ts 中
+    routeProvider 出现 0 次、trip-history.ts 中 checklist.routeProvider 出现
+    0 次——他的分支自洽且可编译。
+  - The 2 estimated-savings.test.ts errors ARE on Shun's branch: that file was
+    added by 885869f (author Shunnosuke Takei) with BasketLineDetail fixtures
+    missing the required `quantity`. So `tsc` does fail on origin/shun/us5.5,
+    but only for those two, and unrelated to routeProvider.
+  - 两个 estimated-savings.test.ts 错误确实在 Shun 分支上：该文件由 885869f
+    （作者 Shunnosuke Takei）新增，其 BasketLineDetail 夹具缺必填的
+    `quantity`。因此 origin/shun/us5.5 上 tsc 确实失败，但仅此两处，且与
+    routeProvider 无关。
+- The commit itself is left unamended (published history is not rewritten);
+  this section is the correction of record.
+- 该提交未被 amend（不重写已发布历史）；本节即为书面更正。
+
+3. Still open: trip-path AC 8.2.2 (needs a team decision)
+3. 仍未决：行程路径 AC 8.2.2（需团队决定）
+
+- AC 8.2.2 IS implemented and demonstrable on the recommendation overview
+  (live insights), so the AC's "the summary can show potential price savings"
+  is satisfied somewhere. What is missing is showing it from a RECORDED TRIP.
+- AC 8.2.2 已实现且可在推荐概览页演示（实时洞察），故该 AC 的「the summary can
+  show potential price savings」在某处已满足。缺的是从「已记录行程」展示它。
+- Why it cannot be done today: AlternativeStoreEstimate freezes only four
+  fields (premiseId, name, estimatedRoundTripCostRm, estimatedTotalCostRm).
+  estimatedTotalCostRm is a COMBINED total (basket + travel), so a difference
+  can be arithmetically derived, but the record holds no per-line prices for
+  alternative stores. The chosen comparison basis requires disclosing "based
+  on N of M comparable items", and N cannot be computed. Worse, the two
+  stores' priced coverage may differ, so subtracting their combined totals
+  compares unlike bases and can produce a figure that is not a real saving.
+- 为何现在做不到：AlternativeStoreEstimate 只冻结四个字段（premiseId、name、
+  estimatedRoundTripCostRm、estimatedTotalCostRm）。estimatedTotalCostRm 是
+  含车费的「合并总价」，所以差额在算术上可倒推，但记录里没有替代门店的逐行
+  价格。所选比价口径要求披露「基于 M 件中可比的 N 件」，而 N 算不出来。更糟
+  的是两家店的定价覆盖范围可能不同，直接相减是在比较不同口径，可能得出一个
+  并非真实省钱的数字。
+- Option A (recommended): keep as-is. AC 8.2.2 says "can show", and it is
+  shown on the overview; the trip path shows travel savings only.
+- Option B: extend US 5.1's freeze format to store per-line prices for
+  alternative stores. This changes Epic 5 (already accepted), grows every
+  record, and needs re-acceptance.
+- 方案 A（推荐）：维持现状。AC 8.2.2 写的是「can show」，且已在概览页展示；
+  行程路径只展示差旅省钱。
+- 方案 B：扩展 US 5.1 的冻结格式，为替代门店保存逐行价格。这会改动已验收的
+  Epic 5、使每条记录体积增大，并需重新验收。
+
+Verification of this update / 本次更新的验证
+- tsc --noEmit clean; eslint clean; vitest 23 files / 207 tests passing;
+  next build compiled successfully in 27.1s.
+- Not browser-verified. Note that neither tsc nor vitest can prove the new UI
+  block renders correctly: tripTravelSavingsInsight already had passing tests
+  while being unwired, which is exactly how the orphan survived. The rendered
+  row still needs a manual check on the Shopping history screen.
+- 未经浏览器验证。注意 tsc 与 vitest 都无法证明新 UI 块渲染正确：
+  tripTravelSavingsInsight 在被接线之前就已有通过的测试，这正是该孤立代码
+  得以存活的原因。渲染出的行仍需在「购物历史」页面人工核对。
+
+============================================================
 [2026-09-14 update / 合并 US 5.1-5.4 之后的修复]
 ============================================================
 
