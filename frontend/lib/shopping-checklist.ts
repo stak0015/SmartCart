@@ -1,5 +1,9 @@
 import type { BasketItemPrice, StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
+import {
+  isEstimatedSavingsSnapshot,
+  type EstimatedSavingsSnapshot,
+} from "./estimated-savings";
 
 export const SHOPPING_CHECKLIST_VERSION = 4 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
@@ -67,13 +71,9 @@ export interface ShoppingChecklist {
   // Gap G4: the alternative stores' estimated trip costs at snapshot time.
   // Empty for payloads created before this field existed (migrated v1-v3).
   alternativeStoreEstimates: AlternativeStoreEstimate[];
-  // AC 8.2.3 (Epic 8): how the frozen travel estimates were produced. A
-  // straight_line fallback is a cruder estimate than a Google route, and the
-  // summary must say so later — the recommendation response is gone by then,
-  // so the provenance has to travel with the record.
-  // Optional: payloads frozen before this field existed have no provenance to
-  // report, and must still validate (never be discarded as corrupt).
-  routeProvider?: "google" | "straight_line";
+  // Frozen at plan confirmation so later item-price updates cannot rewrite a
+  // historical savings claim. Older locally stored checklists omit this field.
+  estimatedSavings?: EstimatedSavingsSnapshot | null;
   items: ChecklistItem[];
 }
 
@@ -112,10 +112,7 @@ interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
   alternativeStores?: StoreRecommendation[];
-  // AC 8.2.3: provenance of the frozen travel estimates. Passed from the
-  // recommendation response; omitted when unknown so legacy callers are
-  // unaffected.
-  routeProvider?: "google" | "straight_line";
+  estimatedSavings?: EstimatedSavingsSnapshot | null;
 }
 
 interface AddManualItemOptions {
@@ -247,9 +244,7 @@ export function createShoppingChecklist(
       ? null
       : money(store.estimatedTotalCostRm),
     alternativeStoreEstimates,
-    // Frozen only when the caller knows it; the field stays absent otherwise
-    // so serialised output is unchanged for callers that predate AC 8.2.3.
-    ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}),
+    estimatedSavings: options.estimatedSavings ?? null,
     items,
   };
 }
@@ -606,6 +601,9 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || !isFiniteMoneyOrNull(checklist.plannedCombinedTotalRm)
     || !Array.isArray(checklist.alternativeStoreEstimates)
     || !checklist.alternativeStoreEstimates.every(isAlternativeStoreEstimate)
+    || (checklist.estimatedSavings !== undefined
+      && checklist.estimatedSavings !== null
+      && !isEstimatedSavingsSnapshot(checklist.estimatedSavings))
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 

@@ -13,6 +13,7 @@ const path = require('node:path');
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   let lastRecommendation;
+  let lastCandidatePreparation;
   let reverseLabel = 'Jalan Tun Perak, Kuala Lumpur';
   let reverseDelay = 0;
   const items = [
@@ -44,7 +45,16 @@ const path = require('node:path');
         ] : [],
       })), premiseId: '1', generatedAt: new Date().toISOString(),
     };
-    else if (url.pathname.endsWith('/recommendations')) {
+    else if (url.pathname.endsWith('/recommendations/prepare')) {
+      lastCandidatePreparation = route.request().postDataJSON();
+      body = {
+        candidateCacheId: 'candidate-cache-1234567890',
+        candidateCount: 3,
+        reachableCount: 3,
+        generatedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+      };
+    } else if (url.pathname.endsWith('/recommendations')) {
       lastRecommendation = route.request().postDataJSON();
       body = { recommendations: stores, totalCandidatesEvaluated: 3, totalReachable: 3, routeProvider: 'google', rankingMethod: 'Products priced first', costAssumptions: {}, routeWarning: null, expandedSearch: false };
     } else throw new Error(`Unexpected API request: ${url.pathname}`);
@@ -54,6 +64,21 @@ const path = require('node:path');
   fs.mkdirSync(output, { recursive: true });
   try {
     await page.goto(process.env.UI_CHECK_URL || 'http://localhost:3100');
+    await page.getByRole('heading', { name: 'What would you like to do?' }).waitFor();
+    await page.getByRole('button', { name: 'Start a shopping trip', exact: true }).click();
+    await page.getByRole('button', { name: 'Both', exact: true }).click();
+    await page.getByRole('button', { name: '10 km', exact: true }).click();
+    await page.getByRole('button', { name: '30 min', exact: true }).click();
+    await page.getByRole('button', { name: 'Public transport + walking', exact: true }).click();
+    await page.getByRole('button', { name: 'Use my precise location' }).click();
+    await page.getByText('Jalan Tun Perak, Kuala Lumpur', { exact: true }).waitFor();
+    await page.getByRole('status').filter({ hasText: 'Location detected.' }).waitFor();
+    await page.screenshot({ path: path.join(output, 'travel.png'), fullPage: true });
+    const candidatePreparationResponse = page.waitForResponse(response => response.url().endsWith('/recommendations/prepare'));
+    await page.getByRole('button', { name: 'Build my basket', exact: true }).click();
+    await candidatePreparationResponse;
+    await page.getByRole('heading', { name: 'Shop household essentials' }).waitFor();
+    assert.deepEqual(lastCandidatePreparation.travel.limit, { type: 'both', distanceKm: 10, timeMinutes: 30 });
     const addRice = page.getByRole('button', { name: '+ Add to basket: Rice', exact: true });
     await addRice.click();
     await page.getByRole('status').filter({ hasText: 'Added 1 × Rice' }).waitFor();
@@ -75,26 +100,11 @@ const path = require('node:path');
     await page.getByRole('button', { name: 'Tukar ke Bahasa Melayu' }).click();
     await basket.getByText('Beras', { exact: true }).waitFor();
     await page.getByRole('button', { name: 'Switch to English' }).click();
-    await basket.getByRole('button', { name: 'Choose location' }).click();
-    await page.getByRole('button', { name: 'Both', exact: true }).click();
-    await page.getByRole('button', { name: '10 km', exact: true }).click();
-    await page.getByRole('button', { name: '30 min', exact: true }).click();
-    await page.getByRole('button', { name: 'Public transport + walking', exact: true }).click();
-    await page.getByRole('button', { name: 'Use my precise location' }).click();
-    await page.getByRole('combobox').waitFor();
-    await page.getByText('Jalan Tun Perak, Kuala Lumpur', { exact: true }).waitFor();
-    await page.getByRole('status').filter({ hasText: 'Location detected.' }).waitFor();
-    const locationSearch = page.getByRole('combobox');
-    await page.getByRole('button', { name: 'Clear search', exact: true }).click();
-    assert.equal(await locationSearch.inputValue(), '');
-    assert(await locationSearch.evaluate(el => el === document.activeElement));
-    assert(await page.getByRole('button', { name: 'Find reachable stores' }).isDisabled());
-    await page.getByRole('button', { name: 'Use my precise location' }).click();
-    await page.getByText('Jalan Tun Perak, Kuala Lumpur', { exact: true }).waitFor();
-    await page.screenshot({ path: path.join(output, 'travel.png'), fullPage: true });
-    await page.getByRole('button', { name: 'Find reachable stores' }).click();
+    await basket.getByRole('button', { name: 'View basket' }).click();
+    await page.getByRole('button', { name: 'Search stores', exact: true }).click();
     await page.getByText('Test Store 1', { exact: true }).waitFor();
     assert.deepEqual(lastRecommendation.travel.limit, { type: 'both', distanceKm: 10, timeMinutes: 30 });
+    assert.equal(lastRecommendation.candidateCacheId, 'candidate-cache-1234567890');
     assert.equal(await page.getByRole('tab').count(), 0);
     await page.getByText('Partial basket + transport', { exact: true }).waitFor();
     const routeUrl = new URL(await page.getByRole('link', { name: 'View route' }).first().getAttribute('href'));
@@ -115,28 +125,35 @@ const path = require('node:path');
     await page.screenshot({ path: path.join(output, 'selected-pack.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await page.getByRole('button', { name: '+ Add to basket: Rice', exact: true }).click();
-    assert(!(await page.getByRole('complementary', { name: 'Your basket', includeHidden: true }).isVisible()));
-    await page.getByRole('button', { name: 'View basket', exact: true }).waitFor();
-    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-    await page.screenshot({ path: path.join(output, 'mobile-shop.png'), fullPage: true });
-    await page.getByRole('button', { name: 'View basket', exact: true }).click();
-    await page.getByRole('button', { name: 'Choose location', exact: true }).click();
+    await page.getByRole('button', { name: 'Start a shopping trip', exact: true }).click();
     assert.equal(await page.getByRole('button', { name: 'Both', exact: true }).getAttribute('aria-pressed'), 'true');
     reverseLabel = null;
     await page.getByRole('button', { name: 'Use my precise location' }).click();
     await page.getByRole('status').filter({ hasText: 'Location detected; address unavailable.' }).waitFor();
-    assert(await page.getByRole('button', { name: 'Find reachable stores' }).isEnabled());
+    assert(await page.getByRole('button', { name: 'Build my basket' }).isEnabled());
     reverseLabel = 'Stale address';
     reverseDelay = 300;
     await page.getByRole('button', { name: 'Use my precise location' }).click();
     await page.getByRole('combobox').fill('New chosen search');
     await page.waitForTimeout(500);
     assert.equal(await page.getByRole('combobox').inputValue(), 'New chosen search');
-    assert(await page.getByRole('button', { name: 'Find reachable stores' }).isDisabled());
+    assert(await page.getByRole('button', { name: 'Build my basket' }).isDisabled());
     await page.evaluate(() => { navigator.geolocation.getCurrentPosition = (_success, failure) => failure({ code: 1, PERMISSION_DENIED: 1 }); });
     await page.getByRole('button', { name: 'Use my precise location' }).click();
     await page.getByText('Location access was not allowed. Search for a location instead.').waitFor();
+
+    reverseLabel = 'Jalan Tun Perak, Kuala Lumpur';
+    reverseDelay = 0;
+    await page.reload();
+    await page.getByRole('button', { name: 'Start a shopping trip', exact: true }).click();
+    await page.getByRole('button', { name: 'Use my precise location' }).click();
+    await page.getByText('Jalan Tun Perak, Kuala Lumpur', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Build my basket', exact: true }).click();
+    await page.getByRole('button', { name: '+ Add to basket: Rice', exact: true }).click();
+    assert(!(await page.getByRole('complementary', { name: 'Your basket', includeHidden: true }).isVisible()));
+    await page.getByRole('button', { name: 'View basket', exact: true }).waitFor();
+    assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+    await page.screenshot({ path: path.join(output, 'mobile-shop.png'), fullPage: true });
     assert.deepEqual(errors, []);
     console.log(`Feedback UI checks passed. Screenshots: ${output}`);
   } finally { await browser.close(); }

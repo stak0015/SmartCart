@@ -1,0 +1,380 @@
+"use client";
+
+import { formatRm } from "@/lib/format-rm";
+import type { InboxState, ReportCadence, SavingsReportMessage } from "@/lib/inbox";
+import type { Locale } from "@/lib/i18n";
+import { checklistProgress, type ShoppingChecklist } from "@/lib/shopping-checklist";
+import { listTripRecords, type TripRecord } from "@/lib/trip-history";
+
+const TEXT = {
+  en: {
+    eyebrow: "Your SmartCart home",
+    title: "What would you like to do?",
+    description: "Plan a trip, keep your checklist moving, or review how your household is spending.",
+    startTrip: "Start a shopping trip",
+    resumeTrip: "Resume shopping trip",
+    resumeAt: (step: string) => `Continue from ${step}`,
+    startNew: "Start a new trip",
+    travelStep: "travel preferences",
+    shopStep: "basket building",
+    basketStep: "basket review",
+    compareStep: "store comparison",
+    checklist: "Checklist",
+    noChecklist: "No active checklist",
+    checklistProgress: (done: number, total: number) => `${done} of ${total} items bought`,
+    history: "Shopping history",
+    tripsRecorded: (count: number) => `${count} ${count === 1 ? "trip" : "trips"} recorded`,
+    inbox: "Inbox",
+    unreadReports: (count: number) => count === 0 ? "No unread reports" : `${count} unread ${count === 1 ? "report" : "reports"}`,
+    open: "Open",
+    historyTitle: "Shopping history",
+    historyDescription: "Recorded trips stay on this device and are shown newest first.",
+    historyEmpty: "No shopping trips recorded yet.",
+    historyEmptyHint: "Complete a checklist and record the trip to build your history.",
+    spent: "Known actual spending",
+    spendingUnavailable: "Actual spending unavailable",
+    planned: "Planned basket + transport",
+    bought: (count: number, total: number) => `${count} of ${total} bought`,
+    estimatedSaving: "Estimated net saving",
+    estimatedAbove: "Above typical cost",
+    inboxTitle: "Savings & spending inbox",
+    inboxDescription: "SmartCart creates a private report after each completed reporting period when recorded trips are available.",
+    weekly: "Weekly",
+    monthly: "Monthly",
+    cadenceLabel: "Report frequency",
+    inboxEmpty: "No reports yet",
+    inboxEmptyHint: "Reports appear after a completed week or month with at least one recorded trip.",
+    unread: "Unread",
+    read: "Read",
+    weekReport: "Weekly SmartCart report",
+    monthReport: "Monthly SmartCart report",
+    trips: (count: number) => `${count} recorded ${count === 1 ? "trip" : "trips"}`,
+    netSavings: "Estimated net savings",
+    storeChoice: "Store choice",
+    itemChanges: "Item changes",
+    unavailable: "Unavailable",
+    incompleteSpending: "Some bought items had no actual price, so spending is incomplete.",
+    incompleteSavings: "Some trips had no like-for-like savings comparison.",
+    estimateNote: "Savings are estimates; spending uses shopper-recorded actual prices only.",
+    markRead: "Open report and mark as read",
+  },
+  ms: {
+    eyebrow: "Laman utama SmartCart anda",
+    title: "Apa yang ingin anda lakukan?",
+    description: "Rancang perjalanan, teruskan senarai semak, atau semak perbelanjaan isi rumah.",
+    startTrip: "Mulakan perjalanan membeli-belah",
+    resumeTrip: "Sambung perjalanan membeli-belah",
+    resumeAt: (step: string) => `Teruskan dari ${step}`,
+    startNew: "Mulakan perjalanan baharu",
+    travelStep: "pilihan perjalanan",
+    shopStep: "membina bakul",
+    basketStep: "semakan bakul",
+    compareStep: "perbandingan kedai",
+    checklist: "Senarai semak",
+    noChecklist: "Tiada senarai semak aktif",
+    checklistProgress: (done: number, total: number) => `${done} daripada ${total} item dibeli`,
+    history: "Sejarah membeli-belah",
+    tripsRecorded: (count: number) => `${count} perjalanan direkodkan`,
+    inbox: "Peti masuk",
+    unreadReports: (count: number) => count === 0 ? "Tiada laporan belum dibaca" : `${count} laporan belum dibaca`,
+    open: "Buka",
+    historyTitle: "Sejarah membeli-belah",
+    historyDescription: "Perjalanan yang direkodkan kekal pada peranti ini dan dipaparkan yang terbaharu dahulu.",
+    historyEmpty: "Belum ada perjalanan membeli-belah direkodkan.",
+    historyEmptyHint: "Lengkapkan senarai semak dan rekodkan perjalanan untuk membina sejarah anda.",
+    spent: "Perbelanjaan sebenar yang diketahui",
+    spendingUnavailable: "Perbelanjaan sebenar tidak tersedia",
+    planned: "Bakul + pengangkutan yang dirancang",
+    bought: (count: number, total: number) => `${count} daripada ${total} dibeli`,
+    estimatedSaving: "Anggaran penjimatan bersih",
+    estimatedAbove: "Melebihi kos biasa",
+    inboxTitle: "Peti masuk penjimatan & perbelanjaan",
+    inboxDescription: "SmartCart mencipta laporan peribadi selepas setiap tempoh laporan lengkap apabila perjalanan direkodkan tersedia.",
+    weekly: "Mingguan",
+    monthly: "Bulanan",
+    cadenceLabel: "Kekerapan laporan",
+    inboxEmpty: "Belum ada laporan",
+    inboxEmptyHint: "Laporan muncul selepas minggu atau bulan lengkap dengan sekurang-kurangnya satu perjalanan direkodkan.",
+    unread: "Belum dibaca",
+    read: "Dibaca",
+    weekReport: "Laporan mingguan SmartCart",
+    monthReport: "Laporan bulanan SmartCart",
+    trips: (count: number) => `${count} perjalanan direkodkan`,
+    netSavings: "Anggaran penjimatan bersih",
+    storeChoice: "Pilihan kedai",
+    itemChanges: "Perubahan item",
+    unavailable: "Tidak tersedia",
+    incompleteSpending: "Sesetengah item dibeli tiada harga sebenar, jadi perbelanjaan tidak lengkap.",
+    incompleteSavings: "Sesetengah perjalanan tiada perbandingan penjimatan setara.",
+    estimateNote: "Penjimatan ialah anggaran; perbelanjaan hanya menggunakan harga sebenar yang direkodkan pembeli.",
+    markRead: "Buka laporan dan tandakan sebagai dibaca",
+  },
+} as const;
+
+export type TripJourneyStep = "location" | "shop" | "basket" | "compare";
+
+function Icon({ kind }: { kind: "trip" | "checklist" | "history" | "inbox" }) {
+  const paths = {
+    trip: <><path d="M5 5h14l-1 13H6L5 5Z" /><path d="M8 5l1-2m7 2-1-2" /></>,
+    checklist: <><path d="M8 4h11v16H5V4h3" /><path d="m8 11 2 2 4-5m-6 9h7" /></>,
+    history: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>,
+    inbox: <><path d="M4 5h16v14H4V5Z" /><path d="m4 14 4-4h8l4 4" /></>,
+  }[kind];
+  return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-6 w-6 stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>;
+}
+
+function journeyStepLabel(locale: Locale, step: TripJourneyStep): string {
+  const text = TEXT[locale];
+  return {
+    location: text.travelStep,
+    shop: text.shopStep,
+    basket: text.basketStep,
+    compare: text.compareStep,
+  }[step];
+}
+
+function HomeCard({
+  icon,
+  title,
+  detail,
+  badge,
+  onClick,
+}: {
+  icon: "checklist" | "history" | "inbox";
+  title: string;
+  detail: string;
+  badge?: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex min-h-[150px] flex-col items-start rounded-2xl border border-[#dce5e0] bg-white p-5 text-left shadow-[0_4px_18px_rgba(16,35,29,0.05)] transition hover:-translate-y-0.5 hover:border-[#a9cdbd] focus-visible:-translate-y-0.5"
+    >
+      <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-[#edf7f2] text-[#087f5b]">
+        <Icon kind={icon} />
+        {badge && badge > 0 ? <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-extrabold text-white">{badge}</span> : null}
+      </span>
+      <span className="mt-4 text-lg font-extrabold text-[#10231d]">{title}</span>
+      <span className="mt-1 text-sm leading-5 text-[#617069]">{detail}</span>
+    </button>
+  );
+}
+
+export function SmartCartHomeScreen({
+  locale,
+  checklist,
+  history,
+  unreadReports,
+  hasTripInProgress,
+  resumeStep,
+  onStartOrResume,
+  onStartNew,
+  onChecklist,
+  onHistory,
+  onInbox,
+}: {
+  locale: Locale;
+  checklist: ShoppingChecklist | null;
+  history: TripRecord[];
+  unreadReports: number;
+  hasTripInProgress: boolean;
+  resumeStep: TripJourneyStep;
+  onStartOrResume: () => void;
+  onStartNew: () => void;
+  onChecklist: () => void;
+  onHistory: () => void;
+  onInbox: () => void;
+}) {
+  const text = TEXT[locale];
+  const progress = checklist ? checklistProgress(checklist) : null;
+
+  return (
+    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
+      <div className="mx-auto max-w-[760px]">
+        <p className="text-sm font-bold text-[#087f5b]">{text.eyebrow}</p>
+        <h1 className="mt-1 text-[34px] font-extrabold leading-[40px] tracking-[-0.9px] text-[#10231d] sm:text-[42px] sm:leading-[48px]">{text.title}</h1>
+        <p className="mt-3 max-w-[620px] text-base leading-6 text-[#53635c]">{text.description}</p>
+
+        <section className="mt-7 rounded-3xl bg-[#087f5b] p-5 text-white shadow-[0_12px_32px_rgba(8,127,91,0.22)] sm:p-7">
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon kind="trip" /></span>
+          <h2 className="mt-5 text-2xl font-extrabold">{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2>
+          <p className="mt-1 text-sm text-[#d3f0e4]">{hasTripInProgress
+            ? text.resumeAt(journeyStepLabel(locale, resumeStep))
+            : journeyStepLabel(locale, "location")}</p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <button type="button" onClick={onStartOrResume} className="min-h-12 rounded-xl bg-white px-5 text-sm font-extrabold text-[#087f5b]">
+              {hasTripInProgress ? text.resumeTrip : text.startTrip}
+            </button>
+            {hasTripInProgress ? (
+              <button type="button" onClick={onStartNew} className="min-h-12 rounded-xl border border-white/45 px-5 text-sm font-extrabold text-white">
+                {text.startNew}
+              </button>
+            ) : null}
+          </div>
+        </section>
+
+        <section className="mt-4 grid gap-3 sm:grid-cols-3" aria-label="SmartCart tools">
+          <HomeCard
+            icon="checklist"
+            title={text.checklist}
+            detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist}
+            onClick={onChecklist}
+          />
+          <HomeCard icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory} />
+          <HomeCard icon="inbox" title={text.inbox} detail={text.unreadReports(unreadReports)} badge={unreadReports} onClick={onInbox} />
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function localDate(value: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(locale === "ms" ? "ms-MY" : "en-MY", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
+export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; locale: Locale }) {
+  const text = TEXT[locale];
+  const records = listTripRecords(history);
+
+  return (
+    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
+      <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.historyTitle}</h1>
+      <p className="mt-2 text-sm leading-5 text-[#617069]">{text.historyDescription}</p>
+      {records.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">
+          <p className="font-extrabold text-[#17362c]">{text.historyEmpty}</p>
+          <p className="mt-1 text-sm text-[#617069]">{text.historyEmptyHint}</p>
+        </div>
+      ) : (
+        <ol className="mt-6 space-y-3">
+          {records.map(record => {
+            const bought = record.lines.filter(line => line.status === "bought").length;
+            const saving = record.estimatedSavings?.netSavingRm ?? null;
+            return (
+              <li key={record.id} className="rounded-2xl border border-[#dce5e0] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-extrabold text-[#10231d]">{record.store.name}</p>
+                    <p className="mt-1 text-xs text-[#617069]">{localDate(record.recordedAt, locale)} · {text.bought(bought, record.lines.length)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-[#617069]">{text.spent}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-[#17362c]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</p>
+                  </div>
+                </div>
+                <dl className="mt-4 grid gap-2 border-t border-[#edf1ef] pt-3 sm:grid-cols-2">
+                  <div>
+                    <dt className="text-[11px] text-[#617069]">{text.planned}</dt>
+                    <dd className="mt-0.5 text-sm font-bold text-[#17362c]">{record.plannedCombinedTotalRm == null ? "—" : formatRm(record.plannedCombinedTotalRm)}</dd>
+                  </div>
+                  {saving != null ? (
+                    <div>
+                      <dt className="text-[11px] text-[#617069]">{saving >= 0 ? text.estimatedSaving : text.estimatedAbove}</dt>
+                      <dd className={`mt-0.5 text-sm font-extrabold ${saving >= 0 ? "text-[#087f5b]" : "text-[#9b3d00]"}`}>{formatRm(Math.abs(saving))}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function reportPeriod(message: SavingsReportMessage, locale: Locale): string {
+  const inclusiveEnd = new Date(Date.parse(message.periodEnd) - 1);
+  return `${localDate(message.periodStart, locale)} – ${localDate(inclusiveEnd.toISOString(), locale)}`;
+}
+
+function signedReportAmount(value: number | null): string {
+  if (value == null) return "—";
+  if (value === 0) return formatRm(0);
+  return `${value > 0 ? "+" : "−"}${formatRm(Math.abs(value))}`;
+}
+
+export function InboxScreen({
+  state,
+  locale,
+  onCadence,
+  onRead,
+}: {
+  state: InboxState;
+  locale: Locale;
+  onCadence: (cadence: ReportCadence) => void;
+  onRead: (id: string) => void;
+}) {
+  const text = TEXT[locale];
+  return (
+    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
+      <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.inboxTitle}</h1>
+      <p className="mt-2 text-sm leading-5 text-[#617069]">{text.inboxDescription}</p>
+
+      <fieldset className="mt-5">
+        <legend className="text-xs font-bold text-[#53635c]">{text.cadenceLabel}</legend>
+        <div className="mt-2 inline-flex rounded-xl border border-[#cbd8d1] bg-white p-1">
+          {(["weekly", "monthly"] as const).map(cadence => (
+            <button
+              key={cadence}
+              type="button"
+              aria-pressed={state.cadence === cadence}
+              onClick={() => onCadence(cadence)}
+              className={`min-h-10 rounded-lg px-4 text-sm font-extrabold ${state.cadence === cadence ? "bg-[#087f5b] text-white" : "text-[#087f5b]"}`}
+            >
+              {cadence === "weekly" ? text.weekly : text.monthly}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      {state.messages.length === 0 ? (
+        <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">
+          <p className="font-extrabold text-[#17362c]">{text.inboxEmpty}</p>
+          <p className="mt-1 text-sm text-[#617069]">{text.inboxEmptyHint}</p>
+        </div>
+      ) : (
+        <ol className="mt-6 space-y-3">
+          {state.messages.map(message => (
+            <li key={message.id}>
+              <button
+                type="button"
+                onClick={() => onRead(message.id)}
+                aria-label={text.markRead}
+                className={`w-full rounded-2xl border p-4 text-left shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5 ${message.read ? "border-[#dce5e0] bg-white" : "border-[#8fc7ae] bg-[#f0faf5]"}`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide ${message.read ? "bg-[#edf1ef] text-[#617069]" : "bg-[#087f5b] text-white"}`}>{message.read ? text.read : text.unread}</span>
+                    <h2 className="mt-2 text-lg font-extrabold text-[#10231d]">{message.cadence === "weekly" ? text.weekReport : text.monthReport}</h2>
+                    <p className="mt-1 text-xs text-[#617069]">{reportPeriod(message, locale)} · {text.trips(message.tripCount)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[11px] text-[#617069]">{text.spent}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-[#17362c]">{message.actualSpendingRm == null ? text.unavailable : formatRm(message.actualSpendingRm)}</p>
+                  </div>
+                </div>
+                <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-[#dce8e1] pt-3">
+                  <div><dt className="text-[10px] text-[#617069]">{text.netSavings}</dt><dd className={`mt-1 text-sm font-extrabold ${(message.estimatedNetSavingsRm ?? 0) >= 0 ? "text-[#087f5b]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.estimatedNetSavingsRm)}</dd></div>
+                  <div><dt className="text-[10px] text-[#617069]">{text.storeChoice}</dt><dd className={`mt-1 text-sm font-bold ${(message.storeChoiceImpactRm ?? 0) >= 0 ? "text-[#17362c]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.storeChoiceImpactRm)}</dd></div>
+                  <div><dt className="text-[10px] text-[#617069]">{text.itemChanges}</dt><dd className={`mt-1 text-sm font-bold ${(message.itemChangeImpactRm ?? 0) >= 0 ? "text-[#17362c]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.itemChangeImpactRm)}</dd></div>
+                </dl>
+                <div className="mt-3 space-y-1 text-[11px] leading-4 text-[#617069]">
+                  {message.spendingIncomplete ? <p>{text.incompleteSpending}</p> : null}
+                  {message.savingsIncomplete ? <p>{text.incompleteSavings}</p> : null}
+                  <p>{text.estimateNote}</p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}

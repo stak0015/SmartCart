@@ -2,6 +2,7 @@ import type {
   ApiErrorBody,
   BasketAlternativesResponse,
   BasketLineRequest,
+  CandidatePreparationResponse,
   LocationSearchResponse,
   RecommendationRequest,
   RecommendationResponse,
@@ -49,6 +50,17 @@ export function getRecommendations(
   return request<RecommendationResponse>("/recommendations", {
     method: "POST",
     body: JSON.stringify(payload),
+    signal,
+  });
+}
+
+export function prepareRecommendationCandidates(
+  travel: RecommendationRequest["travel"],
+  signal?: AbortSignal,
+): Promise<CandidatePreparationResponse> {
+  return request<CandidatePreparationResponse>("/recommendations/prepare", {
+    method: "POST",
+    body: JSON.stringify({ travel }),
     signal,
   });
 }
