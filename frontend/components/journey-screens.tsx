@@ -3,6 +3,7 @@
 import { formatRm } from "@/lib/format-rm";
 import type { InboxState, ReportCadence, SavingsReportMessage } from "@/lib/inbox";
 import type { Locale } from "@/lib/i18n";
+import { periodSummary, type PeriodSummary } from "@/lib/period-summary";
 import { checklistProgress, type ShoppingChecklist } from "@/lib/shopping-checklist";
 import { listTripRecords, type TripRecord } from "@/lib/trip-history";
 
@@ -57,6 +58,18 @@ const TEXT = {
     incompleteSavings: "Some trips had no like-for-like savings comparison.",
     estimateNote: "Savings are estimates; spending uses shopper-recorded actual prices only.",
     markRead: "Open report and mark as read",
+    // AC 8.1.1-8.1.4: summary for the period currently in progress. Separate
+    // from the archived reports above, which only cover completed periods.
+    thisWeek: "This week",
+    thisMonth: "This month",
+    confirmedSpendingSoFar: "Confirmed spending so far",
+    thisPeriodTrips: (count: number) => `${count} ${count === 1 ? "trip" : "trips"} recorded`,
+    thisPeriodNoRecords: "No shopping data for this period yet.",
+    thisPeriodNoRecordsHint: "Record a trip from your checklist and it will show up here.",
+    thisPeriodNoConfirmed: "Not enough spending data for this period.",
+    thisPeriodNoConfirmedHint: "Trips are recorded, but none has a shopper-recorded actual price yet.",
+    thisPeriodEstimatesOnly: "Planned estimates are not confirmed spending, so no amount is shown.",
+    thisPeriodIncomplete: "Some bought items had no actual price, so this total is partial.",
   },
   ms: {
     eyebrow: "Laman utama SmartCart anda",
@@ -108,6 +121,18 @@ const TEXT = {
     incompleteSavings: "Sesetengah perjalanan tiada perbandingan penjimatan setara.",
     estimateNote: "Penjimatan ialah anggaran; perbelanjaan hanya menggunakan harga sebenar yang direkodkan pembeli.",
     markRead: "Buka laporan dan tandakan sebagai dibaca",
+    // AC 8.1.1-8.1.4: summary for the period currently in progress. Separate
+    // from the archived reports above, which only cover completed periods.
+    thisWeek: "Minggu ini",
+    thisMonth: "Bulan ini",
+    confirmedSpendingSoFar: "Perbelanjaan disahkan setakat ini",
+    thisPeriodTrips: (count: number) => `${count} perjalanan direkodkan`,
+    thisPeriodNoRecords: "Tiada data membeli-belah untuk tempoh ini lagi.",
+    thisPeriodNoRecordsHint: "Rekodkan perjalanan daripada senarai semak anda dan ia akan muncul di sini.",
+    thisPeriodNoConfirmed: "Data perbelanjaan tidak mencukupi untuk tempoh ini.",
+    thisPeriodNoConfirmedHint: "Perjalanan direkodkan, tetapi tiada yang mempunyai harga sebenar yang direkodkan pembeli lagi.",
+    thisPeriodEstimatesOnly: "Anggaran perancangan bukan perbelanjaan disahkan, jadi tiada jumlah dipaparkan.",
+    thisPeriodIncomplete: "Sesetengah item dibeli tiada harga sebenar, jadi jumlah ini separa.",
   },
 } as const;
 
@@ -300,18 +325,81 @@ function signedReportAmount(value: number | null): string {
   return `${value > 0 ? "+" : "−"}${formatRm(Math.abs(value))}`;
 }
 
+/**
+ * AC 8.1.1-8.1.4: the spending summary for the period in progress.
+ *
+ * Three mutually exclusive branches, and the amount is rendered in the first
+ * one only. The branch condition tests confirmedSpendingRm for null (rather
+ * than the equivalent hasConfirmedSpending flag) so TypeScript narrows the
+ * value to number and no cast is needed:
+ *  - confirmed total present -> this week's confirmed spending (AC 8.1.1)
+ *  - records but no confirmed total -> "not enough spending data", no amount
+ *    (AC 8.1.4); when those records carry estimates, say plainly that
+ *    estimates are not confirmed spending (AC 8.1.2)
+ *  - no records at all -> "no shopping data", no amount (AC 8.1.3)
+ *
+ * PeriodSummary deliberately carries no estimate amount, so this component
+ * cannot render one even by mistake.
+ */
+function WeeklySpendingSummary({ summary, locale }: { summary: PeriodSummary; locale: Locale }) {
+  const text = TEXT[locale];
+  const title = summary.cadence === "weekly" ? text.thisWeek : text.thisMonth;
+
+  return (
+    <section
+      aria-labelledby="current-period-spending"
+      className="rounded-2xl border border-[#8fc7ae] bg-[#f0faf5] p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5"
+    >
+      <h2 id="current-period-spending" className="text-lg font-extrabold text-[#10231d]">{title}</h2>
+
+      {summary.confirmedSpendingRm != null ? (
+        <>
+          <p className="mt-1 text-[11px] text-[#617069]">{text.confirmedSpendingSoFar}</p>
+          <p className="mt-1 text-[28px] font-extrabold leading-9 text-[#087f5b]">
+            {formatRm(summary.confirmedSpendingRm)}
+          </p>
+          <p className="mt-1 text-xs text-[#617069]">{text.thisPeriodTrips(summary.tripCount)}</p>
+          {summary.spendingIncomplete ? (
+            <p className="mt-2 text-[11px] leading-4 text-[#617069]">{text.thisPeriodIncomplete}</p>
+          ) : null}
+        </>
+      ) : summary.hasRecords ? (
+        <div className="mt-2">
+          <p className="font-extrabold text-[#17362c]">{text.thisPeriodNoConfirmed}</p>
+          <p className="mt-1 text-sm leading-5 text-[#617069]">{text.thisPeriodNoConfirmedHint}</p>
+          <p className="mt-1 text-xs text-[#617069]">{text.thisPeriodTrips(summary.tripCount)}</p>
+          {summary.hasEstimatedOnly ? (
+            <p className="mt-2 text-[11px] leading-4 text-[#9b3d00]">{text.thisPeriodEstimatesOnly}</p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-2">
+          <p className="font-extrabold text-[#17362c]">{text.thisPeriodNoRecords}</p>
+          <p className="mt-1 text-sm leading-5 text-[#617069]">{text.thisPeriodNoRecordsHint}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function InboxScreen({
   state,
   locale,
   onCadence,
   onRead,
+  history,
 }: {
   state: InboxState;
   locale: Locale;
   onCadence: (cadence: ReportCadence) => void;
   onRead: (id: string) => void;
+  history: TripRecord[];
 }) {
   const text = TEXT[locale];
+  // AC 8.1.1: the in-progress period summary follows the same cadence switch
+  // as the archived reports below it, so "this week" and the weekly reports
+  // never disagree about where a period starts.
+  const currentPeriod = periodSummary(history, state.cadence);
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
       <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.inboxTitle}</h1>
@@ -333,6 +421,10 @@ export function InboxScreen({
           ))}
         </div>
       </fieldset>
+
+      <div className="mt-5">
+        <WeeklySpendingSummary summary={currentPeriod} locale={locale} />
+      </div>
 
       {state.messages.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">

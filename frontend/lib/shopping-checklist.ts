@@ -74,6 +74,12 @@ export interface ShoppingChecklist {
   // Frozen at plan confirmation so later item-price updates cannot rewrite a
   // historical savings claim. Older locally stored checklists omit this field.
   estimatedSavings?: EstimatedSavingsSnapshot | null;
+  // AC 8.2.3: how the frozen travel estimates above were produced. Kept on the
+  // checklist so the provenance can travel into the expense record and still be
+  // disclosed long after the recommendation response is gone. Optional:
+  // checklists created before this field existed carry no provenance and must
+  // still validate.
+  routeProvider?: "google" | "straight_line";
   items: ChecklistItem[];
 }
 
@@ -113,6 +119,8 @@ interface ChecklistCreationOptions {
   createdAt?: string;
   alternativeStores?: StoreRecommendation[];
   estimatedSavings?: EstimatedSavingsSnapshot | null;
+  // AC 8.2.3: provenance of the frozen travel estimates.
+  routeProvider?: "google" | "straight_line";
 }
 
 interface AddManualItemOptions {
@@ -245,6 +253,10 @@ export function createShoppingChecklist(
       : money(store.estimatedTotalCostRm),
     alternativeStoreEstimates,
     estimatedSavings: options.estimatedSavings ?? null,
+    // AC 8.2.3: frozen only when the caller knows it, mirroring the pattern
+    // used for estimatedSavings so serialised output is unchanged for callers
+    // that predate the field.
+    ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}),
     items,
   };
 }
@@ -604,6 +616,12 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || (checklist.estimatedSavings !== undefined
       && checklist.estimatedSavings !== null
       && !isEstimatedSavingsSnapshot(checklist.estimatedSavings))
+    // AC 8.2.3 / AC 5.5.4: optional provenance. Absent is valid (records
+    // predate it); present must be one of the two known providers, so a
+    // corrupt value is rejected rather than silently trusted.
+    || (checklist.routeProvider !== undefined
+      && checklist.routeProvider !== "google"
+      && checklist.routeProvider !== "straight_line")
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 

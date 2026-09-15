@@ -48,11 +48,14 @@ function startOfUtcMonth(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
-function periodStart(date: Date, cadence: ReportCadence): Date {
+// Exported so the current-period spending summary (AC 8.1.1) and the archived
+// period reports share one definition of a period boundary. Re-implementing it
+// would let a trip near a boundary be counted twice, or by neither.
+export function periodStart(date: Date, cadence: ReportCadence): Date {
   return cadence === "weekly" ? startOfUtcWeek(date) : startOfUtcMonth(date);
 }
 
-function nextPeriod(start: Date, cadence: ReportCadence): Date {
+export function nextPeriod(start: Date, cadence: ReportCadence): Date {
   const next = new Date(start);
   if (cadence === "weekly") next.setUTCDate(next.getUTCDate() + 7);
   else next.setUTCMonth(next.getUTCMonth() + 1);

@@ -2199,7 +2199,7 @@ function RecommendationOverview({
             <SavingsInsightsSummary
               insights={savingsInsights(
                 store,
-                alternativeStores,
+                recommendations,
                 { routeProvider, routeWarning: null },
               )}
               copy={copy}
@@ -2754,6 +2754,7 @@ export default function App() {
           <InboxScreen
             state={inbox}
             locale={locale}
+            history={tripHistory}
             onCadence={(cadence: ReportCadence) => setInbox(current => setReportCadence(current, cadence))}
             onRead={id => setInbox(current => markReportRead(current, id))}
           />

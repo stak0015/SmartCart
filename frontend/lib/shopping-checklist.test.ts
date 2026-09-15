@@ -790,3 +790,80 @@ describe("alternative store estimates snapshot (gap G4)", () => {
     expect(parseShoppingChecklist(JSON.stringify(notArray))).toBeNull();
   });
 });
+
+describe("route provenance (AC 8.2.3)", () => {
+  // Local fixture: the altA/altB fixtures above are scoped to their own
+  // describe block, so this block defines its own rather than reaching in.
+  const alt: StoreRecommendation = {
+    ...store,
+    premiseId: "20",
+    premiseCode: "P20",
+    name: "Alt Store A",
+    estimatedRoundTripCostRm: 2.345,
+    estimatedTotalCostRm: 17.895,
+  };
+
+  it("freezes the route provider passed at creation", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-route",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      alternativeStores: [alt],
+      routeProvider: "straight_line",
+    });
+    expect(checklist.routeProvider).toBe("straight_line");
+  });
+
+  it("survives a localStorage round trip so an old trip keeps its caveat", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-route-rt",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      alternativeStores: [alt],
+      routeProvider: "google",
+    });
+    const restored = parseShoppingChecklist(serializeShoppingChecklist(checklist));
+    expect(restored).toEqual(checklist);
+    expect(restored?.routeProvider).toBe("google");
+  });
+
+  it("omits the field entirely when the caller does not know it", () => {
+    // Legacy compatibility: serialised output must be unchanged for callers
+    // that predate AC 8.2.3, so the key is absent rather than null.
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-noroute",
+      createdAt: "2026-09-14T00:00:00.000Z",
+    });
+    expect(checklist.routeProvider).toBeUndefined();
+    expect(Object.prototype.hasOwnProperty.call(checklist, "routeProvider")).toBe(false);
+    expect(serializeShoppingChecklist(checklist)).not.toContain("routeProvider");
+  });
+
+  it("migrates a v3 payload that predates the field without inventing one", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-route-legacy",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      alternativeStores: [alt],
+      routeProvider: "google",
+    });
+    const legacy = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    legacy.version = 3;
+    delete legacy.routeProvider;
+    delete legacy.alternativeStoreEstimates;
+
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated).not.toBeNull();
+    expect(migrated?.version).toBe(SHOPPING_CHECKLIST_VERSION);
+    expect(migrated?.routeProvider).toBeUndefined();
+    expect(migrated?.items).toEqual(checklist.items);
+  });
+
+  it("rejects a corrupt provider instead of silently trusting it", () => {
+    const checklist = createShoppingChecklist(store, details, {
+      checklistId: "checklist-route-bad",
+      createdAt: "2026-09-14T00:00:00.000Z",
+      routeProvider: "google",
+    });
+    const corrupt = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    corrupt.routeProvider = "telepathy";
+    expect(parseShoppingChecklist(JSON.stringify(corrupt))).toBeNull();
+  });
+});
