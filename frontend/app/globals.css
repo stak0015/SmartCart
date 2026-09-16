@@ -87,3 +87,24 @@ select:focus-visible {
     transform: none;
   }
 }
+
+/* AC 5.7.4: the export sheet is portalled to <body> and stays off-screen on
+   display; in print output every other top-level element is removed from
+   layout so the PDF contains just the checklist — no blank pages, no
+   navigation, buttons, or dialogs. */
+.checklist-export-sheet {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+}
+
+@media print {
+  body > *:not(.checklist-export-sheet) {
+    display: none;
+  }
+
+  .checklist-export-sheet {
+    position: static;
+    left: auto;
+  }
+}
