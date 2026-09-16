@@ -65,6 +65,11 @@ export interface ShoppingChecklistCopy {
   recordTripConfirm: string;
   recordTripAgain: string;
   tripRecorded: string;
+  exportChecklist: string;
+  exportChecklistIntro: string;
+  downloadAsImage: string;
+  downloadAsPdf: string;
+  exportChecklistEmpty: string;
   close: string;
 }
 
@@ -206,6 +211,71 @@ export function ConfirmationDialog({
             }`}
           >
             {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+interface ExportChecklistDialogProps {
+  open: boolean;
+  copy: ShoppingChecklistCopy;
+  onDownloadImage: () => void;
+  onDownloadPdf: () => void;
+  onCancel: () => void;
+}
+
+// AC 5.7.1: one accessible Export action offering both download formats.
+function ExportChecklistDialog({
+  open,
+  copy,
+  onDownloadImage,
+  onDownloadPdf,
+  onCancel,
+}: ExportChecklistDialogProps) {
+  const titleId = useId();
+  const bodyId = useId();
+  const imageRef = useRef<HTMLButtonElement>(null);
+  const { dialogRef, handleCancel } = useNativeDialog(open, onCancel, imageRef);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={bodyId}
+      onCancel={handleCancel}
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
+    >
+      <div className="p-5 sm:p-6">
+        <h2 id={titleId} className="text-xl font-extrabold leading-7">
+          {copy.exportChecklist}
+        </h2>
+        <p id={bodyId} className="mt-2 text-sm leading-6 text-[#53635c]">
+          {copy.exportChecklistIntro}
+        </p>
+        <div className="mt-6 grid gap-3">
+          <button
+            ref={imageRef}
+            type="button"
+            onClick={onDownloadImage}
+            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+          >
+            {copy.downloadAsImage}
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+          >
+            {copy.downloadAsPdf}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
+          >
+            {copy.cancel}
           </button>
         </div>
       </div>
@@ -500,6 +570,14 @@ function AddIcon() {
   );
 }
 
+function DownloadIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0">
+      <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function localizedItemName(item: ChecklistItem, locale: "en" | "ms") {
   if (item.source === "manual") return item.itemName;
   return (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
@@ -668,7 +746,10 @@ export function ShoppingChecklistScreen({
   const [itemPendingDelete, setItemPendingDelete] = useState<ChecklistItem | null>(null);
   const [deleteChecklistOpen, setDeleteChecklistOpen] = useState(false);
   const [recordTripOpen, setRecordTripOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const progress = checklistProgress(checklist);
+  // AC 5.7.1: an empty checklist disables the export action and explains why.
+  const isEmpty = checklist.items.length === 0;
   // Prefer the snapshot's persisted planned subtotal (AC 5.1.1); fall back to
   // live derivation for legacy payloads migrated without it.
   const subtotal = checklist.plannedSubtotalRm ?? plannedChecklistSubtotal(checklist);
@@ -678,6 +759,10 @@ export function ShoppingChecklistScreen({
   );
 
   const closeManualDialog = () => setManualDialog({ open: false, item: null });
+
+  // AC 5.7.4 wires the actual PNG/PDF generation to these handlers.
+  const handleExportImage = () => {};
+  const handleExportPdf = () => {};
 
   const saveManualItem = (input: ManualChecklistItemInput) => {
     if (manualDialog.item) {
@@ -796,6 +881,20 @@ export function ShoppingChecklistScreen({
 
         <button
           type="button"
+          onClick={() => setExportOpen(true)}
+          disabled={isEmpty}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891] disabled:hover:bg-white"
+        >
+          <DownloadIcon /> {copy.exportChecklist}
+        </button>
+        {isEmpty && (
+          <p className="-mt-1 text-center text-xs text-[#617069]">
+            {copy.exportChecklistEmpty}
+          </p>
+        )}
+
+        <button
+          type="button"
           onClick={() => setDeleteChecklistOpen(true)}
           className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#ba1a1a] hover:bg-[#fff2f2]"
         >
@@ -855,6 +954,14 @@ export function ShoppingChecklistScreen({
           setDeleteChecklistOpen(false);
           onDeleteChecklist();
         }}
+      />
+
+      <ExportChecklistDialog
+        open={exportOpen}
+        copy={copy}
+        onDownloadImage={handleExportImage}
+        onDownloadPdf={handleExportPdf}
+        onCancel={() => setExportOpen(false)}
       />
     </div>
   );
