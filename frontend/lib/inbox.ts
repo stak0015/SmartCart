@@ -25,12 +25,19 @@ export interface InboxState {
   version: typeof INBOX_VERSION;
   cadence: ReportCadence;
   messages: SavingsReportMessage[];
+  /**
+   * AC 8.4.3: the shopper can hide the summary section. Device-local and
+   * reversible - nothing is sent anywhere and flipping it back restores the
+   * section without touching any recorded data.
+   */
+  summaryHidden: boolean;
 }
 
 export const EMPTY_INBOX: InboxState = {
   version: INBOX_VERSION,
   cadence: "weekly",
   messages: [],
+  summaryHidden: false,
 };
 
 function money(value: number): number {
@@ -138,6 +145,15 @@ export function setReportCadence(state: InboxState, cadence: ReportCadence): Inb
   return state.cadence === cadence ? state : { ...state, cadence };
 }
 
+/**
+ * AC 8.4.3: flips summary visibility. Only this flag changes - cadence, reports
+ * and every recorded trip are left untouched, so hiding is purely reversible
+ * and never destructive.
+ */
+export function setSummaryHidden(state: InboxState, summaryHidden: boolean): InboxState {
+  return state.summaryHidden === summaryHidden ? state : { ...state, summaryHidden };
+}
+
 export function markReportRead(state: InboxState, id: string): InboxState {
   if (!state.messages.some(message => message.id === id && !message.read)) return state;
   return {
@@ -185,7 +201,17 @@ export function parseInboxState(serialized: string | null | undefined): InboxSta
       || (state.cadence !== "weekly" && state.cadence !== "monthly")
       || !Array.isArray(state.messages)
       || !state.messages.every(isReportMessage)) return EMPTY_INBOX;
-    return state as unknown as InboxState;
+    return {
+      version: INBOX_VERSION,
+      cadence: state.cadence,
+      messages: state.messages as SavingsReportMessage[],
+      // Payloads written before AC 8.4.3 have no summaryHidden field. Normalise
+      // it explicitly instead of casting, otherwise undefined would slip past
+      // the type system and every falsy check would be accidental. The version
+      // is deliberately NOT bumped: hiding a section is additive, and bumping
+      // would discard every report already saved on the device.
+      summaryHidden: state.summaryHidden === true,
+    };
   } catch {
     return EMPTY_INBOX;
   }

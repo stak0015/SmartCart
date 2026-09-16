@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { TripRecord } from "./trip-history";
 import {
   EMPTY_INBOX,
+  INBOX_VERSION,
   markReportRead,
   parseInboxState,
   serializeInboxState,
   setReportCadence,
   syncInboxReports,
+  type InboxState,
 } from "./inbox";
 
 function trip(id: string, recordedAt: string, actualTotalRm: number | null, saving: number | null): TripRecord {
@@ -82,5 +84,74 @@ describe("inbox reports", () => {
     expect(read.messages[0].read).toBe(true);
     expect(parseInboxState(serializeInboxState(read))).toEqual(read);
     expect(parseInboxState("{broken")).toEqual(EMPTY_INBOX);
+  });
+});
+
+describe("summary visibility setting (AC 8.4.3)", () => {
+  it("defaults to visible so hiding is always an opt-in choice", () => {
+    expect(EMPTY_INBOX.summaryHidden).toBe(false);
+    expect(parseInboxState(null).summaryHidden).toBe(false);
+  });
+
+  it("normalises payloads written before the field existed", () => {
+    // The version is deliberately unchanged: hiding a section is additive, so
+    // an older payload must still parse rather than be discarded.
+    const legacy = JSON.stringify({
+      version: INBOX_VERSION,
+      cadence: "weekly",
+      messages: [],
+    });
+    const parsed = parseInboxState(legacy);
+    expect(parsed).toEqual(EMPTY_INBOX);
+    expect(parsed.summaryHidden).toBe(false);
+  });
+
+  it("treats any non-boolean value as visible instead of trusting it", () => {
+    for (const bad of ["yes", 1, 0, null, {}, []]) {
+      const parsed = parseInboxState(JSON.stringify({
+        version: INBOX_VERSION,
+        cadence: "weekly",
+        messages: [],
+        summaryHidden: bad,
+      }));
+      expect(parsed.summaryHidden).toBe(false);
+    }
+  });
+
+  it("round-trips the hidden setting through local storage", () => {
+    const hidden: InboxState = { ...EMPTY_INBOX, summaryHidden: true };
+    const restored = parseInboxState(serializeInboxState(hidden));
+    expect(restored.summaryHidden).toBe(true);
+    expect(restored).toEqual(hidden);
+  });
+
+  it("keeps the setting when the cadence switches", () => {
+    const hidden = setReportCadence({ ...EMPTY_INBOX, summaryHidden: true }, "monthly");
+    expect(hidden.summaryHidden).toBe(true);
+    expect(hidden.cadence).toBe("monthly");
+  });
+
+  it("keeps the setting when a report is marked read", () => {
+    const generated = syncInboxReports(
+      EMPTY_INBOX,
+      [trip("a", "2026-08-12T10:00:00.000Z", 20, 3)],
+      new Date("2026-09-15T08:00:00.000Z"),
+    );
+    const hidden: InboxState = { ...generated, summaryHidden: true };
+    const read = markReportRead(hidden, hidden.messages[0].id);
+    expect(read.summaryHidden).toBe(true);
+    expect(read.messages[0].read).toBe(true);
+  });
+
+  it("is not reset by the automatic report sync", () => {
+    // syncInboxReports runs from an effect on every history change, so losing
+    // the field here would silently un-hide the summary on every app launch.
+    const hidden = syncInboxReports(
+      { ...EMPTY_INBOX, summaryHidden: true },
+      [trip("a", "2026-08-12T10:00:00.000Z", 20, 3)],
+      new Date("2026-09-15T08:00:00.000Z"),
+    );
+    expect(hidden.summaryHidden).toBe(true);
+    expect(hidden.messages).toHaveLength(1);
   });
 });

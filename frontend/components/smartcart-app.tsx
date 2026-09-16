@@ -87,6 +87,7 @@ import {
   parseInboxState,
   serializeInboxState,
   setReportCadence,
+  setSummaryHidden,
   syncInboxReports,
   type InboxState,
   type ReportCadence,
@@ -2757,6 +2758,7 @@ export default function App() {
             history={tripHistory}
             onCadence={(cadence: ReportCadence) => setInbox(current => setReportCadence(current, cadence))}
             onRead={id => setInbox(current => markReportRead(current, id))}
+            onToggleSummary={() => setInbox(current => setSummaryHidden(current, !current.summaryHidden))}
           />
         ) : null}
         {screen === "shop" ? (

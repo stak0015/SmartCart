@@ -97,6 +97,17 @@ const TEXT = {
       `This period has ${elapsed} of ${total} days so far; the previous period is complete, so the two totals are not like-for-like.`,
     comparisonUnavailable: "No recorded trips in the previous period, so no comparison is shown.",
     comparisonChange: "Change",
+    // The separator was hardcoded English in the US 8.3 card, which leaked into
+    // the Malay UI. It is a copy key now.
+    comparisonVersus: "vs",
+    // AC 8.4.2/8.4.3: the summary is computed on the device at the moment it is
+    // opened, and the shopper can hide the section. The privacy line states what
+    // the code actually does - no background job, no upload - rather than
+    // promising something unenforced.
+    hideSummary: "Hide summary",
+    showSummary: "Show summary",
+    summaryHiddenNote: "Your summary is hidden on this device. Your recorded trips are untouched.",
+    summaryPrivacyNote: "This summary is calculated on your device when you open it. Your spending data is never sent anywhere.",
   },
   ms: {
     eyebrow: "Laman utama SmartCart anda",
@@ -186,6 +197,11 @@ const TEXT = {
       `Tempoh ini mempunyai ${elapsed} daripada ${total} hari setakat ini; tempoh sebelumnya lengkap, jadi kedua-dua jumlah bukan setara.`,
     comparisonUnavailable: "Tiada perjalanan direkodkan dalam tempoh sebelumnya, jadi tiada perbandingan dipaparkan.",
     comparisonChange: "Perubahan",
+    comparisonVersus: "vs",
+    hideSummary: "Sembunyikan ringkasan",
+    showSummary: "Paparkan ringkasan",
+    summaryHiddenNote: "Ringkasan anda disembunyikan pada peranti ini. Perjalanan yang direkodkan tidak diubah.",
+    summaryPrivacyNote: "Ringkasan ini dikira pada peranti anda apabila anda membukanya. Data perbelanjaan anda tidak dihantar ke mana-mana.",
   },
 } as const;
 
@@ -521,7 +537,7 @@ function PeriodComparisonCard({
       className="mt-5 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5"
     >
       <h2 className="text-lg font-extrabold leading-6 text-[#10231d]">
-        {currentLabel} vs {previousLabel}
+        {currentLabel} {text.comparisonVersus} {previousLabel}
       </h2>
 
       {previous == null ? (
@@ -592,12 +608,14 @@ export function InboxScreen({
   locale,
   onCadence,
   onRead,
+  onToggleSummary,
   history,
 }: {
   state: InboxState;
   locale: Locale;
   onCadence: (cadence: ReportCadence) => void;
   onRead: (id: string) => void;
+  onToggleSummary: () => void;
   history: TripRecord[];
 }) {
   const text = TEXT[locale];
@@ -605,8 +623,13 @@ export function InboxScreen({
   // period comparison both follow the same cadence switch as the archived
   // reports below, so "this week" and the weekly reports never disagree about
   // where a period starts.
-  const comparison = periodComparison(history, state.cadence);
-  const currentPeriod = comparison.current;
+  //
+  // AC 8.4.2: this runs in the render body, so the maths happens at the moment
+  // the screen is opened - nothing is precomputed and no background job exists.
+  // AC 8.4.3: when the shopper hides the section it is not called at all, so a
+  // hidden summary is not even computed.
+  const comparison = state.summaryHidden ? null : periodComparison(history, state.cadence);
+  const currentPeriod = comparison?.current ?? null;
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
       <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.inboxTitle}</h1>
@@ -629,11 +652,33 @@ export function InboxScreen({
         </div>
       </fieldset>
 
-      <div className="mt-5">
-        <WeeklySpendingSummary summary={currentPeriod} locale={locale} />
+      {/* AC 8.4.3: a local, reversible control over the whole summary section */}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          aria-pressed={state.summaryHidden}
+          aria-expanded={!state.summaryHidden}
+          onClick={onToggleSummary}
+          className="min-h-11 rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b]"
+        >
+          {state.summaryHidden ? text.showSummary : text.hideSummary}
+        </button>
+        <p className="text-xs leading-5 text-[#617069]">{text.summaryPrivacyNote}</p>
       </div>
 
-      <PeriodComparisonCard comparison={comparison} locale={locale} />
+      {comparison && currentPeriod ? (
+        <>
+          <div className="mt-5">
+            <WeeklySpendingSummary summary={currentPeriod} locale={locale} />
+          </div>
+
+          <PeriodComparisonCard comparison={comparison} locale={locale} />
+        </>
+      ) : (
+        <div className="mt-5 rounded-2xl border border-dashed border-[#becdc6] bg-white p-5 text-center">
+          <p className="text-sm font-bold text-[#17362c]">{text.summaryHiddenNote}</p>
+        </div>
+      )}
 
       {state.messages.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">
