@@ -40,6 +40,7 @@ function store(
       itemNameEn: null,
       itemNameMs: null,
       unit: null,
+      quantity: 1,
       unitPriceRm: 5,
       lineTotalRm: 5,
       observedDate: null,

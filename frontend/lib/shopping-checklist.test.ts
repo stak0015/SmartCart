@@ -677,7 +677,7 @@ describe("actual quantity recording (AC 5.3.4)", () => {
     expect(fromV2?.items[0].quantitySource).toBe("planned");
 
     // v1 payload: lacks all three actual-entry fields entirely.
-    const v1 = { ...v2, version: 1 };
+    const v1: Record<string, unknown> = { ...v2, version: 1 };
     v1.items = (v2.items as Record<string, unknown>[]).map(item => {
       const copy = { ...item };
       delete copy.actualPriceRm;
