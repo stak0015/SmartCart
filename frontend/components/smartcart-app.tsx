@@ -34,8 +34,6 @@ import {
   type BasketItem,
 } from "@/lib/basket-state";
 import { basketSavingsSummary } from "@/lib/savings-summary";
-import { savingsInsights } from "@/lib/savings-insights";
-import { SavingsInsightsSummary } from "@/components/savings-insights";
 import {
   buildRecommendationDetailRows,
   recommendationDetailTotals,
@@ -177,6 +175,14 @@ function IcoArrowRight({ color = "white" }: { color?: string }) {
   return (
     <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
       <path d={svgPathsBasket.p1a406200} fill={color} />
+    </svg>
+  );
+}
+function IcoSave() {
+  return (
+    <svg aria-hidden="true" width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+      <path d="M17 21v-8H7v8M7 3v5h8" />
     </svg>
   );
 }
@@ -2099,8 +2105,21 @@ function RecommendationOverview({
 
           {displayedLineCount > 0 && (
             <section className="mt-4 overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
-              <div className={`px-4 py-3 ${hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]"}`}>
+              <div className={`flex items-center justify-between gap-3 px-4 py-3 ${hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]"}`}>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+                <button
+                  type="button"
+                  onClick={beginChecklistCreation}
+                  disabled={alternativesLoading}
+                  className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#087f5b] px-2.5 text-[11px] font-extrabold leading-4 text-white shadow-[0_3px_9px_rgba(8,127,91,0.18)] disabled:cursor-not-allowed disabled:bg-[#9eb0a7] disabled:shadow-none"
+                >
+                  <IcoSave />
+                  {alternativesLoading
+                    ? copy.checklistPreparing
+                    : activeChecklist
+                      ? copy.replaceChecklist
+                      : copy.createChecklist}
+                </button>
               </div>
 
               <div className="px-4">
@@ -2159,24 +2178,6 @@ function RecommendationOverview({
             </div>
           ) : null}
 
-          {displayedLineCount > 0 && (
-            <div className="mt-4">
-              <button
-                type="button"
-                onClick={beginChecklistCreation}
-                disabled={alternativesLoading}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(8,127,91,0.2)] disabled:cursor-not-allowed disabled:bg-[#9eb0a7] disabled:shadow-none"
-              >
-                <IcoArrowRight />
-                {alternativesLoading
-                  ? copy.checklistPreparing
-                  : activeChecklist
-                    ? copy.replaceChecklist
-                    : copy.createChecklist}
-              </button>
-            </div>
-          )}
-
           {adjustedCombinedTotal != null && (
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
               <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -2190,22 +2191,6 @@ function RecommendationOverview({
               </div>
             </div>
           )}
-
-          <div className="mt-4">
-            {/* AC 8.2.1/8.2.2/8.2.3: routeWarning is left null on purpose. The
-                backend's warning string is hard-coded English, and the summary
-                already renders the localised copy.straightLineTravelNote from
-                routeEstimated (driven by routeProvider), so passing it through
-                would mix languages on the Malay UI. */}
-            <SavingsInsightsSummary
-              insights={savingsInsights(
-                store,
-                recommendations,
-                { routeProvider, routeWarning: null },
-              )}
-              copy={copy}
-            />
-          </div>
 
           <details className="mt-4 border-t border-[#e2e9e5] pt-3 text-xs">
             <summary className="cursor-pointer font-bold text-[#17362c]">{copy.calculationTitle}</summary>

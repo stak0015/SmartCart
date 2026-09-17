@@ -16,10 +16,6 @@ const TEXT = {
     swapsCostMore: (amount: string) => `Your applied item changes add ${amount} to this basket.`,
     storeChoice: "Store choice",
     itemChanges: "Item changes",
-    median: (amount: string, count: number) => `Compared with the ${amount} median combined cost across ${count} comparable recommended stores.`,
-    medianUnavailable: "A store comparison needs at least two recommendations with the same priced items.",
-    estimatedPrices: "Some basket prices are cached cross-store estimates.",
-    estimatedRoute: "Travel cost and reachability use straight-line estimates.",
     potential: "Estimate only — actual spending may differ.",
   },
   ms: {
@@ -33,10 +29,6 @@ const TEXT = {
     swapsCostMore: (amount: string) => `Perubahan item anda menambah ${amount} kepada bakul ini.`,
     storeChoice: "Pilihan kedai",
     itemChanges: "Perubahan item",
-    median: (amount: string, count: number) => `Berbanding kos gabungan median ${amount} daripada ${count} kedai cadangan setara.`,
-    medianUnavailable: "Perbandingan kedai memerlukan sekurang-kurangnya dua cadangan dengan item berharga yang sama.",
-    estimatedPrices: "Sesetengah harga bakul ialah anggaran rentas kedai yang dicache.",
-    estimatedRoute: "Kos perjalanan dan kebolehcapaian menggunakan anggaran garis lurus.",
     potential: "Anggaran sahaja — perbelanjaan sebenar mungkin berbeza.",
   },
 } as const;
@@ -110,13 +102,6 @@ export function EstimatedSavingsSummary({
         </dl>
       ) : null}
 
-      <div className="mt-3 space-y-1 text-[11px] leading-4 text-[#617069]">
-        <p>{hasMedian && snapshot.medianCombinedCostRm != null
-          ? text.median(formatRm(snapshot.medianCombinedCostRm), snapshot.comparableStoreCount)
-          : text.medianUnavailable}</p>
-        {snapshot.estimatedPriceCount > 0 ? <p>{text.estimatedPrices}</p> : null}
-        {snapshot.routeEstimated ? <p>{text.estimatedRoute}</p> : null}
-      </div>
     </section>
   );
 }
