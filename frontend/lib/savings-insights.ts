@@ -1,0 +1,321 @@
+import type { StoreRecommendation } from "./contracts";
+import type { TripRecord } from "./trip-history";
+
+// AC 8.2.3: the insight kind drives the wording, so a component can never
+// relabel a potential saving as money the shopper actually saved. "estimate"
+// is a modelled travel figure; "potential" is a price comparison the shopper
+// has not acted on yet.
+export type SavingsInsightKind = "estimate" | "potential";
+
+// Route metadata travels with the insight so the UI cannot forget the
+// straight-line caveat (AC 8.2.3).
+export interface SavingsRouteContext {
+  routeProvider: "google" | "straight_line";
+  routeWarning: string | null;
+}
+
+function money(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+// A cheaper alternative only counts when it is reachable. Stores beyond the
+// shopper's chosen travel limit carry exceedsLimit and are returned by the
+// ranking only because nothing matched inside the limit; recommending one as
+// a saving would be unusable for a household that cannot travel that far.
+function isReachable(store: StoreRecommendation): boolean {
+  return !store.exceedsLimit;
+}
+
+function otherReachableStores(
+  myStore: StoreRecommendation,
+  stores: StoreRecommendation[],
+): StoreRecommendation[] {
+  return stores.filter(store => (
+    store.premiseId !== myStore.premiseId && isReachable(store)
+  ));
+}
+
+// AC 8.2.1: estimated travel savings — my store's return travel cost minus a
+// cheaper reachable alternative's.
+export interface TravelSavingsInsight {
+  kind: SavingsInsightKind;
+  available: boolean;
+  savingsRm: number | null;
+  myStoreName: string | null;
+  myTravelCostRm: number | null;
+  cheaperStoreName: string | null;
+  cheaperTravelCostRm: number | null;
+  // True when the route came from the straight-line fallback instead of
+  // Google Routes. The UI must then surface routeWarning and soften wording.
+  routeEstimated: boolean;
+  routeWarning: string | null;
+  // One union for both sources of the same insight: a live recommendation list
+  // ("no-reachable-alternative") and a frozen trip record
+  // ("no-recorded-travel-cost" / "no-alternative-store"). Sharing the type is
+  // what lets one summary component render either without a second code path.
+  reason:
+    | "found"
+    | "my-store-is-cheapest"
+    | "no-reachable-alternative"
+    | "no-recorded-travel-cost"
+    | "no-alternative-store";
+}
+
+export function travelSavingsInsight(
+  myStore: StoreRecommendation,
+  stores: StoreRecommendation[],
+  context: SavingsRouteContext,
+): TravelSavingsInsight {
+  const candidates = otherReachableStores(myStore, stores);
+  const routeEstimated = context.routeProvider === "straight_line";
+
+  const unavailable = (
+    reason: TravelSavingsInsight["reason"],
+  ): TravelSavingsInsight => ({
+    kind: "estimate",
+    available: false,
+    savingsRm: null,
+    myStoreName: myStore.name,
+    myTravelCostRm: myStore.estimatedRoundTripCostRm,
+    cheaperStoreName: null,
+    cheaperTravelCostRm: null,
+    routeEstimated,
+    routeWarning: context.routeWarning,
+    reason,
+  });
+
+  if (candidates.length === 0) return unavailable("no-reachable-alternative");
+
+  // Strictly cheaper, and first wins ties: the list is already ranked, so the
+  // result stays deterministic across renders.
+  let cheapest = candidates[0];
+  for (const candidate of candidates) {
+    if (candidate.estimatedRoundTripCostRm < cheapest.estimatedRoundTripCostRm) {
+      cheapest = candidate;
+    }
+  }
+
+  const savingsRm = money(myStore.estimatedRoundTripCostRm - cheapest.estimatedRoundTripCostRm);
+  // Never report a saving of zero: showing "you saved RM0" reads as a result
+  // when the real answer is that no cheaper option exists.
+  if (savingsRm <= 0) return unavailable("my-store-is-cheapest");
+
+  return {
+    kind: "estimate",
+    available: true,
+    savingsRm,
+    myStoreName: myStore.name,
+    myTravelCostRm: myStore.estimatedRoundTripCostRm,
+    cheaperStoreName: cheapest.name,
+    cheaperTravelCostRm: cheapest.estimatedRoundTripCostRm,
+    routeEstimated,
+    routeWarning: context.routeWarning,
+    reason: "found",
+  };
+}
+
+/**
+ * AC 8.2.1 from a recorded trip (US 5.4). The estimates were frozen at
+ * record time by createShoppingChecklist, so this is a pure on-device
+ * calculation — it never re-queries recommendations (AC 8.4.1). Over-limit
+ * stores are already excluded at freeze time, so every alternative here is a
+ * store the shopper could actually have reached.
+ *
+ * AC 8.2.3: `record.routeProvider` is the provenance frozen alongside those
+ * estimates. A trip recorded through the straight-line fallback must keep
+ * saying so here, because the recommendation response (and its routeWarning)
+ * no longer exists by the time the shopper reviews an old trip — the label has
+ * to survive in the record itself.
+ */
+export function tripTravelSavingsInsight(
+  record: TripRecord,
+  context: SavingsRouteContext = { routeProvider: "google", routeWarning: null },
+): TravelSavingsInsight {
+  // Prefer the provenance frozen in the record; fall back to the caller's
+  // context for records created before routeProvider existed (optional field).
+  // The warning *text* is not frozen: the summary renders the localised
+  // straight-line note on its own, so an old trip still carries its caveat.
+  const routeProvider = record.routeProvider ?? context.routeProvider;
+  const routeEstimated = routeProvider === "straight_line";
+  const routeWarning = routeEstimated ? context.routeWarning : null;
+
+  const unavailable = (
+    reason: TravelSavingsInsight["reason"],
+  ): TravelSavingsInsight => ({
+    kind: "estimate",
+    available: false,
+    savingsRm: null,
+    myStoreName: record.store.name,
+    myTravelCostRm: record.estimatedRoundTripCostRm,
+    cheaperStoreName: null,
+    cheaperTravelCostRm: null,
+    routeEstimated,
+    routeWarning,
+    reason,
+  });
+
+  if (record.estimatedRoundTripCostRm == null) return unavailable("no-recorded-travel-cost");
+  if (record.alternativeStoreEstimates.length === 0) return unavailable("no-alternative-store");
+
+  let cheapest = record.alternativeStoreEstimates[0];
+  for (const estimate of record.alternativeStoreEstimates) {
+    if (estimate.estimatedRoundTripCostRm < cheapest.estimatedRoundTripCostRm) {
+      cheapest = estimate;
+    }
+  }
+
+  const savingsRm = money(record.estimatedRoundTripCostRm - cheapest.estimatedRoundTripCostRm);
+  // Never report a saving of zero: showing "you saved RM0" reads as a result
+  // when the real answer is that no cheaper option existed.
+  if (savingsRm <= 0) return unavailable("my-store-is-cheapest");
+
+  return {
+    kind: "estimate",
+    available: true,
+    savingsRm,
+    myStoreName: record.store.name,
+    myTravelCostRm: record.estimatedRoundTripCostRm,
+    cheaperStoreName: cheapest.name,
+    cheaperTravelCostRm: cheapest.estimatedRoundTripCostRm,
+    routeEstimated,
+    routeWarning,
+    reason: "found",
+  };
+}
+
+// Per-line comparison between my store and one candidate. Only lines priced at
+// BOTH stores count: a line my store has no price for would otherwise read as
+// a saving I never had.
+interface ComparableTotals {
+  mySubtotalRm: number;
+  candidateSubtotalRm: number;
+  lineCount: number;
+  // Lines whose price came from the cached cross-store median rather than an
+  // observation at that store. Surfaced so the UI can disclose that the
+  // comparison mixes observed and estimated prices.
+  medianLineCount: number;
+}
+
+function comparableTotals(
+  myStore: StoreRecommendation,
+  candidate: StoreRecommendation,
+): ComparableTotals | null {
+  let mySubtotalRm = 0;
+  let candidateSubtotalRm = 0;
+  let lineCount = 0;
+  let medianLineCount = 0;
+
+  for (const myLine of myStore.basketLines) {
+    if (myLine.lineTotalRm == null) continue;
+    const otherLine = candidate.basketLines.find(line => (
+      line.itemId === myLine.itemId && line.lineTotalRm != null
+    ));
+    if (!otherLine || otherLine.lineTotalRm == null) continue;
+
+    mySubtotalRm += myLine.lineTotalRm;
+    candidateSubtotalRm += otherLine.lineTotalRm;
+    lineCount += 1;
+    if (myLine.priceSource === "median" || otherLine.priceSource === "median") {
+      medianLineCount += 1;
+    }
+  }
+
+  if (lineCount === 0) return null;
+  return {
+    mySubtotalRm: money(mySubtotalRm),
+    candidateSubtotalRm: money(candidateSubtotalRm),
+    lineCount,
+    medianLineCount,
+  };
+}
+
+// AC 8.2.2: potential price savings from lower available prices. Comparison
+// basis is the best single store (one trip, achievable), not a per-line
+// theoretical minimum across many stores.
+export interface PriceSavingsInsight {
+  kind: SavingsInsightKind;
+  available: boolean;
+  savingsRm: number | null;
+  myStoreName: string | null;
+  cheaperStoreName: string | null;
+  myComparableSubtotalRm: number | null;
+  cheaperComparableSubtotalRm: number | null;
+  // "based on N comparable items" — N of basketLineCount lines were priced at
+  // both stores and therefore actually compared.
+  comparableLineCount: number;
+  basketLineCount: number;
+  medianLineCount: number;
+  reason: "found" | "no-cheaper-store" | "no-comparable-lines" | "no-reachable-alternative";
+}
+
+export function potentialPriceSavingsInsight(
+  myStore: StoreRecommendation,
+  stores: StoreRecommendation[],
+): PriceSavingsInsight {
+  const basketLineCount = myStore.basketLines.length;
+  const candidates = otherReachableStores(myStore, stores);
+
+  const unavailable = (
+    reason: PriceSavingsInsight["reason"],
+  ): PriceSavingsInsight => ({
+    kind: "potential",
+    available: false,
+    savingsRm: null,
+    myStoreName: myStore.name,
+    cheaperStoreName: null,
+    myComparableSubtotalRm: null,
+    cheaperComparableSubtotalRm: null,
+    comparableLineCount: 0,
+    basketLineCount,
+    medianLineCount: 0,
+    reason,
+  });
+
+  if (candidates.length === 0) return unavailable("no-reachable-alternative");
+
+  let best: { store: StoreRecommendation; totals: ComparableTotals; savingsRm: number } | null = null;
+  for (const candidate of candidates) {
+    const totals = comparableTotals(myStore, candidate);
+    if (!totals) continue;
+    const savingsRm = money(totals.mySubtotalRm - totals.candidateSubtotalRm);
+    if (savingsRm <= 0) continue;
+    // Strictly greater keeps the first (best-ranked) store on ties.
+    if (!best || savingsRm > best.savingsRm) {
+      best = { store: candidate, totals, savingsRm };
+    }
+  }
+
+  if (!best) return unavailable("no-cheaper-store");
+
+  return {
+    kind: "potential",
+    available: true,
+    savingsRm: best.savingsRm,
+    myStoreName: myStore.name,
+    cheaperStoreName: best.store.name,
+    myComparableSubtotalRm: best.totals.mySubtotalRm,
+    cheaperComparableSubtotalRm: best.totals.candidateSubtotalRm,
+    comparableLineCount: best.totals.lineCount,
+    basketLineCount,
+    medianLineCount: best.totals.medianLineCount,
+    reason: "found",
+  };
+}
+
+// Both insights together, for a stateless summary component that renders
+// whatever it is handed.
+export interface SavingsInsights {
+  travel: TravelSavingsInsight;
+  price: PriceSavingsInsight;
+  hasAny: boolean;
+}
+
+export function savingsInsights(
+  myStore: StoreRecommendation,
+  stores: StoreRecommendation[],
+  context: SavingsRouteContext,
+): SavingsInsights {
+  const travel = travelSavingsInsight(myStore, stores, context);
+  const price = potentialPriceSavingsInsight(myStore, stores);
+  return { travel, price, hasAny: travel.available || price.available };
+}

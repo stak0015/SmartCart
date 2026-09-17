@@ -1,13 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import {
   getRecommendations,
   getBasketAlternatives,
+  prepareRecommendationCandidates,
   resolveLocation,
   reverseLocation,
   searchLocations,
@@ -22,6 +22,7 @@ import type {
   BasketAlternativeLine,
   TransportMode,
   TravelLimitType,
+  TravelPreferencesRequest,
 } from "@/lib/contracts";
 import { toAlternativeLineRequests, toBasketLineRequests } from "@/lib/basket-lines";
 import {
@@ -41,6 +42,12 @@ import {
 } from "@/lib/recommendation-detail";
 import { SuccessToast } from "@/components/success-toast";
 import { ConfirmationDialog, ShoppingChecklistScreen } from "@/components/shopping-checklist";
+import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
+import {
+  SmartCartHomeScreen,
+  type TripJourneyStep,
+} from "@/components/journey-screens";
+import { ReceiptHistoryScreen, ReportScreen } from "@/components/report-screens";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { uppercaseItemName } from "@/lib/item-name";
@@ -54,18 +61,41 @@ import {
   editChecklistItem as editChecklistItemModel,
   parseShoppingChecklist,
   serializeShoppingChecklist,
+  setChecklistItemActualPrice,
+  setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
   type ChecklistStatus,
   type ManualChecklistItemInput,
   type ShoppingChecklist,
 } from "@/lib/shopping-checklist";
+import {
+  TRIP_HISTORY_STORAGE_KEY,
+  addTripRecord,
+  buildTripRecord,
+  parseTripHistory,
+  serializeTripHistory,
+  type TripRecord,
+} from "@/lib/trip-history";
+import { calculateEstimatedSavings } from "@/lib/estimated-savings";
+import {
+  EMPTY_INBOX,
+  INBOX_STORAGE_KEY,
+  markReportRead,
+  parseInboxState,
+  serializeInboxState,
+  setReportCadence,
+  setSummaryHidden,
+  syncInboxReports,
+  type InboxState,
+  type ReportCadence,
+} from "@/lib/inbox";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
 import svgPathsSaved from "@/components/icons/saved";
 
 // ── Types ───────────────────────────────────────────────────────────────────
-type Screen = "shop" | "basket" | "location" | "compare";
+type Screen = "home" | "shop" | "basket" | "location" | "compare" | "checklist" | "history" | "inbox";
 
 interface TravelPreferences {
   origin: SelectedLocation | null;
@@ -75,6 +105,22 @@ interface TravelPreferences {
   distanceKm: number;
   timeMinutes: number;
   saraFilter: SaraFilter;
+}
+
+function recommendationTravelRequest(preferences: TravelPreferences): TravelPreferencesRequest {
+  if (!preferences.origin) throw new Error("A selected origin is required for recommendations.");
+  return {
+    origin: preferences.origin,
+    transportMode: preferences.transportMode,
+    limit: preferences.limitType === "both"
+      ? {
+          type: "both",
+          distanceKm: preferences.distanceKm,
+          timeMinutes: preferences.timeMinutes,
+        }
+      : { type: preferences.limitType, value: preferences.limitValue },
+    saraFilter: preferences.saraFilter,
+  };
 }
 
 function localizedName(copy: AppCopy, name: string | null | undefined, translations?: { itemNameEn?: string | null; itemNameMs?: string | null }): string {
@@ -131,6 +177,14 @@ function IcoArrowRight({ color = "white" }: { color?: string }) {
     </svg>
   );
 }
+function IcoSave() {
+  return (
+    <svg aria-hidden="true" width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
+      <path d="M17 21v-8H7v8M7 3v5h8" />
+    </svg>
+  );
+}
 function IcoArrowBack({ color = "#00535B" }: { color?: string }) {
   return (
     <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
@@ -184,14 +238,6 @@ function IcoCheckbox({ color = "white" }: { color?: string }) {
   return (
     <svg width={20} height={20} viewBox="0 0 20 20" fill="none">
       <path d={svgPathsLocation.pc296280} fill={color} />
-    </svg>
-  );
-}
-function IcoChecklist({ color = "#087f5b" }: { color?: string }) {
-  return (
-    <svg aria-hidden="true" width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <rect x="4" y="3" width="16" height="18" rx="2.5" stroke={color} strokeWidth="1.8" />
-      <path d="m8 9 1.4 1.4L12 7.8M8 15l1.4 1.4L12 13.8M14.5 9h2M14.5 15h2" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -331,7 +377,6 @@ function TripDetails({
     </>
   );
 }
-
 function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; copy: AppCopy }) {
   return (
     <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
@@ -455,9 +500,8 @@ function Header({
   basketCount,
   onBasket,
   basketActive,
-  checklistCount,
-  onChecklist,
-  checklistActive,
+  showBasket,
+  onHome,
   onBack,
   locale,
   onToggleLanguage,
@@ -466,9 +510,8 @@ function Header({
   basketCount: number;
   onBasket: () => void;
   basketActive: boolean;
-  checklistCount: number;
-  onChecklist?: () => void;
-  checklistActive: boolean;
+  showBasket: boolean;
+  onHome: () => void;
   onBack?: () => void;
   locale: Locale;
   onToggleLanguage: () => void;
@@ -483,7 +526,7 @@ function Header({
           </button>
         ) : <span aria-hidden="true" />}
 
-        <Link href="/" aria-label="SmartCart home" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-lg font-extrabold tracking-[-0.4px] text-[#10231d] transition-colors hover:bg-[#e5f5ed] focus-visible:bg-[#e5f5ed]">
+        <button type="button" onClick={onHome} aria-label="SmartCart home" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-lg font-extrabold tracking-[-0.4px] text-[#10231d] transition-colors hover:bg-[#e5f5ed] focus-visible:bg-[#e5f5ed]">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087f5b] text-white">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
               <path d="M4.5 9.5h15l-1.15 9.2a2 2 0 0 1-1.98 1.75H7.63a2 2 0 0 1-1.98-1.75L4.5 9.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -491,39 +534,26 @@ function Header({
             </svg>
           </span>
           <span className="hidden sm:inline">SmartCart</span>
-        </Link>
+        </button>
 
         <div className="flex items-center gap-2 justify-self-end">
           <LanguageToggle locale={locale} onToggle={onToggleLanguage} />
-          {onChecklist && (
+          {showBasket ? (
             <button
               type="button"
-              onClick={onChecklist}
-              aria-label={copy.openChecklistAria(checklistCount)}
-              aria-current={checklistActive ? "page" : undefined}
-              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${checklistActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
+              onClick={onBasket}
+              aria-label={copy.viewBasketAria(basketCount)}
+              aria-current={basketActive ? "page" : undefined}
+              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${basketActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
             >
-              <IcoChecklist />
-              <span className="sr-only">{copy.checklist}</span>
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#286d67] px-1 text-[11px] font-bold text-white">
-                {checklistCount}
-              </span>
+              <IcoBasket color="#087f5b" size={22} />
+              {basketCount > 0 ? (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-bold text-white">
+                  {basketCount}
+                </span>
+              ) : null}
             </button>
-          )}
-          <button
-            type="button"
-            onClick={onBasket}
-            aria-label={copy.viewBasketAria(basketCount)}
-            aria-current={basketActive ? "page" : undefined}
-            className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border ${basketActive ? "border-[#087f5b] bg-[#edf7f2]" : "border-[#dce5e0] bg-white"}`}
-          >
-            <IcoBasket color="#087f5b" size={22} />
-            {basketCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-bold text-white">
-                {basketCount}
-              </span>
-            )}
-          </button>
+          ) : null}
         </div>
       </div>
     </header>
@@ -533,9 +563,9 @@ function Header({
 // ── Progress indicator ────────────────────────────────────────────────────────
 function ProgressIndicator({ step, copy }: { step: 1 | 2 | 3 | 4; copy: AppCopy }) {
   const steps = [
-    { n: 1, label: copy.shop },
-    { n: 2, label: copy.basket },
-    { n: 3, label: copy.travel },
+    { n: 1, label: copy.travel },
+    { n: 2, label: copy.shop },
+    { n: 3, label: copy.basket },
     { n: 4, label: copy.compare },
   ] as const;
 
@@ -667,21 +697,8 @@ function BasketScreen({
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [apiError, setApiError] = useState(false);
-  const [qtyById, setQtyById] = useState<Record<number, string>>({}); // result-row quantity raw input (default "1")
+  const [qtyById, setQtyById] = useState<Record<number, string>>({});
   const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
-
-  // AC-1.4.1: single source of truth is the raw string; the steppers also
-  // read/write through parseQty so typed and stepped values never drift.
-  const stepResultQty = (itemId: number, delta: number) => {
-    setQtyById(current => {
-      const base = parseQty(current[itemId] ?? String(DEFAULT_QTY)) ?? DEFAULT_QTY;
-      return { ...current, [itemId]: String(stepQty(base, delta)) };
-    });
-  };
-
-  const typeResultQty = (itemId: number, raw: string) => {
-    setQtyById(current => ({ ...current, [itemId]: raw }));
-  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -747,6 +764,17 @@ function BasketScreen({
     setActiveCategories(current => current.includes(category)
       ? current.filter(selected => selected !== category)
       : [...current, category]);
+  };
+
+  const stepResultQty = (itemId: number, delta: number) => {
+    setQtyById(current => {
+      const base = parseQty(current[itemId] ?? String(DEFAULT_QTY)) ?? DEFAULT_QTY;
+      return { ...current, [itemId]: String(stepQty(base, delta)) };
+    });
+  };
+
+  const typeResultQty = (itemId: number, raw: string) => {
+    setQtyById(current => ({ ...current, [itemId]: raw }));
   };
 
   const stepBasketQty = (id: string, delta: number) => {
@@ -898,7 +926,7 @@ function BasketScreen({
         <div className="min-w-0 lg:col-start-1 xl:col-start-2">
       {/* Progress */}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={1} copy={copy} />
+        <ProgressIndicator step={2} copy={copy} />
       </div>
 
       {/* Page header */}
@@ -1018,7 +1046,7 @@ function BasketScreen({
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               const rawQty = qtyById[item.item_id] ?? String(DEFAULT_QTY);
-              const qty = parseQty(rawQty); // null while the typed value is invalid (AC-1.4.1)
+              const qty = parseQty(rawQty);
               return (
               <article key={item.item_id} className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-[#e2e9e5] bg-white p-3 shadow-[0_3px_12px_rgba(16,35,29,0.045)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="flex min-w-0 flex-col gap-1.5">
@@ -1029,7 +1057,6 @@ function BasketScreen({
                   </div>
                   <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
                 </div>
-
                 <QuantitySelector
                   value={rawQty}
                   onChange={raw => typeResultQty(item.item_id, raw)}
@@ -1040,14 +1067,12 @@ function BasketScreen({
                   errorId={`quantity-error-${item.item_id}`}
                   errorText={copy.quantityError}
                   action={<button
-                      type="button"
-                      disabled={qty === null}
-                      onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
-                      aria-label={`${copy.addToBasket}: ${fields.name}`}
-                      className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
-                    >
-                      {copy.addShort}
-                    </button>}
+                    type="button"
+                    disabled={qty === null}
+                    onClick={() => { if (qty !== null) addRealItem(item, qty); }}
+                    aria-label={`${copy.addToBasket}: ${fields.name}`}
+                    className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
+                  >{copy.addShort}</button>}
                 />
               </article>
               );
@@ -1111,10 +1136,8 @@ function BasketScreen({
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={2} copy={copy} />
-        <p className="mb-1 mt-6 text-sm font-bold text-[#087f5b]">{copy.basketEyebrow}</p>
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1>
-        <p className="mt-2 text-[16px] leading-6 text-[#53635c]">{copy.basketDescription}</p>
+        <ProgressIndicator step={3} copy={copy} />
+        <h1 className="mt-6 text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1>
       </div>
 
       {basketPanel}
@@ -1194,11 +1217,13 @@ function LocationScreen({
   preferences,
   onBack,
   onCompare,
+  onDraftChange,
   copy,
 }: {
   preferences: TravelPreferences;
   onBack: () => void;
   onCompare: (preferences: TravelPreferences) => void;
+  onDraftChange: (preferences: TravelPreferences) => void;
   copy: AppCopy;
 }) {
   const [locationInput, setLocationInput] = useState(preferences.origin?.label ?? "");
@@ -1221,6 +1246,18 @@ function LocationScreen({
   const reverseController = useRef<AbortController | null>(null);
   const [notification, setNotification] = useState({ id: 0, message: "" });
   useEffect(() => () => { locationGeneration.current += 1; reverseController.current?.abort(); }, []);
+
+  useEffect(() => {
+    onDraftChange({
+      origin: selectedOrigin,
+      transportMode,
+      limitType,
+      limitValue,
+      distanceKm,
+      timeMinutes,
+      saraFilter,
+    });
+  }, [distanceKm, limitType, limitValue, onDraftChange, saraFilter, selectedOrigin, timeMinutes, transportMode]);
 
   useEffect(() => {
     const query = locationInput.trim();
@@ -1388,15 +1425,11 @@ function LocationScreen({
     <div className="screen-enter">
       {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
-        <ProgressIndicator step={3} copy={copy} />
+        <ProgressIndicator step={1} copy={copy} />
       </div>
 
       <div className="px-4 pb-5 sm:px-6">
-        <p className="mb-1 text-sm font-bold text-[#087f5b]">{copy.locationEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.locationTitle}</h1>
-        <p className="mt-2 text-[16px] leading-6 text-[#53635c]">
-          {copy.locationDescription}
-        </p>
       </div>
 
       <div className="flex flex-col gap-6 px-4 pb-36 sm:px-6">
@@ -1895,22 +1928,26 @@ function RecommendationBasketRow({
 // so the shopper can compare and swap without jumping between sections.
 function RecommendationOverview({
   store,
+  recommendations,
   basket,
   activeChecklist,
   preferences,
   copy,
   costAssumptions,
   routeProvider,
+  locale,
   onSetBasket,
   onCreateChecklist,
 }: {
   store: StoreRecommendation;
+  recommendations: StoreRecommendation[];
   basket: BasketItem[];
   activeChecklist: ShoppingChecklist | null;
   preferences: TravelPreferences;
   copy: AppCopy;
   costAssumptions: Record<TransportMode, string> | undefined;
   routeProvider: "google" | "straight_line";
+  locale: Locale;
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
 }) {
@@ -1974,6 +2011,16 @@ function RecommendationOverview({
   const adjustedCombinedTotal = displayedSubtotal == null
     ? null
     : Number((displayedSubtotal + store.estimatedRoundTripCostRm).toFixed(2));
+  const estimatedSavings = useMemo(
+    () => calculateEstimatedSavings(
+      store,
+      recommendations,
+      detailTotals.originalSubtotalRm,
+      detailTotals.currentSubtotalRm,
+      routeProvider,
+    ),
+    [detailTotals.currentSubtotalRm, detailTotals.originalSubtotalRm, recommendations, routeProvider, store],
+  );
 
   const applyAlternative = (line: BasketAlternativeLine) => {
     if (line.source.priceSource === "median") return;
@@ -1996,7 +2043,10 @@ function RecommendationOverview({
   };
 
   const createChecklist = () => {
-    onCreateChecklist(createShoppingChecklist(store, detailRows));
+    onCreateChecklist(createShoppingChecklist(store, detailRows, {
+      alternativeStores: recommendations,
+      estimatedSavings,
+    }));
     setReplaceChecklistOpen(false);
   };
 
@@ -2042,8 +2092,21 @@ function RecommendationOverview({
 
           {displayedLineCount > 0 && (
             <section className="mt-4 overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
-              <div className={`px-4 py-3 ${hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]"}`}>
+              <div className={`flex items-center justify-between gap-3 px-4 py-3 ${hasIncompleteBasket ? "bg-[#f3f4f5]" : "bg-[#e7f7f0]"}`}>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10231d]">{copy.basketItems}</h2>
+                <button
+                  type="button"
+                  onClick={beginChecklistCreation}
+                  disabled={alternativesLoading}
+                  className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#087f5b] px-2.5 text-[11px] font-extrabold leading-4 text-white shadow-[0_3px_9px_rgba(8,127,91,0.18)] disabled:cursor-not-allowed disabled:bg-[#9eb0a7] disabled:shadow-none"
+                >
+                  <IcoSave />
+                  {alternativesLoading
+                    ? copy.checklistPreparing
+                    : activeChecklist
+                      ? copy.replaceChecklist
+                      : copy.createChecklist}
+                </button>
               </div>
 
               <div className="px-4">
@@ -2093,37 +2156,14 @@ function RecommendationOverview({
                 </div>
               </div>
 
-              <CompactSavingsFooter
-                copy={copy}
-                hasReplacements={detailTotals.hasReplacements}
-                comparable={detailTotals.savingsComparable}
-                originalRm={detailTotals.originalSubtotalRm}
-                newRm={detailTotals.currentSubtotalRm}
-                netSavingRm={detailTotals.netSavingRm}
-                totalsLabel={hasIncompleteBasket
-                  ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal)
-                  : (hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal)}
-              />
             </section>
           )}
 
-          {displayedLineCount > 0 && (
+          {!alternativesLoading ? (
             <div className="mt-4">
-              <button
-                type="button"
-                onClick={beginChecklistCreation}
-                disabled={alternativesLoading}
-                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white shadow-[0_4px_12px_rgba(8,127,91,0.2)] disabled:cursor-not-allowed disabled:bg-[#9eb0a7] disabled:shadow-none"
-              >
-                <IcoChecklist color="white" />
-                {alternativesLoading
-                  ? copy.checklistPreparing
-                  : activeChecklist
-                    ? copy.replaceChecklist
-                    : copy.createChecklist}
-              </button>
+              <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale} />
             </div>
-          )}
+          ) : null}
 
           {adjustedCombinedTotal != null && (
             <div className="mt-4 rounded-2xl bg-[#087f5b] p-4 text-white shadow-[0_6px_18px_rgba(8,127,91,0.22)]">
@@ -2169,6 +2209,7 @@ function CompareScreen({
   selectedStore,
   setSelectedStore,
   preferences,
+  candidateCacheId,
   onBack,
   copy,
 }: {
@@ -2179,6 +2220,7 @@ function CompareScreen({
   selectedStore: StoreRecommendation | null;
   setSelectedStore: Dispatch<SetStateAction<StoreRecommendation | null>>;
   preferences: TravelPreferences;
+  candidateCacheId: string | null;
   onBack: () => void;
   copy: AppCopy;
 }) {
@@ -2193,6 +2235,7 @@ function CompareScreen({
   // transport-first ranking.
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
   const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
+  const [requestCandidateCacheId] = useState(candidateCacheId);
   const hasBasket = requestBasketLines.length > 0;
   const previousSelectedStore = useRef(selectedStore);
 
@@ -2226,12 +2269,8 @@ function CompareScreen({
 
     getRecommendations({
       ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
-      travel: {
-        origin: preferences.origin,
-        transportMode: preferences.transportMode,
-        limit: preferences.limitType === "both" ? { type: "both", distanceKm: preferences.distanceKm, timeMinutes: preferences.timeMinutes } : { type: preferences.limitType, value: preferences.limitValue },
-        saraFilter: preferences.saraFilter,
-      },
+      ...(requestCandidateCacheId ? { candidateCacheId: requestCandidateCacheId } : {}),
+      travel: recommendationTravelRequest(preferences),
     }, controller.signal)
       .then(response => {
         setResult(response);
@@ -2247,7 +2286,7 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [requestBasketLines, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [requestBasketLines, requestCandidateCacheId, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
   const recommendations = result?.recommendations ?? [];
   const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
@@ -2272,6 +2311,7 @@ function CompareScreen({
     return (
       <RecommendationOverview
         store={selectedStore}
+        recommendations={recommendations}
         basket={basket}
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}
@@ -2280,6 +2320,7 @@ function CompareScreen({
         copy={copy}
         costAssumptions={result?.costAssumptions}
         routeProvider={result?.routeProvider ?? "google"}
+        locale={copy === COPY.ms ? "ms" : "en"}
       />
     );
   }
@@ -2292,11 +2333,10 @@ function CompareScreen({
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-bold text-[#087f5b]">{copy.recommendationEyebrow}</p>
           <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
             {copy.recommendationTitle}
           </h1>
-          <p className="text-[15px] leading-6 text-[#53635c]">
+          <p className="text-sm leading-5 text-[#53635c]">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
           {preferences.saraFilter === "candidate" && (
@@ -2383,12 +2423,20 @@ function CompareScreen({
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [screen, setScreen] = useState<Screen>("shop");
+  const [screen, setScreen] = useState<Screen>("home");
+  const [resumeStep, setResumeStep] = useState<TripJourneyStep>("location");
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
+  const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
+  const candidatePreparationController = useRef<AbortController | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
-  const [checklistOpen, setChecklistOpen] = useState(false);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
+  const [tripHistory, setTripHistory] = useState<TripRecord[]>([]);
+  const [tripHistoryStorageReady, setTripHistoryStorageReady] = useState(false);
+  const [inbox, setInbox] = useState<InboxState>(EMPTY_INBOX);
+  const [inboxStorageReady, setInboxStorageReady] = useState(false);
+  const [restartTripOpen, setRestartTripOpen] = useState(false);
+  const [tripNotification, setTripNotification] = useState({ id: 0, message: "" });
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
     origin: null,
@@ -2402,7 +2450,9 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [checklistOpen, screen]);
+  }, [screen]);
+
+  useEffect(() => () => candidatePreparationController.current?.abort(), []);
 
   useEffect(() => {
     if (screen !== "compare") setSelectedStore(null);
@@ -2450,6 +2500,53 @@ export default function App() {
     }
   }, [checklist, checklistStorageReady]);
 
+  // AC 5.4.3: trip records live on this device only (localStorage), mirroring
+  // the checklist persistence pattern above.
+  useEffect(() => {
+    try {
+      const serialized = window.localStorage.getItem(TRIP_HISTORY_STORAGE_KEY);
+      setTripHistory(parseTripHistory(serialized));
+    } catch {
+      setTripHistory([]);
+    } finally {
+      setTripHistoryStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!tripHistoryStorageReady) return;
+    try {
+      window.localStorage.setItem(TRIP_HISTORY_STORAGE_KEY, serializeTripHistory(tripHistory));
+    } catch {
+      // Records remain usable in memory when storage is blocked or full; a
+      // later update can retry persistence.
+    }
+  }, [tripHistory, tripHistoryStorageReady]);
+
+  useEffect(() => {
+    try {
+      setInbox(parseInboxState(window.localStorage.getItem(INBOX_STORAGE_KEY)));
+    } catch {
+      setInbox(EMPTY_INBOX);
+    } finally {
+      setInboxStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!inboxStorageReady) return;
+    try {
+      window.localStorage.setItem(INBOX_STORAGE_KEY, serializeInboxState(inbox));
+    } catch {
+      // Reports remain readable in memory if device storage is unavailable.
+    }
+  }, [inbox, inboxStorageReady]);
+
+  useEffect(() => {
+    if (!inboxStorageReady || !tripHistoryStorageReady) return;
+    setInbox(current => syncInboxReports(current, tripHistory));
+  }, [inboxStorageReady, tripHistory, tripHistoryStorageReady]);
+
   useEffect(() => {
     const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
     if (!savedPreferences) return;
@@ -2478,7 +2575,47 @@ export default function App() {
 
   const basketCount = basket.reduce((count, item) => count + item.qty, 0);
   const copy = COPY[locale];
+  const hasTripInProgress = preferences.origin != null || basket.length > 0;
+  const unreadReportCount = inbox.messages.filter(message => !message.read).length;
   const toggleLanguage = () => setLocale(current => current === "en" ? "ms" : "en");
+  const updatePreferencesDraft = useCallback((next: TravelPreferences) => {
+    candidatePreparationController.current?.abort();
+    setCandidateCacheId(null);
+    setPreferences(next);
+  }, []);
+  const prepareCandidates = useCallback((next: TravelPreferences) => {
+    if (!next.origin) return;
+    candidatePreparationController.current?.abort();
+    const controller = new AbortController();
+    candidatePreparationController.current = controller;
+    setCandidateCacheId(null);
+    prepareRecommendationCandidates(recommendationTravelRequest(next), controller.signal)
+      .then(response => {
+        if (!controller.signal.aborted) setCandidateCacheId(response.candidateCacheId);
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // Candidate preparation is an optimization. The explicit Search stores
+        // action remains the user-visible retry and fetches fresh prices.
+      });
+  }, []);
+  const navigateTrip = (next: TripJourneyStep) => {
+    setResumeStep(next);
+    setScreen(next);
+  };
+  const resetTrip = () => {
+    candidatePreparationController.current?.abort();
+    setCandidateCacheId(null);
+    setBasket([]);
+    setSelectedStore(null);
+    setPreferences(current => ({ ...current, origin: null }));
+    setResumeStep("location");
+  };
+  const startNewTrip = () => {
+    resetTrip();
+    setRestartTripOpen(false);
+    setScreen("location");
+  };
   const updateChecklistStatus = (
     itemId: string,
     status: Exclude<ChecklistStatus, "neutral">,
@@ -2497,44 +2634,78 @@ export default function App() {
       ? editChecklistItemModel(current, itemId, input) ?? current
       : current);
   };
+  const setActualPrice = (itemId: string, actualPriceRm: number | null) => {
+    setChecklist(current => current
+      ? setChecklistItemActualPrice(current, itemId, actualPriceRm) ?? current
+      : current);
+  };
+  const setActualQuantity = (itemId: string, actualQuantity: number | null) => {
+    setChecklist(current => current
+      ? setChecklistItemActualQuantity(current, itemId, actualQuantity) ?? current
+      : current);
+  };
   const removeChecklistItem = (itemId: string) => {
     setChecklist(current => current ? deleteChecklistItem(current, itemId) : current);
   };
   const removeChecklist = () => {
     setChecklist(null);
-    setChecklistOpen(false);
+    setScreen("home");
   };
-  const goBack = screen === "basket"
-    ? () => setScreen("shop")
-    : screen === "location"
-      ? () => setScreen("basket")
-      : screen === "compare"
-        ? () => {
-            if (selectedStore) setSelectedStore(null);
-            else setScreen("location");
-          }
-        : undefined;
+  const recordTrip = () => {
+    if (!checklist) return;
+    const record = buildTripRecord(checklist);
+    // The record appears in the in-memory history immediately (no reload) and
+    // is persisted by the storage effect above.
+    setTripHistory(current => addTripRecord(current, record));
+    setTripNotification(current => ({ id: current.id + 1, message: copy.tripRecorded }));
+    setScreen("history");
+  };
+  const goBack = screen === "location"
+    ? () => setScreen("home")
+    : screen === "shop"
+      ? () => navigateTrip("location")
+      : screen === "basket"
+        ? () => navigateTrip("shop")
+        : screen === "compare"
+          ? () => {
+              if (selectedStore) setSelectedStore(null);
+              else navigateTrip("basket");
+            }
+          : screen === "checklist" || screen === "history" || screen === "inbox"
+            ? () => setScreen("home")
+            : undefined;
 
   return (
     <div className="min-h-full bg-[#f7f8f6]">
       <Header
         basketCount={basketCount}
-        basketActive={!checklistOpen && screen === "basket"}
-        onBasket={() => {
-          setChecklistOpen(false);
-          setScreen("basket");
-        }}
-        checklistCount={checklist?.items.length ?? 0}
-        checklistActive={checklistOpen}
-        onChecklist={checklist ? () => setChecklistOpen(true) : undefined}
-        onBack={checklistOpen ? () => setChecklistOpen(false) : goBack}
+        basketActive={screen === "basket"}
+        showBasket={screen === "shop" || screen === "basket" || screen === "compare"}
+        onBasket={() => navigateTrip("basket")}
+        onHome={() => setScreen("home")}
+        onBack={goBack}
         locale={locale}
         onToggleLanguage={toggleLanguage}
         copy={copy}
       />
 
-      <main className={"mx-auto w-full pt-16 " + (!checklistOpen && screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
-        {checklistOpen && checklist && (
+      <main className={"mx-auto w-full pt-16 " + (screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
+        {screen === "home" ? (
+          <SmartCartHomeScreen
+            locale={locale}
+            checklist={checklist}
+            history={tripHistory}
+            unreadReports={unreadReportCount}
+            hasTripInProgress={hasTripInProgress}
+            resumeStep={resumeStep}
+            onStartOrResume={() => navigateTrip(hasTripInProgress ? resumeStep : "location")}
+            onStartNew={() => hasTripInProgress ? setRestartTripOpen(true) : startNewTrip()}
+            onChecklist={() => checklist ? setScreen("checklist") : navigateTrip(hasTripInProgress ? resumeStep : "location")}
+            onHistory={() => setScreen("history")}
+            onInbox={() => setScreen("inbox")}
+          />
+        ) : null}
+        {screen === "checklist" && checklist ? (
           <ShoppingChecklistScreen
             checklist={checklist}
             locale={locale}
@@ -2542,62 +2713,101 @@ export default function App() {
             onToggleStatus={updateChecklistStatus}
             onAddManual={addChecklistItem}
             onEditItem={editChecklistItem}
+            onSetActualPrice={setActualPrice}
+            onSetActualQuantity={setActualQuantity}
             onDeleteItem={removeChecklistItem}
             onDeleteChecklist={removeChecklist}
+            alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
+            onRecordTrip={recordTrip}
           />
-        )}
-        {!checklistOpen && screen === "shop" && (
+        ) : null}
+        {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} /> : null}
+        {screen === "inbox" ? (
+          <ReportScreen
+            state={inbox}
+            locale={locale}
+            history={tripHistory}
+            onCadence={(cadence: ReportCadence) => setInbox(current => setReportCadence(current, cadence))}
+            onRead={id => setInbox(current => markReportRead(current, id))}
+            onToggleSummary={() => setInbox(current => setSummaryHidden(current, !current.summaryHidden))}
+          />
+        ) : null}
+        {screen === "shop" ? (
           <BasketScreen
             view="shop"
             basket={basket}
             setBasket={setBasket}
-            onViewBasket={() => setScreen("basket")}
-            onBackToShop={() => setScreen("shop")}
-            onContinue={() => setScreen("location")}
+            onViewBasket={() => navigateTrip("basket")}
+            onBackToShop={() => navigateTrip("shop")}
+            onContinue={() => navigateTrip("basket")}
             copy={copy}
             locale={locale}
           />
-        )}
-        {!checklistOpen && screen === "basket" && (
+        ) : null}
+        {screen === "basket" ? (
           <BasketScreen
             view="basket"
             basket={basket}
             setBasket={setBasket}
-            onViewBasket={() => setScreen("basket")}
-            onBackToShop={() => setScreen("shop")}
-            onContinue={() => setScreen("location")}
+            onViewBasket={() => navigateTrip("basket")}
+            onBackToShop={() => navigateTrip("shop")}
+            onContinue={() => navigateTrip("compare")}
             copy={copy}
             locale={locale}
           />
-        )}
-        {!checklistOpen && screen === "location" && (
+        ) : null}
+        {screen === "location" ? (
           <LocationScreen
             preferences={preferences}
-            onBack={() => setScreen("basket")}
+            onBack={() => setScreen("home")}
             copy={copy}
+            onDraftChange={updatePreferencesDraft}
             onCompare={nextPreferences => {
               setPreferences(nextPreferences);
-              setScreen("compare");
+              prepareCandidates(nextPreferences);
+              navigateTrip("shop");
             }}
           />
-        )}
-        {!checklistOpen && screen === "compare" && (
+        ) : null}
+        {screen === "compare" ? (
           <CompareScreen
             basket={basket}
             setBasket={setBasket}
             activeChecklist={checklist}
             onCreateChecklist={nextChecklist => {
               setChecklist(nextChecklist);
-              setChecklistOpen(true);
+              resetTrip();
+              setScreen("home");
             }}
             selectedStore={selectedStore}
             setSelectedStore={setSelectedStore}
             preferences={preferences}
-            onBack={() => setScreen("location")}
+            candidateCacheId={candidateCacheId}
+            onBack={() => navigateTrip("basket")}
             copy={copy}
           />
-        )}
+        ) : null}
       </main>
+      <ConfirmationDialog
+        open={restartTripOpen}
+        title={locale === "ms" ? "Mulakan perjalanan baharu?" : "Start a new trip?"}
+        body={locale === "ms"
+          ? "Bakul dan kemajuan perjalanan semasa akan dikosongkan. Senarai semak aktif dan sejarah anda tidak akan berubah."
+          : "Your current basket and trip progress will be cleared. Your active checklist and shopping history will not change."}
+        confirmLabel={locale === "ms" ? "Mulakan baharu" : "Start new"}
+        cancelLabel={copy.cancel}
+        destructive
+        onCancel={() => setRestartTripOpen(false)}
+        onConfirm={startNewTrip}
+      />
+      {tripNotification.message && (
+        <SuccessToast
+          notificationId={tripNotification.id}
+          message={tripNotification.message}
+          dismissLabel={copy.dismiss}
+          onDismiss={() => setTripNotification(current => ({ ...current, message: "" }))}
+        />
+      )}
     </div>
   );
 }

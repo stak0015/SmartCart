@@ -9,8 +9,11 @@ import {
 } from "react";
 import { formatRm } from "@/lib/format-rm";
 import {
+  actualLineTotalRm,
   checklistProgress,
   plannedChecklistSubtotal,
+  validateActualQuantity,
+  validateActualUnitPrice,
   validateManualChecklistItem,
   type ChecklistItem,
   type ChecklistStatus,
@@ -46,6 +49,11 @@ export interface ShoppingChecklistCopy {
   itemNameRequired: string;
   itemQuantityError: string;
   itemPriceError: string;
+  actualUnitPrice: string;
+  actualQuantity: string;
+  quantitySourcePlanned: string;
+  quantitySourceActual: string;
+  shopperRecorded: string;
   saveItem: string;
   cancel: string;
   deleteItem: string;
@@ -53,6 +61,10 @@ export interface ShoppingChecklistCopy {
   deleteChecklist: string;
   deleteChecklistConfirm: string;
   checklistEmpty: string;
+  recordTrip: string;
+  recordTripConfirm: string;
+  recordTripAgain: string;
+  tripRecorded: string;
   close: string;
 }
 
@@ -63,8 +75,12 @@ export interface ShoppingChecklistScreenProps {
   onToggleStatus: (itemId: string, status: Exclude<ChecklistStatus, "neutral">) => void;
   onAddManual: (input: ManualChecklistItemInput) => void;
   onEditItem: (itemId: string, input: ManualChecklistItemInput) => void;
+  onSetActualPrice: (itemId: string, actualPriceRm: number | null) => void;
+  onSetActualQuantity: (itemId: string, actualQuantity: number | null) => void;
   onDeleteItem: (itemId: string) => void;
   onDeleteChecklist: () => void;
+  alreadyRecorded: boolean;
+  onRecordTrip: () => void;
 }
 
 export interface ConfirmationDialogProps {
@@ -90,6 +106,7 @@ interface ChecklistItemDialogProps {
   locale: "en" | "ms";
   copy: ShoppingChecklistCopy;
   onSave: (input: ManualChecklistItemInput) => void;
+  onSaveActualEntry?: (entry: { actualPriceRm: number | null; actualQuantity: number | null }) => void;
   onCancel: () => void;
 }
 
@@ -196,7 +213,7 @@ export function ConfirmationDialog({
   );
 }
 
-function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: ChecklistItemDialogProps) {
+function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualEntry, onCancel }: ChecklistItemDialogProps) {
   const titleId = useId();
   const nameId = useId();
   const quantityId = useId();
@@ -204,6 +221,10 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
   const nameErrorId = useId();
   const quantityErrorId = useId();
   const priceErrorId = useId();
+  const actualPriceId = useId();
+  const actualPriceErrorId = useId();
+  const actualQuantityId = useId();
+  const actualQuantityErrorId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
   const { dialogRef, handleCancel } = useNativeDialog(open, onCancel, nameRef);
   const [itemName, setItemName] = useState(item ? localizedItemName(item, locale) : "");
@@ -212,6 +233,38 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
     item?.unitPriceRm == null ? "" : item.unitPriceRm.toFixed(2),
   );
   const [errors, setErrors] = useState<ChecklistItemErrors>({});
+  // AC 5.3.1/5.3.4: the actual price/quantity fields only exist for lines
+  // marked Purchased. A blank actual quantity means "use the planned one".
+  const showActualEntry = item != null && item.status === "bought" && onSaveActualEntry != null;
+  const [actualPrice, setActualPrice] = useState(
+    item?.actualPriceRm == null ? "" : item.actualPriceRm.toFixed(2),
+  );
+  const [actualPriceError, setActualPriceError] = useState<string | undefined>(undefined);
+  const [actualQuantity, setActualQuantity] = useState(
+    item?.actualQuantity == null ? "" : String(item.actualQuantity),
+  );
+  const [actualQuantityError, setActualQuantityError] = useState<string | undefined>(undefined);
+
+  const changeActualPrice = (value: string) => {
+    setActualPrice(value);
+    const invalid = value.trim() !== "" && !validateActualUnitPrice(value).success;
+    setActualPriceError(invalid ? copy.itemPriceError : undefined);
+  };
+
+  const changeActualQuantity = (value: string) => {
+    setActualQuantity(value);
+    const invalid = value.trim() !== "" && !validateActualQuantity(value).success;
+    setActualQuantityError(invalid ? copy.itemQuantityError : undefined);
+  };
+
+  const saveActualEntry = () => {
+    const price = validateActualUnitPrice(actualPrice);
+    const qty = validateActualQuantity(actualQuantity);
+    setActualPriceError(price.success ? undefined : copy.itemPriceError);
+    setActualQuantityError(qty.success ? undefined : copy.itemQuantityError);
+    if (!price.success || !qty.success) return;
+    onSaveActualEntry?.({ actualPriceRm: price.value, actualQuantity: qty.value });
+  };
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -288,7 +341,6 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
                 type="number"
                 inputMode="numeric"
                 min={1}
-                max={99}
                 step={1}
                 value={quantity}
                 aria-invalid={Boolean(errors.quantity)}
@@ -333,6 +385,68 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
             </div>
           </div>
         </div>
+
+        {showActualEntry && (
+          <div className="mt-4 rounded-xl border border-[#dce5e0] bg-[#f8faf9] p-3">
+            <p className="text-[11px] font-semibold text-[#087f5b]">{copy.shopperRecorded}</p>
+            <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor={actualPriceId} className="text-sm font-bold text-[#17362c]">
+                  {copy.actualUnitPrice}
+                </label>
+                <input
+                  id={actualPriceId}
+                  type="number"
+                  inputMode="decimal"
+                  min="0.01"
+                  step="0.01"
+                  value={actualPrice}
+                  aria-invalid={Boolean(actualPriceError)}
+                  aria-describedby={actualPriceError ? actualPriceErrorId : undefined}
+                  onChange={event => changeActualPrice(event.target.value)}
+                  className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
+                />
+                {actualPriceError && (
+                  <p id={actualPriceErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
+                    {actualPriceError}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label htmlFor={actualQuantityId} className="text-sm font-bold text-[#17362c]">
+                  {copy.actualQuantity}
+                </label>
+                <input
+                  id={actualQuantityId}
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  step={1}
+                  placeholder={item ? String(item.quantity) : undefined}
+                  value={actualQuantity}
+                  aria-invalid={Boolean(actualQuantityError)}
+                  aria-describedby={actualQuantityError ? actualQuantityErrorId : undefined}
+                  onChange={event => changeActualQuantity(event.target.value)}
+                  className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
+                />
+                {actualQuantityError && (
+                  <p id={actualQuantityErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
+                    {actualQuantityError}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={saveActualEntry}
+                className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+              >
+                {copy.saveItem}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
@@ -404,6 +518,7 @@ function ChecklistRow({
   locale,
   copy,
   onToggleBought,
+  onToggleNotBought,
   onEdit,
   onDelete,
 }: {
@@ -411,11 +526,24 @@ function ChecklistRow({
   locale: "en" | "ms";
   copy: ShoppingChecklistCopy;
   onToggleBought: () => void;
+  onToggleNotBought: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
   const name = localizedItemName(item, locale);
   const bought = item.status === "bought";
+  const notBought = item.status === "not_bought";
+  // AC 5.3.2/5.3.3: the shopper-recorded price and its line total render
+  // alongside (never instead of) the official/reference price; a cleared
+  // price renders nothing — never RM0.00.
+  const actualPrice = item.actualPriceRm;
+  const actualTotal = actualLineTotalRm(item);
+  // AC 5.3.4: spending quantity is the recorded actual one when present;
+  // the row always says whether planned or actual quantity was used.
+  const effectiveQuantity = item.actualQuantity ?? item.quantity;
+  const quantitySourceLabel = item.quantitySource === "actual"
+    ? copy.quantitySourceActual
+    : copy.quantitySourcePlanned;
   const rowTone = bought
     ? "bg-[#f5fbf8] hover:bg-[#eff8f3]"
     : "bg-white hover:bg-[#f8faf9]";
@@ -444,8 +572,11 @@ function ChecklistRow({
           {item.packageSize && (
             <p className="mt-0.5 truncate text-[11px] text-[#718078]">{item.packageSize}</p>
           )}
+          {notBought && (
+            <p className="mt-0.5 text-[11px] font-semibold text-[#8a5a00]">{copy.notBought}</p>
+          )}
         </div>
-        <div className="w-28 shrink-0 text-right">
+        <div className={`${actualPrice != null || item.actualQuantity != null ? "w-40" : "w-28"} shrink-0 text-right`}>
           <p className="flex items-center justify-end gap-1 text-[14px] font-extrabold tabular-nums text-[#17362c]">
             {item.priceSource === "median" && item.lineTotalRm != null && (
               <>
@@ -462,6 +593,34 @@ function ChecklistRow({
             {item.quantity} × <span className="sr-only">{copy.checklistUnitPrice}: </span>
             {item.unitPriceRm == null ? "—" : formatRm(item.unitPriceRm)}
           </p>
+          {item.actualQuantity != null && (
+            <p className="mt-0.5 whitespace-normal text-[11px] font-semibold tabular-nums text-[#087f5b]">
+              {copy.actualQuantity}: {item.actualQuantity} ({quantitySourceLabel})
+            </p>
+          )}
+          {actualPrice != null && actualTotal != null && (
+            <p className="mt-0.5 whitespace-normal text-[11px] tabular-nums text-[#087f5b]">
+              <span className="sr-only">{copy.actualUnitPrice}: </span>
+              {formatRm(actualPrice)} × {effectiveQuantity} ({quantitySourceLabel})
+              {" = "}<span className="font-bold">{formatRm(actualTotal)}</span>
+              {" · "}{copy.shopperRecorded}
+            </p>
+          )}
+          <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
+            <button
+              type="button"
+              aria-pressed={notBought}
+              aria-label={notBought ? copy.clearItemStatus(name) : copy.markNotBought(name)}
+              onClick={onToggleNotBought}
+              className={`min-h-7 rounded-full border px-2 text-[10px] font-bold ${
+                notBought
+                  ? "border-[#8a5a00] bg-[#fdf3e0] text-[#8a5a00]"
+                  : "border-[#c4d2ca] text-[#53635c] hover:bg-[#f1f5f3]"
+              }`}
+            >
+              {copy.notBought}
+            </button>
+          </div>
           <div className="mt-0.5 flex items-center justify-end gap-0.5">
             <button
               type="button"
@@ -495,8 +654,12 @@ export function ShoppingChecklistScreen({
   onToggleStatus,
   onAddManual,
   onEditItem,
+  onSetActualPrice,
+  onSetActualQuantity,
   onDeleteItem,
   onDeleteChecklist,
+  alreadyRecorded,
+  onRecordTrip,
 }: ShoppingChecklistScreenProps) {
   const [manualDialog, setManualDialog] = useState<{ open: boolean; item: ChecklistItem | null }>({
     open: false,
@@ -504,8 +667,11 @@ export function ShoppingChecklistScreen({
   });
   const [itemPendingDelete, setItemPendingDelete] = useState<ChecklistItem | null>(null);
   const [deleteChecklistOpen, setDeleteChecklistOpen] = useState(false);
+  const [recordTripOpen, setRecordTripOpen] = useState(false);
   const progress = checklistProgress(checklist);
-  const subtotal = plannedChecklistSubtotal(checklist);
+  // Prefer the snapshot's persisted planned subtotal (AC 5.1.1); fall back to
+  // live derivation for legacy payloads migrated without it.
+  const subtotal = checklist.plannedSubtotalRm ?? plannedChecklistSubtotal(checklist);
   const unavailableCount = checklist.items.filter(item => item.lineTotalRm == null).length;
   const containsEstimate = checklist.items.some(
     item => item.priceSource === "median" && item.lineTotalRm != null,
@@ -519,6 +685,13 @@ export function ShoppingChecklistScreen({
     } else {
       onAddManual(input);
     }
+    closeManualDialog();
+  };
+
+  const saveActualEntry = (entry: { actualPriceRm: number | null; actualQuantity: number | null }) => {
+    if (!manualDialog.item) return;
+    onSetActualPrice(manualDialog.item.id, entry.actualPriceRm);
+    onSetActualQuantity(manualDialog.item.id, entry.actualQuantity);
     closeManualDialog();
   };
 
@@ -599,6 +772,7 @@ export function ShoppingChecklistScreen({
                     locale={locale}
                     copy={copy}
                     onToggleBought={() => onToggleStatus(item.id, "bought")}
+                    onToggleNotBought={() => onToggleStatus(item.id, "not_bought")}
                     onEdit={() => setManualDialog({ open: true, item })}
                     onDelete={() => setItemPendingDelete(item)}
                   />
@@ -611,6 +785,14 @@ export function ShoppingChecklistScreen({
             )}
           </div>
         </section>
+
+        <button
+          type="button"
+          onClick={() => setRecordTripOpen(true)}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+        >
+          <CheckIcon /> {copy.recordTrip}
+        </button>
 
         <button
           type="button"
@@ -629,6 +811,7 @@ export function ShoppingChecklistScreen({
           locale={locale}
           copy={copy}
           onSave={saveManualItem}
+          onSaveActualEntry={manualDialog.item?.status === "bought" ? saveActualEntry : undefined}
           onCancel={closeManualDialog}
         />
       )}
@@ -644,6 +827,19 @@ export function ShoppingChecklistScreen({
         onConfirm={() => {
           if (itemPendingDelete) onDeleteItem(itemPendingDelete.id);
           setItemPendingDelete(null);
+        }}
+      />
+
+      <ConfirmationDialog
+        open={recordTripOpen}
+        title={copy.recordTrip}
+        body={alreadyRecorded ? copy.recordTripAgain : copy.recordTripConfirm}
+        confirmLabel={copy.recordTrip}
+        cancelLabel={copy.cancel}
+        onCancel={() => setRecordTripOpen(false)}
+        onConfirm={() => {
+          setRecordTripOpen(false);
+          onRecordTrip();
         }}
       />
 
