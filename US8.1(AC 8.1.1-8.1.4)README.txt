@@ -1,0 +1,83 @@
+US 8.1 Build Notes / 构建说明
+See My Weekly Spending Summary
+查看我的本周支出汇总
+
+------------------------------------------------------------
+1. 中文
+
+核心缺口与设计：队友的 inbox.ts 已实现周期报告归档，但 syncInboxReports 明确跳过进行中的周期（源码 `if (start >= currentStart) continue;`，文案亦为"报告在一个完整周/月结束后才出现"）；而 AC 8.1.1/8.1.3 问的正是"本周"，因此本周进行中原本看不到任何支出数据。本次新增 frontend/lib/period-summary.ts，导出 periodSummary(records, cadence, now)，返回进行中周期的已确认支出汇总。该模块与归档周报互补而非重复：周报覆盖已结束周期，本汇总覆盖进行中周期。
+
+周期边界不重新实现：inbox.ts 原有的 periodStart / nextPeriod 从私有函数改为导出，供 period-summary.ts 复用。理由是两处若各自定义周边界，跨边界（周一零点前后）的行程可能被双方同时计入或双双漏计；共用同一实现后，"本周汇总"与"周报归档"对周期起点的理解必然一致。周边界沿用既有约定：周为周一至周日（UTC），月为自然月。周期跟随收件箱已有的 weekly/monthly 切换，不新增 UI 控件。
+
+English:
+The gap and the design: a teammate's inbox.ts already archives period reports, but syncInboxReports explicitly skips the period in progress (source: `if (start >= currentStart) continue;`, and the copy reads "Reports appear after a completed week or month"), while AC 8.1.1/8.1.3 ask about "this week" — so nothing was visible during an open week. This change adds frontend/lib/period-summary.ts exporting periodSummary(records, cadence, now), which returns the confirmed-spending summary for the period currently in progress. It complements the archived reports rather than duplicating them: reports cover finished periods, this summary covers the open one.
+
+Period boundaries are reused, not re-implemented: periodStart / nextPeriod in inbox.ts were changed from private functions to exports for period-summary.ts to consume. If both sides defined their own boundaries, a trip near a boundary (around Monday 00:00) could be counted twice or by neither; sharing one implementation means "this week's summary" and the archived weekly reports necessarily agree on where a period starts. Existing conventions are kept: a week runs Monday–Sunday (UTC), a month is the calendar month. The period follows the inbox's existing weekly/monthly switch, so no new UI control is added.
+
+------------------------------------------------------------
+2. 中文
+
+已确认与估算的分离（AC 8.1.1 / 8.1.2）：汇总只累加 actualTotalRm。该字段由 AC 5.4.2 的 actualExpenseTotal 计算，仅合计"已购且实际价已知"的行小计，因此它本身就是"已确认支出"。plannedSubtotalRm、estimatedRoundTripCostRm、plannedCombinedTotalRm 是估算，绝不参与求和。
+
+结构性防护而非仅靠措辞：PeriodSummary 接口刻意不携带任何估算金额字段，只暴露 hasEstimatedOnly 布尔标记。这样调用方在类型层面就拿不到估算数字，不可能把它渲染进"已确认支出"的位置——即使日后有人改 UI 也不会误显示。当周期内只有估算时，界面显示"计划估算不是已确认支出，因此不显示金额"，不显示任何数字。
+
+三种互斥状态（AC 8.1.3 / 8.1.4）：AC 自己注明 8.1.3 与 8.1.4"kept separate here as authored"，故实现为两种不同措辞的空态——本周期一条记录都没有 → "本周期尚无购物数据"（8.1.3）；有记录但没有已确认支出 → "本周期的支出数据不足"（8.1.4）。confirmedSpendingRm 在无可确认支出时返回 null 而非 0，沿用 AC 5.4.2 "绝不虚构零"的口径，界面也不会渲染金额。
+
+损坏数据（沿用 AC 5.5.4 口径）：recordedAt 无法解析的记录被跳过，既不猜测归入某周期，也不导致汇总崩溃。spendingIncomplete 标记"有已购行缺实际价"或"记录本身无已确认总额"的情形，界面提示该总额仅为部分。
+
+English:
+Confirmed versus estimated (AC 8.1.1 / 8.1.2): the summary sums actualTotalRm only. That field is computed by AC 5.4.2's actualExpenseTotal, which adds up only purchased lines with a known actual total, so it is by definition confirmed spending. plannedSubtotalRm, estimatedRoundTripCostRm and plannedCombinedTotalRm are estimates and never enter the sum.
+
+A structural guard, not just wording: the PeriodSummary interface deliberately carries no estimate amount at all — only a hasEstimatedOnly boolean. A caller therefore cannot obtain an estimate figure through the type system and cannot render it in the confirmed-spending slot, even if the UI is changed later. When the period holds estimates only, the UI states that planned estimates are not confirmed spending and shows no amount.
+
+Three mutually exclusive states (AC 8.1.3 / 8.1.4): the AC notes these were "kept separate here as authored", so they are implemented as two distinct empty-state messages — no records at all in the period gives "No shopping data for this period yet." (8.1.3); records exist but none carries confirmed spending gives "Not enough spending data for this period." (8.1.4). confirmedSpendingRm is null rather than 0 when nothing is confirmed, following AC 5.4.2's "never a made-up zero" rule, and no amount is rendered.
+
+Malformed data (same rule as AC 5.5.4): a record whose recordedAt cannot be parsed is skipped — never guessed into a period, never allowed to crash the summary. spendingIncomplete flags periods where a bought line lacks an actual price or a record has no confirmed total, and the UI says the total is partial.
+
+------------------------------------------------------------
+3. 中文
+
+界面：journey-screens.tsx 新增 WeeklySpendingSummary 组件（无状态，接收算好的 summary 与 locale），渲染于 InboxScreen 顶部、周期切换按钮下方，标题随周期显示"本周"或"本月"。文案补在该文件既有的 TEXT 双语表（en/ms 各 10 键）；TEXT 为 `as const` 且类型由 en 块推导，ms 块缺键会直接编译失败，因此双语不会漏。注意：此处沿用队友 journey-screens.tsx 的 TEXT 表模式，而非 i18n.ts 的 COPY 表，保持同文件内文案集中。
+
+接线：InboxScreen 增加 history: TripRecord[] 参数，组件内部自行调用 periodSummary(history, state.cadence)，因此 smartcart-app.tsx 调用处只需补传已有的 tripHistory 一行，周期自动跟随用户选择的 weekly/monthly。
+
+English:
+UI: journey-screens.tsx gains a WeeklySpendingSummary component (stateless; takes the computed summary and the locale), rendered at the top of InboxScreen below the cadence switch, titled "This week" or "This month" per the selected cadence. Copy was added to that file's existing bilingual TEXT table (10 keys each for en and ms); TEXT is `as const` with its type inferred from the en block, so a missing ms key fails compilation and the two languages cannot drift apart. Note this follows the TEXT-table pattern of the teammate's journey-screens.tsx rather than the COPY table in i18n.ts, keeping one file's copy in one place.
+
+Wiring: InboxScreen gains a history: TripRecord[] parameter and calls periodSummary(history, state.cadence) itself, so the call site in smartcart-app.tsx needed only one added line passing the existing tripHistory; the period automatically follows the weekly/monthly choice.
+
+------------------------------------------------------------
+4. 中文
+
+测试与验证：前端 vitest 全量 202 项通过（23 个文件），其中新增 period-summary.test.ts 15 项，覆盖 AC 8.1.1（本周合计、跨周期排除、周一起点、月度口径）、AC 8.1.2（估算不计入、仅估算时不显示金额、部分确认时总额只含已确认）、AC 8.1.3（无记录不虚构金额、上周记录不算本周）、AC 8.1.4（有记录无已确认支出、不完整标记的正反用例）、以及损坏日期跳过（AC 5.5.4 口径）。ESLint（lib、components、app 全目录）零告警；tsc --noEmit 通过；next build 编译成功（81 秒，静态页 5/5）。后端本次无改动。
+
+尚未执行浏览器实测：本次改动未经真实浏览器验证，界面渲染与四种状态的实际观感仍需人工核对。手动核对方式：启动前后端后，搜索 beras 加两件商品入篮，选起点与门店后 Start checklist，勾选一行并在 Edit item 录入实际价，点 Record shopping trip 保存；随后进入 Inbox，应看到"本周"卡片显示刚录入的已确认金额（不含估算交通费）；把该行实际价清空再存一条记录，本周卡片应转为"支出数据不足"且不显示金额；删除本机 localStorage 的 smartcart.trip-history.v1 后刷新，Inbox 本周卡片应显示"本周期尚无购物数据"。切换 monthly 与 BM/EN 语言可核对周期标题与双语文案。
+
+English:
+Testing and verification: the full frontend vitest suite passes 202 tests across 23 files, including 15 new tests in period-summary.test.ts covering AC 8.1.1 (weekly total, exclusion of other periods, Monday start, monthly cadence), AC 8.1.2 (estimates never summed, no amount shown when estimates only, mixed records total confirmed spending only), AC 8.1.3 (no invented amount when empty, last week's records excluded), AC 8.1.4 (records without confirmed spending, plus positive and negative cases for the incomplete flag), and skipping of unparseable dates (AC 5.5.4 rule). ESLint over lib, components and app reports no warnings; tsc --noEmit passes; next build compiles successfully (81s, static pages 5/5). No backend changes in this round.
+
+Browser verification not yet performed: this change has not been exercised in a real browser; the rendered UI and the look of the four states still need a manual check. To verify manually: with backend and frontend running, search beras and add two items, pick a starting point and a store, start the checklist, tick one line and enter an actual price via Edit item, then press Record shopping trip; open the Inbox and the "This week" card should show the confirmed amount just entered (excluding estimated transport). Saving another record with that line's actual price cleared should switch the card to "Not enough spending data" with no amount. After deleting smartcart.trip-history.v1 from localStorage and reloading, the Inbox card should read "No shopping data for this period yet." Switching to monthly and to BM/EN checks the period title and both languages.
+
+------------------------------------------------------------
+5. 中文
+
+修复合并遗留的类型错误（非本次功能引入）：合并 origin/shun/us5.5 时冲突解决不完整，遗留 6 个 TypeScript 错误，阻塞验证。已用 git diff 与 git show HEAD 证明这些错误不在本次改动引入：报错文件包含本次未触碰的 trip-history.ts 与 estimated-savings.test.ts，且 HEAD 提交中 trip-history.ts 已引用 checklist.routeProvider 而 shopping-checklist.ts 内该字段完全不存在。修复如下：(1) smartcart-app.tsx:2202 引用未定义的 alternativeStores，改为组件 props 中实际存在的 recommendations；(2) estimated-savings.test.ts 夹具缺 BasketLineDetail 必填的 quantity，补 quantity: 1；(3)–(6) routeProvider 在 shopping-checklist.ts 中整体丢失，但 trip-history.ts:167 与 trip-history.test.ts:228 仍引用，故在四处补回——ShoppingChecklist 接口、ChecklistCreationOptions、createShoppingChecklist 返回值、isShoppingChecklist 校验。补回采用可选字段加条件展开（`...(options.routeProvider ? { routeProvider: options.routeProvider } : {})`），与同文件 estimatedSavings 的既有写法一致，未传值时序列化输出与改动前完全相同，旧本地数据仍合法；校验接受缺省但拒绝非法取值，损坏值被拒绝而非默认信任。修复后 TSC 通过，estimated-savings.test.ts 的 8 个测试恢复执行（此前因编译失败从未运行）。
+
+English:
+Fixing type errors left over from the merge (not introduced by this feature): resolving conflicts while merging origin/shun/us5.5 was incomplete and left 6 TypeScript errors that blocked verification. git diff and git show HEAD confirm these were not introduced here: the failing files include trip-history.ts and estimated-savings.test.ts, which this change never touched, and at HEAD trip-history.ts already referenced checklist.routeProvider while shopping-checklist.ts contained no such field at all. Fixes: (1) smartcart-app.tsx:2202 referenced an undefined alternativeStores — changed to recommendations, which actually exists in the component's props; (2) the estimated-savings.test.ts fixture lacked the required BasketLineDetail.quantity — added quantity: 1; (3)–(6) routeProvider had been lost entirely from shopping-checklist.ts while trip-history.ts:167 and trip-history.test.ts:228 still referenced it, so it was restored in four places — the ShoppingChecklist interface, ChecklistCreationOptions, the createShoppingChecklist return value, and the isShoppingChecklist validator. The restoration uses an optional field with conditional spread (`...(options.routeProvider ? { routeProvider: options.routeProvider } : {})`), matching the existing estimatedSavings pattern in the same file: when no value is passed the serialised output is byte-identical to before, and legacy local data stays valid. The validator accepts absence but rejects an unknown value, so a corrupt value is refused rather than silently trusted. After the fix TSC passes and the 8 tests in estimated-savings.test.ts run again (they had never executed because the file failed to compile).
+
+------------------------------------------------------------
+6. 中文
+
+变更文件：frontend/lib/period-summary.ts（新增，进行中周期已确认支出汇总纯函数）、frontend/lib/period-summary.test.ts（新增，15 项测试）、frontend/lib/inbox.ts（periodStart / nextPeriod 由私有改为导出，行为不变）、frontend/components/journey-screens.tsx（新增 WeeklySpendingSummary 组件，InboxScreen 增 history 参数并渲染该组件，TEXT 表 en/ms 各补 10 键）、frontend/components/smartcart-app.tsx（InboxScreen 调用处补传 tripHistory；另修复合并遗留的 alternativeStores 引用）、frontend/lib/shopping-checklist.ts 与 frontend/lib/estimated-savings.test.ts（仅修复合并遗留的类型错误，无功能变更）。
+
+English:
+Files changed: frontend/lib/period-summary.ts (new — pure function summarising confirmed spending for the period in progress), frontend/lib/period-summary.test.ts (new, 15 tests), frontend/lib/inbox.ts (periodStart / nextPeriod changed from private to exported, behaviour unchanged), frontend/components/journey-screens.tsx (new WeeklySpendingSummary component; InboxScreen gains a history parameter and renders it; 10 TEXT keys added per language), frontend/components/smartcart-app.tsx (passes tripHistory to InboxScreen; also fixes the leftover alternativeStores reference), frontend/lib/shopping-checklist.ts and frontend/lib/estimated-savings.test.ts (type errors left over from the merge only, no behaviour change).
+
+------------------------------------------------------------
+7. 中文
+
+待办与未决：浏览器实测尚未执行（见第 4 节的手动核对方式）。AC 8.1.1 至 8.1.4 的四种界面状态目前仅由单元测试覆盖，实际观感、无障碍语义（section 的 aria-labelledby 与标题 id 为固定字符串，同页多实例时会重复，本页面仅一处实例故当前无影响）与双语排版仍建议人工确认。
+
+English:
+Outstanding: browser verification has not been performed (see the manual steps in section 4). The four UI states of AC 8.1.1–8.1.4 are currently covered by unit tests only; their actual appearance, accessibility semantics (the section's aria-labelledby and heading id are fixed strings, which would collide if several instances appeared on one page — harmless today because there is exactly one) and bilingual layout still warrant a manual check.

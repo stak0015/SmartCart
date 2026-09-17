@@ -1,0 +1,46 @@
+AC 5.7.3 README — Current state and privacy (export)
+====================================================
+
+本次提交内容 / What this commit does
+------------------------------------
+为清单导出补充"最新状态与隐私"的自动化保障（仅测试追加，无产品代码改动）：
+1. 最新状态：对已保存清单的后续修改（录入实际价、重新标记购物结果）在
+   下一次生成导出时如实反映，且早先生成的导出数据与源清单均不被改写。
+2. 隐私排除：导出内容绝不包含精确位置、身份标识或隐藏应用数据——以
+   15 个哨兵值（清单/门店/行内部标识、门店地址、备选店名称与估算、
+   计划合计、节省估算等）逐一断言不出现在导出数据中，同时正面校验
+   店名与商品名确实包含。
+3. 端侧生成：源码级断言导出模块不含任何网络调用（无 fetch /
+   XMLHttpRequest / sendBeacon / api-client / 任何 http(s) URL），
+   清单在导出时绝不会被静默上传。
+
+Adds automated guarantees for export currency and privacy (tests only, no
+production code changes):
+1. Current state: later saved edits (a recorded actual price, a re-marked
+   outcome) are reflected in the next export, while earlier export data and
+   the source checklist are never rewritten.
+2. Privacy exclusion: the export never contains precise location, identity,
+   or hidden app data — 15 sentinel values (checklist/store/row internal
+   ids, store address, alternative-store names and estimates, planned
+   totals, savings estimates) are each asserted absent from the exported
+   data, with a positive check that the store and item names are present.
+3. On-device generation: a source-level assertion that the export module
+   makes no network calls (no fetch / XMLHttpRequest / sendBeacon /
+   api-client / any http(s) URL) — the checklist is never silently
+   uploaded during export.
+
+验证方式 / How to verify
+------------------------
+1. cd frontend && pnpm test —— 188 个用例全部通过（新增 3 个：
+   最新状态反映、哨兵值隐私排除、端侧零网络）。
+2. pnpm lint 零告警；pnpm build 构建成功；npx tsc --noEmit 无错误。
+
+1. cd frontend && pnpm test — all 188 tests pass (3 new: latest-state
+   reflection, sentinel privacy exclusion, on-device zero-network).
+2. pnpm lint reports no warnings; pnpm build succeeds; npx tsc --noEmit
+   is clean.
+
+变更文件清单 / Files changed
+----------------------------
+- frontend/lib/checklist-export.test.ts（修改 / modified）：新增上述
+  3 个用例及其所需导入；无其他文件改动。

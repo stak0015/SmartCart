@@ -29,6 +29,15 @@ export interface TravelPreferencesRequest {
 export interface RecommendationRequest {
   basket?: BasketLineRequest[];
   travel: TravelPreferencesRequest;
+  candidateCacheId?: string;
+}
+
+export interface CandidatePreparationResponse {
+  candidateCacheId: string;
+  candidateCount: number;
+  reachableCount: number;
+  generatedAt: string;
+  expiresAt: string;
 }
 
 export interface LocationSuggestion {

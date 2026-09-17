@@ -1,0 +1,43 @@
+US 5.3 (AC 5.3.4) — Planned vs Actual Quantity
+US 5.3（AC 5.3.4）——计划数量与实际数量
+==================================================
+
+Scope / 范围
+This note records how the shopping checklist was aligned with acceptance
+criterion AC 5.3.4.
+本文档记录购物清单与验收标准 AC 5.3.4 的对齐情况。
+
+--------------------------------------------------
+
+AC 5.3.4 — Planned vs actual quantity / 计划数量与实际数量
+
+对齐内容 / Alignment target
+- 购物者可录入实际数量；记录须清楚标注支出所依据的是计划数量还是购物者
+  录入的数量。
+- The shopper may record an actual quantity; the record must say clearly
+  whether spending used the planned quantity or one the shopper entered.
+
+对齐所作的修改 / Changes made for alignment
+- 行模型新增 actualQuantity 与 quantitySource（planned/actual）两个字段；
+  仅 Purchased 行可在编辑对话框中录入或清空实际数量，留空即回退计划数量。
+- Two new line fields were added: actualQuantity and quantitySource
+  (planned/actual); only Purchased lines offer an "Actual quantity" entry in
+  the edit dialog, and a blank entry falls back to the planned quantity.
+- 实际数量须为正整数（与自定义行数量同一规则），输入即校验并复用既有
+  双语数量报错。
+- The actual quantity must be a positive whole number (the same rule as
+  custom-line quantities), validated as typed with the existing bilingual
+  quantity error.
+- 行上标注数量来源（planned/actual，马来语 dirancang/sebenar）；有实际
+  数量时实际行小计按 实际价 × 实际数量 即时重算，计划数量、参考价与
+  计划小计不被改写。
+- The row labels the quantity source (planned/actual; Malay:
+  dirancang/sebenar); with an actual quantity, the actual line total
+  recalculates immediately as actual price × actual quantity, while the
+  planned quantity, reference price, and planned subtotal stay untouched.
+- 实际数量随清单本地持久化；存储信封版本升至 v3，v1/v2 旧数据经迁移链
+  自动补齐字段，不丢数据；数量来源与实际数量不一致的损坏数据安全忽略。
+- The actual quantity persists locally with the checklist; the storage
+  envelope rises to v3 and v1/v2 data is upgraded by the migration chain
+  without data loss; corrupted payloads whose quantity source disagrees with
+  the actual quantity are ignored safely.

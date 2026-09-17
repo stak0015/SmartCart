@@ -12,6 +12,7 @@
     "sync:premise-locations": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs"
   },
   "dependencies": {
+    "html-to-image": "^1.11.13",
     "next": "^15.5.2",
     "pg": "^8.23.0",
     "react": "^19.1.1",

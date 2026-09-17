@@ -1,0 +1,191 @@
+US 8.4 Build Notes / 构建说明
+My Summary Stays Private and Under My Control (AC 8.4.1-8.4.3)
+我的摘要保持私密并由我掌控（AC 8.4.1-8.4.3）
+
+Scope note / 范围说明
+AC 8.4.2 mentions tapping "View my summary" on the "Expense page". No such page
+or button exists in this codebase - the summary lives in the Inbox screen
+("Savings & spending inbox"). The AC is written disjunctively ("Given I open the
+summary (or tap ...)"), so opening the Inbox screen satisfies it: the summary is
+computed in the render body at the moment the screen is opened. No new page or
+entry point was invented to match the wording.
+AC 8.4.2 提到在"Expense 页面"点击"View my summary"。本代码库中不存在该页面或按钮
+——摘要位于收件箱屏（"Savings & spending inbox"）。该 AC 为选言式表述（"打开摘要
+（或点击……）"），因此打开收件箱屏即已满足：摘要在渲染体内于打开该屏的那一刻计算。
+为迁就措辞而新造页面或入口是不必要的。
+
+Also fixed here: a hardcoded English "vs" in the PeriodComparisonCard heading,
+introduced in US 8.3, which leaked English into the Malay UI. It is now the copy
+key comparisonVersus.
+同时修复：PeriodComparisonCard 标题中写死的英文 "vs"（US 8.3 引入），它会把英文混进
+马来语界面。现已改为文案键 comparisonVersus。
+
+------------------------------------------------------------
+1. 中文
+
+AC 8.4.3 隐藏开关：inbox.ts 的 InboxState 新增 summaryHidden: boolean。
+parseInboxState 改为「显式构造返回对象」而非 state as unknown as InboxState
+强转——因为旧载荷没有该字段，强转会让 undefined 穿透类型系统，之后每处假值判断都变
+成偶然成立。归一化写法为 state.summaryHidden === true（任何非布尔值一律回退为可见）。
+
+刻意不递增 INBOX_VERSION：隐藏一个区块是附加式改动，递增版本号会让设备上已保存的
+全部报告被判定为旧版本而丢弃（parseInboxState 在版本不符时返回 EMPTY_INBOX）。这属于
+破坏性回归，因此选择兼容读取。
+
+新增纯函数 setSummaryHidden(state, hidden)，仅切换该标记；cadence、messages 与全部
+行程记录一律不触碰，隐藏因此完全可逆且非破坏性。持久化复用既有的 inbox useEffect
+（smartcart-app.tsx 在 inbox 变化时写 localStorage），未新增任何存储逻辑。
+
+AC 8.4.2 的计算时机：InboxScreen 中 periodComparison(history, state.cadence) 位于渲染
+体内，且受 state.summaryHidden 门控——隐藏时该函数根本不被调用。因此「隐藏中的摘要连
+算都不算」。journey-screens.tsx 是纯渲染组件，完全不导入 React 副作用钩子，不存在任何
+后台计算路径。
+
+界面：摘要区由 comparison && currentPeriod 条件渲染。隐藏时只显示一行说明（行程记录
+未受影响）与「显示摘要」入口；按钮带 aria-pressed / aria-expanded 且 min-h-11 触摸目标，
+与周期切换按钮同一无障碍规格。另附一行隐私说明，措辞只陈述代码实际行为（在本机计算、
+不外传），不承诺任何未被强制执行的保证。
+
+English:
+AC 8.4.3 visibility toggle: InboxState in inbox.ts gains summaryHidden: boolean.
+parseInboxState now builds its return object explicitly instead of casting via
+state as unknown as InboxState - an older payload has no such field, and a cast
+would let undefined slip past the type system, making every later falsy check
+accidentally true. Normalisation is state.summaryHidden === true, so any
+non-boolean falls back to visible.
+
+INBOX_VERSION was deliberately NOT bumped: hiding a section is additive, and a
+bump would cause every report already saved on the device to be discarded as an
+old version (parseInboxState returns EMPTY_INBOX on a version mismatch). That
+would be a destructive regression, so backwards-compatible parsing was chosen.
+
+A new pure function setSummaryHidden(state, hidden) flips only that flag;
+cadence, messages and every recorded trip are left untouched, so hiding is fully
+reversible and never destructive. Persistence reuses the existing inbox useEffect
+(smartcart-app.tsx writes localStorage whenever inbox changes), so no new storage
+logic was added.
+
+AC 8.4.2 generation timing: periodComparison(history, state.cadence) sits in the
+render body of InboxScreen and is gated on state.summaryHidden - when hidden the
+function is not called at all, so a hidden summary is not even computed.
+journey-screens.tsx is a pure render component that imports no React effect hooks,
+so no background computation path exists.
+
+UI: the summary section renders on comparison && currentPeriod. When hidden, a
+single explanatory line appears (recorded trips untouched) plus a "Show summary"
+entry; the button carries aria-pressed / aria-expanded and a min-h-11 touch
+target, matching the cadence switch's accessibility spec. One privacy line states
+only what the code actually does (computed on device, never sent), without
+promising any guarantee that is not enforced.
+
+------------------------------------------------------------
+2. 中文
+
+隐私测试（AC 8.4.1）：新建 lib/summary-privacy.test.ts，共 10 个用例。出站流量测试拦截
+全局 fetch 并调用应用全部 8 个出站函数（api-client 的 6 个 + api.ts 的 searchItems /
+listCategories），断言 18 个支出字段名（actualTotalRm、actualPriceRm、actualLineTotalRm、
+actualQuantity、plannedSubtotalRm、plannedCombinedTotalRm、estimatedSavings、
+netSavingRm、storeChoiceImpactRm、itemChangeImpactRm、medianCombinedCostRm、
+selectedBaselineCombinedCostRm、selectedCurrentCombinedCostRm、comparableStoreCount、
+alternativeStoreEstimates、recordedAt、checklistId、summaryHidden）与 2 个支出存储键
+（smartcart.trip-history、smartcart.inbox）均不出现在任何请求体或 URL 中。另有源码扫描
+断言 period-summary.ts / inbox.ts / estimated-savings.ts 不含 fetch、XMLHttpRequest、
+sendBeacon、WebSocket、EventSource，也不引用 api-client（沿用 trip-history.test.ts:355
+既有的 AC 5.4.3 设备本地模式）。
+
+范围诚实说明：应用确实会发送购物篮行的 itemId/数量与所选出发地坐标，因为没有它们推荐
+无法工作。被断言禁止的是「已记录的支出数据」——实际支付金额、省钱快照、行程记录。
+
+AC 8.4.2 断言：journey-screens.tsx 不含 setTimeout / setInterval / requestIdleCallback /
+Notification / serviceWorker / new Worker；不含 useEffect / useLayoutEffect（无副作用钩子
+即不存在后台计算路径）；periodComparison 确在渲染体内调用并受 summaryHidden 门控。范围
+刻意限定在摘要模块，未误判 toast-timer.ts 与 smartcart-app.tsx 中合法的计时器用法。
+
+反向有效性验证（避免源码扫描「假通过」）：已单独确认 setTimeout 确实存在于
+toast-timer.ts、useEffect 在 smartcart-app.tsx 出现 22 次（证明这些正则能命中目标），
+而 journey-screens.tsx 对同一批模式命中 0 次、对正向锚点命中 5 次。
+
+AC 8.4.3 断言：setSummaryHidden 切换标记时不动 cadence 与 messages；值未变时返回同一
+对象引用（避免无谓重渲染）；隐藏设置门控整个摘要区块且切换按钮与两个摘要组件均仍接线。
+
+修复的问题：初版测试把循环变量命名为 module，触发 Next.js 规则
+no-assign-module-variable（module 是 CommonJS 保留变量）。已改名 modulePath。
+
+验证：tsc --noEmit 通过；ESLint（lib + components）零错误零警告；vitest 24 个文件 237 项
+全部通过（较此前 220 新增 17：inbox 7 项 + 隐私 10 项）；next build 编译成功（19.7s，
+静态页 5/5）。
+
+尚未执行浏览器实测：隐藏/显示切换的四种界面状态、持久化跨刷新是否生效、以及马来语界面
+是否已无英文残留，仍需在 Inbox 页面人工核对。
+
+English:
+Privacy tests (AC 8.4.1): new lib/summary-privacy.test.ts, 10 cases. The outbound
+traffic test stubs global fetch and exercises all 8 outbound functions in the app
+(6 from api-client plus searchItems / listCategories from api.ts), asserting that
+18 expense field names (actualTotalRm, actualPriceRm, actualLineTotalRm,
+actualQuantity, plannedSubtotalRm, plannedCombinedTotalRm, estimatedSavings,
+netSavingRm, storeChoiceImpactRm, itemChangeImpactRm, medianCombinedCostRm,
+selectedBaselineCombinedCostRm, selectedCurrentCombinedCostRm,
+comparableStoreCount, alternativeStoreEstimates, recordedAt, checklistId,
+summaryHidden) and 2 expense storage keys (smartcart.trip-history, smartcart.inbox)
+appear in no request body or URL. Source scans additionally assert that
+period-summary.ts / inbox.ts / estimated-savings.ts contain no fetch,
+XMLHttpRequest, sendBeacon, WebSocket or EventSource, and import no API client -
+reusing the existing AC 5.4.3 device-local pattern at trip-history.test.ts:355.
+
+Honest scope note: the app DOES send basket line itemId/quantity and the chosen
+origin coordinates, because recommendations cannot work without them. What is
+asserted absent is recorded expense data - what was actually paid, savings
+snapshots and trip records.
+
+AC 8.4.2 assertions: journey-screens.tsx contains no setTimeout / setInterval /
+requestIdleCallback / Notification / serviceWorker / new Worker; no useEffect or
+useLayoutEffect (without effect hooks no background computation path exists); and
+periodComparison is called in the render body, gated on summaryHidden. The scan is
+deliberately scoped to the summary modules so the legitimate timers in
+toast-timer.ts and smartcart-app.tsx are not misjudged.
+
+Reverse validity check (guards against a source scan passing vacuously): it was
+separately confirmed that setTimeout does exist in toast-timer.ts and useEffect
+occurs 22 times in smartcart-app.tsx - proving those regexes can match their
+targets - while journey-screens.tsx hits 0 times on the same patterns and 5 times
+on the positive anchors.
+
+AC 8.4.3 assertions: setSummaryHidden leaves cadence and messages untouched;
+returns the same object reference when the value is unchanged (avoiding needless
+re-renders); the setting gates the whole summary section with the toggle and both
+summary components still wired.
+
+Issue fixed: the first draft named a loop variable module, tripping the Next.js
+rule no-assign-module-variable (module is reserved by CommonJS). Renamed to
+modulePath.
+
+Verification: tsc --noEmit clean; ESLint (lib + components) zero errors and zero
+warnings; vitest 24 files / 237 tests all passing (17 new over the prior 220:
+7 inbox + 10 privacy); next build compiled successfully (19.7s, static pages 5/5).
+
+Browser verification not yet performed: the four UI states of the hide/show
+toggle, whether persistence survives a refresh, and whether the Malay UI is now
+free of English leftovers still need a manual check on the Inbox page.
+
+------------------------------------------------------------
+3. 中文
+
+变更文件：frontend/lib/inbox.ts（InboxState 新增 summaryHidden、parseInboxState 显式
+归一化、新增 setSummaryHidden）、frontend/lib/inbox.test.ts（新增 7 用例与导入）、
+frontend/lib/summary-privacy.test.ts（新建，10 用例）、
+frontend/components/journey-screens.tsx（InboxScreen 新增 onToggleSummary 与隐藏控件、
+摘要区条件渲染、en/ms 各补 5 个文案键、修复写死的 "vs"）、
+frontend/components/smartcart-app.tsx（补 setSummaryHidden 导入并接线 onToggleSummary）。
+后端无改动。
+
+English:
+Files changed: frontend/lib/inbox.ts (InboxState gains summaryHidden, explicit
+normalisation in parseInboxState, new setSummaryHidden),
+frontend/lib/inbox.test.ts (7 new cases plus imports),
+frontend/lib/summary-privacy.test.ts (new, 10 cases),
+frontend/components/journey-screens.tsx (InboxScreen gains onToggleSummary and the
+hide control, conditional rendering of the summary section, 5 copy keys per
+language, hardcoded "vs" fixed),
+frontend/components/smartcart-app.tsx (imports setSummaryHidden and wires
+onToggleSummary). No backend changes.

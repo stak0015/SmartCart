@@ -135,3 +135,47 @@ describe("combined total labels (iteration1 feedback)", () => {
     expect(`${COPY.ms.partialTotal} + ${COPY.ms.returnTravel}`).toContain("+");
   });
 });
+
+describe("shopping checklist copy", () => {
+  it("keeps the English and Bahasa Melayu copy shapes identical", () => {
+    expect(Object.keys(COPY.ms).sort()).toEqual(Object.keys(COPY.en).sort());
+  });
+
+  it("provides localized checklist access, progress, and price copy", () => {
+    expect(COPY.en.openChecklistAria(1)).toBe("Open shopping checklist, 1 item");
+    expect(COPY.en.openChecklistAria(3)).toBe("Open shopping checklist, 3 items");
+    expect(COPY.ms.openChecklistAria(3)).toContain("3 item");
+    expect(COPY.en.checklistProgress(2, 3)).toBe("2 of 3 items bought");
+    expect(COPY.ms.checklistProgress(2, 3)).toBe("2 daripada 3 item dibeli");
+    expect(COPY.en.checklistPriceDisclosure(1)).toContain("1 item has no price");
+    expect(COPY.en.checklistPriceDisclosure(2)).toContain("2 items have no price");
+    expect(COPY.ms.checklistPriceDisclosure(2)).toContain("2 item");
+    expect(COPY.en.plannedSubtotal).not.toBe(COPY.en.estimatedPlannedSubtotal);
+    expect(COPY.ms.plannedSubtotal).not.toBe(COPY.ms.estimatedPlannedSubtotal);
+  });
+
+  it("provides status actions, manual-item validation, and destructive confirmations", () => {
+    expect(COPY.en.markBought("Rice")).toContain("Rice");
+    expect(COPY.en.markNotBought("Rice")).toContain("not bought");
+    expect(COPY.ms.markBought("Beras")).toContain("Beras");
+    expect(COPY.ms.markNotBought("Beras")).toContain("belum dibeli");
+    expect(COPY.en.itemQuantityError).toContain("positive whole number");
+    expect(COPY.ms.itemQuantityError).toContain("nombor bulat positif");
+    expect(COPY.en.itemPriceError).toContain("two decimal places");
+    expect(COPY.ms.itemPriceError).toContain("dua tempat perpuluhan");
+    expect(COPY.en.shopperRecorded).toBe("Shopper recorded");
+    expect(COPY.ms.shopperRecorded).toContain("Dicatat");
+    expect(COPY.en.actualUnitPrice).toContain("Actual unit price");
+    expect(COPY.ms.actualUnitPrice).toContain("Harga seunit sebenar");
+    expect(COPY.en.actualQuantity).toBe("Actual quantity");
+    expect(COPY.ms.actualQuantity).toContain("Kuantiti sebenar");
+    expect(COPY.en.quantitySourcePlanned).toBe("planned");
+    expect(COPY.en.quantitySourceActual).toBe("actual");
+    expect(COPY.ms.quantitySourcePlanned).toContain("dirancang");
+    expect(COPY.ms.quantitySourceActual).toContain("sebenar");
+    expect(COPY.en.deleteItemConfirm("Milk")).toContain("Milk");
+    expect(COPY.ms.deleteItemConfirm("Susu")).toContain("Susu");
+    expect(COPY.en.replaceChecklistConfirm).toContain("manually added items");
+    expect(COPY.ms.deleteChecklistConfirm).toContain("secara kekal");
+  });
+});
