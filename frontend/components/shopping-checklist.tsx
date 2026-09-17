@@ -7,7 +7,12 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { formatRm } from "@/lib/format-rm";
+import {
+  buildChecklistExportModel,
+  type ChecklistExportModel,
+} from "@/lib/checklist-export";
 import {
   actualLineTotalRm,
   checklistProgress,
@@ -65,6 +70,12 @@ export interface ShoppingChecklistCopy {
   recordTripConfirm: string;
   recordTripAgain: string;
   tripRecorded: string;
+  exportChecklist: string;
+  exportChecklistIntro: string;
+  downloadAsImage: string;
+  downloadAsPdf: string;
+  exportChecklistEmpty: string;
+  exportChecklistFailed: string;
   close: string;
 }
 
@@ -210,6 +221,128 @@ export function ConfirmationDialog({
         </div>
       </div>
     </dialog>
+  );
+}
+
+interface ExportChecklistDialogProps {
+  open: boolean;
+  copy: ShoppingChecklistCopy;
+  errorMessage: string | null;
+  onDownloadImage: () => void;
+  onDownloadPdf: () => void;
+  onCancel: () => void;
+}
+
+// AC 5.7.1: one accessible Export action offering both download formats.
+function ExportChecklistDialog({
+  open,
+  copy,
+  errorMessage,
+  onDownloadImage,
+  onDownloadPdf,
+  onCancel,
+}: ExportChecklistDialogProps) {
+  const titleId = useId();
+  const bodyId = useId();
+  const imageRef = useRef<HTMLButtonElement>(null);
+  const { dialogRef, handleCancel } = useNativeDialog(open, onCancel, imageRef);
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby={titleId}
+      aria-describedby={bodyId}
+      onCancel={handleCancel}
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
+    >
+      <div className="p-5 sm:p-6">
+        <h2 id={titleId} className="text-xl font-extrabold leading-7">
+          {copy.exportChecklist}
+        </h2>
+        <p id={bodyId} className="mt-2 text-sm leading-6 text-[#53635c]">
+          {copy.exportChecklistIntro}
+        </p>
+        {errorMessage && (
+          <p role="alert" className="mt-3 rounded-lg bg-[#fff2f2] px-3 py-2 text-sm font-semibold text-[#ba1a1a]">
+            {errorMessage}
+          </p>
+        )}
+        <div className="mt-6 grid gap-3">
+          <button
+            ref={imageRef}
+            type="button"
+            onClick={onDownloadImage}
+            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+          >
+            {copy.downloadAsImage}
+          </button>
+          <button
+            type="button"
+            onClick={onDownloadPdf}
+            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+          >
+            {copy.downloadAsPdf}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
+          >
+            {copy.cancel}
+          </button>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+// AC 5.7.4: the fixed-width export layout. It renders only the export model
+// (AC 5.7.3 privacy boundary), wraps long names instead of clipping them,
+// and uses the app's hex palette so on-device capture stays faithful. On
+// screen it lives off-viewport; in print output it is the only content.
+function ChecklistExportSheet({ model }: { model: ChecklistExportModel }) {
+  return (
+    <div className="w-[800px] bg-white p-8 text-[#10231d]">
+      <p className="text-sm font-bold text-[#087f5b]">{model.title}</p>
+      <h1 className="mt-1 text-2xl font-extrabold leading-8 [overflow-wrap:anywhere]">
+        {model.storeName}
+      </h1>
+      <p className="mt-1 text-xs text-[#53635c]">{model.dateText}</p>
+      <ul className="mt-4 border-t border-[#dce5e0]">
+        {model.rows.map((row, index) => (
+          <li key={index} className="border-b border-[#e2e9e5] py-2.5">
+            <div className="flex items-start justify-between gap-6">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold leading-5 [overflow-wrap:anywhere]">
+                  {row.name}
+                </p>
+                {row.packageSize && (
+                  <p className="mt-0.5 text-xs text-[#718078]">{row.packageSize}</p>
+                )}
+                {row.shopperAddedLabel && (
+                  <p className="mt-0.5 text-xs font-semibold text-[#286d67]">
+                    {row.shopperAddedLabel}
+                  </p>
+                )}
+              </div>
+              <div className="shrink-0 text-right text-xs leading-5 text-[#53635c]">
+                <p>
+                  {row.quantity}
+                  {row.quantitySourceLabel ? ` (${row.quantitySourceLabel})` : ""}
+                </p>
+                <p className="font-semibold text-[#17362c]">
+                  {row.referenceUnitPriceText}
+                </p>
+                {row.actualUnitPriceText && (
+                  <p className="text-[#087f5b]">{row.actualUnitPriceText}</p>
+                )}
+                <p>{row.outcomeLabel}</p>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -500,6 +633,14 @@ function AddIcon() {
   );
 }
 
+function DownloadIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0">
+      <path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 16h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function localizedItemName(item: ChecklistItem, locale: "en" | "ms") {
   if (item.source === "manual") return item.itemName;
   return (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
@@ -668,7 +809,10 @@ export function ShoppingChecklistScreen({
   const [itemPendingDelete, setItemPendingDelete] = useState<ChecklistItem | null>(null);
   const [deleteChecklistOpen, setDeleteChecklistOpen] = useState(false);
   const [recordTripOpen, setRecordTripOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const progress = checklistProgress(checklist);
+  // AC 5.7.1: an empty checklist disables the export action and explains why.
+  const isEmpty = checklist.items.length === 0;
   // Prefer the snapshot's persisted planned subtotal (AC 5.1.1); fall back to
   // live derivation for legacy payloads migrated without it.
   const subtotal = checklist.plannedSubtotalRm ?? plannedChecklistSubtotal(checklist);
@@ -678,6 +822,50 @@ export function ShoppingChecklistScreen({
   );
 
   const closeManualDialog = () => setManualDialog({ open: false, item: null });
+
+  // AC 5.7.4: export generation is fully on-device. The sheet renders the
+  // privacy-bounded export model (AC 5.7.3) off-screen; PNG goes through
+  // html-to-image, PDF through the print stylesheet + window.print(). A
+  // failure surfaces a recoverable error in the dialog and leaves the
+  // checklist untouched.
+  const exportSheetRef = useRef<HTMLDivElement>(null);
+  const [exportFailed, setExportFailed] = useState(false);
+  // The export sheet portals to <body> only after mount (document is
+  // unavailable during SSR).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const exportModel = buildChecklistExportModel(checklist, locale);
+
+  const handleExportImage = async () => {
+    setExportFailed(false);
+    try {
+      const node = exportSheetRef.current;
+      if (!node) throw new Error("export sheet is not rendered");
+      const { toPng } = await import("html-to-image");
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+        skipFonts: true,
+      });
+      const link = document.createElement("a");
+      link.download = `smartcart-checklist-${checklist.createdAt.slice(0, 10)}.png`;
+      link.href = dataUrl;
+      link.click();
+      setExportOpen(false);
+    } catch {
+      setExportFailed(true);
+    }
+  };
+
+  const handleExportPdf = () => {
+    setExportFailed(false);
+    try {
+      window.print();
+      setExportOpen(false);
+    } catch {
+      setExportFailed(true);
+    }
+  };
 
   const saveManualItem = (input: ManualChecklistItemInput) => {
     if (manualDialog.item) {
@@ -796,6 +984,20 @@ export function ShoppingChecklistScreen({
 
         <button
           type="button"
+          onClick={() => setExportOpen(true)}
+          disabled={isEmpty}
+          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891] disabled:hover:bg-white"
+        >
+          <DownloadIcon /> {copy.exportChecklist}
+        </button>
+        {isEmpty && (
+          <p className="-mt-1 text-center text-xs text-[#617069]">
+            {copy.exportChecklistEmpty}
+          </p>
+        )}
+
+        <button
+          type="button"
           onClick={() => setDeleteChecklistOpen(true)}
           className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#ba1a1a] hover:bg-[#fff2f2]"
         >
@@ -856,6 +1058,27 @@ export function ShoppingChecklistScreen({
           onDeleteChecklist();
         }}
       />
+
+      <ExportChecklistDialog
+        open={exportOpen}
+        copy={copy}
+        errorMessage={exportFailed ? copy.exportChecklistFailed : null}
+        onDownloadImage={() => void handleExportImage()}
+        onDownloadPdf={handleExportPdf}
+        onCancel={() => setExportOpen(false)}
+      />
+
+      {!isEmpty && mounted && createPortal(
+        <div className="checklist-export-sheet" aria-hidden="true">
+          {/* The capture target is the inner node: the outer wrapper sits
+              off-viewport (left: -10000px) for print, and capturing it
+              directly would draw the PNG content off-canvas. */}
+          <div ref={exportSheetRef}>
+            <ChecklistExportSheet model={exportModel} />
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

@@ -1,0 +1,63 @@
+AC 5.7.2 README — Export contents (checklist export model)
+==========================================================
+
+本次提交内容 / What this commit does
+------------------------------------
+新增购物清单导出内容模型：纯函数 buildChecklistExportModel 把已保存的清单
+投影为可直接渲染的导出数据——店名、清单日期、每一行目录商品与自定义商品
+（名称按当前语言本地化并回退原名）、包装规格（如有）、数量（含实际数量
+标注）、购物结果（Bought / Not bought / Neutral），以及实际价与参考价
+的来源标注（Shopper recorded / Estimated price / 无价时显式 unavailable，
+绝不显示 RM0.00）。自定义行始终带 shopper-added 标记。模型不携带任何
+隐藏数据（无门店/行内部标识、无备选店估算、无节省估算），为端侧导出的
+隐私边界奠定基础。本次提交不含界面改动。
+
+Adds the checklist export content model: a pure buildChecklistExportModel
+function projecting the saved checklist into render-ready export data —
+store, checklist date, every catalogue and custom row (names localized with
+original-name fallback), package size when known, quantity (with actual
+quantity labelled), outcome (Bought / Not bought / Neutral), and
+actual/reference price labels (Shopper recorded / Estimated price / explicit
+unavailable, never RM0.00). Custom rows stay marked as shopper-added. The
+model carries no hidden data (no store/row internal ids, no alternative-store
+estimates, no savings estimates), laying the privacy boundary for on-device
+export. No UI changes in this commit.
+
+验证方式 / How to verify
+------------------------
+1. cd frontend && pnpm test —— 185 个用例全部通过，其中新增 9 个导出模型
+   用例覆盖：店名/日期/双语标题、每行恰好一次且保序、名称本地化与回退、
+   规格可空、三种结果双语标注、参考价按来源标注、实际价独立标注、实际
+   数量标注、自定义行 shopper-added 标记。
+2. pnpm lint 零告警；pnpm build 构建成功；npx tsc --noEmit 无错误。
+
+1. cd frontend && pnpm test — all 185 tests pass, including 9 new export
+   model cases covering: store/date/bilingual title, each row exactly once
+   in order, name localization with fallback, nullable package size, three
+   bilingual outcome labels, reference price source labels, separately
+   labelled actual prices, actual quantity labels, and the shopper-added
+   mark on custom rows.
+2. pnpm lint reports no warnings; pnpm build succeeds; npx tsc --noEmit is
+   clean.
+
+变更文件清单 / Files changed
+----------------------------
+- frontend/lib/checklist-export.ts（新增 / new）：导出内容模型与
+  buildChecklistExportModel 纯函数。
+- frontend/lib/checklist-export.test.ts（新增 / new）：上述 9 个用例。
+
+附带基线修复（与本功能无关，单列）/ Baseline fixes (unrelated, listed separately)
+--------------------------------------------------------------------------------
+修复分支基线中两处既有的测试文件类型错误，使 tsc --noEmit 恢复干净；
+仅涉及测试代码，无运行行为变化：
+- frontend/lib/estimated-savings.test.ts：basketLines 测试夹具补缺失的
+  quantity 字段；
+- frontend/lib/shopping-checklist.test.ts：v1 迁移测试载荷补显式
+  Record<string, unknown> 类型标注。
+
+Fixes two pre-existing type errors in test files so tsc --noEmit is clean;
+test code only, no runtime behaviour change:
+- frontend/lib/estimated-savings.test.ts: adds the missing quantity field
+  to the basketLines fixture;
+- frontend/lib/shopping-checklist.test.ts: adds an explicit
+  Record<string, unknown> annotation to the v1 migration payload.

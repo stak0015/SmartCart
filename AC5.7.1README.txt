@@ -1,0 +1,53 @@
+AC 5.7.1 README — Export controls
+=================================
+
+本次提交内容 / What this commit does
+------------------------------------
+购物清单新增导出入口：清单非空时，底部操作区出现 Export checklist 按钮
+（Record shopping trip 与 Delete checklist 之间），点击弹出无障碍对话框，
+提供 Download as image 与 Download as PDF 两个选项及取消按钮。对话框
+遵循应用既有模式：aria 关联、打开时初始焦点落在第一个选项、Esc 或取消
+关闭后焦点归还 Export 按钮。清单为空时导出按钮禁用，并显示说明文字
+"Add an item to your checklist before exporting."。全部文案支持英文与
+Bahasa Melayu 双语。两个下载动作的实际文件生成将在后续提交接通，本次
+提交为导出入口与交互形态。
+
+Adds the export entry point to the shopping checklist: when the checklist
+is non-empty, an Export checklist button appears in the bottom action area
+(between Record shopping trip and Delete checklist), opening an accessible
+dialog that offers Download as image and Download as PDF plus a cancel
+button. The dialog follows the app's established patterns: aria wiring,
+initial focus on the first option, and focus returned to the Export button
+on Escape or cancel. When the checklist is empty, the export button is
+disabled with the note "Add an item to your checklist before exporting."
+All copy is bilingual (English and Bahasa Melayu). The actual file
+generation behind the two download actions lands in a later commit; this
+commit covers the export entry and its interaction shape.
+
+验证方式 / How to verify
+------------------------
+1. cd frontend && pnpm test —— 188 个用例全部通过；pnpm lint 零告警；
+   pnpm build 构建成功；npx tsc --noEmit 无错误。
+2. 页面实测（证据截图见 docs/evidence/epic5.7screenshot-zhihao/）：
+   非空清单出现 Export 按钮并可打开两选项对话框；初始焦点、Esc 关闭与
+   焦点归还正确；空清单按钮禁用且有说明；Bahasa Melayu 下文案完整；
+   375px 窄视口无裁切。
+
+1. cd frontend && pnpm test — all 188 tests pass; pnpm lint reports no
+   warnings; pnpm build succeeds; npx tsc --noEmit is clean.
+2. Manual page checks (evidence in docs/evidence/epic5.7screenshot-zhihao/):
+   the Export button appears on a non-empty checklist and opens the
+   two-option dialog; initial focus, Escape close, and focus return behave
+   correctly; the button is disabled with an explanatory note on an empty
+   checklist; Bahasa Melayu copy is complete; nothing is clipped at 375px.
+
+变更文件清单 / Files changed
+----------------------------
+- frontend/components/shopping-checklist.tsx（修改 / modified）：新增
+  ExportChecklistDialog 组件、Export 按钮与空清单说明、DownloadIcon，
+  ShoppingChecklistCopy 接口补 5 个文案键；下载动作暂为占位，后续提交
+  接通。
+- frontend/lib/i18n.ts（修改 / modified）：英/马双语新增 exportChecklist、
+  exportChecklistIntro、downloadAsImage、downloadAsPdf、
+  exportChecklistEmpty 共 5 键。
+- docs/evidence/epic5.7screenshot-zhihao/（新增 / new）：5 张验收截图。

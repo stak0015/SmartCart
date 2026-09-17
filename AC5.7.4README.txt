@@ -1,0 +1,68 @@
+AC 5.7.4 README — Export image & PDF generation
+================================================
+
+本次提交内容 / What this commit does
+------------------------------------
+接通清单导出的实际文件生成。Export checklist 对话框中的
+Download as image 现在会下载一张 PNG：内容由 AC 5.7.2 的导出模型
+渲染（标题、店名、日期、逐行名称/规格/数量/价格标注/购买状态/
+手动添加标签），隐私边界不变，不含任何原始传感器数值。长店名与
+长品名自动换行，不裁切。Download as PDF 调用浏览器打印，打印
+样式确保输出只含导出清单——无导航、按钮或对话框，无空白页。
+导出失败时对话框保持打开并显示可恢复的提示
+"Export failed. Please try again."，清单数据不受影响。PNG 生成
+库按需动态加载，不进入首屏包。新增文案支持英文与 Bahasa Melayu
+双语。
+
+Wires up the actual file generation behind checklist export. Download
+as image now downloads a PNG rendered from the AC 5.7.2 export model
+(title, store name, date, and per-row name / package size / quantity /
+price annotation / purchase status / manually-added label); the
+privacy boundary is unchanged and no raw sensor values are included.
+Long store and item names wrap instead of being clipped. Download as
+PDF invokes the browser print flow, and print styles ensure the output
+contains only the export sheet — no navigation, buttons, or dialogs,
+and no blank pages. If export fails, the dialog stays open with a
+recoverable "Export failed. Please try again." message and the
+checklist data is untouched. The PNG library is loaded on demand and
+stays out of the initial bundle. New copy is bilingual (English and
+Bahasa Melayu).
+
+验证方式 / How to verify
+------------------------
+1. cd frontend && pnpm test —— 188 个用例全部通过；pnpm lint 零告警；
+   pnpm build 构建成功；npx tsc --noEmit 无错误。
+   后端 pytest 75 passed（本提交未改后端）。
+2. 页面实测（证据见 docs/evidence/epic5.7screenshot-zhihao/）：
+   英文 PNG 长文本换行、价格/状态/手动添加标注完整；打印输出仅含
+   导出清单（PDF 产物已验证单页纯清单）；导出失败可恢复且清单数据
+   不变；Bahasa Melayu 下 PNG 文案完整。
+
+1. cd frontend && pnpm test — all 188 tests pass; pnpm lint reports no
+   warnings; pnpm build succeeds; npx tsc --noEmit is clean.
+   Backend pytest: 75 passed (this commit does not touch the backend).
+2. Manual page checks (evidence in docs/evidence/epic5.7screenshot-zhihao/):
+   the English PNG wraps long text with complete price / status /
+   manually-added annotations; print output contains only the export
+   sheet (the PDF artifact is verified as a single checklist-only page);
+   a failed export recovers gracefully with checklist data unchanged;
+   the Bahasa Melayu PNG copy is complete.
+
+变更文件清单 / Files changed
+----------------------------
+- frontend/components/shopping-checklist.tsx（修改 / modified）：新增
+  ChecklistExportSheet 离屏渲染组件（800px 定宽、portal 到 body、
+  mounted 状态防 SSR）；Download as image 接通 html-to-image 按需
+  动态 import 的 toPng（pixelRatio 2、白底、skipFonts）；
+  Download as PDF 接通 window.print()；导出失败态与对话框内
+  role=alert 提示；ShoppingChecklistCopy 接口补 1 个文案键。
+- frontend/app/globals.css（修改 / modified）：新增
+  .checklist-export-sheet 离屏定位与 @media print 规则——打印时
+  body 下除导出清单外的顶层元素 display:none，导出清单回归正常
+  文档流。
+- frontend/lib/i18n.ts（修改 / modified）：英/马双语新增
+  exportChecklistFailed 共 1 键。
+- frontend/package.json + frontend/pnpm-lock.yaml（修改 / modified）：
+  新增依赖 html-to-image ^1.11.13。
+- docs/evidence/epic5.7screenshot-zhihao/（新增 / new）：5 份验收
+  证据（4 张截图 + 1 份真实 PDF 产物）。
