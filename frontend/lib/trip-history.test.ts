@@ -10,11 +10,13 @@ import {
   setChecklistItemActualPrice,
   setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
+  updateChecklistItemField,
 } from "./shopping-checklist";
 import {
   TRIP_HISTORY_STORAGE_KEY,
   addTripRecord,
   actualExpenseTotal,
+  boughtLineTotalRm,
   buildTripRecord,
   isTripRecord,
   listTripRecords,
@@ -149,7 +151,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       recordedAt: "2026-09-14T10:30:00.000Z",
     });
 
-    expect(record.version).toBe(1);
+    expect(record.version).toBe(2);
     expect(record.id).toBe("trip-1");
     expect(record.recordedAt).toBe("2026-09-14T10:30:00.000Z");
     expect(record.checklistId).toBe("checklist-trip");
@@ -240,6 +242,18 @@ describe("buildTripRecord (AC 5.4.1)", () => {
 });
 
 describe("actualExpenseTotal (AC 5.4.2)", () => {
+  it("counts unedited catalogue prices and later row edits in the same receipt total", () => {
+    const initial = createShoppingChecklist(store, [], { checklistId: "single-price" });
+    const oil = initial.items[0].id;
+    const rice = initial.items[1].id;
+    const bought = toggleChecklistItemStatus(toggleChecklistItemStatus(initial, oil, "bought"), rice, "bought");
+    const edited = updateChecklistItemField(bought, oil, "unitPriceRm", "4.00")!;
+    const record = buildTripRecord(edited);
+    expect(record.actualTotalRm).toBe(20);
+    expect(record.lines.filter(line => line.status === "bought").map(boughtLineTotalRm)).toEqual([8, 12]);
+    expect(record.lines.filter(line => line.status === "bought").map(line => line.actualLineTotalRm)).toEqual([8, 12]);
+  });
+
   it("sums only the known purchased line totals", () => {
     const record = buildTripRecord(finishedChecklist(), { recordId: "trip-5" });
     // 13.50 (oil) + 2.00 (snack); rice (not bought), soap (not bought),
@@ -247,10 +261,10 @@ describe("actualExpenseTotal (AC 5.4.2)", () => {
     expect(record.actualTotalRm).toBe(15.5);
   });
 
-  it("excludes reference-price lines unless the shopper recorded an actual price", () => {
+  it("excludes catalogue-priced lines when they were not bought", () => {
     const record = buildTripRecord(finishedChecklist(), { recordId: "trip-6" });
     const rice = record.lines.find(line => line.itemName === "Rice")!;
-    // The median reference price (RM12) stays visible but is excluded.
+    // The median price (RM12) is excluded because this item was not bought.
     expect(rice.priceSource).toBe("median");
     expect(rice.unitPriceRm).toBe(12);
     expect(rice.actualLineTotalRm).toBeNull();
@@ -280,6 +294,28 @@ describe("actualExpenseTotal (AC 5.4.2)", () => {
 });
 
 describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
+  it("recalculates a saved v1 receipt from bought lines while keeping its outcomes", () => {
+    const checklist = createShoppingChecklist(store, [], { checklistId: "legacy-price" });
+    const bought = toggleChecklistItemStatus(checklist, checklist.items[0].id, "bought");
+    const record = buildTripRecord(bought, { recordId: "legacy-receipt" });
+    const parsed = parseTripHistory(JSON.stringify({ version: 1, records: [{ ...record, version: 1, actualTotalRm: null }] }));
+    expect(parsed[0].version).toBe(2);
+    expect(parsed[0].actualTotalRm).toBe(10);
+    expect(parsed[0].lines[0].status).toBe("bought");
+    expect(parsed[0].lines[0].actualLineTotalRm).toBe(10);
+  });
+
+  it("restores a recorded selected pack whose price date was absent", () => {
+    const checklist = toggleChecklistItemStatus(createShoppingChecklist(store), "catalogue-1-0", "bought");
+    const record = buildTripRecord(checklist);
+    const saved = JSON.parse(serializeTripHistory([record]));
+    delete saved.records[0].lines[0].observedDate;
+    saved.records[0].actualTotalRm = null;
+    const restored = parseTripHistory(JSON.stringify(saved));
+    expect(restored[0].actualTotalRm).toBe(10);
+    expect(restored[0].lines[0].observedDate).toBeNull();
+  });
+
   it("uses its own storage key, separate from the checklist key", () => {
     expect(TRIP_HISTORY_STORAGE_KEY).not.toBe(SHOPPING_CHECKLIST_STORAGE_KEY);
     expect(TRIP_HISTORY_STORAGE_KEY).toBe("smartcart.trip-history.v1");

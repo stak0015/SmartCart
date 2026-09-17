@@ -1,5 +1,6 @@
 import { nextPeriod, periodStart, type ReportCadence } from "./inbox";
 import type { TripRecord } from "./trip-history";
+import { boughtLineTotalRm } from "./trip-history";
 
 const DAY_MS = 86_400_000;
 
@@ -94,9 +95,8 @@ export function periodSummaryForStart(
     return periodStart(recordedAt, cadence).getTime() === start.getTime();
   });
 
-  // AC 8.1.2: only actualTotalRm is confirmed spending. plannedSubtotalRm,
-  // estimatedRoundTripCostRm and plannedCombinedTotalRm are estimates and are
-  // never summed into this figure.
+  // The receipt's priced bought total may contain catalogue estimates.
+  // Planned transport and combined estimates stay outside this figure.
   const confirmed = inPeriod
     .map(record => record.actualTotalRm)
     .filter((value): value is number => value != null);
@@ -111,7 +111,7 @@ export function periodSummaryForStart(
 
   const spendingIncomplete = inPeriod.some(record => (
     record.actualTotalRm == null
-    || record.lines.some(line => line.status === "bought" && line.actualLineTotalRm == null)
+    || record.lines.some(line => line.status === "bought" && boughtLineTotalRm(line) == null)
   ));
 
   // AC 8.3.1: savings are summed only over records that actually carry a

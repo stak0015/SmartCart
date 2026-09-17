@@ -11,8 +11,8 @@ import { listTripRecords, type TripRecord } from "@/lib/trip-history";
 const TEXT = {
   en: {
     eyebrow: "Your SmartCart home",
-    title: "What would you like to do?",
-    description: "Plan a trip, keep your checklist moving, or review how your household is spending.",
+    title: "Ready to shop?",
+    description: "Plan a trip or pick up where you left off.",
     startTrip: "Start a shopping trip",
     resumeTrip: "Resume shopping trip",
     resumeAt: (step: string) => `Continue from ${step}`,
@@ -26,24 +26,24 @@ const TEXT = {
     checklistProgress: (done: number, total: number) => `${done} of ${total} items bought`,
     history: "Shopping history",
     tripsRecorded: (count: number) => `${count} ${count === 1 ? "trip" : "trips"} recorded`,
-    inbox: "Inbox",
+    inbox: "Report",
     unreadReports: (count: number) => count === 0 ? "No unread reports" : `${count} unread ${count === 1 ? "report" : "reports"}`,
     open: "Open",
     historyTitle: "Shopping history",
     historyDescription: "Recorded trips stay on this device and are shown newest first.",
     historyEmpty: "No shopping trips recorded yet.",
     historyEmptyHint: "Complete a checklist and record the trip to build your history.",
-    spent: "Known actual spending",
-    spendingUnavailable: "Actual spending unavailable",
+    spent: "Bought total",
+    spendingUnavailable: "No priced bought items",
     planned: "Planned basket + transport",
     bought: (count: number, total: number) => `${count} of ${total} bought`,
     estimatedSaving: "Estimated net saving",
     estimatedAbove: "Above typical cost",
-    inboxTitle: "Savings & spending inbox",
-    inboxDescription: "SmartCart creates a private report after each completed reporting period when recorded trips are available.",
+    inboxTitle: "Report",
+    inboxDescription: "Your shopping totals and savings estimates.",
     weekly: "Weekly",
     monthly: "Monthly",
-    cadenceLabel: "Report frequency",
+    cadenceLabel: "View period",
     inboxEmpty: "No reports yet",
     inboxEmptyHint: "Reports appear after a completed week or month with at least one recorded trip.",
     unread: "Unread",
@@ -55,22 +55,22 @@ const TEXT = {
     storeChoice: "Store choice",
     itemChanges: "Item changes",
     unavailable: "Unavailable",
-    incompleteSpending: "Some bought items had no actual price, so spending is incomplete.",
+    incompleteSpending: "Some bought items have no price, so this total is partial.",
     incompleteSavings: "Some trips had no like-for-like savings comparison.",
-    estimateNote: "Savings are estimates; spending uses shopper-recorded actual prices only.",
+    estimateNote: "Totals may include catalogue prices. Savings remain estimates.",
     markRead: "Open report and mark as read",
     // AC 8.1.1-8.1.4: summary for the period currently in progress. Separate
     // from the archived reports above, which only cover completed periods.
     thisWeek: "This week",
     thisMonth: "This month",
-    confirmedSpendingSoFar: "Confirmed spending so far",
+    confirmedSpendingSoFar: "Bought total so far",
     thisPeriodTrips: (count: number) => `${count} ${count === 1 ? "trip" : "trips"} recorded`,
     thisPeriodNoRecords: "No shopping data for this period yet.",
     thisPeriodNoRecordsHint: "Record a trip from your checklist and it will show up here.",
-    thisPeriodNoConfirmed: "Not enough spending data for this period.",
-    thisPeriodNoConfirmedHint: "Trips are recorded, but none has a shopper-recorded actual price yet.",
-    thisPeriodEstimatesOnly: "Planned estimates are not confirmed spending, so no amount is shown.",
-    thisPeriodIncomplete: "Some bought items had no actual price, so this total is partial.",
+    thisPeriodNoConfirmed: "No priced bought items this period.",
+    thisPeriodNoConfirmedHint: "Record bought items with prices to see a total.",
+    thisPeriodEstimatesOnly: "Planning estimates are separate from bought items.",
+    thisPeriodIncomplete: "Some bought items have no price, so this total is partial.",
     // AC 8.2.1 from a recorded trip. Wording is deliberately narrower than the
     // net-savings figure above it: this compares the RETURN TRAVEL COST ONLY
     // against the CHEAPEST reachable alternative, whereas estimated net savings
@@ -89,7 +89,7 @@ const TEXT = {
     // equally factual (AC 8.1.2).
     previousWeek: "Last week",
     previousMonth: "Last month",
-    compareSpent: "Confirmed spending",
+    compareSpent: "Bought total",
     compareTrips: "Trips recorded",
     compareNetSavings: "Estimated net savings",
     estimateBadge: "Estimate",
@@ -126,24 +126,24 @@ const TEXT = {
     checklistProgress: (done: number, total: number) => `${done} daripada ${total} item dibeli`,
     history: "Sejarah membeli-belah",
     tripsRecorded: (count: number) => `${count} perjalanan direkodkan`,
-    inbox: "Peti masuk",
+    inbox: "Laporan",
     unreadReports: (count: number) => count === 0 ? "Tiada laporan belum dibaca" : `${count} laporan belum dibaca`,
     open: "Buka",
     historyTitle: "Sejarah membeli-belah",
     historyDescription: "Perjalanan yang direkodkan kekal pada peranti ini dan dipaparkan yang terbaharu dahulu.",
     historyEmpty: "Belum ada perjalanan membeli-belah direkodkan.",
     historyEmptyHint: "Lengkapkan senarai semak dan rekodkan perjalanan untuk membina sejarah anda.",
-    spent: "Perbelanjaan sebenar yang diketahui",
-    spendingUnavailable: "Perbelanjaan sebenar tidak tersedia",
+    spent: "Jumlah dibeli",
+    spendingUnavailable: "Tiada item dibeli yang berharga",
     planned: "Bakul + pengangkutan yang dirancang",
     bought: (count: number, total: number) => `${count} daripada ${total} dibeli`,
     estimatedSaving: "Anggaran penjimatan bersih",
     estimatedAbove: "Melebihi kos biasa",
-    inboxTitle: "Peti masuk penjimatan & perbelanjaan",
-    inboxDescription: "SmartCart mencipta laporan peribadi selepas setiap tempoh laporan lengkap apabila perjalanan direkodkan tersedia.",
+    inboxTitle: "Laporan",
+    inboxDescription: "Jumlah membeli-belah dan anggaran penjimatan anda.",
     weekly: "Mingguan",
     monthly: "Bulanan",
-    cadenceLabel: "Kekerapan laporan",
+    cadenceLabel: "Lihat tempoh",
     inboxEmpty: "Belum ada laporan",
     inboxEmptyHint: "Laporan muncul selepas minggu atau bulan lengkap dengan sekurang-kurangnya satu perjalanan direkodkan.",
     unread: "Belum dibaca",
@@ -155,22 +155,22 @@ const TEXT = {
     storeChoice: "Pilihan kedai",
     itemChanges: "Perubahan item",
     unavailable: "Tidak tersedia",
-    incompleteSpending: "Sesetengah item dibeli tiada harga sebenar, jadi perbelanjaan tidak lengkap.",
+    incompleteSpending: "Sesetengah item dibeli tiada harga, jadi jumlah ini separa.",
     incompleteSavings: "Sesetengah perjalanan tiada perbandingan penjimatan setara.",
-    estimateNote: "Penjimatan ialah anggaran; perbelanjaan hanya menggunakan harga sebenar yang direkodkan pembeli.",
+    estimateNote: "Jumlah mungkin termasuk harga katalog. Penjimatan kekal anggaran.",
     markRead: "Buka laporan dan tandakan sebagai dibaca",
     // AC 8.1.1-8.1.4: summary for the period currently in progress. Separate
     // from the archived reports above, which only cover completed periods.
     thisWeek: "Minggu ini",
     thisMonth: "Bulan ini",
-    confirmedSpendingSoFar: "Perbelanjaan disahkan setakat ini",
+    confirmedSpendingSoFar: "Jumlah dibeli setakat ini",
     thisPeriodTrips: (count: number) => `${count} perjalanan direkodkan`,
     thisPeriodNoRecords: "Tiada data membeli-belah untuk tempoh ini lagi.",
     thisPeriodNoRecordsHint: "Rekodkan perjalanan daripada senarai semak anda dan ia akan muncul di sini.",
-    thisPeriodNoConfirmed: "Data perbelanjaan tidak mencukupi untuk tempoh ini.",
-    thisPeriodNoConfirmedHint: "Perjalanan direkodkan, tetapi tiada yang mempunyai harga sebenar yang direkodkan pembeli lagi.",
-    thisPeriodEstimatesOnly: "Anggaran perancangan bukan perbelanjaan disahkan, jadi tiada jumlah dipaparkan.",
-    thisPeriodIncomplete: "Sesetengah item dibeli tiada harga sebenar, jadi jumlah ini separa.",
+    thisPeriodNoConfirmed: "Tiada item dibeli yang berharga dalam tempoh ini.",
+    thisPeriodNoConfirmedHint: "Rekodkan item dibeli bersama harga untuk melihat jumlah.",
+    thisPeriodEstimatesOnly: "Anggaran perancangan berasingan daripada item dibeli.",
+    thisPeriodIncomplete: "Sesetengah item dibeli tiada harga, jadi jumlah ini separa.",
     // AC 8.2.1 from a recorded trip. Wording is deliberately narrower than the
     // net-savings figure above it: this compares the RETURN TRAVEL COST ONLY
     // against the CHEAPEST reachable alternative, whereas estimated net savings
@@ -189,7 +189,7 @@ const TEXT = {
     // equally factual (AC 8.1.2).
     previousWeek: "Minggu lepas",
     previousMonth: "Bulan lepas",
-    compareSpent: "Perbelanjaan disahkan",
+    compareSpent: "Jumlah dibeli",
     compareTrips: "Perjalanan direkodkan",
     compareNetSavings: "Anggaran penjimatan bersih",
     estimateBadge: "Anggaran",
@@ -287,9 +287,8 @@ export function SmartCartHomeScreen({
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
       <div className="mx-auto max-w-[760px]">
-        <p className="text-sm font-bold text-[#087f5b]">{text.eyebrow}</p>
-        <h1 className="mt-1 text-[34px] font-extrabold leading-[40px] tracking-[-0.9px] text-[#10231d] sm:text-[42px] sm:leading-[48px]">{text.title}</h1>
-        <p className="mt-3 max-w-[620px] text-base leading-6 text-[#53635c]">{text.description}</p>
+        <h1 className="text-[34px] font-extrabold leading-[40px] tracking-[-0.9px] text-[#10231d] sm:text-[42px] sm:leading-[48px]">{text.title}</h1>
+        <p className="mt-2 max-w-[620px] text-sm leading-5 text-[#53635c]">{text.description}</p>
 
         <section className="mt-7 rounded-3xl bg-[#087f5b] p-5 text-white shadow-[0_12px_32px_rgba(8,127,91,0.22)] sm:p-7">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon kind="trip" /></span>

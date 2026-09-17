@@ -7,6 +7,7 @@ import {
   SHOPPING_CHECKLIST_VERSION,
   actualLineTotalRm,
   addManualChecklistItem,
+  boughtChecklistTotal,
   checklistProgress,
   createShoppingChecklist,
   deleteChecklistItem,
@@ -14,10 +15,12 @@ import {
   migrateShoppingChecklist,
   parseShoppingChecklist,
   plannedChecklistSubtotal,
+  revertChecklistItem,
   serializeShoppingChecklist,
   setChecklistItemActualPrice,
   setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
+  updateChecklistItemField,
   validateActualQuantity,
   validateActualUnitPrice,
   validateManualChecklistItem,
@@ -207,6 +210,64 @@ function checklistFromDetails() {
     createdAt: "2026-09-13T00:00:00.000Z",
   });
 }
+
+describe("single-price checklist rows", () => {
+  it("counts the displayed catalogue price for bought items and keeps missing prices unavailable", () => {
+    const initial = checklistFromDetails();
+    const withOil = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
+    expect(boughtChecklistTotal(withOil)).toBe(8.5);
+    const withMissing = toggleChecklistItemStatus(withOil, initial.items[1].id, "bought");
+    expect(boughtChecklistTotal(withMissing)).toBe(20.5);
+    const cleared = updateChecklistItemField(withMissing, initial.items[0].id, "unitPriceRm", "")!;
+    expect(cleared.items[0].unitPriceRm).toBeNull();
+    expect(cleared.items[0].lineTotalRm).toBeNull();
+    expect(boughtChecklistTotal(cleared)).toBe(12);
+  });
+
+  it("edits each row field and reverts values without changing the outcome", () => {
+    const initial = checklistFromDetails();
+    const id = initial.items[0].id;
+    const bought = toggleChecklistItemStatus(initial, id, "bought");
+    const named = updateChecklistItemField(bought, id, "itemName", "My oil")!;
+    const quantified = updateChecklistItemField(named, id, "quantity", "3")!;
+    const priced = updateChecklistItemField(quantified, id, "unitPriceRm", "4.00")!;
+    expect(priced.items[0]).toMatchObject({ itemName: "My oil", quantity: 3, unitPriceRm: 4, lineTotalRm: 12, status: "bought", source: "catalogue" });
+    expect(priced.items[0].itemNameEn).toBeNull();
+    expect(boughtChecklistTotal(priced)).toBe(12);
+    expect(updateChecklistItemField(priced, id, "quantity", "0")).toBeNull();
+    expect(updateChecklistItemField(priced, id, "unitPriceRm", "1.234")).toBeNull();
+    const reverted = revertChecklistItem(priced, id);
+    expect(reverted.items[0]).toMatchObject({ itemName: "Replacement oil", quantity: 2, unitPriceRm: 4.25, lineTotalRm: 8.5, status: "bought" });
+    expect(reverted.items[0].itemNameMs).toBe("Minyak gantian");
+  });
+
+  it("migrates old actual entries to one effective row price and keeps its original values", () => {
+    const initial = checklistFromDetails();
+    const legacy = JSON.parse(serializeShoppingChecklist(initial)) as Record<string, unknown>;
+    legacy.version = 4;
+    const first = (legacy.items as Record<string, unknown>[])[0];
+    first.actualPriceRm = 3.5;
+    first.actualQuantity = 3;
+    first.quantitySource = "actual";
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy))!;
+    expect(migrated.items[0]).toMatchObject({ unitPriceRm: 3.5, quantity: 3, lineTotalRm: 10.5, actualPriceRm: null, actualQuantity: null });
+    expect(migrated.items[0].originalValues).toMatchObject({ unitPriceRm: 4.25, quantity: 2 });
+    expect(revertChecklistItem(migrated, migrated.items[0].id).items[0]).toMatchObject({ unitPriceRm: 4.25, quantity: 2 });
+  });
+
+  it("normalizes missing observed dates in selected packs and saved rows", () => {
+    const selectedPack = structuredClone(details.slice(0, 1));
+    delete (selectedPack[0].current as unknown as Record<string, unknown>).observedDate;
+    const checklist = createShoppingChecklist(store, selectedPack);
+    expect(checklist.items[0].observedDate).toBeNull();
+    const saved = JSON.parse(serializeShoppingChecklist(checklist));
+    delete saved.items[0].originalValues.observedDate;
+    delete saved.items[0].observedDate;
+    const restored = parseShoppingChecklist(JSON.stringify(saved));
+    expect(restored?.items[0].observedDate).toBeNull();
+    expect(restored?.items[0].originalValues?.observedDate).toBeNull();
+  });
+});
 
 describe("shopping checklist snapshots", () => {
   it("uses replacement-aware rows and preserves their order and bilingual fields", () => {
@@ -672,7 +733,9 @@ describe("actual quantity recording (AC 5.3.4)", () => {
     const fromV2 = parseShoppingChecklist(JSON.stringify(v2));
     expect(fromV2).not.toBeNull();
     expect(fromV2?.version).toBe(SHOPPING_CHECKLIST_VERSION);
-    expect(fromV2?.items[0].actualPriceRm).toBe(3.5);
+    expect(fromV2?.items[0].unitPriceRm).toBe(3.5);
+    expect(fromV2?.items[0].originalValues?.unitPriceRm).toBe(4.25);
+    expect(fromV2?.items[0].actualPriceRm).toBeNull();
     expect(fromV2?.items[0].actualQuantity).toBeNull();
     expect(fromV2?.items[0].quantitySource).toBe("planned");
 

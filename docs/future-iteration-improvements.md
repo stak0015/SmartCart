@@ -2,7 +2,7 @@
 
 These product improvements are implemented in the current SmartCart delivery.
 This document remains the product and acceptance reference for the revamped
-journey, inbox reports, and estimated-savings calculation.
+journey, Report screen, and estimated-savings calculation.
 
 ## Revamped top-level user journey
 
@@ -19,7 +19,7 @@ Home
 |     -> Compare stores -> Confirm store and checklist -> Home
 |- View active checklist -> Record completed trip -> Shopping history
 |- View shopping history
-`- Open inbox -> Weekly or monthly savings and spending reports
+`- Open Report -> Inbox and weekly/monthly Statistics
 ```
 
 The home screen is not a numbered trip step. It is the stable top-level
@@ -34,7 +34,7 @@ destination to which the SmartCart logo and completed journeys return.
   and directs the shopper to start a trip.
 - **Shopping history** opens recorded trips, newest first, and may preview the
   most recent trip on the home card.
-- **Inbox** opens SmartCart reports and shows an unread count. Its empty state
+- **Report** opens SmartCart reports and shows an unread count. Its empty state
   explains that reports appear after eligible trip activity has been recorded.
 
 Going home must not silently discard an in-progress trip. Starting a new trip
@@ -90,36 +90,36 @@ The active checklist and shopping history should have their own home-screen
 destinations. Their data remains useful even when the shopper is not planning a
 new trip.
 
-- The checklist retains its bought, not-bought, neutral, manual-item, actual
-  quantity, and actual-price behavior.
+- The checklist retains bought, not-bought, neutral, and manual-item behavior.
+  Item details are edited through the existing row edit dialog, with separate
+  shopper-recorded price and quantity fields for bought items.
 - Recording the checklist creates a frozen trip-history entry and updates the
   home-screen history preview without requiring a reload.
-- Planned basket and transport amounts remain estimates. Spending reports use
-  shopper-recorded actual prices only; missing actual prices stay unavailable
-  and are never treated as RM0.
+- Receipts show priced bought items, estimated return travel, and a combined trip
+  total. Reports continue to total priced bought items separately. Missing prices
+  stay unavailable and are never treated as RM0. Catalogue estimates remain labelled.
 - Checklist and history data remain on the shopper's device under the current
   privacy model. The selected origin, route, and temporary store candidates
   must never be copied into history or reports.
 
-## Epic 8 inbox and recurring reports
+## Epic 8 Report and recurring reports
 
-Add an in-app inbox, accessible from the home screen, for weekly or monthly
-savings-and-spending reports. The shopper should be able to choose one cadence;
-the interface may call these messages reports or a SmartCart newsletter, but it
-should use one term consistently.
+The Report destination contains Inbox and Statistics tabs. Inbox generates both
+weekly and monthly savings-and-spending reports after completed periods with
+recorded trips. Statistics has an independent weekly/monthly view switch.
 
 Each report should be a dated, read/unread inbox item covering a clearly stated
 period. Keep the summary concise:
 
-- known actual household spending and the number of recorded trips;
+- the total of priced bought items and the number of recorded trips;
 - estimated net savings for those trips, with store-choice and item-swap impact
   combined using the method below;
 - a short comparison with the previous equivalent period when enough data is
   available; and
-- a disclosure when missing actual prices or estimated catalogue/route values
+- a disclosure when missing prices or estimated catalogue/route values
   make the report incomplete.
 
-Do not mix planned spending into actual spending or present estimated savings
+Do not mix planned transport into bought-item totals or present estimated savings
 as money definitely saved. A period with no eligible activity should produce a
 clear no-activity state rather than a fabricated RM0 result. Under the current
 device-only model, reports should be generated from local trip records and
@@ -215,7 +215,7 @@ median-price disclosures to one short supporting line.
 ## Future acceptance checks
 
 - SmartCart opens on the home screen with Start/Resume trip, Checklist,
-  Shopping history, and Inbox destinations.
+  Shopping history, and Report destinations.
 - The shopping-trip header and steps contain no checklist icon or checklist
   navigation action.
 - Finishing a store selection creates or updates the active checklist and
@@ -239,6 +239,6 @@ median-price disclosures to one short supporting line.
   net saving, with no double-counting and no premature component rounding.
 - A plan above the median is never labelled as a saving, and missing values are
   never shown as RM0.
-- Weekly/monthly inbox reports use recorded actual spending, keep estimated
+- Weekly/monthly inbox reports use bought-item totals, keep estimated
   savings clearly labelled, preserve missing-data disclosures, and update the
   home-screen unread state.

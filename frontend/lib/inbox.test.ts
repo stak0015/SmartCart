@@ -13,7 +13,7 @@ import {
 
 function trip(id: string, recordedAt: string, actualTotalRm: number | null, saving: number | null): TripRecord {
   return {
-    version: 1,
+    version: 2,
     id,
     recordedAt,
     checklistId: `checklist-${id}`,
@@ -39,9 +39,20 @@ function trip(id: string, recordedAt: string, actualTotalRm: number | null, savi
 }
 
 describe("inbox reports", () => {
+  it("recalculates saved reports while preserving read state and generates both cadences", () => {
+    const records = [trip("a", "2026-08-12T10:00:00.000Z", 12, 3)];
+    const now = new Date("2026-09-15T08:00:00.000Z");
+    const generated = syncInboxReports(EMPTY_INBOX, records, now);
+    expect(generated.messages.map(message => message.cadence).sort()).toEqual(["monthly", "weekly"]);
+    const old = { ...generated, messages: generated.messages.map(message => ({ ...message, actualSpendingRm: null, read: true })) };
+    const refreshed = syncInboxReports(old, records, now);
+    expect(refreshed.messages.every(message => message.actualSpendingRm === 12 && message.read)).toBe(true);
+  });
+
   it("creates one unread report for a completed week with activity", () => {
+    const initialized = syncInboxReports(EMPTY_INBOX, [], new Date("2026-09-07T08:00:00.000Z"));
     const state = syncInboxReports(
-      EMPTY_INBOX,
+      initialized,
       [
         trip("a", "2026-09-07T10:00:00.000Z", 20, 5),
         trip("b", "2026-09-09T10:00:00.000Z", 30, 4),
@@ -76,7 +87,8 @@ describe("inbox reports", () => {
       new Date("2026-09-15T08:00:00.000Z"),
     );
     const duplicate = syncInboxReports(generated, [trip("a", "2026-08-12T10:00:00.000Z", null, null)], new Date("2026-09-15T08:00:00.000Z"));
-    expect(duplicate.messages).toHaveLength(1);
+    expect(duplicate.messages).toHaveLength(2);
+    expect(duplicate.messages.map(message => message.cadence).sort()).toEqual(["monthly", "weekly"]);
     expect(duplicate.messages[0].spendingIncomplete).toBe(true);
     expect(duplicate.messages[0].savingsIncomplete).toBe(true);
 
@@ -152,6 +164,6 @@ describe("summary visibility setting (AC 8.4.3)", () => {
       new Date("2026-09-15T08:00:00.000Z"),
     );
     expect(hidden.summaryHidden).toBe(true);
-    expect(hidden.messages).toHaveLength(1);
+    expect(hidden.messages).toHaveLength(2);
   });
 });

@@ -44,11 +44,10 @@ import { SuccessToast } from "@/components/success-toast";
 import { ConfirmationDialog, ShoppingChecklistScreen } from "@/components/shopping-checklist";
 import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
 import {
-  InboxScreen,
   SmartCartHomeScreen,
-  TripHistoryScreen,
   type TripJourneyStep,
 } from "@/components/journey-screens";
+import { ReceiptHistoryScreen, ReportScreen } from "@/components/report-screens";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { uppercaseItemName } from "@/lib/item-name";
@@ -378,7 +377,6 @@ function TripDetails({
     </>
   );
 }
-
 function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; copy: AppCopy }) {
   return (
     <ul className="flex flex-col gap-2 rounded-xl bg-[#f7f8f6] p-3">
@@ -699,21 +697,8 @@ function BasketScreen({
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [apiError, setApiError] = useState(false);
-  const [qtyById, setQtyById] = useState<Record<number, string>>({}); // result-row quantity raw input (default "1")
+  const [qtyById, setQtyById] = useState<Record<number, string>>({});
   const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
-
-  // AC-1.4.1: single source of truth is the raw string; the steppers also
-  // read/write through parseQty so typed and stepped values never drift.
-  const stepResultQty = (itemId: number, delta: number) => {
-    setQtyById(current => {
-      const base = parseQty(current[itemId] ?? String(DEFAULT_QTY)) ?? DEFAULT_QTY;
-      return { ...current, [itemId]: String(stepQty(base, delta)) };
-    });
-  };
-
-  const typeResultQty = (itemId: number, raw: string) => {
-    setQtyById(current => ({ ...current, [itemId]: raw }));
-  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -779,6 +764,17 @@ function BasketScreen({
     setActiveCategories(current => current.includes(category)
       ? current.filter(selected => selected !== category)
       : [...current, category]);
+  };
+
+  const stepResultQty = (itemId: number, delta: number) => {
+    setQtyById(current => {
+      const base = parseQty(current[itemId] ?? String(DEFAULT_QTY)) ?? DEFAULT_QTY;
+      return { ...current, [itemId]: String(stepQty(base, delta)) };
+    });
+  };
+
+  const typeResultQty = (itemId: number, raw: string) => {
+    setQtyById(current => ({ ...current, [itemId]: raw }));
   };
 
   const stepBasketQty = (id: string, delta: number) => {
@@ -1050,7 +1046,7 @@ function BasketScreen({
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               const rawQty = qtyById[item.item_id] ?? String(DEFAULT_QTY);
-              const qty = parseQty(rawQty); // null while the typed value is invalid (AC-1.4.1)
+              const qty = parseQty(rawQty);
               return (
               <article key={item.item_id} className="grid min-w-0 grid-cols-1 gap-3 rounded-xl border border-[#e2e9e5] bg-white p-3 shadow-[0_3px_12px_rgba(16,35,29,0.045)] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
                 <div className="flex min-w-0 flex-col gap-1.5">
@@ -1061,7 +1057,6 @@ function BasketScreen({
                   </div>
                   <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
                 </div>
-
                 <QuantitySelector
                   value={rawQty}
                   onChange={raw => typeResultQty(item.item_id, raw)}
@@ -1072,14 +1067,12 @@ function BasketScreen({
                   errorId={`quantity-error-${item.item_id}`}
                   errorText={copy.quantityError}
                   action={<button
-                      type="button"
-                      disabled={qty === null}
-                      onClick={() => { if (qty === null) return; addRealItem(item, qty); }}
-                      aria-label={`${copy.addToBasket}: ${fields.name}`}
-                      className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
-                    >
-                      {copy.addShort}
-                    </button>}
+                    type="button"
+                    disabled={qty === null}
+                    onClick={() => { if (qty !== null) addRealItem(item, qty); }}
+                    aria-label={`${copy.addToBasket}: ${fields.name}`}
+                    className="min-h-11 min-w-[76px] whitespace-normal break-words rounded-xl border border-[#087f5b] bg-white px-3 py-2 text-[14px] font-extrabold leading-5 text-[#087f5b] hover:bg-[#edf7f2] disabled:border-[#cbd8d1] disabled:text-[#718078] disabled:hover:bg-white"
+                  >{copy.addShort}</button>}
                 />
               </article>
               );
@@ -1144,9 +1137,7 @@ function BasketScreen({
         <>
       <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
         <ProgressIndicator step={3} copy={copy} />
-        <p className="mb-1 mt-6 text-sm font-bold text-[#087f5b]">{copy.basketEyebrow}</p>
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1>
-        <p className="mt-2 text-[16px] leading-6 text-[#53635c]">{copy.basketDescription}</p>
+        <h1 className="mt-6 text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1>
       </div>
 
       {basketPanel}
@@ -1438,11 +1429,7 @@ function LocationScreen({
       </div>
 
       <div className="px-4 pb-5 sm:px-6">
-        <p className="mb-1 text-sm font-bold text-[#087f5b]">{copy.locationEyebrow}</p>
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">{copy.locationTitle}</h1>
-        <p className="mt-2 text-[16px] leading-6 text-[#53635c]">
-          {copy.locationDescription}
-        </p>
       </div>
 
       <div className="flex flex-col gap-6 px-4 pb-36 sm:px-6">
@@ -2346,11 +2333,10 @@ function CompareScreen({
         </div>
 
         <div className="flex flex-col gap-2">
-          <p className="text-sm font-bold text-[#087f5b]">{copy.recommendationEyebrow}</p>
           <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10231d] sm:text-[36px] sm:leading-[42px]">
             {copy.recommendationTitle}
           </h1>
-          <p className="text-[15px] leading-6 text-[#53635c]">
+          <p className="text-sm leading-5 text-[#53635c]">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
           {preferences.saraFilter === "candidate" && (
@@ -2735,9 +2721,9 @@ export default function App() {
             onRecordTrip={recordTrip}
           />
         ) : null}
-        {screen === "history" ? <TripHistoryScreen history={tripHistory} locale={locale} /> : null}
+        {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} /> : null}
         {screen === "inbox" ? (
-          <InboxScreen
+          <ReportScreen
             state={inbox}
             locale={locale}
             history={tripHistory}

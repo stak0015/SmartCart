@@ -1,7 +1,7 @@
-import type { TripRecord } from "./trip-history";
+import { boughtLineTotalRm, type TripRecord } from "./trip-history";
 
 export const INBOX_STORAGE_KEY = "smartcart.inbox.v1";
-export const INBOX_VERSION = 1 as const;
+export const INBOX_VERSION = 2 as const;
 
 export type ReportCadence = "weekly" | "monthly";
 
@@ -31,6 +31,8 @@ export interface InboxState {
    * section without touching any recorded data.
    */
   summaryHidden: boolean;
+  /** Historic reports are added as read once when an older installation loads. */
+  backfillCompleted?: boolean;
 }
 
 export const EMPTY_INBOX: InboxState = {
@@ -38,6 +40,7 @@ export const EMPTY_INBOX: InboxState = {
   cadence: "weekly",
   messages: [],
   summaryHidden: false,
+  backfillCompleted: false,
 };
 
 function money(value: number): number {
@@ -87,7 +90,7 @@ function buildReport(
 ): SavingsReportMessage {
   const snapshots = records.map(record => record.estimatedSavings ?? null);
   const boughtPriceMissing = records.some(record => record.lines.some(line => (
-    line.status === "bought" && line.actualLineTotalRm == null
+    line.status === "bought" && boughtLineTotalRm(line) == null
   )));
 
   return {
@@ -112,33 +115,42 @@ export function syncInboxReports(
   records: TripRecord[],
   now = new Date(),
 ): InboxState {
-  const currentStart = periodStart(now, state.cadence);
-  const grouped = new Map<string, { start: Date; end: Date; records: TripRecord[] }>();
-
-  for (const record of records) {
-    const recordedAt = new Date(record.recordedAt);
-    if (!Number.isFinite(recordedAt.getTime())) continue;
-    const start = periodStart(recordedAt, state.cadence);
-    if (start >= currentStart) continue;
-    const key = dateKey(start);
-    const group = grouped.get(key) ?? { start, end: nextPeriod(start, state.cadence), records: [] };
-    group.records.push(record);
-    grouped.set(key, group);
+  const grouped = new Map<string, { cadence: ReportCadence; start: Date; end: Date; records: TripRecord[] }>();
+  for (const cadence of ["weekly", "monthly"] as const) {
+    const currentStart = periodStart(now, cadence);
+    for (const record of records) {
+      const recordedAt = new Date(record.recordedAt);
+      if (!Number.isFinite(recordedAt.getTime())) continue;
+      const start = periodStart(recordedAt, cadence);
+      if (start >= currentStart) continue;
+      const key = `${cadence}:${dateKey(start)}`;
+      const group = grouped.get(key) ?? { cadence, start, end: nextPeriod(start, cadence), records: [] };
+      group.records.push(record);
+      grouped.set(key, group);
+    }
   }
 
-  const existingIds = new Set(state.messages.map(message => message.id));
+  const existing = new Map(state.messages.map(message => [message.id, message]));
   const generatedAt = now.toISOString();
-  const additions = [...grouped.values()]
-    .map(group => buildReport(group.records, state.cadence, group.start, group.end, generatedAt))
-    .filter(message => !existingIds.has(message.id));
-
-  if (additions.length === 0) return state;
-  return {
+  const updated = [...grouped.values()].map(group => {
+    const previous = existing.get(`${group.cadence}:${dateKey(group.start)}`);
+    const report = buildReport(group.records, group.cadence, group.start, group.end, previous?.generatedAt ?? generatedAt);
+    existing.delete(report.id);
+    return {
+      ...report,
+      read: previous?.read ?? (state.backfillCompleted !== true),
+    };
+  });
+  const messages = [...updated, ...existing.values()].sort((a, b) => (
+    Date.parse(b.periodEnd) - Date.parse(a.periodEnd)
+      || a.cadence.localeCompare(b.cadence)
+  ));
+  const next: InboxState = {
     ...state,
-    messages: [...additions, ...state.messages].sort((a, b) => (
-      Date.parse(b.periodStart) - Date.parse(a.periodStart)
-    )),
+    messages,
+    backfillCompleted: true,
   };
+  return JSON.stringify(next) === JSON.stringify(state) ? state : next;
 }
 
 export function setReportCadence(state: InboxState, cadence: ReportCadence): InboxState {
@@ -197,7 +209,7 @@ export function parseInboxState(serialized: string | null | undefined): InboxSta
     const value: unknown = JSON.parse(serialized);
     if (!value || typeof value !== "object") return EMPTY_INBOX;
     const state = value as Record<string, unknown>;
-    if (state.version !== INBOX_VERSION
+    if ((state.version !== 1 && state.version !== INBOX_VERSION)
       || (state.cadence !== "weekly" && state.cadence !== "monthly")
       || !Array.isArray(state.messages)
       || !state.messages.every(isReportMessage)) return EMPTY_INBOX;
@@ -205,12 +217,10 @@ export function parseInboxState(serialized: string | null | undefined): InboxSta
       version: INBOX_VERSION,
       cadence: state.cadence,
       messages: state.messages as SavingsReportMessage[],
-      // Payloads written before AC 8.4.3 have no summaryHidden field. Normalise
-      // it explicitly instead of casting, otherwise undefined would slip past
-      // the type system and every falsy check would be accidental. The version
-      // is deliberately NOT bumped: hiding a section is additive, and bumping
-      // would discard every report already saved on the device.
+      // Older payloads may omit summaryHidden; keep their saved reports while
+      // defaulting visibility to shown.
       summaryHidden: state.summaryHidden === true,
+      backfillCompleted: state.version === INBOX_VERSION && state.backfillCompleted === true,
     };
   } catch {
     return EMPTY_INBOX;

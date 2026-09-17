@@ -5,7 +5,7 @@ import {
   type EstimatedSavingsSnapshot,
 } from "./estimated-savings";
 
-export const SHOPPING_CHECKLIST_VERSION = 4 as const;
+export const SHOPPING_CHECKLIST_VERSION = 5 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought";
@@ -44,16 +44,43 @@ export interface ChecklistItem {
   quantity: number;
   unitPriceRm: number | null;
   lineTotalRm: number | null;
-  // AC 5.3.1/5.3.2: the shopper-observed unit price. Kept strictly separate
-  // from the official/reference unitPriceRm; null means "not recorded".
+  // Legacy override kept for saved checklist migration. New row edits update
+  // unitPriceRm directly and retain the starting value in originalValues.
   actualPriceRm: number | null;
-  // AC 5.3.4 (D5.5): the shopper may record an actual quantity; quantitySource
-  // says whether spending uses the planned quantity or an entered one.
+  // Legacy quantity override; new row edits update quantity directly.
   actualQuantity: number | null;
   quantitySource: ChecklistQuantitySource;
   priceSource: ChecklistPriceSource;
   observedDate: string | null;
   status: ChecklistStatus;
+  /** Values captured when this line was added, used by the row's Revert action. */
+  originalValues?: ChecklistOriginalValues;
+}
+
+export interface ChecklistOriginalValues {
+  itemName: string;
+  itemNameEn: string | null;
+  itemNameMs: string | null;
+  quantity: number;
+  unitPriceRm: number | null;
+  priceSource: ChecklistPriceSource;
+  observedDate: string | null;
+}
+
+function originalValues(item: ChecklistItem): ChecklistOriginalValues {
+  return {
+    itemName: item.itemName,
+    itemNameEn: item.itemNameEn,
+    itemNameMs: item.itemNameMs,
+    quantity: item.quantity,
+    unitPriceRm: item.unitPriceRm,
+    priceSource: item.priceSource,
+    observedDate: item.observedDate,
+  };
+}
+
+function withOriginalValues(item: ChecklistItem): ChecklistItem {
+  return { ...item, originalValues: originalValues(item) };
 }
 
 export interface ShoppingChecklist {
@@ -164,7 +191,7 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
   const current = row.current;
   const quantity = normalizeQuantity(current.quantity);
   const unitPriceRm = normalizeCataloguePrice(current.unitPriceRm);
-  return {
+  return withOriginalValues({
     id: `catalogue-${current.itemId}-${index}`,
     source: "catalogue",
     catalogueItemId: current.itemId,
@@ -179,15 +206,15 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     actualQuantity: null,
     quantitySource: "planned",
     priceSource: cataloguePriceSource(current.priceSource, unitPriceRm),
-    observedDate: current.observedDate,
+    observedDate: current.observedDate ?? null,
     status: "neutral",
-  };
+  });
 }
 
 function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): ChecklistItem {
   const quantity = normalizeQuantity(price.quantity);
   const unitPriceRm = normalizeCataloguePrice(price.unitPriceRm);
-  return {
+  return withOriginalValues({
     id: `catalogue-${price.itemId}-${index}`,
     source: "catalogue",
     catalogueItemId: price.itemId,
@@ -202,9 +229,9 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     actualQuantity: null,
     quantitySource: "planned",
     priceSource: cataloguePriceSource(price.priceSource, unitPriceRm),
-    observedDate: price.priceObservedDate,
+    observedDate: price.priceObservedDate ?? null,
     status: "neutral",
-  };
+  });
 }
 
 /**
@@ -328,7 +355,7 @@ export function addManualChecklistItem(
   const validation = validateManualChecklistItem(input);
   if (!validation.success) return null;
   const { itemName, quantity, unitPriceRm } = validation.value;
-  const item: ChecklistItem = {
+  const item: ChecklistItem = withOriginalValues({
     id: options.itemId ?? generatedId("manual"),
     source: "manual",
     catalogueItemId: null,
@@ -345,7 +372,7 @@ export function addManualChecklistItem(
     priceSource: "manual",
     observedDate: null,
     status: "neutral",
-  };
+  });
   return {
     ...checklist,
     updatedAt: options.updatedAt ?? nowIso(),
@@ -380,6 +407,95 @@ export function editChecklistItem(
       observedDate: null,
     } : item),
   };
+}
+
+export type ChecklistEditableField = "itemName" | "quantity" | "unitPriceRm";
+
+/** The single price and quantity presented in the checklist row. */
+export function effectiveChecklistUnitPrice(item: ChecklistItem): number | null {
+  return item.actualPriceRm ?? item.unitPriceRm;
+}
+
+export function effectiveChecklistQuantity(item: ChecklistItem): number {
+  return item.actualQuantity ?? item.quantity;
+}
+
+export function effectiveChecklistLineTotal(item: ChecklistItem): number | null {
+  const price = effectiveChecklistUnitPrice(item);
+  return price == null ? null : money(price * effectiveChecklistQuantity(item));
+}
+
+export function updateChecklistItemField(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  field: ChecklistEditableField,
+  raw: string,
+  updatedAt = nowIso(),
+): ShoppingChecklist | null {
+  const item = checklist.items.find(candidate => candidate.id === itemId);
+  if (!item) return null;
+  const next: ChecklistItem = { ...item, originalValues: item.originalValues ?? originalValues(item) };
+  if (field === "itemName") {
+    const name = raw.trim();
+    if (!name) return null;
+    if (name === item.itemName) return checklist;
+    next.itemName = name;
+    next.itemNameEn = null;
+    next.itemNameMs = null;
+  } else if (field === "quantity") {
+    const quantity = parseQuantity(raw);
+    if (quantity == null) return null;
+    if (quantity === effectiveChecklistQuantity(item)) return checklist;
+    next.quantity = quantity;
+    next.actualQuantity = null;
+    next.quantitySource = "planned";
+  } else {
+    const price = raw.trim() === "" ? null : parseManualUnitPrice(raw);
+    if (raw.trim() !== "" && price == null) return null;
+    if (price === effectiveChecklistUnitPrice(item)) return checklist;
+    next.unitPriceRm = price;
+    next.actualPriceRm = null;
+    next.priceSource = price == null && item.source === "catalogue" ? null : "manual";
+    next.observedDate = null;
+  }
+  next.lineTotalRm = effectiveChecklistLineTotal(next);
+  return {
+    ...checklist,
+    updatedAt,
+    items: checklist.items.map(candidate => candidate.id === itemId ? next : candidate),
+  };
+}
+
+export function revertChecklistItem(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  updatedAt = nowIso(),
+): ShoppingChecklist {
+  const item = checklist.items.find(candidate => candidate.id === itemId);
+  if (!item?.originalValues) return checklist;
+  const original = item.originalValues;
+  const restored: ChecklistItem = {
+    ...item,
+    ...original,
+    actualPriceRm: null,
+    actualQuantity: null,
+    quantitySource: "planned",
+    lineTotalRm: original.unitPriceRm == null ? null : money(original.unitPriceRm * original.quantity),
+  };
+  if (JSON.stringify(restored) === JSON.stringify(item)) return checklist;
+  return {
+    ...checklist,
+    updatedAt,
+    items: checklist.items.map(candidate => candidate.id === itemId ? restored : candidate),
+  };
+}
+
+export function boughtChecklistTotal(checklist: ShoppingChecklist): number | null {
+  const totals = checklist.items
+    .filter(item => item.status === "bought")
+    .map(effectiveChecklistLineTotal)
+    .filter((value): value is number => value != null);
+  return totals.length === 0 ? null : money(totals.reduce((sum, value) => sum + value, 0));
 }
 
 /**
@@ -567,7 +683,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && (item.quantitySource === "planned" || item.quantitySource === "actual")
     && priceSourceIsValid
     && isNullableString(item.observedDate)
-    && statusIsValid;
+    && statusIsValid
+    && (item.originalValues === undefined || isOriginalValues(item.originalValues));
   if (!commonFieldsAreValid) return false;
 
   if ((item.unitPriceRm === null) !== (item.lineTotalRm === null)) return false;
@@ -583,8 +700,23 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   }
   return typeof item.catalogueItemId === "string"
     && item.catalogueItemId.length > 0
-    && item.priceSource !== "manual"
     && (item.unitPriceRm === null ? item.priceSource === null : item.priceSource !== null);
+}
+
+function isOriginalValues(value: unknown): value is ChecklistOriginalValues {
+  if (!value || typeof value !== "object") return false;
+  const original = value as Record<string, unknown>;
+  return typeof original.itemName === "string"
+    && original.itemName.trim().length > 0
+    && isNullableString(original.itemNameEn)
+    && isNullableString(original.itemNameMs)
+    && typeof original.quantity === "number"
+    && Number.isInteger(original.quantity)
+    && original.quantity >= 1
+    && isFiniteMoneyOrNull(original.unitPriceRm)
+    && (original.priceSource === null || original.priceSource === "store"
+      || original.priceSource === "median" || original.priceSource === "manual")
+    && isNullableString(original.observedDate);
 }
 
 function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEstimate {
@@ -640,22 +772,19 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
 }
 
 /**
- * Migration chain (D5.0). v1 payloads (before planned totals, actual prices
- * and actual quantities existed), v2 payloads (before actual quantities) and
- * v3 payloads (before alternative store estimates, gap G4) are upgraded in
- * place: missing planned totals and estimates are filled with null / empty
- * defaults and every line gains actualPriceRm / actualQuantity /
- * quantitySource defaults. Out-of-stock registration was abolished, so
- * legacy out_of_stock statuses degrade to not_bought. Unknown versions are
- * dropped safely.
+ * Upgrade supported local versions to the single-price row model. Legacy
+ * price and quantity overrides become the visible row values, while the
+ * starting values are kept for Revert. Missing optional price dates become
+ * null. Unknown versions are dropped safely.
  */
 export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
   if (!raw || typeof raw !== "object") return null;
   const candidate = raw as Record<string, unknown>;
-  // v1, v2 and v3 are the only legacy envelopes; anything else unknown is dropped.
+  // Preserve every supported local version; only unknown envelopes are dropped.
   if (candidate.version !== 1
     && candidate.version !== 2
     && candidate.version !== 3
+    && candidate.version !== 4
     && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
   const normalized = {
     ...candidate,
@@ -670,12 +799,42 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
       ? candidate.items.map(item => {
           if (!item || typeof item !== "object") return item;
           const legacy = item as Record<string, unknown>;
-          return {
+          const base: Record<string, unknown> = {
             actualPriceRm: null,
             actualQuantity: null,
             quantitySource: "planned",
             ...legacy,
+            observedDate: legacy.observedDate ?? null,
+            originalValues: legacy.originalValues && typeof legacy.originalValues === "object"
+              ? { ...legacy.originalValues as Record<string, unknown>, observedDate: (legacy.originalValues as Record<string, unknown>).observedDate ?? null }
+              : legacy.originalValues,
             status: legacy.status === "out_of_stock" ? "not_bought" : legacy.status,
+          };
+          if (candidate.version === SHOPPING_CHECKLIST_VERSION) return base;
+          const quantity = typeof base.actualQuantity === "number"
+            ? base.actualQuantity : base.quantity;
+          const unitPriceRm = typeof base.actualPriceRm === "number"
+            ? base.actualPriceRm : base.unitPriceRm;
+          return {
+            ...base,
+            originalValues: {
+              itemName: base.itemName,
+              itemNameEn: base.itemNameEn,
+              itemNameMs: base.itemNameMs,
+              quantity: base.quantity,
+              unitPriceRm: base.unitPriceRm,
+              priceSource: base.priceSource,
+              observedDate: base.observedDate,
+            },
+            quantity,
+            unitPriceRm,
+            lineTotalRm: typeof unitPriceRm === "number" && typeof quantity === "number"
+              ? money(unitPriceRm * quantity) : null,
+            priceSource: typeof base.actualPriceRm === "number" ? "manual" : base.priceSource,
+            observedDate: typeof base.actualPriceRm === "number" ? null : base.observedDate,
+            actualPriceRm: null,
+            actualQuantity: null,
+            quantitySource: "planned",
           };
         })
       : candidate.items,

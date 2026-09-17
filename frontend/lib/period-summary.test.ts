@@ -191,7 +191,7 @@ describe("periodSummary - AC 8.1.4 no confirmed expenses for the period", () => 
       actualTotalRm: 10,
       lines: [
         line({ id: "a", status: "bought", actualLineTotalRm: 10 }),
-        line({ id: "b", status: "bought", actualLineTotalRm: null }),
+        line({ id: "b", status: "bought", unitPriceRm: null, priceSource: null, actualLineTotalRm: null }),
       ],
     })];
 

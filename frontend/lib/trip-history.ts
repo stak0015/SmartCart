@@ -8,13 +8,13 @@ import type {
   ChecklistStore,
   ShoppingChecklist,
 } from "./shopping-checklist";
-import { actualLineTotalRm } from "./shopping-checklist";
+import { effectiveChecklistLineTotal } from "./shopping-checklist";
 import {
   isEstimatedSavingsSnapshot,
   type EstimatedSavingsSnapshot,
 } from "./estimated-savings";
 
-export const TRIP_HISTORY_VERSION = 1 as const;
+export const TRIP_HISTORY_VERSION = 2 as const;
 export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
 
 /**
@@ -36,13 +36,12 @@ export interface TripRecordLine {
   quantity: number;
   actualQuantity: number | null;
   quantitySource: ChecklistQuantitySource;
-  // Official/reference price kept separate from the shopper-recorded one
-  // (AC 5.3.2); the reference price is never counted as money spent.
+  // The visible catalogue or shopper-edited price at record time.
   unitPriceRm: number | null;
   priceSource: ChecklistPriceSource;
   observedDate: string | null;
   actualPriceRm: number | null;
-  // Frozen at record time; null when the actual price was unknown (never 0).
+  // Frozen bought-line total; null for unbought or unpriced lines.
   actualLineTotalRm: number | null;
   // AC 5.2.3: "neutral" lines were still unfinished when the trip was
   // recorded; they stay in the record labelled with their outcome.
@@ -64,8 +63,7 @@ export interface TripRecord {
   alternativeStoreEstimates: AlternativeStoreEstimate[];
   // Optional for records created before the unified savings summary shipped.
   estimatedSavings?: EstimatedSavingsSnapshot | null;
-  // AC 5.4.2: the sum of the known purchased line totals; null when no
-  // purchased line has a known actual total (never a made-up 0, AC 5.2.3).
+  // Sum of priced bought lines; null when none has a price.
   actualTotalRm: number | null;
   // AC 8.2.3: how the frozen travel estimates were produced. Copied from the
   // checklist so an old trip can still disclose that its travel figure came
@@ -100,16 +98,25 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-/**
- * AC 5.4.2: the actual expense total is the sum of the known purchased line
- * totals. Unpurchased, missing-price and reference-price lines
- * are excluded (they stay in the record, explicitly labelled by their status
- * and price source). Returns null when nothing is known — never 0.
- */
+export function boughtLineQuantity(line: TripRecordLine): number {
+  return line.actualQuantity ?? line.quantity;
+}
+
+export function boughtLineUnitPrice(line: TripRecordLine): number | null {
+  return line.actualPriceRm ?? line.unitPriceRm;
+}
+
+export function boughtLineTotalRm(line: TripRecordLine): number | null {
+  const unitPrice = boughtLineUnitPrice(line);
+  return unitPrice == null ? null : money(unitPrice * boughtLineQuantity(line));
+}
+
+/** Sum priced bought lines, regardless of whether the shopper edited a price. */
 export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
   const knownTotals = lines
-    .filter(line => line.status === "bought" && line.actualLineTotalRm != null)
-    .map(line => line.actualLineTotalRm as number);
+    .filter(line => line.status === "bought")
+    .map(boughtLineTotalRm)
+    .filter((value): value is number => value != null);
   return knownTotals.length > 0
     ? money(knownTotals.reduce((total, value) => total + value, 0))
     : null;
@@ -131,7 +138,7 @@ function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
     priceSource: item.priceSource,
     observedDate: item.observedDate,
     actualPriceRm: item.actualPriceRm,
-    actualLineTotalRm: actualLineTotalRm(item),
+    actualLineTotalRm: item.status === "bought" ? effectiveChecklistLineTotal(item) : null,
     status: item.status,
   };
 }
@@ -293,25 +300,38 @@ export function isTripRecord(value: unknown): value is TripRecord {
 export function migrateTripHistory(raw: unknown): TripRecord[] {
   if (!raw || typeof raw !== "object") return [];
   const envelope = raw as Record<string, unknown>;
-  if (envelope.version !== TRIP_HISTORY_VERSION || !Array.isArray(envelope.records)) return [];
+  if ((envelope.version !== 1 && envelope.version !== TRIP_HISTORY_VERSION)
+    || !Array.isArray(envelope.records)) return [];
   return envelope.records
     .map(record => {
       if (!record || typeof record !== "object") return record;
       const candidate = record as Record<string, unknown>;
+      if (candidate.version !== 1 && candidate.version !== TRIP_HISTORY_VERSION) return record;
       if (!Array.isArray(candidate.lines)) return record;
       // Out-of-stock registration was abolished: legacy out_of_stock lines
       // degrade to not_bought instead of dropping the whole record.
       return {
         ...candidate,
-        lines: candidate.lines.map(line => (
-          line && typeof line === "object"
-            && (line as Record<string, unknown>).status === "out_of_stock"
-            ? { ...(line as Record<string, unknown>), status: "not_bought" }
-            : line
-        )),
+        version: TRIP_HISTORY_VERSION,
+        lines: candidate.lines.map(line => {
+          if (!line || typeof line !== "object") return line;
+          const fields = line as Record<string, unknown>;
+          return {
+            ...fields,
+            observedDate: fields.observedDate ?? null,
+            status: fields.status === "out_of_stock" ? "not_bought" : fields.status,
+          };
+        }),
       };
     })
-    .filter(isTripRecord);
+    .filter(isTripRecord)
+    .map(record => {
+      const lines = record.lines.map(line => ({
+        ...line,
+        actualLineTotalRm: line.status === "bought" ? boughtLineTotalRm(line) : null,
+      }));
+      return { ...record, lines, actualTotalRm: actualExpenseTotal(lines) };
+    });
 }
 
 export function serializeTripHistory(records: TripRecord[]): string {

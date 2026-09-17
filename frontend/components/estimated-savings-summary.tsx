@@ -16,7 +16,6 @@ const TEXT = {
     swapsCostMore: (amount: string) => `Your applied item changes add ${amount} to this basket.`,
     storeChoice: "Store choice",
     itemChanges: "Item changes",
-    potential: "Estimate only — actual spending may differ.",
   },
   ms: {
     title: "Anggaran penjimatan",
@@ -29,7 +28,6 @@ const TEXT = {
     swapsCostMore: (amount: string) => `Perubahan item anda menambah ${amount} kepada bakul ini.`,
     storeChoice: "Pilihan kedai",
     itemChanges: "Perubahan item",
-    potential: "Anggaran sahaja — perbelanjaan sebenar mungkin berbeza.",
   },
 } as const;
 
@@ -71,7 +69,6 @@ export function EstimatedSavingsSummary({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#286d67]">{text.potential}</p>
           <h2 id="estimated-savings-title" className="mt-1 text-xl font-extrabold text-[#10231d]">{title}</h2>
         </div>
         {net != null && net > 0 ? (
