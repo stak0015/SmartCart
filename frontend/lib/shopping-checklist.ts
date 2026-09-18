@@ -440,8 +440,8 @@ export function updateChecklistItemField(
     if (!name) return null;
     if (name === item.itemName) return checklist;
     next.itemName = name;
-    next.itemNameEn = null;
-    next.itemNameMs = null;
+    next.itemNameEn = name === next.originalValues?.itemName ? next.originalValues.itemNameEn : null;
+    next.itemNameMs = name === next.originalValues?.itemName ? next.originalValues.itemNameMs : null;
   } else if (field === "quantity") {
     const quantity = parseQuantity(raw);
     if (quantity == null) return null;
@@ -455,8 +455,10 @@ export function updateChecklistItemField(
     if (price === effectiveChecklistUnitPrice(item)) return checklist;
     next.unitPriceRm = price;
     next.actualPriceRm = null;
-    next.priceSource = price == null && item.source === "catalogue" ? null : "manual";
-    next.observedDate = null;
+    next.priceSource = price === next.originalValues?.unitPriceRm
+      ? next.originalValues.priceSource
+      : price == null && item.source === "catalogue" ? null : "manual";
+    next.observedDate = price === next.originalValues?.unitPriceRm ? next.originalValues.observedDate : null;
   }
   next.lineTotalRm = effectiveChecklistLineTotal(next);
   return {
@@ -464,6 +466,21 @@ export function updateChecklistItemField(
     updatedAt,
     items: checklist.items.map(candidate => candidate.id === itemId ? next : candidate),
   };
+}
+
+/** Apply the edit dialog atomically while preserving catalogue identity. */
+export function editChecklistValues(
+  checklist: ShoppingChecklist,
+  itemId: string,
+  input: ManualChecklistItemInput,
+): ShoppingChecklist | null {
+  const validation = validateManualChecklistItem(input);
+  if (!validation.success || !checklist.items.some(item => item.id === itemId)) return null;
+  const { itemName, quantity, unitPriceRm } = validation.value;
+  const fields: [ChecklistEditableField, string][] = [
+    ["itemName", itemName], ["quantity", String(quantity)], ["unitPriceRm", unitPriceRm == null ? "" : String(unitPriceRm)],
+  ];
+  return fields.reduce((current, [field, value]) => updateChecklistItemField(current, itemId, field, value) ?? current, checklist);
 }
 
 export function revertChecklistItem(

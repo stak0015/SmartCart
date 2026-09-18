@@ -41,7 +41,12 @@ import {
   type RecommendationDetailRow,
 } from "@/lib/recommendation-detail";
 import { SuccessToast } from "@/components/success-toast";
-import { ConfirmationDialog, ShoppingChecklistScreen } from "@/components/shopping-checklist";
+import {
+  ConfirmationDialog,
+  EmptyChecklistScreen,
+  NextTripList,
+  ShoppingChecklistScreen,
+} from "@/components/shopping-checklist";
 import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
 import {
   SmartCartHomeScreen,
@@ -58,11 +63,10 @@ import {
   addManualChecklistItem,
   createShoppingChecklist,
   deleteChecklistItem,
-  editChecklistItem as editChecklistItemModel,
+  editChecklistValues,
+  revertChecklistItem,
   parseShoppingChecklist,
   serializeShoppingChecklist,
-  setChecklistItemActualPrice,
-  setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
   type ChecklistStatus,
   type ManualChecklistItemInput,
@@ -76,6 +80,17 @@ import {
   serializeTripHistory,
   type TripRecord,
 } from "@/lib/trip-history";
+import {
+  NEXT_TRIP_STORAGE_KEY,
+  addNextTripItem,
+  nextTripBasket,
+  nextTripItemId,
+  parseNextTrip,
+  saveForNextTrip,
+  serializeNextTrip,
+  type NextTripItem,
+  type NextTripPriceQuote,
+} from "@/lib/next-trip";
 import { calculateEstimatedSavings } from "@/lib/estimated-savings";
 import {
   EMPTY_INBOX,
@@ -266,29 +281,18 @@ function TransportModeIcon({ mode, color = "#3E494A" }: { mode: TransportMode; c
 // ── Header ─────────────────────────────────────────────────────────────────
 function SaraEligibilityFlag({
   status,
-  categoryCandidate,
   copy,
 }: {
   status: boolean | null;
-  categoryCandidate: boolean;
   copy: AppCopy;
 }) {
-  const styles = status === true
-    ? "bg-[#e5f5ed] text-[#166534]"
-    : status === false
-      ? "bg-[#f3f4f5] text-[#4b5563]"
-      : categoryCandidate
-        ? "bg-[#e7f3ef] text-[#17634f]"
-        : "bg-[#fff4ce] text-[#755b00]";
-  const label = status === true
-    ? copy.saraEligible
-    : status === false
-      ? copy.saraNotEligible
-      : categoryCandidate
-        ? copy.saraCategoryCandidate
-        : copy.saraEligibilityUnknown;
+  if (status !== true) {
+    // Keep the card's metadata rhythm stable without showing a negative or
+    // unverified SARA claim.
+    return <span aria-hidden="true" className="block h-7" />;
+  }
 
-  return <span className={`inline-flex max-w-full self-start whitespace-normal break-words rounded-md px-2 py-1 text-xs font-semibold leading-5 ${styles}`}>{label}</span>;
+  return <span className="inline-flex min-h-7 max-w-full self-start whitespace-normal break-words rounded-md bg-[#e5f5ed] px-2 py-1 text-xs font-semibold leading-5 text-[#166534]">{copy.saraCategory}</span>;
 }
 
 function SaraStoreTag({ status, copy }: { status: StoreRecommendation["saraStatus"]; copy: AppCopy }) {
@@ -389,7 +393,7 @@ function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; c
               <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{copy.medianPriceEstimate}</p>
             )}
             <div className="mt-1">
-              <SaraEligibilityFlag status={price.saraEligible ?? null} categoryCandidate={price.saraCategoryCandidate ?? false} copy={copy} />
+              <SaraEligibilityFlag status={price.saraEligible ?? null} copy={copy} />
             </div>
           </div>
           {price.unitPriceRm != null && price.lineTotalRm != null ? (
@@ -869,7 +873,7 @@ function BasketScreen({
                         {item.replacement && <span className="rounded-md bg-[#e7f7f0] px-2 py-1 text-[11px] font-extrabold text-[#17634f]">{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</span>}
                       </div>
                       <p className="break-words text-[13px] leading-5 text-[#617069]">{packageSizeForCopy(copy, item.size)}</p>
-                      <SaraEligibilityFlag status={item.saraEligible} categoryCandidate={item.saraCategoryCandidate} copy={copy} />
+                      <SaraEligibilityFlag status={item.saraEligible} copy={copy} />
                       {item.replacement && (
                         <div className="flex flex-wrap items-center gap-2 text-xs text-[#286d67]">
                           <span>{copy.originally(localizedName(copy, item.replacement.original.name, item.replacement.original))} · {replacementImpactText(copy, currentReplacementImpactRm(item))}</span>
@@ -1055,7 +1059,7 @@ function BasketScreen({
                     <span className="break-words text-[#617069]">{packageSizeForCopy(copy, fields.packageSize)}</span>
                     <span className="break-words text-[#718078]">{categoryLabel(locale, item.item_category)}</span>
                   </div>
-                  <SaraEligibilityFlag status={item.sara_eligible} categoryCandidate={item.sara_category_candidate} copy={copy} />
+                  <SaraEligibilityFlag status={item.sara_eligible} copy={copy} />
                 </div>
                 <QuantitySelector
                   value={rawQty}
@@ -1813,7 +1817,7 @@ function RecommendationBasketRow({
             <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{copy.medianPriceEstimate}</p>
           )}
           <div className="mt-1">
-            <SaraEligibilityFlag status={row.current.saraEligible} categoryCandidate={row.current.saraCategoryCandidate} copy={copy} />
+            <SaraEligibilityFlag status={row.current.saraEligible} copy={copy} />
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -1843,7 +1847,7 @@ function RecommendationBasketRow({
             <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
             <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
             {eligibilityChanges && (
-              <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} categoryCandidate={alternative.saraCategoryCandidate} copy={copy} /></div>
+              <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} copy={copy} /></div>
             )}
           </div>
           <button
@@ -2431,6 +2435,9 @@ export default function App() {
   const candidatePreparationController = useRef<AbortController | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
+  const [savedItems, setSavedItems] = useState<NextTripItem[]>([]);
+  const [savedItemsReady, setSavedItemsReady] = useState(false);
+  const [savedItemsToUse, setSavedItemsToUse] = useState<NextTripItem[]>([]);
   const [tripHistory, setTripHistory] = useState<TripRecord[]>([]);
   const [tripHistoryStorageReady, setTripHistoryStorageReady] = useState(false);
   const [inbox, setInbox] = useState<InboxState>(EMPTY_INBOX);
@@ -2499,6 +2506,25 @@ export default function App() {
       // or full; a later update can retry persistence.
     }
   }, [checklist, checklistStorageReady]);
+
+  useEffect(() => {
+    try {
+      setSavedItems(parseNextTrip(window.localStorage.getItem(NEXT_TRIP_STORAGE_KEY)));
+    } catch {
+      setSavedItems([]);
+    } finally {
+      setSavedItemsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!savedItemsReady) return;
+    try {
+      window.localStorage.setItem(NEXT_TRIP_STORAGE_KEY, serializeNextTrip(savedItems));
+    } catch {
+      // Retain the list in memory when device storage is unavailable.
+    }
+  }, [savedItems, savedItemsReady]);
 
   // AC 5.4.3: trip records live on this device only (localStorage), mirroring
   // the checklist persistence pattern above.
@@ -2610,39 +2636,88 @@ export default function App() {
     setSelectedStore(null);
     setPreferences(current => ({ ...current, origin: null }));
     setResumeStep("location");
+    setSavedItemsToUse([]);
   };
   const startNewTrip = () => {
     resetTrip();
     setRestartTripOpen(false);
     setScreen("location");
   };
-  const updateChecklistStatus = (
-    itemId: string,
-    status: Exclude<ChecklistStatus, "neutral">,
-  ) => {
-    setChecklist(current => current
-      ? toggleChecklistItemStatus(current, itemId, status)
-      : current);
+  const updateChecklistStatus = (itemId: string, status: Exclude<ChecklistStatus, "neutral">) => {
+    if (!checklist) return;
+    const currentItem = checklist.items.find(item => item.id === itemId);
+    if (!currentItem) return;
+    // Unticking a purchased item records it as unbought and keeps it for later.
+    const isSaved = savedItems.some(item => item.id === nextTripItemId(currentItem));
+    let next = checklist;
+    if (status === "bought") {
+      next = toggleChecklistItemStatus(checklist, itemId, currentItem.status === "bought" ? "not_bought" : "bought");
+    } else if ((currentItem.status === "not_bought") === isSaved) {
+      // A saved item can also be neutral after recording an unfinished trip.
+      next = toggleChecklistItemStatus(checklist, itemId, "not_bought");
+    }
+    setChecklist(next);
+    const item = next.items.find(candidate => candidate.id === itemId)!;
+    setSavedItems(current => (status === "not_bought" ? !isSaved : item.status === "not_bought")
+      ? saveForNextTrip(current, item)
+      : current.filter(saved => saved.id !== nextTripItemId(item)));
   };
   const addChecklistItem = (input: ManualChecklistItemInput) => {
-    setChecklist(current => current
-      ? addManualChecklistItem(current, input) ?? current
-      : current);
+    setChecklist(current => current ? addManualChecklistItem(current, input) ?? current : current);
   };
   const editChecklistItem = (itemId: string, input: ManualChecklistItemInput) => {
-    setChecklist(current => current
-      ? editChecklistItemModel(current, itemId, input) ?? current
-      : current);
+    if (!checklist) return;
+    const next = editChecklistValues(checklist, itemId, input) ?? checklist;
+    setChecklist(next);
+    const item = next.items.find(candidate => candidate.id === itemId);
+    if (item) setSavedItems(current => current.some(saved => saved.id === nextTripItemId(item)) ? saveForNextTrip(current, item) : current);
   };
-  const setActualPrice = (itemId: string, actualPriceRm: number | null) => {
-    setChecklist(current => current
-      ? setChecklistItemActualPrice(current, itemId, actualPriceRm) ?? current
-      : current);
+  const revertItem = (itemId: string) => {
+    if (!checklist) return;
+    const next = revertChecklistItem(checklist, itemId);
+    setChecklist(next);
+    const item = next.items.find(candidate => candidate.id === itemId);
+    if (item) setSavedItems(current => current.some(saved => saved.id === nextTripItemId(item)) ? saveForNextTrip(current, item) : current);
   };
-  const setActualQuantity = (itemId: string, actualQuantity: number | null) => {
-    setChecklist(current => current
-      ? setChecklistItemActualQuantity(current, itemId, actualQuantity) ?? current
-      : current);
+  const removeSavedItem = (id: string) => {
+    setSavedItems(current => current.filter(item => item.id !== id));
+    setSavedItemsToUse(current => current.filter(item => item.id !== id));
+  };
+  const restoreSavedItem = async (item: NextTripItem) => {
+    if (!checklist) return;
+
+    let quote: NextTripPriceQuote | undefined;
+    if (item.catalogueItemId != null) {
+      try {
+        const response = await getBasketAlternatives(
+          checklist.store.premiseId,
+          [{ itemId: item.catalogueItemId, quantity: item.quantity }],
+        );
+        const source = response.lines[0]?.source;
+        if (source) {
+          quote = {
+            itemName: source.itemName,
+            itemNameEn: source.itemNameEn,
+            itemNameMs: source.itemNameMs,
+            packageSize: source.packageSize,
+            unitPriceRm: source.unitPriceRm,
+            observedDate: source.observedDate,
+            priceSource: source.priceSource,
+          };
+        }
+      } catch {
+        // A saved item is still useful when the price lookup is unavailable;
+        // keep its price explicit as unavailable rather than inventing one.
+      }
+    }
+
+    setChecklist(current => current ? addNextTripItem(current, item, quote) : current);
+    removeSavedItem(item.id);
+  };
+  const planWithSavedItems = () => {
+    setBasket(current => nextTripBasket(current, savedItems));
+    setSavedItemsToUse(savedItems);
+    navigateTrip(preferences.origin ? "shop" : "location");
   };
   const removeChecklistItem = (itemId: string) => {
     setChecklist(current => current ? deleteChecklistItem(current, itemId) : current);
@@ -2654,6 +2729,7 @@ export default function App() {
   const recordTrip = () => {
     if (!checklist) return;
     const record = buildTripRecord(checklist);
+    setSavedItems(current => checklist.items.reduce((saved, item) => saveForNextTrip(saved, item), current));
     // The record appears in the in-memory history immediately (no reload) and
     // is persisted by the storage effect above.
     setTripHistory(current => addTripRecord(current, record));
@@ -2691,6 +2767,7 @@ export default function App() {
 
       <main className={"mx-auto w-full pt-16 " + (screen === "shop" ? "max-w-[1512px]" : "max-w-[760px]")}>
         {screen === "home" ? (
+          <>
           <SmartCartHomeScreen
             locale={locale}
             checklist={checklist}
@@ -2700,12 +2777,14 @@ export default function App() {
             resumeStep={resumeStep}
             onStartOrResume={() => navigateTrip(hasTripInProgress ? resumeStep : "location")}
             onStartNew={() => hasTripInProgress ? setRestartTripOpen(true) : startNewTrip()}
-            onChecklist={() => checklist ? setScreen("checklist") : navigateTrip(hasTripInProgress ? resumeStep : "location")}
+            onChecklist={() => setScreen("checklist")}
             onHistory={() => setScreen("history")}
             onInbox={() => setScreen("inbox")}
           />
+          {savedItems.length > 0 && <div className="px-4 pb-8 sm:px-6"><NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} /></div>}
+          </>
         ) : null}
-        {screen === "checklist" && checklist ? (
+        {screen === "checklist" ? checklist ? (
           <ShoppingChecklistScreen
             checklist={checklist}
             locale={locale}
@@ -2713,12 +2792,23 @@ export default function App() {
             onToggleStatus={updateChecklistStatus}
             onAddManual={addChecklistItem}
             onEditItem={editChecklistItem}
-            onSetActualPrice={setActualPrice}
-            onSetActualQuantity={setActualQuantity}
+            onRevertItem={revertItem}
+            savedItems={savedItems}
+            onRestoreSavedItem={restoreSavedItem}
+            onRemoveSavedItem={removeSavedItem}
             onDeleteItem={removeChecklistItem}
             onDeleteChecklist={removeChecklist}
             alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
             onRecordTrip={recordTrip}
+          />
+        ) : (
+          <EmptyChecklistScreen
+            locale={locale}
+            copy={copy}
+            savedItems={savedItems}
+            onUseSavedItems={planWithSavedItems}
+            onRemoveSavedItem={removeSavedItem}
+            onStartOrResume={() => navigateTrip(hasTripInProgress ? resumeStep : "location")}
           />
         ) : null}
         {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} /> : null}
@@ -2775,7 +2865,17 @@ export default function App() {
             setBasket={setBasket}
             activeChecklist={checklist}
             onCreateChecklist={nextChecklist => {
-              setChecklist(nextChecklist);
+              // Respect catalogue items removed from the planning basket.
+              // Manual items are added only to the checklist, with no quote.
+              const usedSavedItems = savedItems.filter(item =>
+                savedItemsToUse.some(saved => saved.id === item.id)
+                && (item.source === "manual" || nextChecklist.items.some(line => nextTripItemId(line) === item.id)));
+              const withSavedItems = usedSavedItems.reduce(
+                (current, saved) => addNextTripItem(current, saved),
+                nextChecklist,
+              );
+              setChecklist(withSavedItems);
+              setSavedItems(current => current.filter(item => !usedSavedItems.some(saved => saved.id === item.id)));
               resetTrip();
               setScreen("home");
             }}

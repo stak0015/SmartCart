@@ -6,6 +6,8 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ButtonHTMLAttributes,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { formatRm } from "@/lib/format-rm";
@@ -14,11 +16,10 @@ import {
   type ChecklistExportModel,
 } from "@/lib/checklist-export";
 import {
-  actualLineTotalRm,
+  effectiveChecklistLineTotal,
+  effectiveChecklistQuantity,
+  effectiveChecklistUnitPrice,
   checklistProgress,
-  plannedChecklistSubtotal,
-  validateActualQuantity,
-  validateActualUnitPrice,
   validateManualChecklistItem,
   type ChecklistItem,
   type ChecklistStatus,
@@ -26,7 +27,25 @@ import {
   type ShoppingChecklist,
 } from "@/lib/shopping-checklist";
 
+import { nextTripItemId, type NextTripItem } from "@/lib/next-trip";
+
 export interface ShoppingChecklistCopy {
+  nextTrip: string;
+  nextTripChecklistTitle: string;
+  nextTripHint: string;
+  nextTripEmpty: string;
+  saveForNextTrip: string;
+  savedForNextTrip: string;
+  removeFromNextTrip: string;
+  useSavedItems: string;
+  addToChecklist: string;
+  revertItem: string;
+  checklistHint: string;
+  checklistTotal: string;
+  checklistEstimatedTotal: string;
+  noActiveChecklist: string;
+  noActiveChecklistHint: string;
+  startOrResumeShoppingTrip: string;
   checklistTitle: string;
   checklistItems: string;
   checklistStore: (store: string) => string;
@@ -86,12 +105,23 @@ export interface ShoppingChecklistScreenProps {
   onToggleStatus: (itemId: string, status: Exclude<ChecklistStatus, "neutral">) => void;
   onAddManual: (input: ManualChecklistItemInput) => void;
   onEditItem: (itemId: string, input: ManualChecklistItemInput) => void;
-  onSetActualPrice: (itemId: string, actualPriceRm: number | null) => void;
-  onSetActualQuantity: (itemId: string, actualQuantity: number | null) => void;
+  onRevertItem: (itemId: string) => void;
+  savedItems: NextTripItem[];
+  onRestoreSavedItem: (item: NextTripItem) => void | Promise<void>;
+  onRemoveSavedItem: (itemId: string) => void;
   onDeleteItem: (itemId: string) => void;
   onDeleteChecklist: () => void;
   alreadyRecorded: boolean;
   onRecordTrip: () => void;
+}
+
+export interface EmptyChecklistScreenProps {
+  locale: "en" | "ms";
+  copy: ShoppingChecklistCopy;
+  savedItems: NextTripItem[];
+  onUseSavedItems: () => void;
+  onRemoveSavedItem: (itemId: string) => void;
+  onStartOrResume: () => void;
 }
 
 export interface ConfirmationDialogProps {
@@ -101,6 +131,7 @@ export interface ConfirmationDialogProps {
   confirmLabel: string;
   cancelLabel: string;
   destructive?: boolean;
+  iconOnly?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -117,7 +148,6 @@ interface ChecklistItemDialogProps {
   locale: "en" | "ms";
   copy: ShoppingChecklistCopy;
   onSave: (input: ManualChecklistItemInput) => void;
-  onSaveActualEntry?: (entry: { actualPriceRm: number | null; actualQuantity: number | null }) => void;
   onCancel: () => void;
 }
 
@@ -175,6 +205,7 @@ export function ConfirmationDialog({
   confirmLabel,
   cancelLabel,
   destructive = false,
+  iconOnly = false,
   onConfirm,
   onCancel,
 }: ConfirmationDialogProps) {
@@ -202,21 +233,25 @@ export function ConfirmationDialog({
           <button
             ref={cancelRef}
             type="button"
+            aria-label={cancelLabel}
+            title={cancelLabel}
             onClick={onCancel}
-            className="min-h-11 rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
           >
-            {cancelLabel}
+            {iconOnly ? <ActionIcon name="close" /> : cancelLabel}
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className={`min-h-11 rounded-xl px-4 text-sm font-bold text-white ${
+            aria-label={confirmLabel}
+            title={confirmLabel}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold text-white ${
               destructive
                 ? "bg-[#ba1a1a] hover:bg-[#93000a]"
                 : "bg-[#087f5b] hover:bg-[#066c4d]"
             }`}
           >
-            {confirmLabel}
+            {iconOnly ? <ActionIcon name={destructive ? "trash" : "check"} /> : confirmLabel}
           </button>
         </div>
       </div>
@@ -267,28 +302,34 @@ function ExportChecklistDialog({
             {errorMessage}
           </p>
         )}
-        <div className="mt-6 grid gap-3">
+        <div className="mt-6 flex justify-end gap-3">
           <button
             ref={imageRef}
             type="button"
+            aria-label={copy.downloadAsImage}
+            title={copy.downloadAsImage}
             onClick={onDownloadImage}
-            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
           >
-            {copy.downloadAsImage}
+            <ActionIcon name="image" />
           </button>
           <button
             type="button"
+            aria-label={copy.downloadAsPdf}
+            title={copy.downloadAsPdf}
             onClick={onDownloadPdf}
-            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
           >
-            {copy.downloadAsPdf}
+            <ActionIcon name="pdf" />
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-11 rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
+            aria-label={copy.cancel}
+            title={copy.cancel}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
           >
-            {copy.cancel}
+            <ActionIcon name="close" />
           </button>
         </div>
       </div>
@@ -346,64 +387,24 @@ function ChecklistExportSheet({ model }: { model: ChecklistExportModel }) {
   );
 }
 
-function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualEntry, onCancel }: ChecklistItemDialogProps) {
+function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: ChecklistItemDialogProps) {
   const titleId = useId();
   const nameId = useId();
   const quantityId = useId();
   const priceId = useId();
-  const nameErrorId = useId();
-  const quantityErrorId = useId();
-  const priceErrorId = useId();
-  const actualPriceId = useId();
-  const actualPriceErrorId = useId();
-  const actualQuantityId = useId();
-  const actualQuantityErrorId = useId();
   const nameRef = useRef<HTMLInputElement>(null);
   const { dialogRef, handleCancel } = useNativeDialog(open, onCancel, nameRef);
+  const original = item?.originalValues;
+  const originalName = original ? ((locale === "ms" ? original.itemNameMs : original.itemNameEn) || original.itemName) : "";
   const [itemName, setItemName] = useState(item ? localizedItemName(item, locale) : "");
-  const [quantity, setQuantity] = useState(item ? String(item.quantity) : "1");
-  const [unitPriceRm, setUnitPriceRm] = useState(
-    item?.unitPriceRm == null ? "" : item.unitPriceRm.toFixed(2),
-  );
+  const [quantity, setQuantity] = useState(item ? String(effectiveChecklistQuantity(item)) : "1");
+  const [unitPriceRm, setUnitPriceRm] = useState(item ? effectiveChecklistUnitPrice(item)?.toFixed(2) ?? "" : "");
   const [errors, setErrors] = useState<ChecklistItemErrors>({});
-  // AC 5.3.1/5.3.4: the actual price/quantity fields only exist for lines
-  // marked Purchased. A blank actual quantity means "use the planned one".
-  const showActualEntry = item != null && item.status === "bought" && onSaveActualEntry != null;
-  const [actualPrice, setActualPrice] = useState(
-    item?.actualPriceRm == null ? "" : item.actualPriceRm.toFixed(2),
-  );
-  const [actualPriceError, setActualPriceError] = useState<string | undefined>(undefined);
-  const [actualQuantity, setActualQuantity] = useState(
-    item?.actualQuantity == null ? "" : String(item.actualQuantity),
-  );
-  const [actualQuantityError, setActualQuantityError] = useState<string | undefined>(undefined);
-
-  const changeActualPrice = (value: string) => {
-    setActualPrice(value);
-    const invalid = value.trim() !== "" && !validateActualUnitPrice(value).success;
-    setActualPriceError(invalid ? copy.itemPriceError : undefined);
-  };
-
-  const changeActualQuantity = (value: string) => {
-    setActualQuantity(value);
-    const invalid = value.trim() !== "" && !validateActualQuantity(value).success;
-    setActualQuantityError(invalid ? copy.itemQuantityError : undefined);
-  };
-
-  const saveActualEntry = () => {
-    const price = validateActualUnitPrice(actualPrice);
-    const qty = validateActualQuantity(actualQuantity);
-    setActualPriceError(price.success ? undefined : copy.itemPriceError);
-    setActualQuantityError(qty.success ? undefined : copy.itemQuantityError);
-    if (!price.success || !qty.success) return;
-    onSaveActualEntry?.({ actualPriceRm: price.value, actualQuantity: qty.value });
-  };
+  const originalPrice = original?.unitPriceRm?.toFixed(2) ?? "";
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const candidate: ManualChecklistItemInput = { itemName, quantity, unitPriceRm };
-    const validation = validateManualChecklistItem(candidate);
-
+    const validation = validateManualChecklistItem({ itemName, quantity, unitPriceRm });
     if (!validation.success) {
       setErrors({
         itemName: validation.errors.itemName ? copy.itemNameRequired : undefined,
@@ -412,193 +413,85 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onSaveActualEnt
       });
       return;
     }
-
     onSave(validation.value);
   };
 
   return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={titleId}
-      onCancel={handleCancel}
-      className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
-    >
+    <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel}
+      className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55">
       <form onSubmit={submit} noValidate className="p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <h2 id={titleId} className="text-xl font-extrabold leading-7">
-            {item ? copy.editChecklistItem : copy.addChecklistItem}
-          </h2>
-          <button
-            type="button"
-            aria-label={copy.close}
-            onClick={onCancel}
-            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-2xl leading-none text-[#53635c] hover:bg-[#f1f5f3]"
-          >
-            <span aria-hidden="true">×</span>
-          </button>
+        <div className="flex items-center justify-between gap-4">
+          <h2 id={titleId} className="text-xl font-extrabold">{item ? copy.editChecklistItem : copy.addChecklistItem}</h2>
+          <IconButton label={copy.close} onClick={onCancel}><ActionIcon name="close" /></IconButton>
         </div>
-
         <div className="mt-5 grid gap-4">
           <div>
-            <label htmlFor={nameId} className="text-sm font-bold text-[#17362c]">
-              {copy.itemName}
-            </label>
-            <input
-              ref={nameRef}
-              id={nameId}
-              type="text"
-              autoComplete="off"
-              value={itemName}
-              aria-invalid={Boolean(errors.itemName)}
-              aria-describedby={errors.itemName ? nameErrorId : undefined}
-              onChange={event => {
-                setItemName(event.target.value);
-                if (errors.itemName) setErrors(current => ({ ...current, itemName: undefined }));
-              }}
-              className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
-            />
-            {errors.itemName && (
-              <p id={nameErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
-                {errors.itemName}
-              </p>
-            )}
+            <label htmlFor={nameId} className="text-sm font-bold">{copy.itemName}</label>
+            <div className="mt-1.5 flex gap-2">
+              <input ref={nameRef} id={nameId} type="text" autoComplete="off" value={itemName}
+                aria-invalid={Boolean(errors.itemName)} aria-describedby={errors.itemName ? nameId + "-error" : undefined}
+                onChange={event => { setItemName(event.target.value); setErrors(current => ({ ...current, itemName: undefined })); }}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#9eb0a7] px-3 text-base aria-[invalid=true]:border-[#ba1a1a]" />
+              {original && <IconButton label={copy.revertItem + ": " + copy.itemName} disabled={itemName === originalName}
+                onClick={() => { setItemName(originalName); setErrors(current => ({ ...current, itemName: undefined })); }}><ActionIcon name="revert" /></IconButton>}
+            </div>
+            {errors.itemName && <p id={nameId + "-error"} role="alert" className="mt-1 text-xs text-[#93000a]">{errors.itemName}</p>}
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor={quantityId} className="text-sm font-bold text-[#17362c]">
-                {copy.itemQuantity}
-              </label>
-              <input
-                id={quantityId}
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step={1}
-                value={quantity}
-                aria-invalid={Boolean(errors.quantity)}
-                aria-describedby={errors.quantity ? quantityErrorId : undefined}
-                onChange={event => {
-                  setQuantity(event.target.value);
-                  if (errors.quantity) setErrors(current => ({ ...current, quantity: undefined }));
-                }}
-                className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
-              />
-              {errors.quantity && (
-                <p id={quantityErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
-                  {errors.quantity}
-                </p>
-              )}
+          <div>
+            <label htmlFor={quantityId} className="text-sm font-bold">{copy.itemQuantity}</label>
+            <div className="mt-1.5 flex gap-2">
+              <input id={quantityId} type="number" inputMode="numeric" min={1} step={1} value={quantity}
+                aria-invalid={Boolean(errors.quantity)} aria-describedby={errors.quantity ? quantityId + "-error" : undefined}
+                onChange={event => { setQuantity(event.target.value); setErrors(current => ({ ...current, quantity: undefined })); }}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#9eb0a7] px-3 text-base aria-[invalid=true]:border-[#ba1a1a]" />
+              {original && <IconButton label={copy.revertItem + ": " + copy.itemQuantity} disabled={quantity === String(original.quantity)}
+                onClick={() => { setQuantity(String(original.quantity)); setErrors(current => ({ ...current, quantity: undefined })); }}><ActionIcon name="revert" /></IconButton>}
             </div>
-
-            <div>
-              <label htmlFor={priceId} className="text-sm font-bold text-[#17362c]">
-                {copy.itemUnitPrice}
-              </label>
-              <input
-                id={priceId}
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                value={unitPriceRm}
-                aria-invalid={Boolean(errors.unitPriceRm)}
-                aria-describedby={errors.unitPriceRm ? priceErrorId : undefined}
-                onChange={event => {
-                  setUnitPriceRm(event.target.value);
-                  if (errors.unitPriceRm) setErrors(current => ({ ...current, unitPriceRm: undefined }));
-                }}
-                className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
-              />
-              {errors.unitPriceRm && (
-                <p id={priceErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
-                  {errors.unitPriceRm}
-                </p>
-              )}
+            {errors.quantity && <p id={quantityId + "-error"} role="alert" className="mt-1 text-xs text-[#93000a]">{errors.quantity}</p>}
+          </div>
+          <div>
+            <label htmlFor={priceId} className="text-sm font-bold">{copy.itemUnitPrice}</label>
+            <div className="mt-1.5 flex gap-2">
+              <input id={priceId} type="number" inputMode="decimal" min="0.01" step="0.01" value={unitPriceRm}
+                aria-invalid={Boolean(errors.unitPriceRm)} aria-describedby={errors.unitPriceRm ? priceId + "-error" : undefined}
+                onChange={event => { setUnitPriceRm(event.target.value); setErrors(current => ({ ...current, unitPriceRm: undefined })); }}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-[#9eb0a7] px-3 text-base aria-[invalid=true]:border-[#ba1a1a]" />
+              {original && <IconButton label={copy.revertItem + ": " + copy.checklistUnitPrice} disabled={unitPriceRm === originalPrice}
+                onClick={() => { setUnitPriceRm(originalPrice); setErrors(current => ({ ...current, unitPriceRm: undefined })); }}><ActionIcon name="revert" /></IconButton>}
             </div>
+            {errors.unitPriceRm && <p id={priceId + "-error"} role="alert" className="mt-1 text-xs text-[#93000a]">{errors.unitPriceRm}</p>}
           </div>
         </div>
-
-        {showActualEntry && (
-          <div className="mt-4 rounded-xl border border-[#dce5e0] bg-[#f8faf9] p-3">
-            <p className="text-[11px] font-semibold text-[#087f5b]">{copy.shopperRecorded}</p>
-            <div className="mt-1.5 grid gap-3 sm:grid-cols-2">
-              <div>
-                <label htmlFor={actualPriceId} className="text-sm font-bold text-[#17362c]">
-                  {copy.actualUnitPrice}
-                </label>
-                <input
-                  id={actualPriceId}
-                  type="number"
-                  inputMode="decimal"
-                  min="0.01"
-                  step="0.01"
-                  value={actualPrice}
-                  aria-invalid={Boolean(actualPriceError)}
-                  aria-describedby={actualPriceError ? actualPriceErrorId : undefined}
-                  onChange={event => changeActualPrice(event.target.value)}
-                  className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
-                />
-                {actualPriceError && (
-                  <p id={actualPriceErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
-                    {actualPriceError}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label htmlFor={actualQuantityId} className="text-sm font-bold text-[#17362c]">
-                  {copy.actualQuantity}
-                </label>
-                <input
-                  id={actualQuantityId}
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  step={1}
-                  placeholder={item ? String(item.quantity) : undefined}
-                  value={actualQuantity}
-                  aria-invalid={Boolean(actualQuantityError)}
-                  aria-describedby={actualQuantityError ? actualQuantityErrorId : undefined}
-                  onChange={event => changeActualQuantity(event.target.value)}
-                  className="mt-1.5 min-h-11 w-full rounded-xl border border-[#9eb0a7] bg-white px-3 text-base text-[#10231d] aria-[invalid=true]:border-[#ba1a1a]"
-                />
-                {actualQuantityError && (
-                  <p id={actualQuantityErrorId} role="alert" className="mt-1.5 text-xs font-semibold text-[#93000a]">
-                    {actualQuantityError}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={saveActualEntry}
-                className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
-              >
-                {copy.saveItem}
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="min-h-11 rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
-          >
-            {copy.cancel}
-          </button>
-          <button
-            type="submit"
-            className="min-h-11 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
-          >
-            {copy.saveItem}
-          </button>
+        <div className="mt-6 flex justify-end gap-2 border-t border-[#e2e9e5] pt-4">
+          <IconButton label={copy.cancel} onClick={onCancel}><ActionIcon name="close" /></IconButton>
+          <IconButton type="submit" label={copy.saveItem} tone="primary"><ActionIcon name="check" /></IconButton>
         </div>
       </form>
     </dialog>
   );
+}
+
+function ActionIcon({ name }: { name: "check" | "close" | "revert" | "bookmark" | "history" | "list" | "trash" | "image" | "pdf" }) {
+  const paths = {
+    check: "m4 10.5 3.6 3.6L16 5.8",
+    close: "m5 5 10 10M15 5 5 15",
+    revert: "M4 4v5h5M4 9a6 6 0 1 1 1 6",
+    bookmark: "M5 3h10v14l-5-3-5 3V3Z",
+    history: "M10 5v5l3 2M3 3v5h5M3 8a7 7 0 1 1 0 5",
+    list: "m3 5 1 1 2-2M9 5h8m-14 6 1 1 2-2M9 11h8M9 17h8",
+    trash: "M4 6h12M7 6V3h6v3M6 6l1 11h6l1-11M9 9v5M11 9v5",
+    image: "M3 3h14v14H3V3Zm0 11 4-4 4 4 3-3 3 3M12 6h1",
+    pdf: "M5 2h7l4 4v12H5V2Zm7 0v5h4M8 11h5M8 14h5",
+  };
+  return <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0"><path d={paths[name]} stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function IconButton({ label, children, tone = "default", className = "", ...props }: ButtonHTMLAttributes<HTMLButtonElement> & {
+  label: string; children: ReactNode; tone?: "default" | "primary" | "danger";
+}) {
+  return <button type="button" aria-label={label} title={label} {...props}
+    className={"inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087f5b] disabled:cursor-not-allowed disabled:opacity-35 " +
+      (tone === "primary" ? "border-[#087f5b] bg-[#087f5b] text-white hover:bg-[#066c4d] " : tone === "danger" ? "border-[#e4d5d5] text-[#ba1a1a] hover:bg-[#fff2f2] " : "border-[#dce5e0] text-[#53635c] hover:bg-[#edf7f2] ") + className}>{children}</button>;
 }
 
 function CheckIcon() {
@@ -611,7 +504,7 @@ function CheckIcon() {
 
 function TrashIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0">
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0">
       <path d="M4.5 6.5h11M8 3.5h4l1 3H7l1-3ZM6 6.5l.7 10h6.6l.7-10M8.5 9v4.5M11.5 9v4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -619,7 +512,7 @@ function TrashIcon() {
 
 function PencilIcon() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-4 w-4 shrink-0">
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0">
       <path d="m12.8 4.2 3 3M4 16l.8-3.8L13.7 3.3a1.4 1.4 0 0 1 2 0l1 1a1.4 1.4 0 0 1 0 2l-8.9 8.9L4 16Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -654,137 +547,123 @@ function formatChecklistDate(value: string, locale: "en" | "ms") {
   }).format(date);
 }
 
-function ChecklistRow({
-  item,
-  locale,
-  copy,
-  onToggleBought,
-  onToggleNotBought,
-  onEdit,
-  onDelete,
-}: {
-  item: ChecklistItem;
-  locale: "en" | "ms";
-  copy: ShoppingChecklistCopy;
-  onToggleBought: () => void;
-  onToggleNotBought: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
+function ChecklistRow({ item, locale, copy, saved, onToggleBought, onToggleNotBought, onEdit, onRevert, onDelete }: {
+  item: ChecklistItem; locale: "en" | "ms"; copy: ShoppingChecklistCopy; saved: boolean;
+  onToggleBought: () => void; onToggleNotBought: () => void; onEdit: () => void; onRevert: () => void; onDelete: () => void;
 }) {
   const name = localizedItemName(item, locale);
   const bought = item.status === "bought";
-  const notBought = item.status === "not_bought";
-  // AC 5.3.2/5.3.3: the shopper-recorded price and its line total render
-  // alongside (never instead of) the official/reference price; a cleared
-  // price renders nothing — never RM0.00.
-  const actualPrice = item.actualPriceRm;
-  const actualTotal = actualLineTotalRm(item);
-  // AC 5.3.4: spending quantity is the recorded actual one when present;
-  // the row always says whether planned or actual quantity was used.
-  const effectiveQuantity = item.actualQuantity ?? item.quantity;
-  const quantitySourceLabel = item.quantitySource === "actual"
-    ? copy.quantitySourceActual
-    : copy.quantitySourcePlanned;
-  const rowTone = bought
-    ? "bg-[#f5fbf8] hover:bg-[#eff8f3]"
-    : "bg-white hover:bg-[#f8faf9]";
-  const strikeThrough = bought ? "line-through decoration-2 decoration-[#087f5b]" : "";
+  const total = effectiveChecklistLineTotal(item);
+  const quantity = effectiveChecklistQuantity(item);
+  const original = item.originalValues;
+  const edited = original != null && (item.itemName !== original.itemName || quantity !== original.quantity || effectiveChecklistUnitPrice(item) !== original.unitPriceRm);
+  const estimated = item.actualPriceRm == null && item.priceSource !== "manual";
 
   return (
-    <li className={`flex min-h-12 items-center gap-1.5 border-b border-[#e2e9e5] px-3 py-1 transition-colors last:border-b-0 sm:px-4 ${rowTone}`}>
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={bought}
-        aria-label={bought ? copy.clearItemStatus(name) : copy.markBought(name)}
-        onClick={onToggleBought}
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg hover:bg-[#edf7f2] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#087f5b]"
-      >
-        <span className={`flex h-5 w-5 items-center justify-center rounded-[4px] border ${bought ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#9bc9b6] bg-white text-transparent"}`}>
+    <li className={"grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-start gap-x-2 border-b border-[#e2e9e5] px-3 py-3 transition-colors last:border-b-0 sm:px-4 " + (bought ? "bg-[#eaf7ef]" : "bg-white")}>
+      <label className="relative row-span-2 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[#087f5b]">
+        <input type="checkbox" checked={bought} onChange={onToggleBought}
+          aria-label={bought ? copy.markNotBought(name) : copy.markBought(name)}
+          className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0" />
+        <span aria-hidden="true" className={"pointer-events-none flex h-6 w-6 items-center justify-center rounded-md border-2 " + (bought ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#91ab9e] bg-white")}>
           {bought && <CheckIcon />}
         </span>
-      </button>
-
-      <div className={`flex min-w-0 flex-1 items-center justify-between gap-2 whitespace-nowrap ${strikeThrough}`}>
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[14px] font-bold leading-5 text-[#17362c]" title={name}>
-            {name}
-          </h3>
-          {item.packageSize && (
-            <p className="mt-0.5 truncate text-[11px] text-[#718078]">{item.packageSize}</p>
-          )}
-          {notBought && (
-            <p className="mt-0.5 text-[11px] font-semibold text-[#8a5a00]">{copy.notBought}</p>
-          )}
-        </div>
-        <div className={`${actualPrice != null || item.actualQuantity != null ? "w-40" : "w-28"} shrink-0 text-right`}>
-          <p className="flex items-center justify-end gap-1 text-[14px] font-extrabold tabular-nums text-[#17362c]">
-            {item.priceSource === "median" && item.lineTotalRm != null && (
-              <>
-                <span aria-hidden="true" className="text-[#7a5b00]">≈</span>
-                <span className="sr-only">{copy.checklistPriceEstimate}</span>
-              </>
-            )}
-            {item.lineTotalRm == null
-              ? <span className="text-xs font-semibold text-[#5f6368]"><span aria-hidden="true">—</span><span className="sr-only">{copy.checklistPriceUnavailable}</span></span>
-              : formatRm(item.lineTotalRm)}
-          </p>
-          <p className="text-[11px] tabular-nums text-[#718078]">
-            <span className="sr-only">{copy.checklistQuantity}: </span>
-            {item.quantity} × <span className="sr-only">{copy.checklistUnitPrice}: </span>
-            {item.unitPriceRm == null ? "—" : formatRm(item.unitPriceRm)}
-          </p>
-          {item.actualQuantity != null && (
-            <p className="mt-0.5 whitespace-normal text-[11px] font-semibold tabular-nums text-[#087f5b]">
-              {copy.actualQuantity}: {item.actualQuantity} ({quantitySourceLabel})
-            </p>
-          )}
-          {actualPrice != null && actualTotal != null && (
-            <p className="mt-0.5 whitespace-normal text-[11px] tabular-nums text-[#087f5b]">
-              <span className="sr-only">{copy.actualUnitPrice}: </span>
-              {formatRm(actualPrice)} × {effectiveQuantity} ({quantitySourceLabel})
-              {" = "}<span className="font-bold">{formatRm(actualTotal)}</span>
-              {" · "}{copy.shopperRecorded}
-            </p>
-          )}
-          <div className="mt-1 flex flex-wrap items-center justify-end gap-1">
-            <button
-              type="button"
-              aria-pressed={notBought}
-              aria-label={notBought ? copy.clearItemStatus(name) : copy.markNotBought(name)}
-              onClick={onToggleNotBought}
-              className={`min-h-7 rounded-full border px-2 text-[10px] font-bold ${
-                notBought
-                  ? "border-[#8a5a00] bg-[#fdf3e0] text-[#8a5a00]"
-                  : "border-[#c4d2ca] text-[#53635c] hover:bg-[#f1f5f3]"
-              }`}
-            >
-              {copy.notBought}
-            </button>
-          </div>
-          <div className="mt-0.5 flex items-center justify-end gap-0.5">
-            <button
-              type="button"
-              aria-label={`${copy.editChecklistItem}: ${name}`}
-              title={copy.editChecklistItem}
-              onClick={onEdit}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-[#087f5b] hover:bg-[#e1f2e9] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#087f5b]"
-            >
-              <PencilIcon />
-            </button>
-            <button
-              type="button"
-              aria-label={`${copy.deleteItem}: ${name}`}
-              title={copy.deleteItem}
-              onClick={onDelete}
-              className="flex h-7 w-7 items-center justify-center rounded-md text-[#718078] hover:bg-[#fff2f2] hover:text-[#ba1a1a] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#ba1a1a]"
-            >
-              <TrashIcon />
-            </button>
-          </div>
+      </label>
+      <div className="min-w-0 pt-1">
+        <h3 className="break-words text-sm font-bold leading-5 text-[#17362c]">{name}</h3>
+        {item.packageSize && <p className="mt-0.5 text-xs text-[#617069]">{item.packageSize}</p>}
+      </div>
+      <div className="pt-1 text-right tabular-nums">
+        <p className="text-sm font-extrabold text-[#17362c]">
+          {total == null ? <span className="text-xs font-medium text-[#617069]">{copy.checklistPriceUnavailable}</span> : <>{estimated && <span title={copy.checklistPriceEstimate} aria-label={copy.checklistPriceEstimate}>≈ </span>}{formatRm(total)}</>}
+        </p>
+        <p className="mt-0.5 text-xs text-[#617069]">{copy.checklistQuantity}: {quantity}</p>
+      </div>
+      <div className="col-span-2 col-start-2 mt-2 flex flex-wrap items-center justify-between gap-2">
+        <span className="text-xs font-semibold text-[#537060]">{saved ? copy.savedForNextTrip : bought ? copy.bought : item.status === "not_bought" ? copy.notBought : ""}</span>
+        <div className="ml-auto flex gap-1">
+          {!bought && <IconButton label={saved ? copy.removeFromNextTrip + ": " + name : copy.saveForNextTrip + ": " + name}
+            aria-pressed={saved} onClick={onToggleNotBought} className={saved ? "border-[#c4aa70] bg-[#fff6e4] text-[#805b19]" : ""}><ActionIcon name="bookmark" /></IconButton>}
+          <IconButton label={copy.editChecklistItem + ": " + name} onClick={onEdit}><PencilIcon /></IconButton>
+          <IconButton label={copy.revertItem + ": " + name} disabled={!edited} onClick={onRevert}><ActionIcon name="revert" /></IconButton>
+          <IconButton label={copy.deleteItem + ": " + name} onClick={onDelete}><TrashIcon /></IconButton>
         </div>
       </div>
     </li>
+  );
+}
+
+export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }: {
+  items: NextTripItem[]; locale: "en" | "ms"; copy: ShoppingChecklistCopy;
+  onUse?: () => void; onRestore?: (item: NextTripItem) => void | Promise<void>; onRemove: (id: string) => void;
+}) {
+  const headingId = useId();
+  const [restoringItemId, setRestoringItemId] = useState<string | null>(null);
+
+  const restoreItem = async (item: NextTripItem) => {
+    if (!onRestore) return;
+    setRestoringItemId(item.id);
+    try {
+      await onRestore(item);
+    } finally {
+      setRestoringItemId(null);
+    }
+  };
+
+  return <section aria-labelledby={headingId} className="rounded-2xl border border-[#ded9cc] bg-[#fffcf5] p-4">
+    <div className="flex items-center justify-between gap-3">
+      <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#17362c]"><ActionIcon name="bookmark" />{copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
+      {onUse && items.length > 0 && <IconButton label={copy.useSavedItems} onClick={onUse}><ActionIcon name="list" /></IconButton>}
+    </div>
+    <p className="mt-2 text-xs leading-5 text-[#617069]">{items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
+    {items.length > 0 && <ul className="mt-3 divide-y divide-[#e8e2d5]">
+      {items.map(item => {
+        const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
+        return <li key={item.id} className="flex items-center gap-2 py-2">
+          <div className="min-w-0 flex-1"><p className="break-words text-sm font-bold text-[#17362c]">{name}</p><p className="text-xs text-[#617069]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p></div>
+          {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
+          <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="close" /></IconButton>
+        </li>;
+      })}
+    </ul>}
+  </section>;
+}
+
+export function EmptyChecklistScreen({
+  locale,
+  copy,
+  savedItems,
+  onUseSavedItems,
+  onRemoveSavedItem,
+  onStartOrResume,
+}: EmptyChecklistScreenProps) {
+  return (
+    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
+      <div className="mx-auto flex max-w-[760px] flex-col gap-4">
+        <section className="rounded-2xl border border-[#dce5e0] bg-white p-5 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-6">
+          <p className="text-sm font-bold text-[#087f5b]">{copy.checklistTitle}</p>
+          <h1 className="mt-1 text-[28px] font-extrabold leading-9 text-[#10231d]">{copy.noActiveChecklist}</h1>
+          <p className="mt-2 text-sm leading-6 text-[#53635c]">{copy.noActiveChecklistHint}</p>
+          <button
+            type="button"
+            onClick={onStartOrResume}
+            className="mt-5 min-h-12 w-full rounded-xl bg-[#087f5b] px-5 text-sm font-extrabold text-white hover:bg-[#066c4d]"
+          >
+            {copy.startOrResumeShoppingTrip}
+          </button>
+        </section>
+        <section aria-labelledby="next-trip-checklist-heading">
+          <h2 id="next-trip-checklist-heading" className="sr-only">{copy.nextTripChecklistTitle}</h2>
+          <NextTripList
+            items={savedItems}
+            locale={locale}
+            copy={copy}
+            onUse={savedItems.length > 0 ? onUseSavedItems : undefined}
+            onRemove={onRemoveSavedItem}
+          />
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -795,8 +674,10 @@ export function ShoppingChecklistScreen({
   onToggleStatus,
   onAddManual,
   onEditItem,
-  onSetActualPrice,
-  onSetActualQuantity,
+  onRevertItem,
+  savedItems,
+  onRestoreSavedItem,
+  onRemoveSavedItem,
   onDeleteItem,
   onDeleteChecklist,
   alreadyRecorded,
@@ -813,13 +694,10 @@ export function ShoppingChecklistScreen({
   const progress = checklistProgress(checklist);
   // AC 5.7.1: an empty checklist disables the export action and explains why.
   const isEmpty = checklist.items.length === 0;
-  // Prefer the snapshot's persisted planned subtotal (AC 5.1.1); fall back to
-  // live derivation for legacy payloads migrated without it.
-  const subtotal = checklist.plannedSubtotalRm ?? plannedChecklistSubtotal(checklist);
-  const unavailableCount = checklist.items.filter(item => item.lineTotalRm == null).length;
-  const containsEstimate = checklist.items.some(
-    item => item.priceSource === "median" && item.lineTotalRm != null,
-  );
+  const totals = checklist.items.map(effectiveChecklistLineTotal).filter((value): value is number => value != null);
+  const subtotal = totals.length ? totals.reduce((sum, value) => sum + value, 0) : null;
+  const unavailableCount = checklist.items.length - totals.length;
+  const containsEstimate = checklist.items.some(item => item.actualPriceRm == null && item.priceSource !== "manual" && item.unitPriceRm != null);
 
   const closeManualDialog = () => setManualDialog({ open: false, item: null });
 
@@ -869,17 +747,14 @@ export function ShoppingChecklistScreen({
 
   const saveManualItem = (input: ManualChecklistItemInput) => {
     if (manualDialog.item) {
-      onEditItem(manualDialog.item.id, input);
+      const item = manualDialog.item;
+      const original = item.originalValues;
+      const originalName = original && ((locale === "ms" ? original.itemNameMs : original.itemNameEn) || original.itemName);
+      onEditItem(item.id, { ...input, itemName: input.itemName === localizedItemName(item, locale)
+        ? item.itemName : original && input.itemName === originalName ? original.itemName : input.itemName });
     } else {
       onAddManual(input);
     }
-    closeManualDialog();
-  };
-
-  const saveActualEntry = (entry: { actualPriceRm: number | null; actualQuantity: number | null }) => {
-    if (!manualDialog.item) return;
-    onSetActualPrice(manualDialog.item.id, entry.actualPriceRm);
-    onSetActualQuantity(manualDialog.item.id, entry.actualQuantity);
     closeManualDialog();
   };
 
@@ -887,18 +762,16 @@ export function ShoppingChecklistScreen({
     <div className="screen-enter pb-10">
       <div className="flex flex-col gap-3 px-4 pb-6 pt-3 sm:gap-4 sm:px-6 sm:pt-5">
         <section className="rounded-2xl border border-[#dce5e0] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
-          <p className="text-sm font-bold text-[#087f5b]">{copy.checklistTitle}</p>
+          <p className="text-xs font-semibold text-[#617069]">{checklist.store.name}</p>
           <h1 className="mt-1 break-words text-[26px] font-extrabold leading-8 tracking-[-0.5px] text-[#10231d] sm:text-[30px] sm:leading-9">
-            {checklist.store.name}
+            {copy.checklistTitle}
           </h1>
           <p className="mt-1 text-xs text-[#718078]">
             {copy.checklistCreated(formatChecklistDate(checklist.createdAt, locale))}
           </p>
-          {checklist.store.address && (
-            <p className="mt-2 text-xs leading-5 text-[#617069]">{checklist.store.address}</p>
-          )}
+          <p className="mt-3 text-sm leading-6 text-[#53635c]">{copy.checklistHint}</p>
 
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-[#edf7f2] p-3">
               <p className="text-xs font-bold uppercase tracking-[0.05em] text-[#286d67]">
                 {copy.checklistProgress(progress.bought, progress.total)}
@@ -910,7 +783,7 @@ export function ShoppingChecklistScreen({
                 role="progressbar"
                 aria-label={copy.checklistProgress(progress.bought, progress.total)}
                 aria-valuemin={0}
-                aria-valuemax={progress.total}
+                aria-valuemax={Math.max(1, progress.total)}
                 aria-valuenow={progress.bought}
                 className="mt-3 h-2 overflow-hidden rounded-full bg-[#cce3d9]"
               >
@@ -923,7 +796,7 @@ export function ShoppingChecklistScreen({
 
             <div className="rounded-xl bg-[#f3f4f5] p-3">
               <p className="text-xs font-bold uppercase tracking-[0.05em] text-[#53635c]">
-                {containsEstimate ? copy.estimatedPlannedSubtotal : copy.plannedSubtotal}
+                {containsEstimate ? copy.checklistEstimatedTotal : copy.checklistTotal}
               </p>
               <p className="mt-1 text-2xl font-extrabold text-[#17362c]">
                 {subtotal == null ? "—" : formatRm(subtotal)}
@@ -943,13 +816,7 @@ export function ShoppingChecklistScreen({
               <h2 id="checklist-items-heading" className="text-[20px] font-extrabold leading-7 text-[#10231d]">
                 {copy.checklistItems}
               </h2>
-              <button
-                type="button"
-                onClick={() => setManualDialog({ open: true, item: null })}
-                className="flex min-h-9 shrink-0 items-center justify-center gap-1 rounded-lg bg-[#087f5b] px-2.5 text-xs font-bold text-white hover:bg-[#066c4d] sm:px-3 sm:text-sm"
-              >
-                <AddIcon /> {copy.addChecklistItem}
-              </button>
+              <IconButton label={copy.addChecklistItem} tone="primary" onClick={() => setManualDialog({ open: true, item: null })}><AddIcon /></IconButton>
             </div>
             {checklist.items.length > 0 ? (
               <ul>
@@ -959,6 +826,8 @@ export function ShoppingChecklistScreen({
                     item={item}
                     locale={locale}
                     copy={copy}
+                    saved={savedItems.some(saved => saved.id === nextTripItemId(item))}
+                    onRevert={() => onRevertItem(item.id)}
                     onToggleBought={() => onToggleStatus(item.id, "bought")}
                     onToggleNotBought={() => onToggleStatus(item.id, "not_bought")}
                     onEdit={() => setManualDialog({ open: true, item })}
@@ -974,35 +843,33 @@ export function ShoppingChecklistScreen({
           </div>
         </section>
 
-        <button
-          type="button"
-          onClick={() => setRecordTripOpen(true)}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
-        >
-          <CheckIcon /> {copy.recordTrip}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setExportOpen(true)}
-          disabled={isEmpty}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891] disabled:hover:bg-white"
-        >
-          <DownloadIcon /> {copy.exportChecklist}
-        </button>
-        {isEmpty && (
-          <p className="-mt-1 text-center text-xs text-[#617069]">
-            {copy.exportChecklistEmpty}
-          </p>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setDeleteChecklistOpen(true)}
-          className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#ba1a1a] hover:bg-[#fff2f2]"
-        >
-          <TrashIcon /> {copy.deleteChecklist}
-        </button>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            disabled={isEmpty}
+            onClick={() => setRecordTripOpen(true)}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white hover:bg-[#066c4d] disabled:cursor-not-allowed disabled:bg-[#a8bbb1]"
+          >
+            <ActionIcon name="history" />
+            {copy.recordTrip}
+          </button>
+          <button
+            type="button"
+            disabled={isEmpty}
+            onClick={() => setExportOpen(true)}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891]"
+          >
+            <DownloadIcon /> {copy.exportChecklist}
+          </button>
+          <button
+            type="button"
+            onClick={() => setDeleteChecklistOpen(true)}
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#ba1a1a] hover:bg-[#fff2f2]"
+          >
+            <TrashIcon /> {copy.deleteChecklist}
+          </button>
+        </div>
+        <NextTripList items={savedItems} locale={locale} copy={copy} onRestore={onRestoreSavedItem} onRemove={onRemoveSavedItem} />
       </div>
 
       {manualDialog.open && (
@@ -1013,12 +880,12 @@ export function ShoppingChecklistScreen({
           locale={locale}
           copy={copy}
           onSave={saveManualItem}
-          onSaveActualEntry={manualDialog.item?.status === "bought" ? saveActualEntry : undefined}
           onCancel={closeManualDialog}
         />
       )}
 
       <ConfirmationDialog
+        iconOnly
         open={itemPendingDelete != null}
         title={copy.deleteItem}
         body={itemPendingDelete ? copy.deleteItemConfirm(localizedItemName(itemPendingDelete, locale)) : ""}
@@ -1046,6 +913,7 @@ export function ShoppingChecklistScreen({
       />
 
       <ConfirmationDialog
+        iconOnly
         open={deleteChecklistOpen}
         title={copy.deleteChecklist}
         body={copy.deleteChecklistConfirm}
