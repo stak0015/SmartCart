@@ -65,7 +65,7 @@ export function EstimatedSavingsSummary({
   return (
     <section
       aria-labelledby="estimated-savings-title"
-      className="rounded-2xl border border-[#bddfce] bg-[#f0faf5] p-4 sm:p-5"
+      className="rounded-[22px] border border-[#bddfce] bg-[linear-gradient(135deg,#f3fbf7,#eaf7f1)] p-4 sm:p-5"
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
