@@ -36,7 +36,7 @@ function TravelSavingsRow({ insight, copy }: { insight: TravelSavingsInsight; co
   if (!insight.available || insight.savingsRm == null || !insight.cheaperStoreName) return null;
 
   return (
-    <li className="flex flex-col gap-1 rounded-xl border border-[#d9e1dd] bg-white p-3">
+    <li className="flex flex-col gap-1 rounded-2xl border border-[#d9e1dd] bg-white p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-bold text-[#10231d]">{copy.travelSavingsLabel}</p>
         <KindBadge kind={insight.kind} copy={copy} />
@@ -63,7 +63,7 @@ function PriceSavingsRow({ insight, copy }: { insight: PriceSavingsInsight; copy
   if (!insight.available || insight.savingsRm == null || !insight.cheaperStoreName) return null;
 
   return (
-    <li className="flex flex-col gap-1 rounded-xl border border-[#d9e1dd] bg-white p-3">
+    <li className="flex flex-col gap-1 rounded-2xl border border-[#d9e1dd] bg-white p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-bold text-[#10231d]">{copy.potentialPriceSavingsLabel}</p>
         <KindBadge kind={insight.kind} copy={copy} />
@@ -94,7 +94,7 @@ function PriceSavingsRow({ insight, copy }: { insight: PriceSavingsInsight; copy
 export function SavingsInsightsSummary({ insights, copy }: SavingsInsightsSummaryProps) {
   return (
     <section
-      className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5"
+      className="flex flex-col gap-3 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_8px_26px_rgba(16,35,29,0.06)] sm:p-5"
       aria-label={copy.savingsInsightsTitle}
     >
       <h2 className="text-[18px] font-extrabold leading-6 text-[#10231d]">
