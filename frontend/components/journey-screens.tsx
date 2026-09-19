@@ -244,7 +244,7 @@ function HomeCard({
     <button
       type="button"
       onClick={onClick}
-      className="group flex min-h-[150px] flex-col items-start rounded-2xl border border-[#dce5e0] bg-white p-5 text-left shadow-[0_4px_18px_rgba(16,35,29,0.05)] transition hover:-translate-y-0.5 hover:border-[#a9cdbd] focus-visible:-translate-y-0.5"
+      className="group flex min-h-[168px] flex-col items-start rounded-[22px] border border-[#dce5e0] bg-white p-5 text-left shadow-[0_8px_24px_rgba(16,35,29,0.055)] transition hover:-translate-y-1 hover:border-[#a9cdbd] hover:shadow-[0_16px_34px_rgba(16,35,29,0.09)] focus-visible:-translate-y-0.5"
     >
       <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-[#edf7f2] text-[#087f5b]">
         <Icon kind={icon} />
@@ -285,12 +285,12 @@ export function SmartCartHomeScreen({
   const progress = checklist ? checklistProgress(checklist) : null;
 
   return (
-    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
-      <div className="mx-auto max-w-[760px]">
-        <h1 className="text-[34px] font-extrabold leading-[40px] tracking-[-0.9px] text-[#10231d] sm:text-[42px] sm:leading-[48px]">{text.title}</h1>
-        <p className="mt-2 max-w-[620px] text-sm leading-5 text-[#53635c]">{text.description}</p>
+    <div className="screen-enter px-4 pb-14 pt-8 sm:px-6 sm:pt-12">
+      <div className="mx-auto max-w-[1120px]">
+        <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.16em] text-[#087f5b]">{text.eyebrow}</p>\n        <h1 className="max-w-[720px] text-[38px] font-extrabold leading-[44px] tracking-[-1.2px] text-[#10231d] sm:text-[52px] sm:leading-[58px]">{text.title}</h1>
+        <p className="mt-3 max-w-[650px] text-base leading-7 text-[#53635c]">{text.description}</p>
 
-        <section className="mt-7 rounded-3xl bg-[#087f5b] p-5 text-white shadow-[0_12px_32px_rgba(8,127,91,0.22)] sm:p-7">
+        <section className="relative mt-8 overflow-hidden rounded-[28px] border border-[#0a7759] bg-[linear-gradient(135deg,#075f48_0%,#087f5b_58%,#11906a_100%)] p-6 text-white shadow-[0_24px_55px_rgba(8,96,72,0.22)] sm:p-8">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon kind="trip" /></span>
           <h2 className="mt-5 text-2xl font-extrabold">{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2>
           <p className="mt-1 text-sm text-[#d3f0e4]">{hasTripInProgress
@@ -308,7 +308,7 @@ export function SmartCartHomeScreen({
           </div>
         </section>
 
-        <section className="mt-4 grid gap-3 sm:grid-cols-3" aria-label="SmartCart tools">
+        <section className="mt-5 grid gap-4 sm:grid-cols-3" aria-label="SmartCart tools">
           <HomeCard
             icon="checklist"
             title={text.checklist}
