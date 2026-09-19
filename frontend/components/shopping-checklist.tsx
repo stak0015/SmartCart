@@ -220,7 +220,7 @@ export function ConfirmationDialog({
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={handleCancel}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-[22px] border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
     >
       <div className="p-5 sm:p-6">
         <h2 id={titleId} className="text-xl font-extrabold leading-7">
@@ -288,7 +288,7 @@ function ExportChecklistDialog({
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={handleCancel}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-[22px] border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
     >
       <div className="p-5 sm:p-6">
         <h2 id={titleId} className="text-xl font-extrabold leading-7">
@@ -418,7 +418,7 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
 
   return (
     <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel}
-      className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55">
+      className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-[22px] border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55">
       <form onSubmit={submit} noValidate className="p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 id={titleId} className="text-xl font-extrabold">{item ? copy.editChecklistItem : copy.addChecklistItem}</h2>
@@ -640,7 +640,7 @@ export function EmptyChecklistScreen({
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
       <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-        <section className="rounded-2xl border border-[#dce5e0] bg-white p-5 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-6">
+        <section className="rounded-[22px] border border-[#dce5e0] bg-white p-5 shadow-[0_8px_26px_rgba(16,35,29,0.06)] sm:p-6">
           <p className="text-sm font-bold text-[#087f5b]">{copy.checklistTitle}</p>
           <h1 className="mt-1 text-[28px] font-extrabold leading-9 text-[#10231d]">{copy.noActiveChecklist}</h1>
           <p className="mt-2 text-sm leading-6 text-[#53635c]">{copy.noActiveChecklistHint}</p>
@@ -761,7 +761,7 @@ export function ShoppingChecklistScreen({
   return (
     <div className="screen-enter pb-10">
       <div className="flex flex-col gap-3 px-4 pb-6 pt-3 sm:gap-4 sm:px-6 sm:pt-5">
-        <section className="rounded-2xl border border-[#dce5e0] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
+        <section className="rounded-[22px] border border-[#dce5e0] bg-white p-3 shadow-[0_8px_26px_rgba(16,35,29,0.06)] sm:p-4">
           <p className="text-xs font-semibold text-[#617069]">{checklist.store.name}</p>
           <h1 className="mt-1 break-words text-[26px] font-extrabold leading-8 tracking-[-0.5px] text-[#10231d] sm:text-[30px] sm:leading-9">
             {copy.checklistTitle}
