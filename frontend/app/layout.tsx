@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SmartCart",
+  title: "SmartCart — Smarter grocery planning",
   description: "Plan an affordable household basket by comparing item prices, travel time, and return transport costs.",
 };
 
