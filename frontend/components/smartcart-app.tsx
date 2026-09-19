@@ -522,8 +522,8 @@ function Header({
   copy: AppCopy;
 }) {
   return (
-    <header className="fixed inset-x-0 top-0 z-50 border-b border-[#e7ece9] bg-white/95 backdrop-blur">
-      <div className="mx-auto grid h-16 w-full max-w-[760px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-[#dfe8e3] bg-white/90 shadow-[0_4px_18px_rgba(16,35,29,0.035)] backdrop-blur-xl">
+      <div className="mx-auto grid h-[72px] w-full max-w-[1180px] grid-cols-[1fr_auto_1fr] items-center px-4 sm:px-6 lg:px-8">
         {onBack ? (
           <button type="button" onClick={onBack} className="flex min-h-11 items-center gap-2 justify-self-start text-sm font-bold text-[#087f5b]">
             <IcoArrowBack /> {copy.back}
@@ -531,13 +531,13 @@ function Header({
         ) : <span aria-hidden="true" />}
 
         <button type="button" onClick={onHome} aria-label="SmartCart home" className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-lg font-extrabold tracking-[-0.4px] text-[#10231d] transition-colors hover:bg-[#e5f5ed] focus-visible:bg-[#e5f5ed]">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#087f5b] text-white">
+          <span className="flex h-10 w-10 items-center justify-center rounded-[14px] bg-[#087f5b] text-white shadow-[0_7px_16px_rgba(8,127,91,0.22)]">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5">
               <path d="M4.5 9.5h15l-1.15 9.2a2 2 0 0 1-1.98 1.75H7.63a2 2 0 0 1-1.98-1.75L4.5 9.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
               <path d="M8 9.5 10 5m6 4.5L14 5M3.5 9.5h17M9 14h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </span>
-          <span className="hidden sm:inline">SmartCart</span>
+          <span className="hidden font-[Manrope] sm:inline">SmartCart</span>
         </button>
 
         <div className="flex items-center gap-2 justify-self-end">
@@ -943,7 +943,7 @@ function BasketScreen({
       </div>
 
       {/* Search —— now calls the real backend API (Step 6) */}
-      <div className="sticky top-16 z-30 bg-[#f7f8f6]/95 px-4 pb-3 pt-2 backdrop-blur sm:px-6">
+      <div className="sticky top-[72px] z-30 bg-[#f7f8f6]/95 px-4 pb-3 pt-2 backdrop-blur sm:px-6">
         <div className="relative h-14">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
             <IcoSearch />
@@ -965,7 +965,7 @@ function BasketScreen({
       </div>
 
       {/* Multi-select category filter */}
-      <div className="sticky top-[8.75rem] z-[60] bg-[#f7f8f6]/95 px-4 pb-6 pt-1 backdrop-blur sm:px-6">
+      <div className="sticky top-[9.25rem] z-[60] bg-[#f7f8f6]/95 px-4 pb-6 pt-1 backdrop-blur sm:px-6">
         <button
           type="button"
           aria-expanded={categoryOpen}
