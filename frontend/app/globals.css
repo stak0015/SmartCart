@@ -1,110 +1,80 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap");
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
+:root {
+  --sc-bg: #f4f7f5;
+  --sc-surface: #ffffff;
+  --sc-ink: #13251f;
+  --sc-muted: #617069;
+  --sc-brand: #087f5b;
+  --sc-brand-dark: #056b4c;
+  --sc-brand-soft: #e9f6f0;
+  --sc-line: #dce5e0;
+  --sc-shadow: 0 10px 30px rgba(20, 48, 38, .07);
+  --sc-shadow-lg: 0 22px 60px rgba(20, 48, 38, .12);
 }
 
-html,
-body {
-  min-height: 100%;
-  margin: 0;
-}
-
+* { box-sizing: border-box; }
+html, body { min-height: 100%; margin: 0; }
 html {
-  background: #f7f8f6;
+  background: var(--sc-bg);
   color-scheme: light;
-  scroll-padding-top: 88px;
+  scroll-padding-top: 92px;
   scrollbar-gutter: stable;
 }
-
 body {
   overflow-x: hidden;
-  background: #f7f8f6;
-  color: #10231d;
-  font-family: Inter, Arial, sans-serif;
+  background:
+    radial-gradient(circle at 15% -10%, rgba(8,127,91,.09), transparent 28rem),
+    linear-gradient(180deg, #f8faf9 0, var(--sc-bg) 36rem);
+  color: var(--sc-ink);
+  font-family: "DM Sans", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
+h1,h2,h3,h4 { font-family: "Manrope","DM Sans",Arial,sans-serif; letter-spacing: -.025em; }
+button,input,select { font: inherit; }
+button { cursor:pointer; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
+button:active { transform:translateY(1px); }
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible {
+  outline:3px solid #ffbf47; outline-offset:2px;
+}
+::selection { background:#bde8d6; color:#0d3427; }
 
-button,
-input,
-select {
-  font: inherit;
+.scroll-x { overflow-x:auto; scrollbar-width:none; }
+.scroll-x::-webkit-scrollbar { display:none; }
+.screen-enter { animation:fade-in 180ms ease; }
+
+/* Product-wide polish for legacy screen markup */
+.screen-enter > :where(div,section) { position:relative; }
+.screen-enter article,
+.screen-enter section[class*="border"][class*="bg-white"],
+.screen-enter li[class*="border"][class*="bg-white"] {
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+.screen-enter article:hover,
+.screen-enter li[class*="border"][class*="bg-white"]:hover {
+  border-color:#c7d8d0;
+  box-shadow:0 10px 28px rgba(20,48,38,.07);
+}
+input,select { transition:border-color 150ms ease,box-shadow 150ms ease,background 150ms ease; }
+input:focus,select:focus { box-shadow:0 0 0 4px rgba(8,127,91,.09); }
+dialog { animation:dialog-in 160ms ease-out; }
+
+@keyframes fade-in { from{opacity:0;transform:translateY(7px)} to{opacity:1;transform:none} }
+@keyframes dialog-in { from{opacity:0;transform:translateY(8px) scale(.985)} to{opacity:1;transform:none} }
+
+@media (min-width: 1024px) {
+  body { background-attachment:fixed; }
 }
 
-button {
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+@media (prefers-reduced-motion:reduce) {
+  *,*::before,*::after { scroll-behavior:auto!important; animation-duration:.01ms!important; animation-iteration-count:1!important; }
+  button:active { transform:none; }
 }
 
-button:active {
-  transform: translateY(1px);
-}
-
-button:focus-visible,
-input:focus-visible,
-select:focus-visible {
-  outline: 3px solid #ffbf47;
-  outline-offset: 2px;
-}
-
-.scroll-x {
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.scroll-x::-webkit-scrollbar {
-  display: none;
-}
-
-.screen-enter {
-  animation: fade-in 150ms ease;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-  }
-
-  button:active {
-    transform: none;
-  }
-}
-
-/* AC 5.7.4: the export sheet is portalled to <body> and stays off-screen on
-   display; in print output every other top-level element is removed from
-   layout so the PDF contains just the checklist — no blank pages, no
-   navigation, buttons, or dialogs. */
-.checklist-export-sheet {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-}
-
+.checklist-export-sheet { position:fixed; left:-10000px; top:0; }
 @media print {
-  body > *:not(.checklist-export-sheet) {
-    display: none;
-  }
-
-  .checklist-export-sheet {
-    position: static;
-    left: auto;
-  }
+  body > *:not(.checklist-export-sheet) { display:none; }
+  .checklist-export-sheet { position:static; left:auto; }
 }
