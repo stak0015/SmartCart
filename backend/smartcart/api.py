@@ -12,6 +12,7 @@ from fastapi import APIRouter, Path, Query
 from starlette.concurrency import run_in_threadpool
 
 from .catalogue import (
+    catalogue_price_ranges,
     SARA_CATEGORY_SOURCE,
     count_items,
     list_catalogue_categories,
@@ -184,8 +185,19 @@ def search_items(
     q: str = "",
     page: int = Query(default=1, ge=1),
     category: list[str] = Query(default=[]),
+    candidate_cache_id: str | None = None,
 ) -> dict[str, object]:
     items, total = search_catalogue(q, page, CATALOGUE_PAGE_SIZE, category)
+    _prune_candidate_cache(monotonic())
+    snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
+    stores = (
+        sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
+        if snapshot else []
+    )
+    ranges = catalogue_price_ranges(
+        [item["item_id"] for item in items], [store.premise_id for store in stores]
+    )
+    items = [{**item, "price_range": ranges.get(item["item_id"])} for item in items]
     total_pages = (total + CATALOGUE_PAGE_SIZE - 1) // CATALOGUE_PAGE_SIZE
     return {
         "count": len(items),
@@ -195,6 +207,8 @@ def search_items(
         "total_pages": total_pages,
         "sara_category_source": SARA_CATEGORY_SOURCE,
         "items": items,
+        "price_context": "ready" if snapshot else "unavailable",
+        "price_store_count": len(stores),
     }
 
 

@@ -190,3 +190,30 @@ def list_catalogue_categories() -> list[str]:
             """
         )
         return [row[0] for row in cursor.fetchall()]
+
+
+def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[int, dict]:
+    """Observed prices only, bounded to the cached nearby stores (no medians)."""
+    if not item_ids or not premise_ids:
+        return {}
+    with database_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT item_id, MIN(current_price), MAX(current_price),
+                   COUNT(DISTINCT premise_id), MIN(price_observed_date)
+            FROM current_status
+            WHERE item_id = ANY(%s::bigint[])
+              AND premise_id = ANY(%s::bigint[])
+              AND current_price > 0
+            GROUP BY item_id
+            """,
+            (item_ids, [int(value) for value in premise_ids]),
+        )
+        return {
+            int(item_id): {
+                "min_rm": float(low), "max_rm": float(high),
+                "store_count": int(count),
+                "oldest_observed_date": observed.isoformat() if observed else None,
+            }
+            for item_id, low, high, count, observed in cursor.fetchall()
+        }

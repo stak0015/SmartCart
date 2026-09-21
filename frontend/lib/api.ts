@@ -12,10 +12,13 @@ export interface Item {
   package_size: string | null;   // merged quantity/pricing basis: parsed size, else unit; null = show "—"
   sara_eligible: boolean | null; // null means eligibility has not been verified
   sara_category_candidate: boolean; // broad category match; still requires label/barcode verification
+  price_range?: { min_rm: number; max_rm: number; store_count: number; oldest_observed_date: string | null } | null;
 }
 
 // Shape of the search endpoint response
 export interface SearchResult {
+  price_context?: "ready" | "unavailable";
+  price_store_count?: number;
   count: number;
   total: number;
   page: number;
@@ -43,9 +46,11 @@ export async function searchItems(
   page = 1,
   categories: string[] = [],
   signal?: AbortSignal,
+  candidateCacheId?: string | null,
 ): Promise<SearchResult> {
   const params = new URLSearchParams({ q, page: String(page) });
   categories.forEach(category => params.append("category", category));
+  if (candidateCacheId) params.set("candidate_cache_id", candidateCacheId);
   const url = `${API_BASE_URL}/items/search?${params.toString()}`;
   const res = await fetch(url, { signal });
   if (!res.ok) {

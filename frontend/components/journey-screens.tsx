@@ -209,10 +209,10 @@ export type TripJourneyStep = "location" | "shop" | "basket" | "compare";
 
 function Icon({ kind }: { kind: "trip" | "checklist" | "history" | "inbox" }) {
   const paths = {
-    trip: <><path d="M5 5h14l-1 13H6L5 5Z" /><path d="M8 5l1-2m7 2-1-2" /></>,
+    trip: <><path d="m3 9 6-3 6 3 6-3v14l-6 3-6-3-6 3V9Z"/><path d="M9 6v14m6-11v14"/><path d="M16 6c0 3-4 7-4 7S8 9 8 6a4 4 0 1 1 8 0Z" fill="currentColor" stroke="white"/><circle cx="12" cy="6" r="1" fill="white" stroke="white"/></>,
     checklist: <><path d="M8 4h11v16H5V4h3" /><path d="m8 11 2 2 4-5m-6 9h7" /></>,
     history: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>,
-    inbox: <><path d="M4 5h16v14H4V5Z" /><path d="m4 14 4-4h8l4 4" /></>,
+    inbox: <><path d="M5 20v-6m7 6V9m7 11V3" strokeWidth="4" /></>,
   }[kind];
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-6 w-6 stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>;
 }
@@ -233,7 +233,9 @@ function HomeCard({
   detail,
   badge,
   onClick,
+  actionLabel,
 }: {
+  actionLabel: string;
   icon: "checklist" | "history" | "inbox";
   title: string;
   detail: string;
@@ -241,17 +243,11 @@ function HomeCard({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="group flex min-h-[150px] flex-col items-start rounded-2xl border border-[#dce5e0] bg-white p-5 text-left shadow-[0_4px_18px_rgba(16,35,29,0.05)] transition hover:-translate-y-0.5 hover:border-[#a9cdbd] focus-visible:-translate-y-0.5"
-    >
-      <span className="relative flex h-11 w-11 items-center justify-center rounded-xl bg-[#edf7f2] text-[#087f5b]">
-        <Icon kind={icon} />
-        {badge && badge > 0 ? <span className="absolute -right-2 -top-2 flex h-6 min-w-6 items-center justify-center rounded-full bg-[#e8590c] px-1 text-[11px] font-extrabold text-white">{badge}</span> : null}
-      </span>
-      <span className="mt-4 text-lg font-extrabold text-[#10231d]">{title}</span>
-      <span className="mt-1 text-sm leading-5 text-[#617069]">{detail}</span>
+    <button type="button" onClick={onClick} className={"home-card home-card-" + icon}>
+      <span className="home-card-icon"><Icon kind={icon}/></span>
+      {badge && badge > 0 ? <span className="unread-badge">{badge}</span> : null}
+      <strong>{title}</strong><span className="home-card-detail">{detail}</span>
+      <span className="home-card-action">{actionLabel} <span aria-hidden="true">→</span></span>
     </button>
   );
 }
@@ -285,40 +281,16 @@ export function SmartCartHomeScreen({
   const progress = checklist ? checklistProgress(checklist) : null;
 
   return (
-    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
-      <div className="mx-auto max-w-[760px]">
-        <h1 className="text-[34px] font-extrabold leading-[40px] tracking-[-0.9px] text-[#10231d] sm:text-[42px] sm:leading-[48px]">{text.title}</h1>
-        <p className="mt-2 max-w-[620px] text-sm leading-5 text-[#53635c]">{text.description}</p>
-
-        <section className="mt-7 rounded-3xl bg-[#087f5b] p-5 text-white shadow-[0_12px_32px_rgba(8,127,91,0.22)] sm:p-7">
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15"><Icon kind="trip" /></span>
-          <h2 className="mt-5 text-2xl font-extrabold">{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2>
-          <p className="mt-1 text-sm text-[#d3f0e4]">{hasTripInProgress
-            ? text.resumeAt(journeyStepLabel(locale, resumeStep))
-            : journeyStepLabel(locale, "location")}</p>
-          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-            <button type="button" onClick={onStartOrResume} className="min-h-12 rounded-xl bg-white px-5 text-sm font-extrabold text-[#087f5b]">
-              {hasTripInProgress ? text.resumeTrip : text.startTrip}
-            </button>
-            {hasTripInProgress ? (
-              <button type="button" onClick={onStartNew} className="min-h-12 rounded-xl border border-white/45 px-5 text-sm font-extrabold text-white">
-                {text.startNew}
-              </button>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="mt-4 grid gap-3 sm:grid-cols-3" aria-label="SmartCart tools">
-          <HomeCard
-            icon="checklist"
-            title={text.checklist}
-            detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist}
-            onClick={onChecklist}
-          />
-          <HomeCard icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory} />
-          <HomeCard icon="inbox" title={text.inbox} detail={text.unreadReports(unreadReports)} badge={unreadReports} onClick={onInbox} />
-        </section>
-      </div>
+    <div className="screen-enter home-screen">
+      <div className="home-hero"><h1>{hasTripInProgress ? (locale === "en" ? "Shopping trip in progress" : text.resumeTrip) : text.title}</h1>
+      <p>{hasTripInProgress ? (locale === "en" ? "Continue where you left off, or start a new trip." : text.description) : (locale === "en" ? "Plan your household shopping, compare nearby stores and keep track of your spending." : text.description)}</p></div>
+      <section className="home-trip"><span className="home-trip-icon"><Icon kind="trip"/></span><div><h2>{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2><p>{hasTripInProgress ? text.resumeAt(journeyStepLabel(locale, resumeStep)) : (locale === "en" ? "Choose your location and travel preferences to begin." : text.travelStep)}</p></div>
+      <div className="home-trip-actions"><button type="button" className="primary-button" onClick={onStartOrResume}>{hasTripInProgress ? text.resumeTrip : text.startTrip} <span aria-hidden="true">→</span></button>{hasTripInProgress && <button type="button" className="secondary-button" onClick={onStartNew}>＋ {text.startNew}</button>}</div></section>
+      <section className="home-tools" aria-label="SmartCart tools">
+        <HomeCard actionLabel={locale === "en" ? "View checklist" : "Lihat senarai"} icon="checklist" title={text.checklist} detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist} onClick={onChecklist}/>
+        <HomeCard actionLabel={locale === "en" ? "View history" : "Lihat sejarah"} icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory}/>
+        <HomeCard actionLabel={locale === "en" ? "View reports" : "Lihat laporan"} icon="inbox" title={locale === "en" ? "Reports" : text.inbox} detail={text.unreadReports(unreadReports)} badge={unreadReports} onClick={onInbox}/>
+      </section>
     </div>
   );
 }
@@ -337,12 +309,12 @@ export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; 
 
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
-      <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.historyTitle}</h1>
-      <p className="mt-2 text-sm leading-5 text-[#617069]">{text.historyDescription}</p>
+      <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10152e]">{text.historyTitle}</h1>
+      <p className="mt-2 text-sm leading-5 text-[#526078]">{text.historyDescription}</p>
       {records.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">
-          <p className="font-extrabold text-[#17362c]">{text.historyEmpty}</p>
-          <p className="mt-1 text-sm text-[#617069]">{text.historyEmptyHint}</p>
+          <p className="font-extrabold text-[#10152e]">{text.historyEmpty}</p>
+          <p className="mt-1 text-sm text-[#526078]">{text.historyEmptyHint}</p>
         </div>
       ) : (
         <ol className="mt-6 space-y-3">
@@ -358,23 +330,23 @@ export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; 
               <li key={record.id} className="rounded-2xl border border-[#dce5e0] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="text-lg font-extrabold text-[#10231d]">{record.store.name}</p>
-                    <p className="mt-1 text-xs text-[#617069]">{localDate(record.recordedAt, locale)} · {text.bought(bought, record.lines.length)}</p>
+                    <p className="text-lg font-extrabold text-[#10152e]">{record.store.name}</p>
+                    <p className="mt-1 text-xs text-[#526078]">{localDate(record.recordedAt, locale)} · {text.bought(bought, record.lines.length)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] text-[#617069]">{text.spent}</p>
-                    <p className="mt-0.5 text-lg font-extrabold text-[#17362c]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</p>
+                    <p className="text-[11px] text-[#526078]">{text.spent}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-[#10152e]">{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</p>
                   </div>
                 </div>
                 <dl className="mt-4 grid gap-2 border-t border-[#edf1ef] pt-3 sm:grid-cols-2">
                   <div>
-                    <dt className="text-[11px] text-[#617069]">{text.planned}</dt>
-                    <dd className="mt-0.5 text-sm font-bold text-[#17362c]">{record.plannedCombinedTotalRm == null ? "—" : formatRm(record.plannedCombinedTotalRm)}</dd>
+                    <dt className="text-[11px] text-[#526078]">{text.planned}</dt>
+                    <dd className="mt-0.5 text-sm font-bold text-[#10152e]">{record.plannedCombinedTotalRm == null ? "—" : formatRm(record.plannedCombinedTotalRm)}</dd>
                   </div>
                   {saving != null ? (
                     <div>
-                      <dt className="text-[11px] text-[#617069]">{saving >= 0 ? text.estimatedSaving : text.estimatedAbove}</dt>
-                      <dd className={`mt-0.5 text-sm font-extrabold ${saving >= 0 ? "text-[#087f5b]" : "text-[#9b3d00]"}`}>{formatRm(Math.abs(saving))}</dd>
+                      <dt className="text-[11px] text-[#526078]">{saving >= 0 ? text.estimatedSaving : text.estimatedAbove}</dt>
+                      <dd className={`mt-0.5 text-sm font-extrabold ${saving >= 0 ? "text-[#007d38]" : "text-[#9b3d00]"}`}>{formatRm(Math.abs(saving))}</dd>
                     </div>
                   ) : null}
                 </dl>
@@ -389,17 +361,17 @@ export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; 
                 <div className="mt-3 border-t border-[#edf1ef] pt-3">
                   {travel.available && travel.savingsRm != null && travel.cheaperStoreName ? (
                     <>
-                      <p className="text-[11px] font-bold text-[#617069]">{text.tripTravelSavings}</p>
-                      <p className="mt-0.5 text-sm font-extrabold text-[#087f5b]">{formatRm(travel.savingsRm)}</p>
-                      <p className="mt-1 text-[11px] leading-4 text-[#53635c]">
+                      <p className="text-[11px] font-bold text-[#526078]">{text.tripTravelSavings}</p>
+                      <p className="mt-0.5 text-sm font-extrabold text-[#007d38]">{formatRm(travel.savingsRm)}</p>
+                      <p className="mt-1 text-[11px] leading-4 text-[#526078]">
                         {text.tripTravelSavingsDetail(formatRm(travel.savingsRm), travel.cheaperStoreName)}
                       </p>
-                      <p className="mt-1 text-[11px] leading-4 text-[#617069]">
+                      <p className="mt-1 text-[11px] leading-4 text-[#526078]">
                         {travel.routeEstimated ? text.straightLineTravelNote : text.travelEstimateNote}
                       </p>
                     </>
                   ) : (
-                    <p className="text-[11px] leading-4 text-[#617069]">
+                    <p className="text-[11px] leading-4 text-[#526078]">
                       {travel.reason === "my-store-is-cheapest"
                         ? text.tripTravelCheapestAlready
                         : travel.reason === "no-recorded-travel-cost"
@@ -453,32 +425,32 @@ function WeeklySpendingSummary({ summary, locale }: { summary: PeriodSummary; lo
       aria-labelledby="current-period-spending"
       className="rounded-2xl border border-[#8fc7ae] bg-[#f0faf5] p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5"
     >
-      <h2 id="current-period-spending" className="text-lg font-extrabold text-[#10231d]">{title}</h2>
+      <h2 id="current-period-spending" className="text-lg font-extrabold text-[#10152e]">{title}</h2>
 
       {summary.confirmedSpendingRm != null ? (
         <>
-          <p className="mt-1 text-[11px] text-[#617069]">{text.confirmedSpendingSoFar}</p>
-          <p className="mt-1 text-[28px] font-extrabold leading-9 text-[#087f5b]">
+          <p className="mt-1 text-[11px] text-[#526078]">{text.confirmedSpendingSoFar}</p>
+          <p className="mt-1 text-[28px] font-extrabold leading-9 text-[#007d38]">
             {formatRm(summary.confirmedSpendingRm)}
           </p>
-          <p className="mt-1 text-xs text-[#617069]">{text.thisPeriodTrips(summary.tripCount)}</p>
+          <p className="mt-1 text-xs text-[#526078]">{text.thisPeriodTrips(summary.tripCount)}</p>
           {summary.spendingIncomplete ? (
-            <p className="mt-2 text-[11px] leading-4 text-[#617069]">{text.thisPeriodIncomplete}</p>
+            <p className="mt-2 text-[11px] leading-4 text-[#526078]">{text.thisPeriodIncomplete}</p>
           ) : null}
         </>
       ) : summary.hasRecords ? (
         <div className="mt-2">
-          <p className="font-extrabold text-[#17362c]">{text.thisPeriodNoConfirmed}</p>
-          <p className="mt-1 text-sm leading-5 text-[#617069]">{text.thisPeriodNoConfirmedHint}</p>
-          <p className="mt-1 text-xs text-[#617069]">{text.thisPeriodTrips(summary.tripCount)}</p>
+          <p className="font-extrabold text-[#10152e]">{text.thisPeriodNoConfirmed}</p>
+          <p className="mt-1 text-sm leading-5 text-[#526078]">{text.thisPeriodNoConfirmedHint}</p>
+          <p className="mt-1 text-xs text-[#526078]">{text.thisPeriodTrips(summary.tripCount)}</p>
           {summary.hasEstimatedOnly ? (
             <p className="mt-2 text-[11px] leading-4 text-[#9b3d00]">{text.thisPeriodEstimatesOnly}</p>
           ) : null}
         </div>
       ) : (
         <div className="mt-2">
-          <p className="font-extrabold text-[#17362c]">{text.thisPeriodNoRecords}</p>
-          <p className="mt-1 text-sm leading-5 text-[#617069]">{text.thisPeriodNoRecordsHint}</p>
+          <p className="font-extrabold text-[#10152e]">{text.thisPeriodNoRecords}</p>
+          <p className="mt-1 text-sm leading-5 text-[#526078]">{text.thisPeriodNoRecordsHint}</p>
         </div>
       )}
     </section>
@@ -515,9 +487,9 @@ function PeriodComparisonCard({
     a == null || b == null ? null : a - b;
 
   const deltaCell = (value: number | null, lowerIsGood: boolean) => {
-    if (value == null) return <span className="text-[11px] text-[#617069]">—</span>;
+    if (value == null) return <span className="text-[11px] text-[#526078]">—</span>;
     const good = lowerIsGood ? value <= 0 : value >= 0;
-    const tone = value === 0 ? "text-[#617069]" : good ? "text-[#087f5b]" : "text-[#9b3d00]";
+    const tone = value === 0 ? "text-[#526078]" : good ? "text-[#007d38]" : "text-[#9b3d00]";
     return (
       <span className={`text-sm font-extrabold ${tone}`}>
         {value > 0 ? "+" : value < 0 ? "−" : ""}{value === 0 ? formatRm(0) : formatRm(Math.abs(value))}
@@ -527,45 +499,45 @@ function PeriodComparisonCard({
 
   const moneyCell = (value: number | null) =>
     value == null
-      ? <span className="text-[11px] text-[#617069]">{text.unavailable}</span>
-      : <span className="text-sm font-extrabold text-[#17362c]">{formatRm(value)}</span>;
+      ? <span className="text-[11px] text-[#526078]">{text.unavailable}</span>
+      : <span className="text-sm font-extrabold text-[#10152e]">{formatRm(value)}</span>;
 
   return (
     <section
       aria-label={currentLabel}
       className="mt-5 rounded-2xl border border-[#e2e9e5] bg-white p-4 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-5"
     >
-      <h2 className="text-lg font-extrabold leading-6 text-[#10231d]">
+      <h2 className="text-lg font-extrabold leading-6 text-[#10152e]">
         {currentLabel} {text.comparisonVersus} {previousLabel}
       </h2>
 
       {previous == null ? (
-        <p className="mt-2 text-sm leading-5 text-[#53635c]">{text.comparisonUnavailable}</p>
+        <p className="mt-2 text-sm leading-5 text-[#526078]">{text.comparisonUnavailable}</p>
       ) : (
         <table className="mt-3 w-full border-collapse text-left">
           <thead>
             <tr className="border-b border-[#edf1ef]">
-              <th className="py-2 pr-2 text-[11px] font-bold text-[#617069]"></th>
-              <th className="py-2 pr-2 text-[11px] font-bold text-[#617069]">{currentLabel}</th>
-              <th className="py-2 pr-2 text-[11px] font-bold text-[#617069]">{previousLabel}</th>
-              <th className="py-2 text-[11px] font-bold text-[#617069]">{text.comparisonChange}</th>
+              <th className="py-2 pr-2 text-[11px] font-bold text-[#526078]"></th>
+              <th className="py-2 pr-2 text-[11px] font-bold text-[#526078]">{currentLabel}</th>
+              <th className="py-2 pr-2 text-[11px] font-bold text-[#526078]">{previousLabel}</th>
+              <th className="py-2 text-[11px] font-bold text-[#526078]">{text.comparisonChange}</th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-b border-[#f1f4f2]">
-              <td className="py-2 pr-2 text-[13px] font-bold text-[#17362c]">{text.compareSpent}</td>
+              <td className="py-2 pr-2 text-[13px] font-bold text-[#10152e]">{text.compareSpent}</td>
               <td className="py-2 pr-2">{moneyCell(current.confirmedSpendingRm)}</td>
               <td className="py-2 pr-2">{moneyCell(previous.confirmedSpendingRm)}</td>
               <td className="py-2">{deltaCell(delta(current.confirmedSpendingRm, previous.confirmedSpendingRm), true)}</td>
             </tr>
             <tr className="border-b border-[#f1f4f2]">
-              <td className="py-2 pr-2 text-[13px] font-bold text-[#17362c]">{text.compareTrips}</td>
-              <td className="py-2 pr-2 text-sm font-extrabold text-[#17362c]">{current.tripCount}</td>
-              <td className="py-2 pr-2 text-sm font-extrabold text-[#17362c]">{previous.tripCount}</td>
+              <td className="py-2 pr-2 text-[13px] font-bold text-[#10152e]">{text.compareTrips}</td>
+              <td className="py-2 pr-2 text-sm font-extrabold text-[#10152e]">{current.tripCount}</td>
+              <td className="py-2 pr-2 text-sm font-extrabold text-[#10152e]">{previous.tripCount}</td>
               <td className="py-2">{deltaCell(current.tripCount - previous.tripCount, false)}</td>
             </tr>
             <tr>
-              <td className="py-2 pr-2 text-[13px] font-bold text-[#17362c]">
+              <td className="py-2 pr-2 text-[13px] font-bold text-[#10152e]">
                 <span className="inline-flex items-center gap-1">
                   {text.compareNetSavings}
                   <span className="rounded-sm bg-[#dceef2] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#00535b]">
@@ -575,18 +547,18 @@ function PeriodComparisonCard({
               </td>
               <td className="py-2 pr-2">
                 {current.savingsAvailable
-                  ? <span className="text-sm font-extrabold text-[#17362c]">{current.estimatedNetSavingsRm == null ? "—" : formatRm(current.estimatedNetSavingsRm)}</span>
-                  : <span className="text-[11px] text-[#617069]">{text.unavailable}</span>}
+                  ? <span className="text-sm font-extrabold text-[#10152e]">{current.estimatedNetSavingsRm == null ? "—" : formatRm(current.estimatedNetSavingsRm)}</span>
+                  : <span className="text-[11px] text-[#526078]">{text.unavailable}</span>}
               </td>
               <td className="py-2 pr-2">
                 {previous.savingsAvailable
-                  ? <span className="text-sm font-extrabold text-[#17362c]">{previous.estimatedNetSavingsRm == null ? "—" : formatRm(previous.estimatedNetSavingsRm)}</span>
-                  : <span className="text-[11px] text-[#617069]">{text.unavailable}</span>}
+                  ? <span className="text-sm font-extrabold text-[#10152e]">{previous.estimatedNetSavingsRm == null ? "—" : formatRm(previous.estimatedNetSavingsRm)}</span>
+                  : <span className="text-[11px] text-[#526078]">{text.unavailable}</span>}
               </td>
               <td className="py-2">
                 {current.savingsAvailable && previous.savingsAvailable
                   ? deltaCell(delta(current.estimatedNetSavingsRm, previous.estimatedNetSavingsRm), false)
-                  : <span className="text-[11px] text-[#617069]">—</span>}
+                  : <span className="text-[11px] text-[#526078]">—</span>}
               </td>
             </tr>
           </tbody>
@@ -594,7 +566,7 @@ function PeriodComparisonCard({
       )}
 
       {comparison.inProgress ? (
-        <p className="mt-3 text-[11px] leading-4 text-[#617069]">
+        <p className="mt-3 text-[11px] leading-4 text-[#526078]">
           {text.comparisonInProgress(comparison.daysElapsed, comparison.daysInPeriod)}
         </p>
       ) : null}
@@ -631,11 +603,11 @@ export function InboxScreen({
   const currentPeriod = comparison?.current ?? null;
   return (
     <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
-      <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10231d]">{text.inboxTitle}</h1>
-      <p className="mt-2 text-sm leading-5 text-[#617069]">{text.inboxDescription}</p>
+      <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10152e]">{text.inboxTitle}</h1>
+      <p className="mt-2 text-sm leading-5 text-[#526078]">{text.inboxDescription}</p>
 
       <fieldset className="mt-5">
-        <legend className="text-xs font-bold text-[#53635c]">{text.cadenceLabel}</legend>
+        <legend className="text-xs font-bold text-[#526078]">{text.cadenceLabel}</legend>
         <div className="mt-2 inline-flex rounded-xl border border-[#cbd8d1] bg-white p-1">
           {(["weekly", "monthly"] as const).map(cadence => (
             <button
@@ -643,7 +615,7 @@ export function InboxScreen({
               type="button"
               aria-pressed={state.cadence === cadence}
               onClick={() => onCadence(cadence)}
-              className={`min-h-10 rounded-lg px-4 text-sm font-extrabold ${state.cadence === cadence ? "bg-[#087f5b] text-white" : "text-[#087f5b]"}`}
+              className={`min-h-10 rounded-lg px-4 text-sm font-extrabold ${state.cadence === cadence ? "bg-[#007d38] text-white" : "text-[#007d38]"}`}
             >
               {cadence === "weekly" ? text.weekly : text.monthly}
             </button>
@@ -658,11 +630,11 @@ export function InboxScreen({
           aria-pressed={state.summaryHidden}
           aria-expanded={!state.summaryHidden}
           onClick={onToggleSummary}
-          className="min-h-11 rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#087f5b]"
+          className="min-h-11 rounded-xl border border-[#cbd8d1] bg-white px-4 text-sm font-bold text-[#007d38]"
         >
           {state.summaryHidden ? text.showSummary : text.hideSummary}
         </button>
-        <p className="text-xs leading-5 text-[#617069]">{text.summaryPrivacyNote}</p>
+        <p className="text-xs leading-5 text-[#526078]">{text.summaryPrivacyNote}</p>
       </div>
 
       {comparison && currentPeriod ? (
@@ -675,14 +647,14 @@ export function InboxScreen({
         </>
       ) : (
         <div className="mt-5 rounded-2xl border border-dashed border-[#becdc6] bg-white p-5 text-center">
-          <p className="text-sm font-bold text-[#17362c]">{text.summaryHiddenNote}</p>
+          <p className="text-sm font-bold text-[#10152e]">{text.summaryHiddenNote}</p>
         </div>
       )}
 
       {state.messages.length === 0 ? (
         <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center">
-          <p className="font-extrabold text-[#17362c]">{text.inboxEmpty}</p>
-          <p className="mt-1 text-sm text-[#617069]">{text.inboxEmptyHint}</p>
+          <p className="font-extrabold text-[#10152e]">{text.inboxEmpty}</p>
+          <p className="mt-1 text-sm text-[#526078]">{text.inboxEmptyHint}</p>
         </div>
       ) : (
         <ol className="mt-6 space-y-3">
@@ -696,21 +668,21 @@ export function InboxScreen({
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide ${message.read ? "bg-[#edf1ef] text-[#617069]" : "bg-[#087f5b] text-white"}`}>{message.read ? text.read : text.unread}</span>
-                    <h2 className="mt-2 text-lg font-extrabold text-[#10231d]">{message.cadence === "weekly" ? text.weekReport : text.monthReport}</h2>
-                    <p className="mt-1 text-xs text-[#617069]">{reportPeriod(message, locale)} · {text.trips(message.tripCount)}</p>
+                    <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide ${message.read ? "bg-[#edf1ef] text-[#526078]" : "bg-[#007d38] text-white"}`}>{message.read ? text.read : text.unread}</span>
+                    <h2 className="mt-2 text-lg font-extrabold text-[#10152e]">{message.cadence === "weekly" ? text.weekReport : text.monthReport}</h2>
+                    <p className="mt-1 text-xs text-[#526078]">{reportPeriod(message, locale)} · {text.trips(message.tripCount)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[11px] text-[#617069]">{text.spent}</p>
-                    <p className="mt-0.5 text-lg font-extrabold text-[#17362c]">{message.actualSpendingRm == null ? text.unavailable : formatRm(message.actualSpendingRm)}</p>
+                    <p className="text-[11px] text-[#526078]">{text.spent}</p>
+                    <p className="mt-0.5 text-lg font-extrabold text-[#10152e]">{message.actualSpendingRm == null ? text.unavailable : formatRm(message.actualSpendingRm)}</p>
                   </div>
                 </div>
                 <dl className="mt-4 grid grid-cols-3 gap-2 border-t border-[#dce8e1] pt-3">
-                  <div><dt className="text-[10px] text-[#617069]">{text.netSavings}</dt><dd className={`mt-1 text-sm font-extrabold ${(message.estimatedNetSavingsRm ?? 0) >= 0 ? "text-[#087f5b]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.estimatedNetSavingsRm)}</dd></div>
-                  <div><dt className="text-[10px] text-[#617069]">{text.storeChoice}</dt><dd className={`mt-1 text-sm font-bold ${(message.storeChoiceImpactRm ?? 0) >= 0 ? "text-[#17362c]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.storeChoiceImpactRm)}</dd></div>
-                  <div><dt className="text-[10px] text-[#617069]">{text.itemChanges}</dt><dd className={`mt-1 text-sm font-bold ${(message.itemChangeImpactRm ?? 0) >= 0 ? "text-[#17362c]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.itemChangeImpactRm)}</dd></div>
+                  <div><dt className="text-[10px] text-[#526078]">{text.netSavings}</dt><dd className={`mt-1 text-sm font-extrabold ${(message.estimatedNetSavingsRm ?? 0) >= 0 ? "text-[#007d38]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.estimatedNetSavingsRm)}</dd></div>
+                  <div><dt className="text-[10px] text-[#526078]">{text.storeChoice}</dt><dd className={`mt-1 text-sm font-bold ${(message.storeChoiceImpactRm ?? 0) >= 0 ? "text-[#10152e]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.storeChoiceImpactRm)}</dd></div>
+                  <div><dt className="text-[10px] text-[#526078]">{text.itemChanges}</dt><dd className={`mt-1 text-sm font-bold ${(message.itemChangeImpactRm ?? 0) >= 0 ? "text-[#10152e]" : "text-[#9b3d00]"}`}>{signedReportAmount(message.itemChangeImpactRm)}</dd></div>
                 </dl>
-                <div className="mt-3 space-y-1 text-[11px] leading-4 text-[#617069]">
+                <div className="mt-3 space-y-1 text-[11px] leading-4 text-[#526078]">
                   {message.spendingIncomplete ? <p>{text.incompleteSpending}</p> : null}
                   {message.savingsIncomplete ? <p>{text.incompleteSavings}</p> : null}
                   <p>{text.estimateNote}</p>
