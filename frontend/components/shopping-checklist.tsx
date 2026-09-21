@@ -220,13 +220,13 @@ export function ConfirmationDialog({
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={handleCancel}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55"
     >
       <div className="p-5 sm:p-6">
         <h2 id={titleId} className="text-xl font-extrabold leading-7">
           {title}
         </h2>
-        <p id={bodyId} className="mt-2 text-sm leading-6 text-[#53635c]">
+        <p id={bodyId} className="mt-2 text-sm leading-6 text-[#526078]">
           {body}
         </p>
         <div className="mt-6 grid grid-cols-2 gap-3">
@@ -236,7 +236,7 @@ export function ConfirmationDialog({
             aria-label={cancelLabel}
             title={cancelLabel}
             onClick={onCancel}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#10152e] hover:bg-[#f1f5f3]"
           >
             {iconOnly ? <ActionIcon name="close" /> : cancelLabel}
           </button>
@@ -248,7 +248,7 @@ export function ConfirmationDialog({
             className={`inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-bold text-white ${
               destructive
                 ? "bg-[#ba1a1a] hover:bg-[#93000a]"
-                : "bg-[#087f5b] hover:bg-[#066c4d]"
+                : "bg-[#007d38] hover:bg-[#066c4d]"
             }`}
           >
             {iconOnly ? <ActionIcon name={destructive ? "trash" : "check"} /> : confirmLabel}
@@ -288,13 +288,13 @@ function ExportChecklistDialog({
       aria-labelledby={titleId}
       aria-describedby={bodyId}
       onCancel={handleCancel}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55"
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[28rem] rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55"
     >
       <div className="p-5 sm:p-6">
         <h2 id={titleId} className="text-xl font-extrabold leading-7">
           {copy.exportChecklist}
         </h2>
-        <p id={bodyId} className="mt-2 text-sm leading-6 text-[#53635c]">
+        <p id={bodyId} className="mt-2 text-sm leading-6 text-[#526078]">
           {copy.exportChecklistIntro}
         </p>
         {errorMessage && (
@@ -309,7 +309,7 @@ function ExportChecklistDialog({
             aria-label={copy.downloadAsImage}
             title={copy.downloadAsImage}
             onClick={onDownloadImage}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#007d38] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
           >
             <ActionIcon name="image" />
           </button>
@@ -318,7 +318,7 @@ function ExportChecklistDialog({
             aria-label={copy.downloadAsPdf}
             title={copy.downloadAsPdf}
             onClick={onDownloadPdf}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#087f5b] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-[#007d38] px-4 text-sm font-bold text-white hover:bg-[#066c4d]"
           >
             <ActionIcon name="pdf" />
           </button>
@@ -327,7 +327,7 @@ function ExportChecklistDialog({
             onClick={onCancel}
             aria-label={copy.cancel}
             title={copy.cancel}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#17362c] hover:bg-[#f1f5f3]"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#9eb0a7] bg-white px-4 text-sm font-bold text-[#10152e] hover:bg-[#f1f5f3]"
           >
             <ActionIcon name="close" />
           </button>
@@ -343,12 +343,12 @@ function ExportChecklistDialog({
 // screen it lives off-viewport; in print output it is the only content.
 function ChecklistExportSheet({ model }: { model: ChecklistExportModel }) {
   return (
-    <div className="w-[800px] bg-white p-8 text-[#10231d]">
-      <p className="text-sm font-bold text-[#087f5b]">{model.title}</p>
+    <div className="w-[800px] bg-white p-8 text-[#10152e]">
+      <p className="text-sm font-bold text-[#007d38]">{model.title}</p>
       <h1 className="mt-1 text-2xl font-extrabold leading-8 [overflow-wrap:anywhere]">
         {model.storeName}
       </h1>
-      <p className="mt-1 text-xs text-[#53635c]">{model.dateText}</p>
+      <p className="mt-1 text-xs text-[#526078]">{model.dateText}</p>
       <ul className="mt-4 border-t border-[#dce5e0]">
         {model.rows.map((row, index) => (
           <li key={index} className="border-b border-[#e2e9e5] py-2.5">
@@ -366,16 +366,16 @@ function ChecklistExportSheet({ model }: { model: ChecklistExportModel }) {
                   </p>
                 )}
               </div>
-              <div className="shrink-0 text-right text-xs leading-5 text-[#53635c]">
+              <div className="shrink-0 text-right text-xs leading-5 text-[#526078]">
                 <p>
                   {row.quantity}
                   {row.quantitySourceLabel ? ` (${row.quantitySourceLabel})` : ""}
                 </p>
-                <p className="font-semibold text-[#17362c]">
+                <p className="font-semibold text-[#10152e]">
                   {row.referenceUnitPriceText}
                 </p>
                 {row.actualUnitPriceText && (
-                  <p className="text-[#087f5b]">{row.actualUnitPriceText}</p>
+                  <p className="text-[#007d38]">{row.actualUnitPriceText}</p>
                 )}
                 <p>{row.outcomeLabel}</p>
               </div>
@@ -418,13 +418,15 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
 
   return (
     <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel}
-      className="m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10231d] shadow-2xl backdrop:bg-[#10231d]/55">
+      className="checklist-item-dialog m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55">
       <form onSubmit={submit} noValidate className="p-5 sm:p-6">
         <div className="flex items-center justify-between gap-4">
           <h2 id={titleId} className="text-xl font-extrabold">{item ? copy.editChecklistItem : copy.addChecklistItem}</h2>
           <IconButton label={copy.close} onClick={onCancel}><ActionIcon name="close" /></IconButton>
         </div>
-        <div className="mt-5 grid gap-4">
+        <div className="dialog-context">{item ? (locale === "en" ? "Edit existing item" : "Edit item sedia ada") : (locale === "en" ? "Add manual item" : "Tambah item manual")}</div>
+        {item && <div className="dialog-original"><strong>{localizedItemName(item, locale)}</strong><p>{item.packageSize}</p><span>{locale === "en" ? "Original (planned) price" : "Harga asal (dirancang)"}</span><b>{original?.unitPriceRm == null ? "—" : formatRm(original.unitPriceRm)}</b></div>}
+        <div className="dialog-fields mt-5 grid gap-4">
           <div>
             <label htmlFor={nameId} className="text-sm font-bold">{copy.itemName}</label>
             <div className="mt-1.5 flex gap-2">
@@ -463,8 +465,8 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-2 border-t border-[#e2e9e5] pt-4">
-          <IconButton label={copy.cancel} onClick={onCancel}><ActionIcon name="close" /></IconButton>
-          <IconButton type="submit" label={copy.saveItem} tone="primary"><ActionIcon name="check" /></IconButton>
+          <button type="button" className="secondary-button" onClick={onCancel}>{copy.cancel}</button>
+          <button type="submit" className="primary-button">{copy.saveItem}</button>
         </div>
       </form>
     </dialog>
@@ -490,8 +492,8 @@ function IconButton({ label, children, tone = "default", className = "", ...prop
   label: string; children: ReactNode; tone?: "default" | "primary" | "danger";
 }) {
   return <button type="button" aria-label={label} title={label} {...props}
-    className={"inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#087f5b] disabled:cursor-not-allowed disabled:opacity-35 " +
-      (tone === "primary" ? "border-[#087f5b] bg-[#087f5b] text-white hover:bg-[#066c4d] " : tone === "danger" ? "border-[#e4d5d5] text-[#ba1a1a] hover:bg-[#fff2f2] " : "border-[#dce5e0] text-[#53635c] hover:bg-[#edf7f2] ") + className}>{children}</button>;
+    className={"inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#007d38] disabled:cursor-not-allowed disabled:opacity-35 " +
+      (tone === "primary" ? "border-[#007d38] bg-[#007d38] text-white hover:bg-[#066c4d] " : tone === "danger" ? "border-[#e4d5d5] text-[#ba1a1a] hover:bg-[#fff2f2] " : "border-[#dce5e0] text-[#526078] hover:bg-[#edf7f2] ") + className}>{children}</button>;
 }
 
 function CheckIcon() {
@@ -551,6 +553,7 @@ function ChecklistRow({ item, locale, copy, saved, onToggleBought, onToggleNotBo
   item: ChecklistItem; locale: "en" | "ms"; copy: ShoppingChecklistCopy; saved: boolean;
   onToggleBought: () => void; onToggleNotBought: () => void; onEdit: () => void; onRevert: () => void; onDelete: () => void;
 }) {
+  const [actionsOpen, setActionsOpen] = useState(false);
   const name = localizedItemName(item, locale);
   const bought = item.status === "bought";
   const total = effectiveChecklistLineTotal(item);
@@ -559,38 +562,25 @@ function ChecklistRow({ item, locale, copy, saved, onToggleBought, onToggleNotBo
   const edited = original != null && (item.itemName !== original.itemName || quantity !== original.quantity || effectiveChecklistUnitPrice(item) !== original.unitPriceRm);
   const estimated = item.actualPriceRm == null && item.priceSource !== "manual";
 
-  return (
-    <li className={"grid grid-cols-[2.75rem_minmax(0,1fr)_auto] items-start gap-x-2 border-b border-[#e2e9e5] px-3 py-3 transition-colors last:border-b-0 sm:px-4 " + (bought ? "bg-[#eaf7ef]" : "bg-white")}>
-      <label className="relative row-span-2 flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-[#087f5b]">
-        <input type="checkbox" checked={bought} onChange={onToggleBought}
-          aria-label={bought ? copy.markNotBought(name) : copy.markBought(name)}
-          className="peer absolute inset-0 h-full w-full cursor-pointer opacity-0" />
-        <span aria-hidden="true" className={"pointer-events-none flex h-6 w-6 items-center justify-center rounded-md border-2 " + (bought ? "border-[#087f5b] bg-[#087f5b] text-white" : "border-[#91ab9e] bg-white")}>
-          {bought && <CheckIcon />}
-        </span>
-      </label>
-      <div className="min-w-0 pt-1">
-        <h3 className="break-words text-sm font-bold leading-5 text-[#17362c]">{name}</h3>
-        {item.packageSize && <p className="mt-0.5 text-xs text-[#617069]">{item.packageSize}</p>}
-      </div>
-      <div className="pt-1 text-right tabular-nums">
-        <p className="text-sm font-extrabold text-[#17362c]">
-          {total == null ? <span className="text-xs font-medium text-[#617069]">{copy.checklistPriceUnavailable}</span> : <>{estimated && <span title={copy.checklistPriceEstimate} aria-label={copy.checklistPriceEstimate}>≈ </span>}{formatRm(total)}</>}
-        </p>
-        <p className="mt-0.5 text-xs text-[#617069]">{copy.checklistQuantity}: {quantity}</p>
-      </div>
-      <div className="col-span-2 col-start-2 mt-2 flex flex-wrap items-center justify-between gap-2">
-        <span className="text-xs font-semibold text-[#537060]">{saved ? copy.savedForNextTrip : bought ? copy.bought : item.status === "not_bought" ? copy.notBought : ""}</span>
-        <div className="ml-auto flex gap-1">
-          {!bought && <IconButton label={saved ? copy.removeFromNextTrip + ": " + name : copy.saveForNextTrip + ": " + name}
-            aria-pressed={saved} onClick={onToggleNotBought} className={saved ? "border-[#c4aa70] bg-[#fff6e4] text-[#805b19]" : ""}><ActionIcon name="bookmark" /></IconButton>}
-          <IconButton label={copy.editChecklistItem + ": " + name} onClick={onEdit}><PencilIcon /></IconButton>
-          <IconButton label={copy.revertItem + ": " + name} disabled={!edited} onClick={onRevert}><ActionIcon name="revert" /></IconButton>
-          <IconButton label={copy.deleteItem + ": " + name} onClick={onDelete}><TrashIcon /></IconButton>
-        </div>
-      </div>
-    </li>
-  );
+  const priceLabel = item.priceSource === "median" && item.actualPriceRm == null
+    ? (locale === "en" ? "Median estimate" : "Anggaran median")
+    : estimated ? (locale === "en" ? "Used store price" : "Harga kedai") : (locale === "en" ? "Actual price" : "Harga sebenar");
+  return <li className={"checklist-row " + (actionsOpen ? "actions-open " : "") + (item.source === "manual" ? "manual-row" : "")}>
+    <label className="checklist-checkbox"><input type="checkbox" checked={bought} onChange={onToggleBought} aria-label={bought ? copy.markNotBought(name) : copy.markBought(name)}/><span aria-hidden="true">{bought && <CheckIcon/>}</span></label>
+    <div className="checklist-row-name"><h3>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{name}</h3><p className="checklist-mobile-package">{item.packageSize} × {quantity}</p></div>
+    <span className="checklist-package">{item.packageSize || "—"}</span>
+    <span className="checklist-quantity">{quantity}</span>
+    <button type="button" className="checklist-unit-price" onClick={onEdit} aria-label={copy.editChecklistItem + ": " + name}>{effectiveChecklistUnitPrice(item) == null ? "—" : effectiveChecklistUnitPrice(item)!.toFixed(2)}</button>
+    <div className="checklist-row-total"><strong>{total == null ? <span title={copy.checklistPriceUnavailable}>—</span> : <>{estimated && <span title={copy.checklistPriceEstimate} aria-label={copy.checklistPriceEstimate}>≈ </span>}{formatRm(total)}</>}</strong><span className={"mobile-item-status " + (bought ? "is-bought" : "")}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span></div>
+    <div className="checklist-status"><span className={bought ? "status-bought" : "status-unbought"}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span><small>{total == null ? copy.checklistPriceUnavailable : priceLabel}</small></div>
+    <button type="button" className="row-disclosure" aria-label={copy.editChecklistItem + ": " + name} aria-expanded={actionsOpen} onClick={() => setActionsOpen(!actionsOpen)}>{actionsOpen ? "⌃" : "›"}</button>
+    <div className="checklist-row-actions"><div>
+      {!bought && <IconButton label={saved ? copy.removeFromNextTrip + ": " + name : copy.saveForNextTrip + ": " + name} aria-pressed={saved} onClick={onToggleNotBought} className={saved ? "text-[#007d38] bg-[#ecf8f0]" : ""}><ActionIcon name="bookmark"/></IconButton>}
+      <IconButton label={copy.editChecklistItem + ": " + name} onClick={onEdit}><PencilIcon/></IconButton>
+      <IconButton label={copy.revertItem + ": " + name} disabled={!edited} onClick={onRevert}><ActionIcon name="revert"/></IconButton>
+      <IconButton label={copy.deleteItem + ": " + name} onClick={onDelete}><TrashIcon/></IconButton>
+    </div></div>
+  </li>;
 }
 
 export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }: {
@@ -610,19 +600,19 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }
     }
   };
 
-  return <section aria-labelledby={headingId} className="rounded-2xl border border-[#ded9cc] bg-[#fffcf5] p-4">
+  return <section aria-labelledby={headingId} className="next-trip-panel">
     <div className="flex items-center justify-between gap-3">
-      <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#17362c]"><ActionIcon name="bookmark" />{copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
-      {onUse && items.length > 0 && <IconButton label={copy.useSavedItems} onClick={onUse}><ActionIcon name="list" /></IconButton>}
+      <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
+      {onUse && items.length > 0 && <button type="button" className="secondary-button saved-use" onClick={onUse}>{copy.useSavedItems} →</button>}
     </div>
-    <p className="mt-2 text-xs leading-5 text-[#617069]">{items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
+    <p className="mt-2 text-xs leading-5 text-[#526078]">{items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
     {items.length > 0 && <ul className="mt-3 divide-y divide-[#e8e2d5]">
       {items.map(item => {
         const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
         return <li key={item.id} className="flex items-center gap-2 py-2">
-          <div className="min-w-0 flex-1"><p className="break-words text-sm font-bold text-[#17362c]">{name}</p><p className="text-xs text-[#617069]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p></div>
+          <div className="min-w-0 flex-1"><p className="break-words text-sm font-bold text-[#10152e]">{name}</p><p className="text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p></div>
           {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
-          <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="close" /></IconButton>
+          <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="trash" /></IconButton>
         </li>;
       })}
     </ul>}
@@ -638,16 +628,16 @@ export function EmptyChecklistScreen({
   onStartOrResume,
 }: EmptyChecklistScreenProps) {
   return (
-    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6 sm:pt-12">
-      <div className="mx-auto flex max-w-[760px] flex-col gap-4">
-        <section className="rounded-2xl border border-[#dce5e0] bg-white p-5 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-6">
-          <p className="text-sm font-bold text-[#087f5b]">{copy.checklistTitle}</p>
-          <h1 className="mt-1 text-[28px] font-extrabold leading-9 text-[#10231d]">{copy.noActiveChecklist}</h1>
-          <p className="mt-2 text-sm leading-6 text-[#53635c]">{copy.noActiveChecklistHint}</p>
+    <div className="screen-enter empty-checklist">
+      <div className="empty-checklist-layout">
+        <h1>{copy.checklistTitle}</h1><section className="empty-checklist-intro"><div className="empty-checklist-icon" aria-hidden="true"><ActionIcon name="list"/></div>
+
+          <h2>{copy.noActiveChecklist}</h2>
+          <p className="mt-2 text-sm leading-6 text-[#526078]">{copy.noActiveChecklistHint}</p>
           <button
             type="button"
             onClick={onStartOrResume}
-            className="mt-5 min-h-12 w-full rounded-xl bg-[#087f5b] px-5 text-sm font-extrabold text-white hover:bg-[#066c4d]"
+            className="mt-5 min-h-12 w-full rounded-xl bg-[#007d38] px-5 text-sm font-extrabold text-white hover:bg-[#066c4d]"
           >
             {copy.startOrResumeShoppingTrip}
           </button>
@@ -699,6 +689,7 @@ export function ShoppingChecklistScreen({
   const unavailableCount = checklist.items.length - totals.length;
   const containsEstimate = checklist.items.some(item => item.actualPriceRm == null && item.priceSource !== "manual" && item.unitPriceRm != null);
 
+  const [itemFilter, setItemFilter] = useState<"all" | "bought" | "not_bought">("all");
   const closeManualDialog = () => setManualDialog({ open: false, item: null });
 
   // AC 5.7.4: export generation is fully on-device. The sheet renders the
@@ -759,24 +750,24 @@ export function ShoppingChecklistScreen({
   };
 
   return (
-    <div className="screen-enter pb-10">
+    <div className="screen-enter active-checklist pb-10">
       <div className="flex flex-col gap-3 px-4 pb-6 pt-3 sm:gap-4 sm:px-6 sm:pt-5">
-        <section className="rounded-2xl border border-[#dce5e0] bg-white p-3 shadow-[0_4px_18px_rgba(16,35,29,0.05)] sm:p-4">
-          <p className="text-xs font-semibold text-[#617069]">{checklist.store.name}</p>
-          <h1 className="mt-1 break-words text-[26px] font-extrabold leading-8 tracking-[-0.5px] text-[#10231d] sm:text-[30px] sm:leading-9">
+        <section className="checklist-overview">
+          <p className="checklist-store-name">{checklist.store.name}</p><p className="checklist-store-address">{checklist.store.address}</p>
+          <h1 className="mt-1 break-words text-[26px] font-extrabold leading-8 tracking-[-0.5px] text-[#10152e] sm:text-[30px] sm:leading-9">
             {copy.checklistTitle}
           </h1>
           <p className="mt-1 text-xs text-[#718078]">
             {copy.checklistCreated(formatChecklistDate(checklist.createdAt, locale))}
           </p>
-          <p className="mt-3 text-sm leading-6 text-[#53635c]">{copy.checklistHint}</p>
+          <p className="mt-3 text-sm leading-6 text-[#526078]">{copy.checklistHint}</p>
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="checklist-metrics mt-3 grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-[#edf7f2] p-3">
               <p className="text-xs font-bold uppercase tracking-[0.05em] text-[#286d67]">
                 {copy.checklistProgress(progress.bought, progress.total)}
               </p>
-              <p className="mt-1 text-2xl font-extrabold text-[#087f5b]">
+              <p className="mt-1 text-2xl font-extrabold text-[#007d38]">
                 {progress.bought}/{progress.total}
               </p>
               <div
@@ -788,21 +779,21 @@ export function ShoppingChecklistScreen({
                 className="mt-3 h-2 overflow-hidden rounded-full bg-[#cce3d9]"
               >
                 <div
-                  className="h-full rounded-full bg-[#087f5b] transition-[width]"
+                  className="h-full rounded-full bg-[#007d38] transition-[width]"
                   style={{ width: `${progress.percent}%` }}
                 />
               </div>
             </div>
 
             <div className="rounded-xl bg-[#f3f4f5] p-3">
-              <p className="text-xs font-bold uppercase tracking-[0.05em] text-[#53635c]">
+              <p className="text-xs font-bold uppercase tracking-[0.05em] text-[#526078]">
                 {containsEstimate ? copy.checklistEstimatedTotal : copy.checklistTotal}
               </p>
-              <p className="mt-1 text-2xl font-extrabold text-[#17362c]">
+              <p className="mt-1 text-2xl font-extrabold text-[#10152e]">
                 {subtotal == null ? "—" : formatRm(subtotal)}
               </p>
               {unavailableCount > 0 && (
-                <p className="mt-2 text-xs leading-5 text-[#617069]">
+                <p className="mt-2 text-xs leading-5 text-[#526078]">
                   {copy.checklistPriceDisclosure(unavailableCount)}
                 </p>
               )}
@@ -810,17 +801,18 @@ export function ShoppingChecklistScreen({
           </div>
         </section>
 
-        <section aria-labelledby="checklist-items-heading">
+        <section aria-labelledby="checklist-items-heading" className="checklist-items">
+          <div className="checklist-filters">{(["all", "bought", "not_bought"] as const).map(filter => <button type="button" key={filter} aria-pressed={itemFilter === filter} onClick={() => setItemFilter(filter)}>{filter === "all" ? (locale === "en" ? "All" : "Semua") : filter === "bought" ? copy.bought : copy.notBought} ({filter === "all" ? checklist.items.length : checklist.items.filter(item => filter === "bought" ? item.status === "bought" : item.status !== "bought").length})</button>)}</div>
           <div className="mt-2 overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
             <div className="flex items-center justify-between gap-2 border-b border-[#dce5e0] bg-[#e7f7f0] px-3 py-2.5 sm:px-4">
-              <h2 id="checklist-items-heading" className="text-[20px] font-extrabold leading-7 text-[#10231d]">
+              <h2 id="checklist-items-heading" className="text-[20px] font-extrabold leading-7 text-[#10152e]">
                 {copy.checklistItems}
               </h2>
               <IconButton label={copy.addChecklistItem} tone="primary" onClick={() => setManualDialog({ open: true, item: null })}><AddIcon /></IconButton>
             </div>
             {checklist.items.length > 0 ? (
-              <ul>
-                {checklist.items.map(item => (
+              <><div className="checklist-columns" aria-hidden="true"><span/><span>{locale === "en" ? "Item" : "Item"}</span><span>{locale === "en" ? "Package" : "Pakej"}</span><span>{locale === "en" ? "Qty" : "Kuantiti"}</span><span>{locale === "en" ? "Price (RM)" : "Harga (RM)"}</span><span>{locale === "en" ? "Total (RM)" : "Jumlah (RM)"}</span><span>Status</span><span>{locale === "en" ? "Actions" : "Tindakan"}</span></div><ul>
+                {checklist.items.filter(item => itemFilter === "all" || (itemFilter === "bought" ? item.status === "bought" : item.status !== "bought")).map(item => (
                   <ChecklistRow
                     key={item.id}
                     item={item}
@@ -834,21 +826,22 @@ export function ShoppingChecklistScreen({
                     onDelete={() => setItemPendingDelete(item)}
                   />
                 ))}
-              </ul>
+              </ul></>
             ) : (
-              <div className="p-6 text-center text-sm leading-6 text-[#617069]">
+              <div className="p-6 text-center text-sm leading-6 text-[#526078]">
                 {copy.checklistEmpty}
               </div>
             )}
           </div>
         </section>
 
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="checklist-toolbar">
+          <button type="button" className="secondary-button" onClick={() => setManualDialog({ open: true, item: null })}><AddIcon/>{copy.addChecklistItem}</button>
           <button
             type="button"
             disabled={isEmpty}
             onClick={() => setRecordTripOpen(true)}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087f5b] px-4 text-sm font-extrabold text-white hover:bg-[#066c4d] disabled:cursor-not-allowed disabled:bg-[#a8bbb1]"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#007d38] px-4 text-sm font-extrabold text-white hover:bg-[#066c4d] disabled:cursor-not-allowed disabled:bg-[#a8bbb1]"
           >
             <ActionIcon name="history" />
             {copy.recordTrip}
@@ -857,7 +850,7 @@ export function ShoppingChecklistScreen({
             type="button"
             disabled={isEmpty}
             onClick={() => setExportOpen(true)}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#087f5b] bg-white px-4 text-sm font-bold text-[#087f5b] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891]"
+            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891]"
           >
             <DownloadIcon /> {copy.exportChecklist}
           </button>
