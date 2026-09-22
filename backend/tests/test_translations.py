@@ -3,6 +3,13 @@ from __future__ import annotations
 from contextlib import contextmanager
 
 
+def test_catalogue_image_manifest_omits_missing_downloads() -> None:
+    from smartcart.catalogue_image_manifest import catalogue_image_url
+
+    assert catalogue_image_url("1183") == "/pricecatcher-v1/1183.webp"
+    assert catalogue_image_url("2022") is None
+
+
 def test_catalogue_search_sql_uses_lookup_item_english_name_and_categories(monkeypatch) -> None:
     from smartcart import catalogue
 
@@ -37,7 +44,7 @@ def test_catalogue_search_sql_uses_lookup_item_english_name_and_categories(monke
 
     assert total == 1
     assert rows[0]["item_name_en"] == "Rice"
-    assert rows[0]["image_url"] == "/pricecatcher/1183.png"
+    assert rows[0]["image_url"] == "/pricecatcher-v1/1183.webp"
     count_sql, count_params = cursor.queries[0]
     assert "item_name_en" in count_sql
     assert "item_translation" not in count_sql

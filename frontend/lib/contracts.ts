@@ -102,6 +102,7 @@ export interface BasketLineDetail {
 export interface AlternativePriceItem {
   itemNameEn?: string | null;
   itemNameMs?: string | null;
+  imageUrl?: string | null;
   itemId: string;
   itemName: string | null;
   unit: string | null;

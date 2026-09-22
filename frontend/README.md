@@ -18,6 +18,11 @@ This is the Next.js development copy of the Iteration 1 React prototype. The mob
    `../backend/.env`.
 7. Run `pnpm dev` and open `http://localhost:3000`.
 
+Catalogue thumbnails are pre-compressed, versioned WebP assets so Vercel can
+serve them directly from its CDN without transforming each image at request
+time. If the source PNG set changes, regenerate them with
+`pnpm optimize:catalogue-images`.
+
 ## Current implementation
 
 The live item search and the location and recommendation flow all call the

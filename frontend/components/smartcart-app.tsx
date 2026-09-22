@@ -285,11 +285,12 @@ function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): nu
   return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
 }
 
-function CompactBasketPriceList({ prices, copy }: { prices: BasketItemPrice[]; copy: AppCopy }) {
+function CompactBasketPriceList({ prices, basket = [], copy }: { prices: BasketItemPrice[]; basket?: BasketItem[]; copy: AppCopy }) {
   return (
     <ul className="flex flex-col gap-2 rounded-xl bg-[#f4f8f9] p-3">
       {prices.map(price => (
         <li key={price.itemId} className="flex items-start justify-between gap-3 border-b border-[#e2e9e5] pb-2 last:border-b-0 last:pb-0">
+          <span className="store-price-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={basket.find(item => item.id === `db-${price.itemId}`)?.imageUrl} fallbackSize={24}/></span>
           <div className="min-w-0">
             <p className="break-words text-[13px] font-semibold text-[#10152e]">{localizedName(copy, price.itemName, price)}</p>
             {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{packageSizeForCopy(copy, price.packageSize)}</p>}
@@ -657,7 +658,7 @@ function BasketScreen({
       {basket.length === 0 ? <p className="basket-empty">{copy.basketEmpty}</p> : <>
         <div className="basket-columns" aria-hidden="true"><span>{locale === "en" ? "Product" : "Produk"}</span><span>SARA</span><span>{locale === "en" ? "Unit size" : "Saiz unit"}</span><span>{locale === "en" ? "Quantity" : "Kuantiti"}</span><span>{locale === "en" ? "Subtotal" : "Subjumlah"}</span><span/></div>
         <ul className="basket-rows">{basket.map(item => <li key={item.id} className={"basket-row " + (item.replacement ? "is-replaced" : "")}>
-          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><UIIcon name="bag" size={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span></div></div>
+          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span></div></div>
           <div className="basket-sara"><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
           <span className="basket-package">{packageSizeForCopy(copy, item.size)}</span>
           <div className="basket-quantity"><QuantitySelector value={basketQtyById[item.id] ?? String(item.qty)} onChange={raw => typeBasketQty(item.id, raw)} onStep={delta => stepBasketQty(item.id, delta)} decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))} increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))} quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))} errorId={`basket-quantity-error-${item.id}`} errorText={copy.quantityError}/></div>
@@ -796,7 +797,7 @@ function BasketScreen({
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               return (
-              <article key={item.item_id} className="product-card"><div className="product-visual" aria-hidden="true"><CatalogueItemImage item={item}/></div>
+              <article key={item.item_id} className="product-card"><div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={item.image_url}/></div>
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <h3 className="break-words text-[15px] font-extrabold leading-5 text-[#10152e]">{fields.name}</h3>
                   <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-5">
@@ -871,7 +872,7 @@ function BasketScreen({
       <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
-          <div className="product-visual" aria-hidden="true"><CatalogueItemImage item={selectedItem}/></div>
+          <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.item_category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
@@ -1473,11 +1474,12 @@ function RecommendationBasketRow({
   const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
   const hasOtherPacks = packOptions.some(pack => pack.itemId !== row.current.itemId);
   const hasOptions = Boolean(row.replacement || lowerCostAvailable || hasOtherPacks);
+  const currentImageUrl = row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined;
 
   return (
     <li className="recommendation-item">
       <div className="store-item-row">
-        <span className="store-item-image" aria-hidden="true"><UIIcon name="bag" size={27}/></span>
+        <span className="store-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={currentImageUrl} fallbackSize={27}/></span>
         <div className="store-item-name">
           <strong>{localizedName(copy, row.current.itemName, row.current)}</strong>
           <small>{packageSizeForCopy(copy, row.current.packageSize) ?? "—"}<span className="store-item-mobile-quantity"> × {row.current.quantity}</span>{row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}</small>
@@ -1763,7 +1765,7 @@ function RecommendationOverview({
             {alternativesLoading && <p role="status" className="store-detail-message">{copy.alternativesLoading}</p>}
             {alternativesError && <p role="alert" className="store-detail-message">{copy.alternativesUnavailable}</p>}
             {detailRows.length > 0 ? <ul className="store-item-list">{detailRows.map(row => <RecommendationBasketRow key={row.source.itemId} row={row} basket={basket} copy={copy} onApplyAlternative={applyAlternative} onApplyPack={applyPack} onUndo={undoReplacement} onChangeQuantity={changeQuantity}/>)}</ul>
-              : !alternativesLoading && store.basketPrices.length > 0 ? <div className="store-detail-fallback"><CompactBasketPriceList prices={store.basketPrices} copy={copy}/></div> : null}
+              : !alternativesLoading && store.basketPrices.length > 0 ? <div className="store-detail-fallback"><CompactBasketPriceList prices={store.basketPrices} basket={basket} copy={copy}/></div> : null}
             <p className="store-price-note">{copy.stockNotVerified}</p>
           </section>
           <aside className="store-detail-sidebar">
@@ -1802,7 +1804,7 @@ function CompareScreen({
   onSelectStore,
   preferences,
   candidateCacheId,
-  onBack,
+  onChangeTravel,
   copy,
 }: {
   basket: BasketItem[];
@@ -1813,7 +1815,7 @@ function CompareScreen({
   onSelectStore: (store: StoreRecommendation) => void;
   preferences: TravelPreferences;
   candidateCacheId: string | null;
-  onBack: () => void;
+  onChangeTravel: () => void;
   copy: AppCopy;
 }) {
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -1940,7 +1942,7 @@ function CompareScreen({
           <div role="alert" className="rounded-2xl border border-[#f0b8b8] bg-[#fff5f5] p-5 text-center">
             <div className="mx-auto mb-2 flex w-fit items-center gap-2 font-bold text-[#93000a]"><IcoWarn /> {copy.recommendationUnavailable}</div>
             <p className="text-sm leading-5 text-[#6f3030]">{error}</p>
-            <button type="button" onClick={onBack} className="mt-4 min-h-11 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#93000a]">{copy.changeTravel}</button>
+            <button type="button" onClick={onChangeTravel} className="mt-4 min-h-11 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#93000a]">{copy.changeTravel}</button>
           </div>
         )}
 
@@ -1985,7 +1987,7 @@ function CompareScreen({
                 <div className="rounded-2xl border border-[#bec8ca] bg-white p-5 text-center">
                   <p className="font-semibold text-[#191c1d]">{copy.noStores}</p>
                   <p className="mt-1 text-sm text-[#526078]">{copy.noStoresHint}</p>
-                  <button type="button" onClick={onBack} className="mt-3 min-h-11 px-3 font-bold text-[#00535b]">{copy.changeTravel}</button>
+                  <button type="button" onClick={onChangeTravel} className="mt-3 min-h-11 px-3 font-bold text-[#00535b]">{copy.changeTravel}</button>
                 </div>
               )}
             </div>
@@ -2008,8 +2010,6 @@ export default function App() {
     pendingPathRef.current = SCREEN_ROUTES[next];
     router.push(SCREEN_ROUTES[next]);
   };
-  const currentPathRef = useRef(pathname);
-  const previousPathRef = useRef<string | null>(null);
   const [resumeStep, setResumeStep] = useState<TripJourneyStep>("location");
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
@@ -2039,12 +2039,6 @@ export default function App() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (currentPathRef.current === pathname) return;
-    previousPathRef.current = currentPathRef.current;
-    currentPathRef.current = pathname;
   }, [pathname]);
 
   useEffect(() => {
@@ -2327,17 +2321,6 @@ export default function App() {
     setTripNotification(current => ({ id: current.id + 1, message: copy.tripRecorded }));
     navigateTo("history");
   };
-  const previousScreen: Screen = isStoreRoute ? "compare" : screen === "compare" ? "basket" : screen === "basket" ? "shop" : screen === "shop" ? "location" : "home";
-  const goBack = screen === "home" ? undefined : () => {
-    const previousRoute = SCREEN_ROUTES[previousScreen];
-    if (isStoreRoute) {
-      router.replace(SCREEN_ROUTES.compare);
-      return;
-    }
-    if (previousPathRef.current === previousRoute) router.back();
-    else router.replace(previousRoute);
-  };
-
   return (
     <div className="smartcart-app">
       <Header
@@ -2472,7 +2455,7 @@ export default function App() {
             }}
             preferences={preferences}
             candidateCacheId={candidateCacheId}
-            onBack={goBack!}
+            onChangeTravel={() => navigateTo("location")}
             copy={copy}
           />
         ) : null}

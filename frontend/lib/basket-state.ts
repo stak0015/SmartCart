@@ -9,6 +9,7 @@ export interface BasketItemBase {
   name: string;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
+  imageUrl?: string | null;
   size: string;
   qty: number;
   saraEligible: boolean | null;
@@ -50,6 +51,7 @@ function baseItem(item: AlternativePriceItem): BasketItemBase {
     name: item.itemName ?? "Catalogue item",
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    imageUrl: item.imageUrl,
     size: item.packageSize ?? item.unit ?? "—",
     qty: 1,
     saraEligible: item.saraEligible,
@@ -84,6 +86,7 @@ export function applyBasketReplacement(
     name: current.name,
     itemNameEn: current.itemNameEn,
     itemNameMs: current.itemNameMs,
+    imageUrl: current.imageUrl,
     size: current.size,
     qty: current.qty,
     saraEligible: current.saraEligible,

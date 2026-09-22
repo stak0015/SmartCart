@@ -4,6 +4,7 @@ import re
 from typing import Any
 
 from .database import database_cursor
+from .catalogue_image_manifest import catalogue_image_url
 from .translations import (
     catalogue_search_params,
     catalogue_search_where,
@@ -177,10 +178,9 @@ def search_catalogue(
         row["sara_category_candidate"] = is_sara_category_candidate(
             row["item_category"]
         )
-        # Images are deployed with the frontend as public static assets. The
-        # client handles the small set of catalogue items whose image is
-        # missing by falling back to its item icon.
-        row["image_url"] = f"/pricecatcher/{row['item_code']}.png"
+        # Only advertise checked-in thumbnails. This avoids making the browser
+        # issue a failed request for every catalogue row without an image.
+        row["image_url"] = catalogue_image_url(row["item_code"])
     return rows, total
 
 

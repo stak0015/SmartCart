@@ -85,7 +85,13 @@ describe("basketDetails", () => {
     expect(basketDetails(baseItem)).toEqual({
       name: fields.name,
       size: fields.packageSize,
+      imageUrl: null,
     });
+  });
+
+  it("carries the catalogue image into the basket", () => {
+    expect(basketDetails({ ...baseItem, image_url: "/pricecatcher-v1/1183.webp" }).imageUrl)
+      .toBe("/pricecatcher-v1/1183.webp");
   });
 
   it("uses the same package-size fallback as the result row", () => {
