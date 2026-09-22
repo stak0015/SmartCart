@@ -21,6 +21,14 @@ def parse_args() -> argparse.Namespace:
         "--database-url",
         help="PostgreSQL URL; defaults to DATABASE_URL from the environment or .env",
     )
+    parser.add_argument(
+        "--allow-missing-english-names",
+        action="store_true",
+        help=(
+            "allow newly published named items without a reviewed English label; "
+            "the API will use the official source name"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -188,6 +196,12 @@ def main() -> int:
             "English item names: "
             f"{item_count - missing_english_names:,} rows populated or intentionally blank"
         )
+        if missing_english_names and args.allow_missing_english_names:
+            print(
+                "Warning: "
+                f"{missing_english_names} named items have no reviewed English label; "
+                "the official source name will be used"
+            )
     if pack_quantity_count is None:
         print("items with parsed pack quantities: unavailable (columns missing)")
     else:
@@ -222,7 +236,7 @@ def main() -> int:
         failures.append(
             "item.item_name_en is missing; run migrate_item_name_en.py and seed_item_names.py"
         )
-    elif missing_english_names:
+    elif missing_english_names and not args.allow_missing_english_names:
         failures.append(
             f"{missing_english_names} named items have no English label; run seed_item_names.py"
         )

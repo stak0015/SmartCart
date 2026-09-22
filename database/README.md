@@ -298,14 +298,17 @@ Refresh the growing current-month PriceCatcher file once per day:
 
 ```powershell
 python ingest_pricecatcher.py --month
-python verify_database.py
+python seed_item_names.py
+python verify_database.py --allow-missing-english-names
 ```
 
 `price_observed_date` is the source observation date and `price_synced_at` is
 the ingestion time. A PriceCatcher price does not prove that an item is in
 stock. Each successful refresh also updates `item.median_price_rm` for touched
 items. The loader retains only the latest six monthly PriceCatcher files locally
-after a successful run.
+after a successful run. Newly published items without a reviewed English label
+are allowed during a daily refresh; the API falls back to the official source
+name until a label is added to `data/item_name_en.csv`.
 
 ## Local and committed data
 
