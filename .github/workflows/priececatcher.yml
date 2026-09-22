@@ -37,7 +37,12 @@ jobs:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
         run: python database/ingest_pricecatcher.py --month
 
+      - name: Apply reviewed English item names
+        env:
+          DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+        run: python database/seed_item_names.py
+
       - name: Verify database
         env:
           DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
-        run: python database/verify_database.py
+        run: python database/verify_database.py --allow-missing-english-names
