@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import SmartCartApp from "@/components/smartcart-app";
 import "./globals.css";
+import "./ui-layout.css";
 
 export const metadata: Metadata = {
   title: "SmartCart",
@@ -9,7 +11,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-MY">
-      <body>{children}</body>
+      <body><SmartCartApp />{children}</body>
     </html>
   );
 }

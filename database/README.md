@@ -11,6 +11,10 @@ The loader downloads official PriceCatcher item, premise, and current-year
 monthly price files. It also reads the committed, dated premise-enrichment
 snapshot so every developer gets the same candidate Place IDs.
 
+The SARA matcher treats the former `Tesco` brand as an alias of `Lotus's`
+(`Lotuss` in the source snapshot). This is only a name-normalization alias;
+coordinate and postcode checks still apply.
+
 ## Files
 
 - `schema.sql` — idempotent PostgreSQL schema.
@@ -34,6 +38,9 @@ snapshot so every developer gets the same candidate Place IDs.
   complete lookup catalogue.
 - `seed_category_translations.py` — optional category-label seed; category
   translations remain separate from item names.
+- `identify_sara_chains.py` and `sara_chain_catalog.py` — recurring-chain
+  identification from the local SARA snapshot, cross-referenced with the
+  official MyKasih merchant-partner directory.
 - `verify_database.py` — post-ingestion integrity checks.
 - `requirements.txt` — Python dependencies.
 - `.env.example` — safe local configuration template.
@@ -137,6 +144,67 @@ coordinates that are not newer than the cache so unnecessary provider data is
 not retained. A newer coordinate is preserved. `place_match_refreshed_at` is
 also advanced to the cache generation time when a selected Place ID matches.
 The migration never writes a user's selected origin.
+
+## Verified SARA store status
+
+`migrate_sara_verified.py` marks a PriceCatcher premise as `sara_partner = TRUE`
+when its selected Price place is within 150 metres of a merchant in the local
+MyKasih SARA snapshot, at least 75% of the PriceCatcher premise's meaningful
+name tokens (and at least two tokens) fuzzy-match the SARA name, including at
+least one non-location brand token, and the postcodes agree when both are
+present. Rows without a postcode require 90% name coverage plus state
+agreement. Non-accepted Place candidates are excluded.
+The migration only promotes matches and never clears an existing verification.
+
+Validate the match set before applying it:
+
+```powershell
+python migrate_sara_verified.py --prepare-only
+```
+
+The prepare-only run writes `data/raw/sara_verified_match_audit.json`. It has
+one record for every loaded PriceCatcher premise, including the PriceCatcher
+name/address/postcode/coordinates, the match evidence, and the matched SARA
+candidate's trading name/address/postcode/coordinates. For premises that fail
+the acceptance rules, the JSON still records the highest candidate within the
+coordinate radius and lists the rejection reasons. Only premises with
+`match_status = "matched"` are promoted in the database.
+
+Apply it to the database after reviewing the prepare-only counts:
+
+```powershell
+python migrate_sara_verified.py
+```
+
+The raw merchant snapshot is an authorised MyKasih merchant-list collection;
+its provenance and redistribution restrictions continue to apply. This status
+is a documented-source match, not a claim that a particular item is currently
+eligible or in stock at the store.
+
+To inspect recurring chain candidates independently, run:
+
+```powershell
+python identify_sara_chains.py
+```
+
+This fetches the official [MyKasih merchant-partner directory](https://www.mykasih.com.my/en/about-us/merchant-partners/)
+and writes `data/raw/sara_chain_catalog.json`. The catalog keeps all official
+partner names with source URL and retrieval time, then annotates recurring SARA
+chain groups when their canonical names overlap an official partner name. The
+official directory also contains one-off local merchants, so it is not treated
+as a chain-only list. In the current refresh, the catalog contains 701
+recurring chain-name groups covering 7,484 of the 13,550 SARA records, 439
+official partner names, and 84 recurring groups with an exact canonical-name
+overlap. Singleton SARA names are intentionally left unclassified rather than
+asserted to be chains.
+
+After refreshing the catalogue, regenerate the complete premise audit and apply
+the current strict match set with:
+
+```powershell
+python migrate_sara_verified.py --prepare-only
+python migrate_sara_verified.py
+```
 
 When `location_provider = 'google'`, latitude and longitude are a temporary
 cache. The recommendation query uses only coordinates refreshed within the
