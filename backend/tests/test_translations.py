@@ -24,7 +24,7 @@ def test_catalogue_search_sql_uses_lookup_item_english_name_and_categories(monke
             return (1,)
 
         def fetchall(self) -> list[tuple[object, ...]]:
-            return [(1, "BERAS", "1 kg", "BERAS", None, "Rice", "BERAS", "BERAS", "BERAS")]
+            return [(1, "1183", "BERAS", "1 kg", "BERAS", None, "Rice", "BERAS", "BERAS", "BERAS")]
 
     cursor = Cursor()
 
@@ -37,6 +37,7 @@ def test_catalogue_search_sql_uses_lookup_item_english_name_and_categories(monke
 
     assert total == 1
     assert rows[0]["item_name_en"] == "Rice"
+    assert rows[0]["image_url"] == "/pricecatcher/1183.png"
     count_sql, count_params = cursor.queries[0]
     assert "item_name_en" in count_sql
     assert "item_translation" not in count_sql

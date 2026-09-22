@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
+import { CatalogueItemImage } from "./catalogue-item-image";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
@@ -111,7 +112,6 @@ import {
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
-import svgPathsSaved from "@/components/icons/saved";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 type Screen = "home" | "shop" | "basket" | "location" | "compare" | "checklist" | "history" | "inbox";
@@ -165,13 +165,6 @@ function packageSizeForCopy(copy: AppCopy, value: string | null | undefined): st
 const INIT_BASKET: BasketItem[] = [];
 
 // ── Shared SVG icons (from imports) ─────────────────────────────────────────
-function IcoBasket({ color = "#3E494A", size = 22 }: { color?: string; size?: number }) {
-  return (
-    <svg width={size} height={size * 19 / 21.976} viewBox="0 0 21.9758 19" fill="none">
-      <path d={svgPathsSaved.p345cae00} fill={color} />
-    </svg>
-  );
-}
 function IcoSearch({ color = "#3E494A" }: { color?: string }) {
   return (
     <svg width={18} height={18} viewBox="0 0 18 18" fill="none">
@@ -803,7 +796,7 @@ function BasketScreen({
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               return (
-              <article key={item.item_id} className="product-card"><div className="product-visual" aria-hidden="true"><IcoBasket color="#91a79a" size={48}/></div>
+              <article key={item.item_id} className="product-card"><div className="product-visual" aria-hidden="true"><CatalogueItemImage item={item}/></div>
                 <div className="flex min-w-0 flex-col gap-1.5">
                   <h3 className="break-words text-[15px] font-extrabold leading-5 text-[#10152e]">{fields.name}</h3>
                   <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-5">
@@ -878,7 +871,7 @@ function BasketScreen({
       <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
-          <div className="product-visual" aria-hidden="true"><IcoBasket color="#91a79a" size={64}/></div>
+          <div className="product-visual" aria-hidden="true"><CatalogueItemImage item={selectedItem}/></div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.item_category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>

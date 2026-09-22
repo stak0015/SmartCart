@@ -766,12 +766,15 @@ html,body {
   border-radius:8px
 }
 .product-visual {
+  position:relative;
+  overflow:hidden;
   height:135px;
   display:grid;
   place-items:center;
   background:#f7faf8;
   border-radius:6px
 }
+.catalogue-item-image { object-fit:contain; padding:12px; }
 .product-card h3 {
   font-size:14px;
   font-weight:600

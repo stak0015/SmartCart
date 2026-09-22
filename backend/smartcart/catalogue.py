@@ -146,7 +146,7 @@ def search_catalogue(
 
         cursor.execute(
             f"""
-            SELECT i.item_id, i.item_name, i.unit, i.item_category,
+            SELECT i.item_id, i.item_code, i.item_name, i.unit, i.item_category,
                    i.sara_eligible,
                    {translation_select_columns()}
             FROM item i
@@ -160,6 +160,7 @@ def search_catalogue(
         )
         columns = [
             "item_id",
+            "item_code",
             "item_name",
             "unit",
             "item_category",
@@ -176,6 +177,10 @@ def search_catalogue(
         row["sara_category_candidate"] = is_sara_category_candidate(
             row["item_category"]
         )
+        # Images are deployed with the frontend as public static assets. The
+        # client handles the small set of catalogue items whose image is
+        # missing by falling back to its item icon.
+        row["image_url"] = f"/pricecatcher/{row['item_code']}.png"
     return rows, total
 
 
