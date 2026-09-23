@@ -285,7 +285,7 @@ export function SmartCartHomeScreen({
       <div className="home-hero"><h1>{hasTripInProgress ? (locale === "en" ? "Shopping trip in progress" : text.resumeTrip) : text.title}</h1>
       <p>{hasTripInProgress ? (locale === "en" ? "Continue where you left off, or start a new trip." : text.description) : (locale === "en" ? "Plan your household shopping, compare nearby stores and keep track of your spending." : text.description)}</p></div>
       <section className="home-trip"><span className="home-trip-icon"><Icon kind="trip"/></span><div><h2>{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2><p>{hasTripInProgress ? text.resumeAt(journeyStepLabel(locale, resumeStep)) : (locale === "en" ? "Choose your location and travel preferences to begin." : text.travelStep)}</p></div>
-      <div className="home-trip-actions"><button type="button" className="primary-button" onClick={onStartOrResume}>{hasTripInProgress ? text.resumeTrip : text.startTrip} <span aria-hidden="true">→</span></button>{hasTripInProgress && <button type="button" className="secondary-button" onClick={onStartNew}>＋ {text.startNew}</button>}</div></section>
+      <div className="home-trip-actions"><button type="button" className="primary-button" onClick={onStartOrResume}>{hasTripInProgress ? text.resumeTrip : text.startTrip} <span aria-hidden="true">→</span></button>{hasTripInProgress && <button type="button" className="secondary-button" onClick={onStartNew}>{text.startNew}</button>}</div></section>
       <section className="home-tools" aria-label="SmartCart tools">
         <HomeCard actionLabel={locale === "en" ? "View checklist" : "Lihat senarai"} icon="checklist" title={text.checklist} detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist} onClick={onChecklist}/>
         <HomeCard actionLabel={locale === "en" ? "View history" : "Lihat sejarah"} icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory}/>
@@ -308,7 +308,7 @@ export function TripHistoryScreen({ history, locale }: { history: TripRecord[]; 
   const records = listTripRecords(history);
 
   return (
-    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
+    <div className="screen-enter px-4 pb-12 pt-4 sm:px-6 sm:pt-6">
       <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10152e]">{text.historyTitle}</h1>
       <p className="mt-2 text-sm leading-5 text-[#526078]">{text.historyDescription}</p>
       {records.length === 0 ? (
@@ -602,7 +602,7 @@ export function InboxScreen({
   const comparison = state.summaryHidden ? null : periodComparison(history, state.cadence);
   const currentPeriod = comparison?.current ?? null;
   return (
-    <div className="screen-enter px-4 pb-12 pt-8 sm:px-6">
+    <div className="screen-enter px-4 pb-12 pt-4 sm:px-6 sm:pt-6">
       <h1 className="text-[30px] font-extrabold tracking-[-0.7px] text-[#10152e]">{text.inboxTitle}</h1>
       <p className="mt-2 text-sm leading-5 text-[#526078]">{text.inboxDescription}</p>
 

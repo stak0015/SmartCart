@@ -122,6 +122,7 @@ export interface AlternativePriceItem {
 export interface PackSizeOption {
   itemNameEn?: string | null;
   itemNameMs?: string | null;
+  imageUrl?: string | null;
   itemId: string;
   itemName: string | null;
   packageSize: string | null;

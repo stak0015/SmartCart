@@ -49,10 +49,12 @@ export async function searchItems(
   categories: string[] = [],
   signal?: AbortSignal,
   candidateCacheId?: string | null,
+  pageSize = 25,
 ): Promise<SearchResult> {
   const params = new URLSearchParams({ q, page: String(page) });
   categories.forEach(category => params.append("category", category));
   if (candidateCacheId) params.set("candidate_cache_id", candidateCacheId);
+  if (pageSize !== 25) params.set("page_size", String(pageSize));
   const url = `${API_BASE_URL}/items/search?${params.toString()}`;
   const res = await fetch(url, { signal });
   if (!res.ok) {

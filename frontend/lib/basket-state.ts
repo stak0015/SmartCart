@@ -81,6 +81,12 @@ export function applyBasketReplacement(
     return basket;
   }
 
+  if (current.replacement?.original.id === choice.replacement.id) {
+    return basket.map((item, index) => index === sourceIndex
+      ? { ...current.replacement!.original, qty: current.qty }
+      : item);
+  }
+
   const original: BasketItemBase = current.replacement?.original ?? {
     id: current.id,
     name: current.name,
@@ -169,6 +175,7 @@ export function packReplacementChoice(
       name: pack.itemName ?? "Catalogue item",
       itemNameEn: pack.itemNameEn,
       itemNameMs: pack.itemNameMs,
+      imageUrl: pack.imageUrl,
       size: pack.packageSize ?? "—",
       qty: line.quantity,
       saraEligible: pack.saraEligible,

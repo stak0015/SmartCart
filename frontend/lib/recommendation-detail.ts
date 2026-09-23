@@ -12,6 +12,7 @@ export interface RecommendationDetailPrice {
   itemName: string;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
+  imageUrl?: string | null;
   packageSize: string | null;
   quantity: number;
   unitPriceRm: number | null;
@@ -56,6 +57,7 @@ function detailFromAlternative(item: AlternativePriceItem, quantity: number): Re
     itemName: item.itemName ?? "Catalogue item",
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    imageUrl: item.imageUrl,
     packageSize: item.packageSize ?? item.unit,
     quantity,
     unitPriceRm: item.unitPriceRm,
@@ -74,6 +76,7 @@ function detailFromPack(pack: PackSizeOption, quantity: number): RecommendationD
     itemName: pack.itemName ?? "Catalogue item",
     itemNameEn: pack.itemNameEn,
     itemNameMs: pack.itemNameMs,
+    imageUrl: pack.imageUrl,
     packageSize: pack.packageSize,
     quantity,
     unitPriceRm: pack.totalPriceRm,
@@ -101,6 +104,7 @@ function fallbackCurrentPrice(
     itemName: line.itemName ?? basketItem.name,
     itemNameEn: line.itemNameEn ?? basketItem.itemNameEn,
     itemNameMs: line.itemNameMs ?? basketItem.itemNameMs,
+    imageUrl: basketItem.imageUrl,
     packageSize: price?.packageSize ?? line.unit ?? basketItem.size,
     quantity: basketItem.qty,
     unitPriceRm: line.unitPriceRm,
@@ -148,7 +152,9 @@ export function buildRecommendationDetailRows(
       current,
       alternatives: line,
       basketItem,
-      replacement: basketItem?.replacement ?? null,
+      replacement: basketItem?.replacement && basketItem.id !== basketItem.replacement.original.id
+        ? basketItem.replacement
+        : null,
     };
   });
 }

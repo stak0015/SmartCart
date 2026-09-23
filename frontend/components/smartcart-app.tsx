@@ -1,9 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { UIIcon } from "./ui-icon";
+import { DropdownChevron, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
+import { StoreChainLogo } from "./store-chain-logo";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
@@ -38,14 +39,12 @@ import {
   undoBasketReplacement,
   type BasketItem,
 } from "@/lib/basket-state";
-import { basketSavingsSummary } from "@/lib/savings-summary";
 import {
   buildRecommendationDetailRows,
   recommendationDetailTotals,
   targetAlreadyInBasket,
   type RecommendationDetailRow,
 } from "@/lib/recommendation-detail";
-import { SuccessToast } from "@/components/success-toast";
 import {
   ConfirmationDialog,
   EmptyChecklistScreen,
@@ -257,6 +256,13 @@ function TransportModeIcon({ mode, color = "#3E494A" }: { mode: TransportMode; c
     </span>
   );
 }
+
+type TripFact = { icon: ReactNode; label: string; value: ReactNode };
+
+function TripFactsItems({ facts }: { facts: TripFact[] }) {
+  return <>{facts.map(fact => <span key={fact.label}>{fact.icon}<small>{fact.label}</small><strong>{fact.value}</strong></span>)}</>;
+}
+
 // ── Header ─────────────────────────────────────────────────────────────────
 function SaraEligibilityFlag({
   status,
@@ -312,53 +318,6 @@ function CompactBasketPriceList({ prices, basket = [], copy }: { prices: BasketI
         </li>
       ))}
     </ul>
-  );
-}
-
-function CompactSavingsFooter({
-  copy,
-  hasReplacements,
-  comparable,
-  originalRm,
-  newRm,
-  netSavingRm,
-  totalsLabel,
-}: {
-  copy: AppCopy;
-  hasReplacements: boolean;
-  comparable: boolean;
-  originalRm: number | null;
-  newRm: number | null;
-  netSavingRm: number | null;
-  totalsLabel: string;
-}) {
-  if (!hasReplacements || !comparable || netSavingRm == null || netSavingRm === 0) return null;
-  const isSaving = netSavingRm > 0;
-  const isIncrease = netSavingRm < 0;
-  const theme = isSaving
-    ? "border-[#b9e0d1] bg-[#e7f7f0] text-[#175f4b]"
-    : isIncrease
-      ? "border-[#efd3a6] bg-[#fff7e8] text-[#7a4d00]"
-      : "border-[#d9e1dd] bg-[#f3f5f4] text-[#405149]";
-  const message = isSaving
-    ? copy.youSave(formatRm(netSavingRm))
-    : copy.costsMoreNow(formatRm(Math.abs(netSavingRm)));
-
-  return (
-    <footer className={`border-t px-4 py-3 ${theme}`}>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <div>
-          <p className="text-xs font-bold">{isSaving ? copy.savingsTitle : copy.basketCostChange}</p>
-          <p className="text-[15px] font-extrabold">{message}</p>
-        </div>
-        {comparable && originalRm != null && newRm != null && (
-          <p className="text-right text-xs font-semibold">
-            <span className="block opacity-75">{totalsLabel}</span>
-            <span>{formatRm(originalRm)} → {formatRm(newRm)}</span>
-          </p>
-        )}
-      </div>
-    </footer>
   );
 }
 
@@ -484,7 +443,6 @@ function BasketScreen({
   const [priceContext, setPriceContext] = useState<"ready" | "unavailable">("unavailable");
   const [priceStoreCount, setPriceStoreCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
-  const [notification, setNotification] = useState({ id: 0, message: "" });
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
@@ -538,7 +496,7 @@ function BasketScreen({
     setApiSearched(true);
     setApiError(false);
     const timer = window.setTimeout(() => {
-      searchItems(query, page, activeCategories, controller.signal, candidateCacheId)
+      searchItems(query, page, activeCategories, controller.signal, candidateCacheId, 15)
         .then(data => {
           if (controller.signal.aborted) return;
           setApiResults(data.items);
@@ -624,7 +582,6 @@ function BasketScreen({
       saraEligible: item.sara_eligible,
       saraCategoryCandidate: item.sara_category_candidate,
     }));
-    setNotification(current => ({ id: current.id + 1, message: copy.itemAdded(qty, localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms })) }));
   };
 
   const changePage = (nextPage: number) => {
@@ -647,28 +604,24 @@ function BasketScreen({
   const selectedName = selectedItem ? localizedName(copy, selectedItem.item_name, { itemNameEn: selectedItem.item_name_en, itemNameMs: selectedItem.item_name_ms }) : "";
   const selectedRawQty = selectedItem ? qtyById[selectedItem.item_id] ?? String(DEFAULT_QTY) : "1";
   const selectedQty = parseQty(selectedRawQty);
-  const basketCostSummary = basketSavingsSummary(basket);
   const isDesktopBasketRail = view === "shop";
-
-  const quotedBasketLines = basket.filter(item => item.replacement != null);
-  const quotedBasketTotal = quotedBasketLines.length ? quotedBasketLines.reduce((sum, item) => sum + item.replacement!.alternativeUnitPriceRm * item.qty, 0) : null;
   const basketPanel = (
     <section className={"basket-panel " + (isDesktopBasketRail ? "is-rail" : "is-review")} aria-label={copy.basketItems}>
       <header className="basket-panel-heading"><UIIcon name="basket"/><h2>{isDesktopBasketRail ? (locale === "en" ? "Your basket" : "Bakul anda") : copy.basketItems}</h2><span>{itemCount}</span></header>
       {basket.length === 0 ? <p className="basket-empty">{copy.basketEmpty}</p> : <>
-        <div className="basket-columns" aria-hidden="true"><span>{locale === "en" ? "Product" : "Produk"}</span><span>SARA</span><span>{locale === "en" ? "Unit size" : "Saiz unit"}</span><span>{locale === "en" ? "Quantity" : "Kuantiti"}</span><span>{locale === "en" ? "Subtotal" : "Subjumlah"}</span><span/></div>
-        <ul className="basket-rows">{basket.map(item => <li key={item.id} className={"basket-row " + (item.replacement ? "is-replaced" : "")}>
+        <div className="basket-columns" aria-hidden="true"><span>{locale === "en" ? "Product" : "Produk"}</span><span>SARA</span><span>{locale === "en" ? "Unit size" : "Saiz unit"}</span><span>{locale === "en" ? "Quantity" : "Kuantiti"}</span><span/></div>
+        <ul className="basket-rows">{basket.map(item => {
+          const replacement = item.replacement && item.id !== item.replacement.original.id ? item.replacement : null;
+          return <li key={item.id} className={"basket-row " + (replacement ? "is-replaced" : "")}>
           <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span></div></div>
           <div className="basket-sara"><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
           <span className="basket-package">{packageSizeForCopy(copy, item.size)}</span>
           <div className="basket-quantity"><QuantitySelector value={basketQtyById[item.id] ?? String(item.qty)} onChange={raw => typeBasketQty(item.id, raw)} onStep={delta => stepBasketQty(item.id, delta)} decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))} increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))} quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))} errorId={`basket-quantity-error-${item.id}`} errorText={copy.quantityError}/></div>
-          <div className="basket-quote">{item.replacement ? <><strong>{formatRm(item.replacement.alternativeUnitPriceRm * item.qty)}</strong><small>{item.replacement.premiseName}</small></> : <span title={copy.noStorePrice} aria-label={copy.noStorePrice}>—</span>}</div>
           <button type="button" className="basket-remove" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)}><IcoTrash color="#526078"/></button>
-          {item.replacement && <div className="basket-replacement"><span>{item.replacement.kind === "pack" ? copy.packChanged : copy.swapped} · {copy.originally(localizedName(copy, item.replacement.original.name, item.replacement.original))} ({packageSizeForCopy(copy, item.replacement.original.size)}) · {replacementImpactText(copy, currentReplacementImpactRm(item))}</span><button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))}>{copy.undoSwap}</button></div>}
-        </li>)}</ul>
+          {replacement && <div className="basket-replacement"><span>{replacement.kind === "pack" ? copy.packChanged : copy.swapped} · {copy.originally(localizedName(copy, replacement.original.name, replacement.original))} ({packageSizeForCopy(copy, replacement.original.size)})</span><button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))}>{copy.undoSwap}</button></div>}
+        </li>;
+        })}</ul>
       </>}
-      <div className="basket-panel-summary"><span>{copy.itemCount(itemCount)}</span>{quotedBasketTotal != null && <div><small>{quotedBasketLines.length < basket.length ? copy.estimatedPartialTotal : copy.estimatedSubtotal}</small><strong>{formatRm(quotedBasketTotal)}</strong></div>}</div>
-      <CompactSavingsFooter copy={copy} hasReplacements={basketCostSummary.hasReplacements} comparable={basketCostSummary.comparable} originalRm={basketCostSummary.originalRm} newRm={basketCostSummary.newRm} netSavingRm={basketCostSummary.netSavingRm} totalsLabel={copy.affectedItemsTotal}/>
       {isDesktopBasketRail && <div className="basket-rail-action"><button type="button" className="primary-button" onClick={onViewBasket} disabled={basket.length === 0}>{copy.viewBasket} →</button></div>}
     </section>
   );
@@ -678,7 +631,7 @@ function BasketScreen({
       {view === "shop" && (
         <div className="catalogue-content">
       {/* Page header */}
-      <div className="px-4 pb-5 pt-1 sm:px-6 sm:pt-0">
+      <div className="px-4 pb-5 pt-0 sm:px-6">
 
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">{copy.shopTitle}</h1>
         <p className="mt-2 max-w-[580px] text-[16px] leading-6 text-[#526078]">
@@ -723,7 +676,7 @@ function BasketScreen({
               {activeCategories.length === 0 ? copy.allCategories : activeCategories.map(category => categoryLabel(locale, category)).join(", ")}
             </span>
           </span>
-          <span aria-hidden="true" className={`text-lg text-[#007d38] transition-transform ${categoryOpen ? "rotate-180" : ""}`}>⌄</span>
+          <DropdownChevron className="text-[#007d38]"/>
         </button>
 
         {categoryOpen && (
@@ -868,7 +821,6 @@ function BasketScreen({
           {basketPanel}
         </aside>
       )}
-      {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
@@ -882,7 +834,7 @@ function BasketScreen({
         quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}/>
       {view === "basket" && (
         <>
-      <div className="px-4 pb-5 pt-5 sm:px-6 sm:pt-8">
+      <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
         <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1><p className="page-description">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p>
       </div>
 
@@ -986,7 +938,6 @@ function LocationScreen({
 
   const locationGeneration = useRef(0);
   const reverseController = useRef<AbortController | null>(null);
-  const [notification, setNotification] = useState({ id: 0, message: "" });
   useEffect(() => () => { locationGeneration.current += 1; reverseController.current?.abort(); }, []);
 
   useEffect(() => {
@@ -1100,7 +1051,6 @@ function LocationScreen({
         setSelectedOrigin(resolvedOrigin);
         setLocationInput(resolvedOrigin.label);
         setSearchState("idle");
-        setNotification(current => ({ id: current.id + 1, message: label ? copy.locationDetected : copy.addressUnavailable }));
       },
       error => {
         if (generation !== locationGeneration.current) return;
@@ -1165,7 +1115,6 @@ function LocationScreen({
 
   return (
     <div className="screen-enter location-screen">
-      {notification.message && <SuccessToast notificationId={notification.id} message={notification.message} dismissLabel={copy.dismiss} onDismiss={() => setNotification(current => ({ ...current, message: "" }))} />}
       <div className="location-map">
         {selectedOrigin ? <>
           <iframe title={copy === COPY.ms ? "Peta lokasi permulaan" : "Starting location map"} loading="lazy" referrerPolicy="no-referrer" src={"https://maps.google.com/maps?" + new URLSearchParams({q: `${selectedOrigin.latitude},${selectedOrigin.longitude}`, z: "13", output: "embed"}).toString()}/>
@@ -1265,7 +1214,7 @@ function LocationScreen({
         </section>
 
         <div className="preference-bar">
-        <section className={"transport-panel preference-panel " + (expandedPreference === "transport" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "transport"} onClick={() => setExpandedPreference(current => current === "transport" ? null : "transport")}><TransportModeIcon mode={transportMode}/> <strong>{copy.transportMode}</strong><span>{transportLabel(copy, transportMode)}</span><span aria-hidden="true">›</span></button><div className="preference-content">
+        <section className={"transport-panel preference-panel " + (expandedPreference === "transport" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "transport"} onClick={() => setExpandedPreference(current => current === "transport" ? null : "transport")}><TransportModeIcon mode={transportMode}/> <strong>{copy.transportMode}</strong><span>{transportLabel(copy, transportMode)}</span><DropdownChevron/></button><div className="preference-content">
           <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{copy.transportMode}</h2>
           <div className="grid grid-cols-2 gap-3">
             {TRANSPORT_OPTS.map(option => {
@@ -1286,7 +1235,7 @@ function LocationScreen({
           </div>
         </div>{transportMode === "public_transport" && <p className="transit-note">{copy.transitWalking}</p>}</section>
 
-        <section className={"limit-panel preference-panel " + (expandedPreference === "limit" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "limit"} onClick={() => setExpandedPreference(current => current === "limit" ? null : "limit")}><UIIcon name="history" size={20}/> <strong>{copy.travelLimit}</strong><span>{limitType === "both" ? `${distanceKm} km · ${timeMinutes} min` : limitType === "distance" ? `${distanceKm} km` : `${timeMinutes} min`}</span><span aria-hidden="true">›</span></button><div className="preference-content">
+        <section className={"limit-panel preference-panel " + (expandedPreference === "limit" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "limit"} onClick={() => setExpandedPreference(current => current === "limit" ? null : "limit")}><UIIcon name="history" size={20}/> <strong>{copy.travelLimit}</strong><span>{limitType === "both" ? `${distanceKm} km · ${timeMinutes} min` : limitType === "distance" ? `${distanceKm} km` : `${timeMinutes} min`}</span><DropdownChevron/></button><div className="preference-content">
           <div>
             <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{copy.travelLimit}</h2>
             <p className="mt-1 text-[16px] text-[#3e494a]">{copy.travelLimitDescription}</p>
@@ -1322,7 +1271,7 @@ function LocationScreen({
 
         <section className={"sara-panel preference-panel " + (expandedPreference === "sara" ? "preference-open" : "")}>
           <button type="button" className="preference-summary" aria-expanded={expandedPreference === "sara"} onClick={() => setExpandedPreference(current => current === "sara" ? null : "sara")}>
-            <UIIcon name="basket" size={20}/><strong>{copy.saraPlanning}</strong><span>{saraFilter === "any" ? (copy === COPY.en ? "All stores" : "Semua kedai") : (copy === COPY.en ? "SARA stores" : "Kedai SARA")}</span><span aria-hidden="true">›</span>
+            <UIIcon name="basket" size={20}/><strong>{copy.saraPlanning}</strong><span>{saraFilter === "any" ? (copy === COPY.en ? "All stores" : "Semua kedai") : (copy === COPY.en ? "SARA stores" : "Kedai SARA")}</span><DropdownChevron/>
           </button>
           <div className="preference-content">
             <h2>{copy.saraPlanning}</h2>
@@ -1396,7 +1345,7 @@ function StoreCard({
     <article className={"store-card " + (isRecommended ? "is-recommended" : "")}>
       <div className="store-card-marker">{isRecommended && <span>★ {copy.recommendedStore}</span>}</div>
       <header className="store-card-header">
-        <div className="store-symbol" aria-hidden="true"><IcoStore /></div>
+        <div className="store-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
         <div className="store-card-identity">
           <h3>{store.name}</h3>
           <SaraStoreTag status={store.saraStatus} copy={copy} />
@@ -1404,9 +1353,9 @@ function StoreCard({
         </div>
       </header>
         <div className="store-card-travel">
-          <div className="store-card-trip-fact"><TransportModeIcon mode={transportMode}/><small>{copy.distance} · {copy.oneWay}</small><strong>{store.routeDistanceKm.toFixed(1)} km</strong></div>
-          <div className="store-card-trip-fact"><UIIcon name="history" size={20}/><small>{copy.travelTime} · {copy.oneWay}</small><strong>{travelDuration}</strong></div>
-          <div className="store-card-trip-fact"><IcoStore/><small>{copy.returnTravel}</small><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div>
+          <div className="store-card-trip-fact"><TransportModeIcon mode={transportMode} color="#526078"/><small>{copy.distance}</small><strong>{store.routeDistanceKm.toFixed(1)} km</strong></div>
+          <div className="store-card-trip-fact"><UIIcon name="history" size={20}/><small>{copy.travelTime}</small><strong>{travelDuration}</strong></div>
+          <div className="store-card-trip-fact"><UIIcon name="wallet" size={20}/><small>{copy.returnTravel}</small><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div>
         {routeUrl && <a className="store-card-route" href={routeUrl} target="_blank" rel="noopener noreferrer">{copy.openInGoogleMaps} <span aria-hidden="true">↗</span></a>}
       </div>
       <div className="store-card-costs">
@@ -1417,7 +1366,7 @@ function StoreCard({
       {(store.basketLineCount ?? 0) > 0 && <div className="price-coverage"><span>{storeOfficialPriceCount} {copy === COPY.ms ? "harga kedai" : "store prices"} · {storeMedianPriceCount} {copy === COPY.ms ? "anggaran median" : "median estimates"} · {store.missingItems.length} {copy === COPY.ms ? "tiada harga" : "missing prices"}</span><progress max={store.basketLineCount ?? 1} value={storeOfficialPriceCount} aria-label={copy.priceCoverage(storeOfficialPriceCount, store.basketLineCount ?? 0)}/></div>}
       <div className="store-card-actions">
         {(store.basketLineCount ?? 0) > 0 && store.basketPrices.length > 0 && <div className="store-price-anchor">
-          <button type="button" className="store-price-trigger" aria-expanded={pricesExpanded} aria-controls={priceListId} onClick={onTogglePrices}>{pricesExpanded ? copy.hidePriceList : copy.viewPriceList} <span aria-hidden="true">{pricesExpanded ? "⌃" : "⌄"}</span></button>
+          <button type="button" className="store-price-trigger" aria-expanded={pricesExpanded} aria-controls={priceListId} onClick={onTogglePrices}>{pricesExpanded ? copy.hidePriceList : copy.viewPriceList} <DropdownChevron/></button>
           {pricesExpanded && <div id={priceListId} className="store-price-popover" onKeyDown={event => { if (event.key === "Escape") onTogglePrices(); }}>
             <div className="store-price-popover-heading"><strong>{copy.basketItems}</strong><button type="button" onClick={onTogglePrices} aria-label={copy.dismiss}>×</button></div>
             <div className="store-price-table-head"><span>{copy === COPY.ms ? "Item" : "Item"}</span><span>{copy === COPY.ms ? "Saiz" : "Pack"}</span><span>{copy === COPY.ms ? "Kuantiti" : "Qty"}</span><span>{copy === COPY.ms ? "Harga" : "Unit"}</span><span>{copy === COPY.ms ? "Jumlah" : "Total"}</span></div>
@@ -1474,7 +1423,9 @@ function RecommendationBasketRow({
   const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
   const hasOtherPacks = packOptions.some(pack => pack.itemId !== row.current.itemId);
   const hasOptions = Boolean(row.replacement || lowerCostAvailable || hasOtherPacks);
-  const currentImageUrl = row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined;
+  const currentImageUrl = row.current.imageUrl ?? (
+    row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined
+  );
 
   return (
     <li className="recommendation-item">
@@ -1493,7 +1444,7 @@ function RecommendationBasketRow({
         </div>
         <span className="store-item-unit-price">{row.current.unitPriceRm == null ? "—" : formatRm(row.current.unitPriceRm)}</span>
         <strong className="store-item-total">{row.current.lineTotalRm == null ? copy.noStorePrice : formatRm(row.current.lineTotalRm)}</strong>
-        {hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}>{expanded ? "⌃" : "›"}</button>}
+        {hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>}
       </div>
       {hasOptions && expanded && <div className="store-item-options">
 
@@ -1529,7 +1480,7 @@ function RecommendationBasketRow({
 
       {hasOtherPacks && bestPack && (
         <details className="pack-comparison mt-2 rounded-xl border border-[#dce5e0] bg-white">
-          <summary className="cursor-pointer list-none px-3 py-2.5 [&::-webkit-details-marker]:hidden">
+          <summary className="dropdown-summary cursor-pointer list-none px-3 py-2.5 [&::-webkit-details-marker]:hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-xs font-extrabold text-[#10152e]">{copy.comparePackSizes(packOptions.length)}</p>
@@ -1539,7 +1490,7 @@ function RecommendationBasketRow({
                     : `${copy.bestUnitValue}: ${packageSizeForCopy(copy, bestPack.packageSize) ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
                 </p>
               </div>
-              <span aria-hidden="true" className="shrink-0 text-lg font-bold text-[#007d38]">⌄</span>
+              <DropdownChevron className="text-[#007d38]"/>
             </div>
           </summary>
           <div className="pack-options">
@@ -1748,13 +1699,19 @@ function RecommendationOverview({
     <div className="screen-enter store-detail">
       <div className="store-detail-shell">
         <header className="store-detail-header">
-          <div className="store-symbol store-detail-symbol" aria-hidden="true"><IcoStore /></div>
-          <div className="store-detail-identity"><div><h1>{store.name}</h1><SaraStoreTag status={store.saraStatus} copy={copy}/></div><p>{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p></div>
+          <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
+          <div className="store-detail-identity">
+            <h1>{store.name}</h1>
+            <p>{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
+            <SaraStoreTag status={store.saraStatus} copy={copy}/>
+          </div>
           <div className="store-detail-facts">
-            <span><TransportModeIcon mode={preferences.transportMode}/><strong>{transportLabel(copy, preferences.transportMode)}</strong></span>
-            <span><UIIcon name="history" size={20}/><strong>{store.estimatedTravelMinutes} {copy.minutes}</strong></span>
-            <span><UIIcon name="route" size={20}/><strong>{store.routeDistanceKm.toFixed(1)} km</strong></span>
-            <span><IcoStore/><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></span>
+            <TripFactsItems facts={[
+              { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: transportLabel(copy, preferences.transportMode) },
+              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${store.estimatedTravelMinutes} ${copy.minutes}` },
+              { icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: `${store.routeDistanceKm.toFixed(1)} km` },
+              { icon: <UIIcon name="wallet" size={20}/>, label: copy.returnTravel, value: formatRm(store.estimatedRoundTripCostRm) },
+            ]}/>
           </div>
           {preferences.origin && <a className="store-detail-route" href={mapsRouteUrl(preferences.origin, store, preferences.transportMode)} target="_blank" rel="noopener noreferrer">{copy.openInGoogleMaps} ↗</a>}
         </header>
@@ -1857,7 +1814,7 @@ function CompareScreen({
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    // AC 2.3.2: a fresh recommendation list starts again at the first five.
+    // AC 2.3.2: a fresh recommendation list starts again at the first six.
     setVisibleCount(VISIBLE_STEP);
     setExpandedStoreId(null);
 
@@ -1929,7 +1886,14 @@ function CompareScreen({
           )}
         </div>
 
-        <div className="comparison-context"><div><UIIcon name="home"/><span><small>{copy === COPY.ms ? "Dari" : "From"}</small><strong>{originLabel || "—"}</strong></span></div><div><TransportModeIcon mode={preferences.transportMode}/><span><small>{copy.transportMode}</small><strong>{modeLabel}</strong></span></div><div><UIIcon name="history"/><span><small>{copy.travelLimit}</small><strong>{limitLabel}</strong></span></div><div><IcoStore/><span><small>{copy === COPY.ms ? "Kedai" : "Stores"}</small><strong>{loading ? "—" : recommendations.length}</strong></span></div></div>
+        <div className="store-detail-facts">
+          <TripFactsItems facts={[
+            { icon: <UIIcon name="home"/>, label: copy === COPY.ms ? "Dari" : "From", value: originLabel || "—" },
+            { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: modeLabel },
+            { icon: <UIIcon name="history" size={20}/>, label: copy.travelLimit, value: limitLabel },
+            { icon: <IcoStore/>, label: copy === COPY.ms ? "Kedai" : "Stores", value: loading ? "—" : recommendations.length },
+          ]}/>
+        </div>
         {loading && (
           <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-6 text-center shadow-sm">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[#cce3d9] border-t-[#007d38]" />
@@ -1976,7 +1940,7 @@ function CompareScreen({
                 />
               ))}
 
-              {/* Page the unified ranking five stores at a time. */}
+              {/* Page the unified ranking six stores at a time. */}
               {hasMoreStores(visibleCount, recommendations.length) && (
                 <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, recommendations.length))} className="h-12 w-full rounded-xl border border-[#007d38] bg-white text-sm font-bold text-[#007d38]">
                   {copy.moreStores}
@@ -2025,7 +1989,6 @@ export default function App() {
   const [inbox, setInbox] = useState<InboxState>(EMPTY_INBOX);
   const [inboxStorageReady, setInboxStorageReady] = useState(false);
   const [restartTripOpen, setRestartTripOpen] = useState(false);
-  const [tripNotification, setTripNotification] = useState({ id: 0, message: "" });
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
     origin: null,
@@ -2091,6 +2054,38 @@ export default function App() {
       // or full; a later update can retry persistence.
     }
   }, [checklist, checklistStorageReady]);
+
+  const checklistImageIds = [...new Set((checklist?.items ?? [])
+    .filter(item => item.source === "catalogue" && item.catalogueItemId != null && !item.imageUrl)
+    .map(item => item.catalogueItemId!))].join(",");
+  const checklistIdForImages = checklist?.id;
+  const checklistStoreIdForImages = checklist?.store.premiseId;
+  useEffect(() => {
+    if (!checklistStorageReady || !checklistIdForImages || !checklistStoreIdForImages || !checklistImageIds) return;
+    const controller = new AbortController();
+    getBasketAlternatives(
+      checklistStoreIdForImages,
+      checklistImageIds.split(",").map(itemId => ({ itemId, quantity: 1 })),
+      controller.signal,
+    ).then(response => {
+      const imageUrls = new Map(response.lines.map(line => [line.source.itemId, line.source.imageUrl] as const));
+      setChecklist(current => {
+        if (!current || current.id !== checklistIdForImages) return current;
+        let changed = false;
+        const items = current.items.map(item => {
+          if (item.imageUrl || item.catalogueItemId == null) return item;
+          const imageUrl = imageUrls.get(item.catalogueItemId);
+          if (!imageUrl) return item;
+          changed = true;
+          return { ...item, imageUrl };
+        });
+        return changed ? { ...current, items } : current;
+      });
+    }).catch(() => {
+      // A missing image never blocks the saved checklist or its actions.
+    });
+    return () => controller.abort();
+  }, [checklistIdForImages, checklistImageIds, checklistStorageReady, checklistStoreIdForImages]);
 
   useEffect(() => {
     try {
@@ -2284,6 +2279,7 @@ export default function App() {
             itemName: source.itemName,
             itemNameEn: source.itemNameEn,
             itemNameMs: source.itemNameMs,
+            imageUrl: source.imageUrl,
             packageSize: source.packageSize,
             unitPriceRm: source.unitPriceRm,
             observedDate: source.observedDate,
@@ -2318,7 +2314,6 @@ export default function App() {
     // The record appears in the in-memory history immediately (no reload) and
     // is persisted by the storage effect above.
     setTripHistory(current => addTripRecord(current, record));
-    setTripNotification(current => ({ id: current.id + 1, message: copy.tripRecorded }));
     navigateTo("history");
   };
   return (
@@ -2472,14 +2467,6 @@ export default function App() {
         onCancel={() => setRestartTripOpen(false)}
         onConfirm={startNewTrip}
       />
-      {tripNotification.message && (
-        <SuccessToast
-          notificationId={tripNotification.id}
-          message={tripNotification.message}
-          dismissLabel={copy.dismiss}
-          onDismiss={() => setTripNotification(current => ({ ...current, message: "" }))}
-        />
-      )}
     </div>
   );
 }

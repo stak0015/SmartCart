@@ -40,6 +40,7 @@ export interface ChecklistItem {
   itemName: string;
   itemNameEn: string | null;
   itemNameMs: string | null;
+  imageUrl?: string | null;
   packageSize: string | null;
   quantity: number;
   unitPriceRm: number | null;
@@ -198,6 +199,7 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     itemName: current.itemName,
     itemNameEn: current.itemNameEn ?? null,
     itemNameMs: current.itemNameMs ?? null,
+    imageUrl: current.imageUrl || row.basketItem?.imageUrl || row.source.imageUrl || null,
     packageSize: current.packageSize,
     quantity,
     unitPriceRm,
@@ -685,6 +687,7 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && item.itemName.trim().length > 0
     && isNullableString(item.itemNameEn)
     && isNullableString(item.itemNameMs)
+    && (item.imageUrl === undefined || isNullableString(item.imageUrl))
     && isNullableString(item.packageSize)
     && typeof item.quantity === "number"
     && Number.isInteger(item.quantity)

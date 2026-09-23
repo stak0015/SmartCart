@@ -59,9 +59,10 @@ The UI covers:
   combined-cost ranking with transparent missing-price coverage; fallback
   responses explain that travel limits and route feasibility are unverified.
 - `POST /api/premises/{premiseId}/basket-alternatives` checks the selected
-  premise for one cheaper strict equivalent per basket line. Applying an
-  alternative updates the in-memory basket, exposes the saving, and keeps an
-  Undo action available in both the store overview and basket.
+  premise for one lower-priced, name-similar item in the same category and
+  package basis per basket line. Applying an alternative updates the in-memory
+  basket, exposes the saving, and keeps an Undo action available in both the
+  store overview and basket.
 
 Run `pnpm lint` and `pnpm build` here and `python -m pytest` in `../backend`
 before handoff. See

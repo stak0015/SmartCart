@@ -30,6 +30,7 @@ export interface TripRecordLine {
   itemName: string;
   itemNameEn: string | null;
   itemNameMs: string | null;
+  imageUrl?: string | null;
   packageSize: string | null;
   // Planned quantity plus the shopper-recorded actual quantity (AC 5.3.4);
   // quantitySource says which one the spending figure used.
@@ -130,6 +131,7 @@ function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
     packageSize: item.packageSize,
     quantity: item.quantity,
     actualQuantity: item.actualQuantity,
@@ -235,6 +237,7 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
     && line.itemName.trim().length > 0
     && isNullableString(line.itemNameEn)
     && isNullableString(line.itemNameMs)
+    && (line.imageUrl === undefined || isNullableString(line.imageUrl))
     && isNullableString(line.packageSize)
     && typeof line.quantity === "number"
     && Number.isInteger(line.quantity)

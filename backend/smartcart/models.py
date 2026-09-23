@@ -181,6 +181,7 @@ class AlternativePriceItem(CamelModel):
     sara_category_candidate: bool = False
     is_sara_credit_candidate: bool = False
     price_source: Literal["store", "median"] | None = None
+    image_url: str | None = None
 
 
 class PackSizeOption(CamelModel):
@@ -211,6 +212,7 @@ class PackSizeOption(CamelModel):
     # baseline of the comparison.
     upfront_diff_rm: float | None = None
     per_unit_diff_rm: float | None = None
+    image_url: str | None = None
 
 
 class BasketAlternativeLine(CamelModel):

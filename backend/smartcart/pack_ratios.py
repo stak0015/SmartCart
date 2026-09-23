@@ -4,10 +4,11 @@ For every basket line that belongs to a product family with multiple pack
 sizes, list every pack size priced at the selected premise together with its
 pack price and its price per unit (RM per kg or per litre).
 
-Grouping reuses the shipped normalisers from ``alternatives``:
-``product_family`` decides "same product" (brand markers and size tokens
-stripped) and ``package_basis`` decides "different pack size". Quantities come
-from the ingest-time columns ``item.quantity_value`` / ``item.quantity_unit``
+Grouping uses a conservative family key for pack-size comparison and
+``package_basis`` decides "different pack size". Alternative-item discovery
+uses the category-scoped name similarity matcher in ``alternatives``.
+Quantities come from the ingest-time columns
+``item.quantity_value`` / ``item.quantity_unit``
 (D3.2-A); rows without a parsed quantity are not comparable and silently stay
 out of the comparison. KG and L families never mix.
 
@@ -19,12 +20,38 @@ values are rounded to cents.
 from dataclasses import dataclass, replace
 from datetime import date
 from decimal import Decimal
+import re
 
-from .alternatives import _money, package_basis, product_family
-from .catalogue import display_package_size
+from .alternatives import _money, package_basis
+from .catalogue import catalogue_image_url, display_package_size
 from .database import database_cursor
 from .models import BasketLineRequest
 from .sara import is_sara_credit_line
+
+
+_PACK_FAMILY_BRAND_MARKER = re.compile(
+    r"\b(?:PELBAGAI\s+JENAMA|CAP|JENAMA)\b", re.IGNORECASE
+)
+_PACK_FAMILY_SIZE = re.compile(
+    r"\b\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L|LITER|LITRE|CM)\b",
+    re.IGNORECASE,
+)
+_PACK_FAMILY_MULTIPACK = re.compile(
+    r"\b\d+\s?[Xx]\s?\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L|LITER|LITRE)\b",
+    re.IGNORECASE,
+)
+
+
+def _pack_comparison_family(item_name: str | None) -> str:
+    """Conservative name key for comparing sizes of the same product."""
+
+    value = item_name or ""
+    marker = _PACK_FAMILY_BRAND_MARKER.search(value)
+    if marker:
+        value = value[: marker.start()]
+    value = _PACK_FAMILY_MULTIPACK.sub(" ", value)
+    value = _PACK_FAMILY_SIZE.sub(" ", value)
+    return re.sub(r"[^A-Z0-9]+", " ", value.upper()).strip()
 
 
 @dataclass(frozen=True)
@@ -50,6 +77,7 @@ class PackSizeOption:
     _price: Decimal | None = None
     item_name_en: str | None = None
     item_name_ms: str | None = None
+    image_url: str | None = None
 
 
 def _source_rows(item_ids: list[int]) -> list[tuple]:
@@ -74,7 +102,8 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
                    item.quantity_value, item.quantity_unit,
                    current_status.current_price,
                    current_status.price_observed_date,
-                   item.item_category, item.sara_eligible
+                   item.item_category, item.sara_eligible,
+                   item.item_code
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
@@ -89,6 +118,7 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
 
 
 def _option_from_row(row: tuple) -> PackSizeOption:
+    image_code = row[10] if len(row) > 10 else None
     if len(row) == 9:
         (
             item_id, item_name, unit, quantity_value, quantity_unit, price,
@@ -99,7 +129,7 @@ def _option_from_row(row: tuple) -> PackSizeOption:
         (
             item_id, item_name, item_name_en, unit, quantity_value, quantity_unit,
             price, observed, category, sara_eligible,
-        ) = row
+        ) = row[:10]
     ratio = Decimal(price) / Decimal(quantity_value)
     sara_category_candidate = bool(category and is_sara_credit_line(False, category))
     return PackSizeOption(
@@ -117,6 +147,7 @@ def _option_from_row(row: tuple) -> PackSizeOption:
         is_sara_credit_candidate=is_sara_credit_line(sara_eligible, category),
         _ratio=ratio,
         _price=Decimal(price),
+        image_url=catalogue_image_url(image_code),
     )
 
 
@@ -147,7 +178,7 @@ def get_pack_options_from_premise_rows(
     """Build pack options from one already-fetched premise-wide row set.
 
     The request-level alternatives service uses this builder so the same
-    priced rows power both strict alternatives and pack-size comparisons.
+    priced rows power both similar-item matches and pack-size comparisons.
     """
 
     sources = {
@@ -177,7 +208,7 @@ def get_pack_options_from_rows(
         kind_index = 5 if len(row) >= 10 else 4
         if row[quantity_index] is None or row[kind_index] is None:
             continue
-        family = product_family(row[1])
+        family = _pack_comparison_family(row[1])
         if family:
             by_family.setdefault(family, []).append(row)
 
@@ -190,7 +221,7 @@ def get_pack_options_from_rows(
             _sid, source_name, _source_name_en, source_unit, source_qty, source_kind = source
         if source_qty is None or source_kind is None:
             continue
-        family = product_family(source_name)
+        family = _pack_comparison_family(source_name)
         if not family:
             continue
         members = [

@@ -1,9 +1,8 @@
-"""Selected-store cheaper-equivalent discovery.
+"""Selected-store, category-scoped cheaper-item discovery.
 
-Alternatives intentionally stay conservative: a shopper is offered a lower
-priced item only when the catalogue gives us the same category, package basis
-and a stable product-family name.  PriceCatcher observations are estimates and
-do not establish current stock.
+Names are normalized into comparison tokens, then candidates in the same
+category and package basis are matched by token Jaccard similarity. PriceCatcher
+observations are estimates and do not establish current stock.
 """
 
 from dataclasses import dataclass
@@ -11,13 +10,12 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 import re
 
-from .catalogue import display_package_size
+from .catalogue import catalogue_image_url, display_package_size
 from .database import database_cursor
 from .models import BasketLineRequest
 from .sara import is_sara_credit_line
 
 
-_BRAND_MARKER = re.compile(r"\b(?:PELBAGAI\s+JENAMA|CAP|JENAMA)\b", re.IGNORECASE)
 _PACKAGE_TOKEN = re.compile(
     r"\b\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L|LITER|LITRE|CM)\b",
     re.IGNORECASE,
@@ -27,34 +25,45 @@ _MULTIPACK_TOKEN = re.compile(
     re.IGNORECASE,
 )
 _SPACE = re.compile(r"\s+")
+_ALTERNATIVE_BRAND_SEGMENT = re.compile(r"\b(?:CAP|JENAMA)\s+[^()]*", re.IGNORECASE)
+_ALTERNATIVE_TOKENS = re.compile(r"[A-Z0-9]+")
+ALTERNATIVE_NAME_SIMILARITY_THRESHOLD = 0.67
 
 
 def _money(value: Decimal) -> float:
     return float(value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
-def _normalise_text(value: str | None) -> str:
-    if not value:
-        return ""
-    return _SPACE.sub(" ", re.sub(r"[^A-Z0-9]+", " ", value.upper())).strip()
+def alternative_name_tokens(item_name: str | None) -> tuple[str, ...]:
+    """Normalize an item name for category-scoped similarity matching.
 
-
-def product_family(item_name: str | None) -> str:
-    """Return a conservative family key from an official item name.
-
-    PriceCatcher names usually place a brand after ``CAP`` or ``JENAMA``.
-    Keeping only the prefix prevents sardines and mackerel from being treated
-    as the same family while still grouping different brands of sardines.
-    Names without a detectable marker remain exact-name matches.
+    Package sizes and explicit brand segments are removed, while text in
+    parentheses is retained because it often identifies product type or
+    variant. Percentage grades beside a brand marker are retained too.
     """
 
-    value = item_name or ""
-    marker = _BRAND_MARKER.search(value)
-    if marker:
-        value = value[: marker.start()]
+    value = (item_name or "").upper().replace("&", " AND ")
+    value = re.sub(r"\bPELBAGAI\s+JENAMA\b", " ", value)
     value = _MULTIPACK_TOKEN.sub(" ", value)
     value = _PACKAGE_TOKEN.sub(" ", value)
-    return _normalise_text(value)
+
+    def preserve_percentage(match: re.Match[str]) -> str:
+        percentages = re.findall(r"\d+(?:\.\d+)?\s?%", match.group(0))
+        return " " + " ".join(percentages)
+
+    value = _ALTERNATIVE_BRAND_SEGMENT.sub(preserve_percentage, value)
+    return tuple(_ALTERNATIVE_TOKENS.findall(value))
+
+
+def alternative_name_similarity(left: str | None, right: str | None) -> float:
+    """Return token-set Jaccard similarity for two normalized item names."""
+
+    left_tokens = set(alternative_name_tokens(left))
+    right_tokens = set(alternative_name_tokens(right))
+    union = left_tokens | right_tokens
+    if not union:
+        return 0.0
+    return len(left_tokens & right_tokens) / len(union)
 
 
 def package_basis(item_name: str | None, unit: str | None) -> str:
@@ -83,6 +92,7 @@ class AlternativePriceItem:
     item_name_en: str | None = None
     item_name_ms: str | None = None
     price_source: str | None = None
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -128,6 +138,7 @@ def _item_from_row(
     today: date,
     *,
     allow_median: bool = False,
+    image_code: str | None = None,
 ) -> AlternativePriceItem:
     if len(row) == 7:
         item_id, item_name, unit, category, sara_eligible, current_price, observed = row
@@ -183,6 +194,7 @@ def _item_from_row(
         sara_eligible=sara_eligible,
         sara_category_candidate=category_candidate,
         is_sara_credit_candidate=is_sara_credit_line(sara_eligible, category),
+        image_url=catalogue_image_url(image_code),
     )
 
 
@@ -191,7 +203,7 @@ def get_basket_alternatives(
     basket: list[BasketLineRequest],
     today: date | None = None,
 ) -> list[BasketAlternative]:
-    """Find one cheaper strict equivalent for every requested basket line."""
+    """Find one cheaper, name-similar item for every requested basket line."""
 
     if not basket:
         return []
@@ -211,7 +223,8 @@ def get_basket_alternatives(
                    item.sara_eligible,
                    current_status.current_price,
                    item.median_price_rm,
-                   current_status.price_observed_date
+                   current_status.price_observed_date,
+                   item.item_code
             FROM requested
             LEFT JOIN item ON item.item_id = requested.item_id
             LEFT JOIN current_status
@@ -228,7 +241,8 @@ def get_basket_alternatives(
             SELECT item.item_id, item.item_name, item.item_name_en, item.unit,
                    item.item_category, item.sara_eligible,
                    current_status.current_price,
-                   current_status.price_observed_date
+                   current_status.price_observed_date,
+                   item.item_code
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
@@ -284,37 +298,57 @@ def _build_basket_alternatives(
                 source_row[9],
             )
         source = _item_from_row(
-            source_values, quantity, today, allow_median=True
+            source_values,
+            quantity,
+            today,
+            allow_median=True,
+            image_code=source_row[10] if len(source_row) > 10 else None,
         )
-        alternatives = []
+        alternatives: list[tuple[float, AlternativePriceItem]] = []
         if len(source_row) == 8:
-            source_key = (source_row[4], package_basis(source_row[2], source_row[3]))
+            source_category = source_row[4]
+            source_key = (source_category, package_basis(source_row[2], source_row[3]))
         else:
-            source_key = (source_row[5], package_basis(source_row[2], source_row[4]))
-        family = product_family(source_row[2])
-        if source.price_source == "store" and source.unit_price_rm is not None and family:
+            source_category = source_row[5]
+            source_key = (source_category, package_basis(source_row[2], source_row[4]))
+        if (
+            source_category
+            and source_category.strip()
+            and source.price_source == "store"
+            and source.unit_price_rm is not None
+        ):
             for candidate in candidates_by_key.get(source_key, []):
-                if product_family(candidate[1]) != family:
+                similarity = alternative_name_similarity(source_row[2], candidate[1])
+                if similarity < ALTERNATIVE_NAME_SIMILARITY_THRESHOLD:
                     continue
-                candidate_item = _item_from_row(candidate, quantity, today)
+                candidate_item = _item_from_row(
+                    candidate[:8] if len(candidate) > 8 else candidate,
+                    quantity,
+                    today,
+                    image_code=candidate[8] if len(candidate) > 8 else None,
+                )
                 if (
                     candidate_item.unit_price_rm is not None
                     and candidate_item.line_total_rm is not None
                     and candidate_item.line_total_rm < source.line_total_rm
                 ):
-                    alternatives.append(candidate_item)
+                    alternatives.append((similarity, candidate_item))
 
-        alternative = min(
+        best_alternative = min(
             alternatives,
-            key=lambda item: (
-                item.line_total_rm,
-                -(item.price_observed_days_ago is not None),
-                item.price_observed_days_ago or 0,
-                item.item_name or "",
-                int(item.item_id),
+            key=lambda match: (
+                -match[0],
+                match[1].line_total_rm
+                if match[1].line_total_rm is not None
+                else float("inf"),
+                -(match[1].price_observed_days_ago is not None),
+                match[1].price_observed_days_ago or 0,
+                match[1].item_name or "",
+                int(match[1].item_id),
             ),
             default=None,
         )
+        alternative = best_alternative[1] if best_alternative else None
         savings = (
             _money(Decimal(str(source.line_total_rm)) - Decimal(str(alternative.line_total_rm)))
             if alternative is not None and source.line_total_rm is not None and alternative.line_total_rm is not None
@@ -338,8 +372,8 @@ def get_basket_alternatives_with_pack_options(
 ) -> tuple[bool, list[BasketAlternative], dict[str, list[object]]]:
     """Load all basket comparison data in one database scope.
 
-    The premise-wide priced rows are fetched once and shared by strict
-    cheaper-equivalent matching and pack-size comparisons.  The boolean is
+    The premise-wide priced rows are fetched once and shared by name-similar
+    cheaper-item matching and pack-size comparisons. The boolean is
     false when the premise is not open; callers can map that to the public 404
     response without issuing a second database request.
     """
@@ -370,7 +404,8 @@ def get_basket_alternatives_with_pack_options(
                    item.sara_eligible,
                    current_status.current_price,
                    item.median_price_rm,
-                   current_status.price_observed_date
+                   current_status.price_observed_date,
+                   item.item_code
             FROM requested
             LEFT JOIN item ON item.item_id = requested.item_id
             LEFT JOIN current_status
@@ -391,7 +426,8 @@ def get_basket_alternatives_with_pack_options(
                    item.quantity_value, item.quantity_unit,
                    current_status.current_price,
                    current_status.price_observed_date,
-                   item.item_category, item.sara_eligible
+                   item.item_category, item.sara_eligible,
+                   item.item_code
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
@@ -402,11 +438,11 @@ def get_basket_alternatives_with_pack_options(
         )
         premise_rows = cursor.fetchall()
 
-    # Adapt the shared rows to the strict-alternative builder's historical
-    # eight-column candidate shape (the quantity fields are pack-only data).
+    # Adapt the shared rows to the similar-item builder's historical candidate
+    # shape and append the catalogue code for its optional thumbnail.
     candidate_rows = [
         (
-            row[0], row[1], row[2], row[3], row[8], row[9], row[6], row[7],
+            row[0], row[1], row[2], row[3], row[8], row[9], row[6], row[7], row[10],
         )
         for row in premise_rows
         if row[0] not in item_ids

@@ -11,6 +11,9 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { formatRm } from "@/lib/format-rm";
+import { CatalogueItemImage } from "./catalogue-item-image";
+import { StoreChainLogo } from "./store-chain-logo";
+import { DropdownChevron, UIIcon } from "./ui-icon";
 import {
   buildChecklistExportModel,
   type ChecklistExportModel,
@@ -567,13 +570,19 @@ function ChecklistRow({ item, locale, copy, saved, onToggleBought, onToggleNotBo
     : estimated ? (locale === "en" ? "Used store price" : "Harga kedai") : (locale === "en" ? "Actual price" : "Harga sebenar");
   return <li className={"checklist-row " + (actionsOpen ? "actions-open " : "") + (item.source === "manual" ? "manual-row" : "")}>
     <label className="checklist-checkbox"><input type="checkbox" checked={bought} onChange={onToggleBought} aria-label={bought ? copy.markNotBought(name) : copy.markBought(name)}/><span aria-hidden="true">{bought && <CheckIcon/>}</span></label>
-    <div className="checklist-row-name"><h3>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{name}</h3><p className="checklist-mobile-package">{item.packageSize} × {quantity}</p></div>
+    <div className="checklist-row-name">
+      <span className="checklist-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={28}/></span>
+      <div className="checklist-item-copy">
+        <h3>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{name}</h3>
+        <p className="checklist-mobile-package">{item.packageSize || "—"} × {quantity}</p>
+      </div>
+    </div>
     <span className="checklist-package">{item.packageSize || "—"}</span>
     <span className="checklist-quantity">{quantity}</span>
-    <button type="button" className="checklist-unit-price" onClick={onEdit} aria-label={copy.editChecklistItem + ": " + name}>{effectiveChecklistUnitPrice(item) == null ? "—" : effectiveChecklistUnitPrice(item)!.toFixed(2)}</button>
+    <span className="checklist-unit-price">{effectiveChecklistUnitPrice(item) == null ? "—" : effectiveChecklistUnitPrice(item)!.toFixed(2)}</span>
     <div className="checklist-row-total"><strong>{total == null ? <span title={copy.checklistPriceUnavailable}>—</span> : <>{estimated && <span title={copy.checklistPriceEstimate} aria-label={copy.checklistPriceEstimate}>≈ </span>}{formatRm(total)}</>}</strong><span className={"mobile-item-status " + (bought ? "is-bought" : "")}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span></div>
     <div className="checklist-status"><span className={bought ? "status-bought" : "status-unbought"}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span><small>{total == null ? copy.checklistPriceUnavailable : priceLabel}</small></div>
-    <button type="button" className="row-disclosure" aria-label={copy.editChecklistItem + ": " + name} aria-expanded={actionsOpen} onClick={() => setActionsOpen(!actionsOpen)}>{actionsOpen ? "⌃" : "›"}</button>
+    <button type="button" className="row-disclosure" aria-label={copy.editChecklistItem + ": " + name} aria-expanded={actionsOpen} onClick={() => setActionsOpen(!actionsOpen)}><DropdownChevron/></button>
     <div className="checklist-row-actions"><div>
       {!bought && <IconButton label={saved ? copy.removeFromNextTrip + ": " + name : copy.saveForNextTrip + ": " + name} aria-pressed={saved} onClick={onToggleNotBought} className={saved ? "text-[#007d38] bg-[#ecf8f0]" : ""}><ActionIcon name="bookmark"/></IconButton>}
       <IconButton label={copy.editChecklistItem + ": " + name} onClick={onEdit}><PencilIcon/></IconButton>
@@ -610,7 +619,8 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }
       {items.map(item => {
         const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
         return <li key={item.id} className="flex items-center gap-2 py-2">
-          <div className="min-w-0 flex-1"><p className="break-words text-sm font-bold text-[#10152e]">{name}</p><p className="text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p></div>
+          <span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span>
+          <div className="next-trip-item-copy min-w-0 flex-1"><p className="next-trip-item-name break-words text-sm font-bold text-[#10152e]">{name}</p><p className="next-trip-item-meta text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p></div>
           {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
           <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="trash" /></IconButton>
         </li>;
@@ -751,9 +761,12 @@ export function ShoppingChecklistScreen({
 
   return (
     <div className="screen-enter active-checklist pb-10">
-      <div className="flex flex-col gap-3 px-4 pb-6 pt-3 sm:gap-4 sm:px-6 sm:pt-5">
+      <div className="flex flex-col gap-3 px-4 pb-6 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
         <section className="checklist-overview">
-          <p className="checklist-store-name">{checklist.store.name}</p><p className="checklist-store-address">{checklist.store.address}</p>
+          <div className="checklist-store-identity">
+            <span className="checklist-store-symbol" aria-hidden="true"><StoreChainLogo name={checklist.store.name} fallback={<UIIcon name="bag" size={28}/>} /></span>
+            <span><span className="checklist-store-name">{checklist.store.name}</span><span className="checklist-store-address">{checklist.store.address}</span></span>
+          </div>
           <h1 className="mt-1 break-words text-[26px] font-extrabold leading-8 tracking-[-0.5px] text-[#10152e] sm:text-[30px] sm:leading-9">
             {copy.checklistTitle}
           </h1>
@@ -808,7 +821,6 @@ export function ShoppingChecklistScreen({
               <h2 id="checklist-items-heading" className="text-[20px] font-extrabold leading-7 text-[#10152e]">
                 {copy.checklistItems}
               </h2>
-              <IconButton label={copy.addChecklistItem} tone="primary" onClick={() => setManualDialog({ open: true, item: null })}><AddIcon /></IconButton>
             </div>
             {checklist.items.length > 0 ? (
               <><div className="checklist-columns" aria-hidden="true"><span/><span>{locale === "en" ? "Item" : "Item"}</span><span>{locale === "en" ? "Package" : "Pakej"}</span><span>{locale === "en" ? "Qty" : "Kuantiti"}</span><span>{locale === "en" ? "Price (RM)" : "Harga (RM)"}</span><span>{locale === "en" ? "Total (RM)" : "Jumlah (RM)"}</span><span>Status</span><span>{locale === "en" ? "Actions" : "Tindakan"}</span></div><ul>

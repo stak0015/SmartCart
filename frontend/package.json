@@ -10,7 +10,8 @@
     "test": "vitest run",
     "cleanup:premise-locations": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs --cleanup-only",
     "sync:premise-locations": "node --env-file-if-exists=../backend/.env --env-file-if-exists=.env.local scripts/sync-premise-locations.mjs",
-    "optimize:catalogue-images": "python scripts/optimize_catalogue_images.py"
+    "optimize:catalogue-images": "python scripts/optimize_catalogue_images.py",
+    "optimize:chain-logos": "python scripts/optimize_chain_logos.py"
   },
   "dependencies": {
     "html-to-image": "^1.11.13",

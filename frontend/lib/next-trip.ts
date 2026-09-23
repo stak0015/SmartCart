@@ -16,13 +16,14 @@ function money(value: number): number {
 // Only item identity and quantity travel between trips. A previous store's
 // price, shopping outcome and location are not a quote for the next trip.
 export type NextTripItem = Pick<ChecklistItem,
-  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "packageSize" | "quantity"
+  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "imageUrl" | "packageSize" | "quantity"
 >;
 
 export interface NextTripPriceQuote {
   itemName?: string | null;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
+  imageUrl?: string | null;
   packageSize?: string | null;
   unitPriceRm: number | null;
   observedDate: string | null;
@@ -42,6 +43,7 @@ export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): Nex
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    imageUrl: item.imageUrl,
     packageSize: item.packageSize,
     quantity: effectiveChecklistQuantity(item),
   };
@@ -66,15 +68,24 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
       if (typeof item.id !== "string" || !item.id.trim() || seen.has(item.id)
         || typeof item.itemName !== "string" || !item.itemName.trim()
         || ![item.itemNameEn, item.itemNameMs, item.packageSize].every(field => field === null || typeof field === "string")
+        || (item.imageUrl !== undefined && item.imageUrl !== null && typeof item.imageUrl !== "string")
         || typeof item.quantity !== "number" || !Number.isSafeInteger(item.quantity) || item.quantity < 1
         || !(item.source === "manual" && item.catalogueItemId === null
           || item.source === "catalogue" && typeof item.catalogueItemId === "string" && item.catalogueItemId.length > 0)
         || item.catalogueItemId !== null && item.id !== `catalogue:${item.catalogueItemId}`) return false;
       seen.add(item.id);
       return true;
-    }).map(({ id, source, catalogueItemId, itemName, itemNameEn, itemNameMs, packageSize, quantity }) => (
-      { id, source, catalogueItemId, itemName, itemNameEn, itemNameMs, packageSize, quantity }
-    ));
+    }).map(item => ({
+      id: item.id,
+      source: item.source,
+      catalogueItemId: item.catalogueItemId,
+      itemName: item.itemName,
+      itemNameEn: item.itemNameEn,
+      itemNameMs: item.itemNameMs,
+      ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
+      packageSize: item.packageSize,
+      quantity: item.quantity,
+    }));
   } catch {
     return [];
   }
@@ -87,9 +98,10 @@ export function nextTripBasket(basket: BasketItem[], saved: NextTripItem[]): Bas
     const id = `db-${item.catalogueItemId}`;
     const existing = items.find(line => line.id === id);
     return existing
-      ? items.map(line => line.id === id ? { ...line, qty: Math.max(line.qty, item.quantity) } : line)
+      ? items.map(line => line.id === id ? { ...line, imageUrl: line.imageUrl ?? item.imageUrl, qty: Math.max(line.qty, item.quantity) } : line)
       : [...items, {
         id, name: item.itemName, itemNameEn: item.itemNameEn, itemNameMs: item.itemNameMs,
+        imageUrl: item.imageUrl,
         size: item.packageSize ?? "—", qty: item.quantity,
         saraEligible: null, saraCategoryCandidate: false,
       }];
@@ -108,6 +120,7 @@ export function addNextTripItem(
   const itemName = quote?.itemName?.trim() || saved.itemName;
   const itemNameEn = quote?.itemNameEn ?? saved.itemNameEn;
   const itemNameMs = quote?.itemNameMs ?? saved.itemNameMs;
+  const imageUrl = quote?.imageUrl || existing?.imageUrl || saved.imageUrl || null;
   const packageSize = quote?.packageSize ?? saved.packageSize;
   const unitPriceRm = quote?.unitPriceRm ?? null;
   const priceSource = quote?.priceSource ?? (saved.source === "manual" ? "manual" : null);
@@ -116,6 +129,7 @@ export function addNextTripItem(
   const restoredItem: ChecklistItem = existing ? {
     ...existing,
     status: "neutral",
+    imageUrl,
     quantity,
     ...(quote ? {
       itemName,
@@ -143,6 +157,7 @@ export function addNextTripItem(
     itemName,
     itemNameEn,
     itemNameMs,
+    imageUrl,
     packageSize,
     quantity,
     actualPriceRm: null, actualQuantity: null, quantitySource: "planned",

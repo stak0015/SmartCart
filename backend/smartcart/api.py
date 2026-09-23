@@ -184,10 +184,11 @@ def health() -> dict[str, object]:
 def search_items(
     q: str = "",
     page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=CATALOGUE_PAGE_SIZE, ge=1, le=CATALOGUE_PAGE_SIZE),
     category: list[str] = Query(default=[]),
     candidate_cache_id: str | None = None,
 ) -> dict[str, object]:
-    items, total = search_catalogue(q, page, CATALOGUE_PAGE_SIZE, category)
+    items, total = search_catalogue(q, page, page_size, category)
     _prune_candidate_cache(monotonic())
     snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
     stores = (
@@ -198,12 +199,12 @@ def search_items(
         [item["item_id"] for item in items], [store.premise_id for store in stores]
     )
     items = [{**item, "price_range": ranges.get(item["item_id"])} for item in items]
-    total_pages = (total + CATALOGUE_PAGE_SIZE - 1) // CATALOGUE_PAGE_SIZE
+    total_pages = (total + page_size - 1) // page_size
     return {
         "count": len(items),
         "total": total,
         "page": page,
-        "page_size": CATALOGUE_PAGE_SIZE,
+        "page_size": page_size,
         "total_pages": total_pages,
         "sara_category_source": SARA_CATEGORY_SOURCE,
         "items": items,

@@ -8,9 +8,10 @@ from main import create_app
 from smartcart.alternatives import (
     BasketAlternative,
     AlternativePriceItem,
+    alternative_name_similarity,
+    alternative_name_tokens,
     get_basket_alternatives,
     package_basis,
-    product_family,
     premise_exists,
 )
 from smartcart.models import BasketLineRequest
@@ -41,15 +42,19 @@ def test_premise_exists_only_accepts_open_store(monkeypatch) -> None:
     assert captured["params"] == (10,)
 
 
-def test_family_and_package_keys_are_conservative() -> None:
-    assert product_family("SARDIN CAP AYAM (SOS TOMATO)") == "SARDIN"
-    assert product_family("MACKAREL CAP AYAM (SOS TOMATO)") == "MACKAREL"
-    assert product_family("SOS TOMATO MAGGI") == "SOS TOMATO MAGGI"
+def test_name_similarity_ignores_brand_and_pack_but_keeps_product_details() -> None:
+    sardine = "SARDIN CAP AYAM (SOS TOMATO)"
+    same_type = "SARDIN CAP KING CUP (SOS TOMATO) 425 g"
+    different_type = "MACKAREL CAP AYAM (SOS TOMATO)"
+
+    assert alternative_name_tokens(sardine) == ("SARDIN", "SOS", "TOMATO")
+    assert alternative_name_similarity(sardine, same_type) == 1.0
+    assert alternative_name_similarity(sardine, different_type) == 0.5
     assert package_basis("SARDIN CAP AYAM (SOS TOMATO)", "425 g") == "425 G"
     assert package_basis("SARDIN CAP AYAM (SOS TOMATO)", "155 g") == "155 G"
 
 
-def test_get_basket_alternatives_chooses_cheapest_same_family(monkeypatch) -> None:
+def test_get_basket_alternatives_chooses_cheapest_best_name_match(monkeypatch) -> None:
     source_rows = [
         (1, 2, "SARDIN CAP SOURCE (SOS TOMATO)", "425 g", "IKAN DALAM TIN", None, Decimal("8.00"), TODAY),
     ]
