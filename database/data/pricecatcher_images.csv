@@ -1,4 +1,4 @@
-﻿item_code,item,unit,item_group,item_category,image_url,http_status,content_type,image_bytes,image_status
+item_code,item,unit,item_group,item_category,image_url,http_status,content_type,image_bytes,image_status
 1,AYAM BERSIH - STANDARD,1kg,BARANGAN SEGAR,AYAM,https://img.manamurah.com/barang_nobg/1.png,200,image/png,162212,valid
 2,AYAM BERSIH - SUPER,1kg,BARANGAN SEGAR,AYAM,https://img.manamurah.com/barang_nobg/2.png,200,image/png,162212,valid
 3,AYAM HIDUP,1kg,BARANGAN SEGAR,AYAM,https://img.manamurah.com/barang_nobg/3.png,200,image/png,162212,valid
@@ -235,97 +235,97 @@
 1174,NASI GORENG USA,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1174.png,200,image/png,162212,valid
 1175,NASI GORENG AYAM,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1175.png,200,image/png,105184,valid
 1183,BIHUN GORENG,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1183.png,200,image/png,116133,valid
-1184,BIHUN HAILAM,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1184.png,404,,0,missing
-1186,BIHUN TOMYAM,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1186.png,404,,0,missing
-1187,BIHUN BANDUNG,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1187.png,404,,0,missing
-1188,BIHUN LADNA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1188.png,404,,0,missing
-1189,BIHUN KUNGFU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1189.png,404,,0,missing
-1198,AYAM GORENG,seketul,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1198.png,404,,0,missing
-1199,AYAM MASAK MERAH,seketul,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1199.png,404,,0,missing
-1200,AYAM MASAK KICAP,seketul,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1200.png,404,,0,missing
-1201,AYAM MASAK HALIA,seketul,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1201.png,404,,0,missing
-1202,DAGING MASAK MERAH,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1202.png,404,,0,missing
-1203,DAGING MASAK KICAP,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1203.png,404,,0,missing
-1204,DAGING MASAK HALIA,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1204.png,404,,0,missing
-1205,DAGING MASAK PAPRIK,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1205.png,404,,0,missing
-1206,SOTONG GORENG,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1206.png,404,,0,missing
-1207,SOTONG MASAK MERAH,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1207.png,404,,0,missing
-1208,SOTONG MASAK KICAP,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1208.png,404,,0,missing
-1209,SOTONG MASAK HALIA,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1209.png,404,,0,missing
-1210,UDANG GORENG,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1210.png,404,,0,missing
-1211,UDANG MASAK MERAH,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1211.png,404,,0,missing
-1212,UDANG MASAK KICAP,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1212.png,404,,0,missing
-1213,UDANG MASAK HALIA,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1213.png,404,,0,missing
-1214,SAYUR CAMPUR,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1214.png,404,,0,missing
-1215,SAYUR KAILAN IKAN MASIN,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1215.png,404,,0,missing
-1216,SAYUR KANGKUNG GORENG BELACAN,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1216.png,404,,0,missing
-1232,TELUR MATA KERBAU,sebiji,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1232.png,404,,0,missing
-1233,TELUR DADAR,sebiji,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1233.png,404,,0,missing
-1234,TELUR BISTIK,1 set,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1234.png,404,,0,missing
-1235,TELUR SETENGAH MASAK,sebiji,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1235.png,404,,0,missing
-1236,TELUR REBUS,sebiji,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1236.png,404,,0,missing
-1237,TELUR MASIN,sebiji,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1237.png,404,,0,missing
-1238,SUP AYAM,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1238.png,404,,0,missing
-1239,SUP DAGING,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1239.png,404,,0,missing
-1240,SUP EKOR,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1240.png,404,,0,missing
-1241,SUP CAMPUR,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1241.png,404,,0,missing
-1242,TOM YAM CAMPUR,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1242.png,404,,0,missing
-1243,TOM YAM AYAM,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1243.png,404,,0,missing
-1244,TOM YAM DAGING,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1244.png,404,,0,missing
-1245,TOM YAM UDANG,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1245.png,404,,0,missing
-1246,TOM YAM SOTONG,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1246.png,404,,0,missing
-1247,MAGGI GORENG,sepinggan,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1247.png,404,,0,missing
-1248,MAGGI SUP,semangkuk,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1248.png,404,,0,missing
-1250,ROTI TELUR,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1250.png,404,,0,missing
-1252,KUIH LAPIS,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1252.png,404,,0,missing
-1253,KUIH SERI MUKA,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1253.png,404,,0,missing
-1254,PAU KACANG MERAH,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1254.png,404,,0,missing
-1255,PAU AYAM,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1255.png,404,,0,missing
-1256,PAU KAYA,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1256.png,404,,0,missing
-1264,AYAM SOS LEMON,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1264.png,404,,0,missing
-1265,SOTONG GORENG ASAM,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1265.png,404,,0,missing
-1266,UDANG BUTTER,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1266.png,404,,0,missing
-1277,SUP IKAN,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1277.png,404,,0,missing
-1278,SUP SAYUR MASIN,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1278.png,404,,0,missing
-1279,PAU DAGING,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1279.png,404,,0,missing
-1281,NASI BRIYANI AYAM,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1281.png,404,,0,missing
-1282,NASI BRIYANI KAMBING,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1282.png,404,,0,missing
-1284,NASI BRIYANI BUKHARA,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1284.png,404,,0,missing
-1285,AYAM MASAK KARI,seketul,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1285.png,404,,0,missing
-1289,SUP TULANG,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1289.png,404,,0,missing
-1290,SUP KAMBING,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1290.png,404,,0,missing
-1291,ROTI PISANG,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1291.png,404,,0,missing
-1292,ROTI BAWANG,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1292.png,404,,0,missing
-1293,ROTI BOOM,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1293.png,404,,0,missing
-1294,RAWA TOSAI,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1294.png,404,,0,missing
-1295,ROTI TISU,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1295.png,404,,0,missing
-1296,CAPATI,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1296.png,404,,0,missing
-1297,Ayam Tandoori,seketul,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1297.png,404,,0,missing
-1298,ROTI BAKAR,1 set,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1298.png,404,,0,missing
-1299,MURTABAK AYAM,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1299.png,404,,0,missing
-1300,MURTABAK DAGING,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1300.png,404,,0,missing
-1301,MURTABAK KAMBING,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1301.png,404,,0,missing
-1307,AIR SUAM,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1307.png,404,,0,missing
-1309,Kopi Panas,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1309.png,404,,0,missing
-1311,TEH 'O' LIMAU PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1311.png,404,,0,missing
-1312,Teh Panas,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1312.png,404,,0,missing
-1314,TEH HALIA PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1314.png,404,,0,missing
-1315,NESCAFE PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1315.png,404,,0,missing
-1317,NESLO PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1317.png,404,,0,missing
-1318,HORLICKS PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1318.png,404,,0,missing
-1319,MILO PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1319.png,404,,0,missing
-1320,BARLI PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1320.png,404,,0,missing
-1321,MILO 'O' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1321.png,404,,0,missing
-1322,AIR KOSONG,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1322.png,404,,0,missing
-1339,JUS EPAL,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1339.png,404,,0,missing
-1340,JUS MANGGA,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1340.png,404,,0,missing
-1341,JUS TEMBIKAI,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1341.png,404,,0,missing
-1343,JUS BELIMBING,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1343.png,404,,0,missing
-1344,JUS LAICI,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1344.png,404,,0,missing
+1184,BIHUN HAILAM,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://resepichenom.com/_next/image?url=https%3A%2F%2Fcdn.resepichenom.com%2Fimages%2Frecipes%2Ff1320747-e460-426d-b963-f808c76facb2-1770022346924.jpg&w=3840&q=75,200,image/webp,68394,valid
+1186,BIHUN TOMYAM,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRNJooD2RQtl-zIHe8ANuiOnj9lWXEidG4YhP51irhpLrjpjCG7KuTH330&s=10 ,200,image/jpeg,36454,valid
+1187,BIHUN BANDUNG,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://resepichenom.com/_next/image?url=https%3A%2F%2Fcdn.resepichenom.com%2Fimages%2Frecipes%2Fe7e42958-e3e7-4bab-8e71-d3887fbf1d7d-74dcf281-dbed-44ca-b324-1df6b936d04d-enhanced-1770425014475-q3xy-1024.webp&w=3840&q=75 ,200,image/webp,65772,valid
+1188,BIHUN LADNA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTc5APAFzkqTVrhmrXASoIHkdQdzEuX7g28A67b5LNB_A&s=10 ,200,image/jpeg,13906,valid
+1189,BIHUN KUNGFU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRU1Os-lgOoehXfQTZUAWLgl13Slc51cQkwbsjO1dXxnA&s=10,200,image/jpeg,35232,valid
+1198,AYAM GORENG,seketul,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSOdnXBibsHWJvGihd6YpgikGbJFXnSTK-guce9tbGzfQ&s=10 ,200,image/jpeg,19881,valid
+1199,AYAM MASAK MERAH,seketul,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTh-8OZoS-B1U78XpHiKXBskpjwYgPDa_coKaPZ5Ge2RQ&s=10,200,image/jpeg,40849,valid
+1200,AYAM MASAK KICAP,seketul,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQlNKqJeqyRiUgZZLK5hos2W1Ojh4XvEDCGrA5RXBDBKQ&s=10 ,200,image/jpeg,46432,valid
+1201,AYAM MASAK HALIA,seketul,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQlNKqJeqyRiUgZZLK5hos2W1Ojh4XvEDCGrA5RXBDBKQ&s=10,200,image/jpeg,46432,valid
+1202,DAGING MASAK MERAH,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR8Kzie1bUP7aez2mD5iZ1ku9mZrfFVT782W6ibWC9qrA&s=10,200,image/jpeg,35619,valid
+1203,DAGING MASAK KICAP,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTzqmEXfZWnmWSs420nIxV3Ot56vojWP6hMrhsoWjFHDg&s=10,200,image/jpeg,35510,valid
+1204,DAGING MASAK HALIA,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ-tB1fADX2AUdxhMSI9WG9XTCOcijiLbJhHhfFT_Pjfw&s=10 ,200,image/jpeg,33976,valid
+1205,DAGING MASAK PAPRIK,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTohDuasJLB5xTVOUyfXZ_cfPmyqP86V6AeRcyCES4ITw&s=10,200,image/jpeg,24616,valid
+1206,SOTONG GORENG,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTFw7Peb53_pjN0cOQrEUZ_v9Ck9NCVIZBmwN23dMr6Lg&s=10 ,200,image/jpeg,39904,valid
+1207,SOTONG MASAK MERAH,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ4bjQwe6nxUGirByUR-u3fS8fbPMcKn7T_yiqiu47PGA&s=10,200,image/jpeg,52944,valid
+1208,SOTONG MASAK KICAP,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQV0X9Lmj6V8M_3q_554KegtaeNTw8HF-fi4RLFWIPOYg&s=10,200,image/jpeg,42563,valid
+1209,SOTONG MASAK HALIA,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSdLEPNbo7XhvPSFJOKUbFuhzoSzjwU4PTOHBN7dHU0Uw&s=10,200,image/jpeg,36506,valid
+1210,UDANG GORENG,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRpmo2IR1MXw5KYUbXcIWOUlcxZ-7nbumtoouxX59H2mA&s=10,200,image/jpeg,26643,valid
+1211,UDANG MASAK MERAH,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRIrXWGrOxtkBhzfohv-ivno9xuejTh4QQnsZDFRQcBRQ&s=10,200,image/jpeg,46016,valid
+1212,UDANG MASAK KICAP,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaFijRRMOEnfIJOqFtFmtPZP5lUHJb8KA8k9KV8EBmJA&s=10 ,200,image/jpeg,58960,valid
+1213,UDANG MASAK HALIA,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTQYDKZIwJxx8ynAY606Zhrdmj9THZH6TvbGKTPwCD84w&s=10 ,200,image/jpeg,30053,valid
+1214,SAYUR CAMPUR,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT9Et5fBSIoQSXpExdZSylCXjHISR2jqRoDuMGLtfV3Aw&s=10,200,image/jpeg,33544,valid
+1215,SAYUR KAILAN IKAN MASIN,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSib67dPqelqALut2wuxl1HWEEI-QfKE_U6uYw3P3BcpA&s=10,200,image/jpeg,35114,valid
+1216,SAYUR KANGKUNG GORENG BELACAN,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT_Ffi75DhvmB_vGq6u_g3vTcMyWtV-XK3876P58ZcMuw&s=10,200,image/jpeg,36137,valid
+1232,TELUR MATA KERBAU,sebiji,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcThj9EAR5v-Ro271gee9lw77pjrcI_EROfp2dS15iwrBA&s=10,200,image/jpeg,23532,valid
+1233,TELUR DADAR,sebiji,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSU8GKJ7illFuFaewBd1D8OuqliJyYuM8-lSMW3sJxT8Q&s=10,200,image/jpeg,53095,valid
+1234,TELUR BISTIK,1 set,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZ2nP42VhXO9SjypCHLkoAnZytFNw9jljpFZTxTp_Vcg&s=10,200,image/jpeg,41681,valid
+1235,TELUR SETENGAH MASAK,sebiji,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSCyEF8S7WgZeXBBQcLW4r23s69hqmxWUVgqvmKc6D-nw&s=10,200,image/jpeg,22498,valid
+1236,TELUR REBUS,sebiji,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRp9NseUvDmG8m-4VhkVwSB5afIx3CtJT7N8Pye9jb8QA&s=10,200,image/jpeg,35427,valid
+1237,TELUR MASIN,sebiji,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTwoc0MA50FARbU7ewlnoWyUCnyqjO2_CIwpWYJG6Ticw&s=10,200,image/jpeg,22391,valid
+1238,SUP AYAM,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTOmgkBRjevFiUvK6o2KHXjl4_5moogFa0yPBK-tisuag&s=10,200,image/jpeg,30405,valid
+1239,SUP DAGING,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRU1h8CK0B7gAjqO93ZTHCZyC55OnTnoz9yFGBYd6pXyA&s=10,200,image/jpeg,32886,valid
+1240,SUP EKOR,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQgmygkevbI-Mw4LVk4zIgqS5sb7GPU53kDh9cyXjmEZg&s=10,200,image/jpeg,43179,valid
+1241,SUP CAMPUR,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSznS03ym0uiqdDiOkxIOl_ruRALYsbq0nzzZUDtwnyqw&s=10,200,image/jpeg,30165,valid
+1242,TOM YAM CAMPUR,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTpTgxm-t4QBtJTEU8aqMFHahjGpKe_fC3W7acreOst_g&s=10,200,image/jpeg,38062,valid
+1243,TOM YAM AYAM,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRZntTArac6-jwiPfGW5dNpheEbsNq-E0b8tJwYmia7xw&s,200,image/jpeg,12411,valid
+1244,TOM YAM DAGING,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRe9GegKU3n0LhqGaQPLv2jn7nidf2TDIOtJL4FezabVw&s=10,200,image/jpeg,46883,valid
+1245,TOM YAM UDANG,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT5HavTr-zTAvHsTzVlkSxS4O7yzC_VHclHs1l769-keg&s=10,200,image/jpeg,31813,valid
+1246,TOM YAM SOTONG,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR4sjJpbarnJCLMn6kR-QOXaWtDWV7FzWAn4sDC4e1uZA&s=10,200,image/jpeg,49276,valid
+1247,MAGGI GORENG,sepinggan,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS6H3RDESI-yBBLqNUrFJbLnuu9A1-GDRcgxz0U0x8vPA&s=10,200,image/jpeg,54853,valid
+1248,MAGGI SUP,semangkuk,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPHtYq8Xe3ACM7PtcryEKj3DQYqLR8wn2y32syIX1Yrw&s=10,200,image/jpeg,17332,valid
+1250,ROTI TELUR,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRtA0zc6_4fgiWpapWIRPlF4ofmiYBqDt0MQG_GuqF10A&s=10,200,image/jpeg,31534,valid
+1252,KUIH LAPIS,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSymWIfcND6x5v3bjElUW0qBBnDnIN_zCi9m944xi0Lnw&s=10,200,image/jpeg,18660,valid
+1253,KUIH SERI MUKA,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSl2DnOcZRZAENxqct4eGMxc9c5B9Gna3SpM7Wu8LEfSQ&s=10,200,image/jpeg,36843,valid
+1254,PAU KACANG MERAH,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQsDndxcUlzlyAH_XMb74FgOv-1smYdQ0ke4se3weOrwA&s=10 ,200,image/jpeg,10376,valid
+1255,PAU AYAM,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrVscOUWblodjXV42OfZ98acsbu78CNZaky9GyCHvelA&s=10,200,image/jpeg,23446,valid
+1256,PAU KAYA,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQV-OCA0EIpGRKW0TqUZIhK0CmE5RR4OGDbeLSHZ8voDQ&s=10,200,image/jpeg,9065,valid
+1264,AYAM SOS LEMON,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSOhehOwiRrAeZRyJi5Zp2BHcL6evk3iCVsDHBYsvaB-Q&s=10,200,image/jpeg,39214,valid
+1265,SOTONG GORENG ASAM,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSDzL1aFdP9B9bIjMifaQv5asf5K0wCm7dmXu88Vn5NsA&s=10,200,image/jpeg,43426,valid
+1266,UDANG BUTTER,sepiring,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcStHCVUVLWuFAC1kdWWqvRBIkze-O5EMBqn2hIazfXP2A&s=10,200,image/jpeg,35147,valid
+1277,SUP IKAN,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQoms9aLZl24IhrOu14naQSA5CDplgDqNF5GouP_AM55g&s=10,200,image/jpeg,37200,valid
+1278,SUP SAYUR MASIN,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSUiVpLM1fNNgydJSh46USwEm9pU13UU9ejxF_S6vpv1A&s=10 ,200,image/jpeg,35983,valid
+1279,PAU DAGING,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSmYb7KpP2wQkO-sRFyKFa4L16BykXOKlBvFZ6akbwRDg&s=10 ,200,image/jpeg,12671,valid
+1281,NASI BRIYANI AYAM,sepinggan,MAKANAN SIAP MASAK,NASI,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTw__s578CVnoLSaNBT3x4PmF5AZSknzifUqqpau0z2Ew&s=10 ,200,image/jpeg,40684,valid
+1282,NASI BRIYANI KAMBING,sepinggan,MAKANAN SIAP MASAK,NASI,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTw__s578CVnoLSaNBT3x4PmF5AZSknzifUqqpau0z2Ew&s=10 ,200,image/jpeg,40684,valid
+1284,NASI BRIYANI BUKHARA,sepinggan,MAKANAN SIAP MASAK,NASI,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrHDW5AQtVsGjBDe0zgRzuK12qGgraKcsx4yb33CeIAA&s=10 ,200,image/jpeg,50441,valid
+1285,AYAM MASAK KARI,seketul,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQWYBIotBBw40cG6kIIqQY943hKpxNVci5S-HCzTfsxow&s=10  ,200,image/jpeg,34959,valid
+1289,SUP TULANG,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2x-WqnsUv5MWAl7ES2_9iJzfiW6iqTIJTULN8nXEl9g&s=10 ,200,image/jpeg,35126,valid
+1290,SUP KAMBING,semangkuk,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTJUoO96BWqL4v-gZYfb_FCIVZCRaaJF7lyAheNHwjL3g&s=10 ,200,image/jpeg,36929,valid
+1291,ROTI PISANG,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRfwstMFkQVmrvK11ueuvWpa2RFQyZjI5JClepAKWa5dw&s=10 ,200,image/jpeg,45684,valid
+1292,ROTI BAWANG,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcREknVIKRAALjKufVXUJzh7hOKv8BlvrrhkclN87LRkqA&s=10 ,200,image/jpeg,53726,valid
+1293,ROTI BOOM,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcR_GWZGnHXXywdO2xM22nuySUsxwTmt6UI_TbIjst5Phw&s=10 ,200,image/jpeg,41171,valid
+1294,RAWA TOSAI,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQxu-Ii7dagb7q6ocrs9EnQC3ivShtbANaX1zQXPb0mRw&s=10 ,200,image/jpeg,64727,valid
+1295,ROTI TISU,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgdB1bP9k8WF-kUAnNWYPn6h6MBlHDbb860mfHvBapXg&s=10 ,200,image/jpeg,33581,valid
+1296,CAPATI,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTWorsoJzo-mquNUEhE2Hwa9-uQnC3zj0602Nak6MExMw&s=10 ,200,image/jpeg,28109,valid
+1297,Ayam Tandoori,seketul,MAKANAN SIAP MASAK,LAUK,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTn1yGiyXF58Tri0eOanfEcKRPVnSM2zsiaGJ9JycKjLQ&s=10 ,200,image/jpeg,53812,valid
+1298,ROTI BAKAR,1 set,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQna-IJVROyPyc0TxQ_JO2GfOgJovUc5us8CyxahjIg-g&s=10 ,200,image/jpeg,37333,valid
+1299,MURTABAK AYAM,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQctg4q7Nut3A0d8aqnP4NUj2g-yz1C6DseDfR_HROJTQ&s=10  ,200,image/jpeg,35607,valid
+1300,MURTABAK DAGING,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ0tCkkY6nTVR33Y2zx2Rfh33g9HOLhJ7ecc06eaydwLA&s=10 ,200,image/jpeg,18184,valid
+1301,MURTABAK KAMBING,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRENotb6aqZaPzT4bpixCG9jyqLjHj0gu9AZudIFFdSFg&s=10 ,200,image/jpeg,27519,valid
+1307,AIR SUAM,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQK25Lc8II7LKk7lppV7-B1cCsiIacAVAsjlGngiGPUnw&s=10 ,200,image/jpeg,34808,valid
+1309,Kopi Panas,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTRjMTOwjvh-9MQBOyyP8x0wwgHV-DSgJrt6OFxtTI5ug&s=10 ,200,image/jpeg,27990,valid
+1311,TEH 'O' LIMAU PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTPjU7qzDO7qqngEUBgJeLqwppprdBwJq1wnPc5yq-KRg&s=10 ,200,image/jpeg,11126,valid
+1312,Teh Panas,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS6HlKa4ZYJVlsSg99l6qj2vrGJbwagedVSWqtKfTdX2Q&s=10 ,200,image/jpeg,22523,valid
+1314,TEH HALIA PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS1mYl4DG6yv3NGkwn3pcmkRR9SVTpKRJ_6IBI9KcYM3A&s=10 ,200,image/jpeg,24692,valid
+1315,NESCAFE PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQtQMnEHDrTOQ2ID2ukMrPPduyQM7XIww9zxvJGoaNUPQ&s=10 ,200,image/jpeg,23595,valid
+1317,NESLO PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSvTF_FL4Sp-Od57ipOhcS_Oi3Pn6pZ5hAsaq9Zp9PKnQ&s=10 ,200,image/jpeg,15066,valid
+1318,HORLICKS PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSglWD76OWYwbI2XiwK2Uah5_2OOCOJsdXNiNUQXuQM_Q&s ,200,image/jpeg,5964,valid
+1319,MILO PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnZLP3-KmStnFfq-V8b9aKj0CETdZYleY7GICf4oQHNA&s=10 ,200,image/jpeg,13074,valid
+1320,BARLI PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRvwYZkNP5Sjy3DH-MG7RDWObd1TpBm6ocXf0Xf7kHNiA&s=10 ,200,image/jpeg,17120,valid
+1321,MILO 'O' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQnZLP3-KmStnFfq-V8b9aKj0CETdZYleY7GICf4oQHNA&s=10 ,200,image/jpeg,13074,valid
+1322,AIR KOSONG,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTqc_-r3FX17lTsxI4izBcb3AzroMF8Z1LDyt3A4GUDDw&s=10 ,200,image/jpeg,29906,valid
+1339,JUS EPAL,segelas,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSaKjhIjz06aK1F6WlTiJc994ruVRJTKJ7720VSZfQ0ag&s=10 ,200,image/jpeg,34500,valid
+1340,JUS MANGGA,segelas,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRBGCRadEl5NO4_VP0N5qYsTb8stkcPD8IOs9GrvhGp-w&s=10 ,200,image/jpeg,28462,valid
+1341,JUS TEMBIKAI,segelas,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRn0gwc8PrgVNKpza1viB4JqTge-CYwCyNcIl6W2ctgaA&s=10 ,200,image/jpeg,30603,valid
+1343,JUS BELIMBING,segelas,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ6WB8m12Eie9S6Gt8lKDRDUUgXwrDxc6c5WLbzW3OlkA&s ,200,image/jpeg,5716,valid
+1344,JUS LAICI,segelas,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSMJZ86spj4LFgSsOYglBN7G_wE083y_Ydqe7TDcquMFA&s=10 ,200,image/jpeg,27991,valid
 1355,100 PLUS (ORIGINAL),1.5 liter,MINUMAN,TERSEDIA MINUM,https://img.manamurah.com/barang_nobg/1355.png,200,image/png,162212,valid
-1358,ROTI SARDIN,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1358.png,404,,0,missing
-1359,KOPI 'O' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1359.png,404,,0,missing
-1360,TEH 'O' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1360.png,404,,0,missing
+1358,ROTI SARDIN,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQPDQWHWa1YZW-mAuLgZrBwBhfSgbBgXT5oOE7aNqAGCA&s=10 ,200,image/jpeg,40857,valid
+1359,KOPI 'O' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS-37HmFGyHj_5tOZpl9ZCWv9KX3tItpUH2l9IzvO8hoQ&s=10 ,200,image/jpeg,20451,valid
+1360,TEH 'O' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSLZWxaHUjQhPXFiewDGoTKIsCtwZ5RkAGDiFQdQvp-fg&s=10 ,200,image/jpeg,19500,valid
 1364,AYAM TUA HIDUP,1kg,BARANGAN SEGAR,AYAM,https://img.manamurah.com/barang_nobg/1364.png,200,image/png,28324,valid
 1367,DAGING PAHA KAMBING BEBIRI IMPORT BERTULANG  (MUTTON) (AUSTRALIA),1kg,BARANGAN SEGAR,DAGING,https://img.manamurah.com/barang_nobg/1367.png,200,image/png,162212,valid
 1368,DAGING PAHA KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (NEW ZEALAND),1kg,BARANGAN SEGAR,DAGING,https://img.manamurah.com/barang_nobg/1368.png,200,image/png,162212,valid
@@ -367,7 +367,7 @@
 1458,KUBIS BULAT IMPORT (BEIJING),1kg,BARANGAN SEGAR,SAYUR-SAYURAN,https://img.manamurah.com/barang_nobg/1458.png,200,image/png,162212,valid
 1463,KRIMER SEJAT CARNATION,390g,BARANGAN BERBUNGKUS,KRIMER DAN SUSU TEPUNG,https://img.manamurah.com/barang_nobg/1463.png,200,image/png,162212,valid
 1468,PANADOL FOR CHILDREN SUSPENSION 1-6,60ml,BARANGAN KEDAI SERBANEKA,UBAT-UBATAN,https://img.manamurah.com/barang_nobg/1468.png,200,image/png,162212,valid
-1469,NESCAFE ''O'' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1469.png,404,,0,missing
+1469,NESCAFE ''O'' PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwo6908uAYktgpmcM0MjHEbyXV9AFD4c688ssN7cZC8Q&s=10 ,200,image/jpeg,17799,valid
 1474,BERAS BASMATHI - FAIZA (KASHMIR),5 kg,BARANGAN BERBUNGKUS,BERAS,https://img.manamurah.com/barang_nobg/1474.png,200,image/png,39193,valid
 1475,IKAN BAWAL PUTIH (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM),1kg,BARANGAN SEGAR,BAHAN LAUT,https://img.manamurah.com/barang_nobg/1475.png,200,image/png,34989,valid
 1476,IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM),1kg,BARANGAN SEGAR,BAHAN LAUT,https://img.manamurah.com/barang_nobg/1476.png,200,image/png,162212,valid
@@ -485,8 +485,8 @@
 1651,YEO'S SOYA (KOTAK),250 ml,MINUMAN,TERSEDIA MINUM,https://img.manamurah.com/barang_nobg/1651.png,200,image/png,162212,valid
 1652,PAPERMATE LIQUID PAPER (PEN),7ml,BARANGAN KEDAI SERBANEKA,ALAT TULIS DAN BAHAN BACAAN,https://img.manamurah.com/barang_nobg/1652.png,200,image/png,162212,valid
 1653,UHU GLUE (GAM PELBAGAI KEGUNAAN),20ml,BARANGAN KEDAI SERBANEKA,ALAT TULIS DAN BAHAN BACAAN,https://img.manamurah.com/barang_nobg/1653.png,200,image/png,162212,valid
-1654,MAJALAH CLEO,senaskah,BARANGAN KEDAI SERBANEKA,MAJALAH,https://img.manamurah.com/barang_nobg/1654.png,404,,0,missing
-1657,MAJALAH MINGGUAN WANITA,senaskah,BARANGAN KEDAI SERBANEKA,MAJALAH,https://img.manamurah.com/barang_nobg/1657.png,404,,0,missing
+1654,MAJALAH CLEO,senaskah,BARANGAN KEDAI SERBANEKA,MAJALAH,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSn99zj5FcgzK29h9oJ2mZ3tTozf7yT1B2Uy_y824VlVw&s ,200,image/jpeg,6830,valid
+1657,MAJALAH MINGGUAN WANITA,senaskah,BARANGAN KEDAI SERBANEKA,MAJALAH,https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQP7LdgDxWPscice9o23pciCXjUZZK29Oz6hgamWSMhkg&s=10 ,200,image/jpeg,17683,valid
 1658,COLGATE TOOTHBRUSH EXTRA CLEAN MEDIUM,1 batang,BARANGAN KEDAI SERBANEKA,BERUS GIGI,https://img.manamurah.com/barang_nobg/1658.png,200,image/png,162212,valid
 1659,DARLIE TRAVEL KIT ADULT,1 unit,BARANGAN KEDAI SERBANEKA,UBAT GIGI,https://img.manamurah.com/barang_nobg/1659.png,200,image/png,162212,valid
 1669,KOTEX SOFT AND SMOOTH OVERNIGHT WING 8 PADS (28CM),paket,BARANGAN KEDAI SERBANEKA,TUALA WANITA,https://img.manamurah.com/barang_nobg/1669.png,200,image/png,162212,valid
@@ -516,77 +516,77 @@
 1719,SEVEN UP LEMON & LIME,500 ml,BARANGAN KEDAI SERBANEKA,MINUMAN,https://img.manamurah.com/barang_nobg/1719.png,200,image/png,162212,valid
 1725,THREE LEGS COOLING WATER,200 ml,BARANGAN KEDAI SERBANEKA,MINUMAN,https://img.manamurah.com/barang_nobg/1725.png,200,image/png,162212,valid
 1727,COOL RHINO COOLING WATER,350ml,BARANGAN KEDAI SERBANEKA,MINUMAN,https://img.manamurah.com/barang_nobg/1727.png,200,image/png,162212,valid
-1728,NASI GORENG BIASA,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1728.png,404,,0,missing
-1729,NASI GORENG SEAFOOD,sepinggan,MAKANAN SIAP MASAK,NASI,https://img.manamurah.com/barang_nobg/1729.png,404,,0,missing
-1730,MI GORENG BIASA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1730.png,404,,0,missing
-1731,MI GORENG MAMAK,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1731.png,404,,0,missing
-1732,MI HAILAM,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1732.png,404,,0,missing
-1733,MI SUP (AYAM/DAGING),semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1733.png,404,,0,missing
-1734,MI TOM YAM,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1734.png,404,,0,missing
-1735,MI BANDUNG,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1735.png,404,,0,missing
-1736,MI LADNA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1736.png,404,,0,missing
-1737,MI KUNGFU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1737.png,404,,0,missing
-1738,BIHUN SUP (AYAM/DAGING),semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1738.png,404,,0,missing
-1739,KUETIAU GORENG BIASA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1739.png,404,,0,missing
-1740,KUETIAU HAILAM,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1740.png,404,,0,missing
-1741,KUETIAU SUP (AYAM/DAGING),semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1741.png,404,,0,missing
-1742,KUETIAU TOM YAM,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1742.png,404,,0,missing
-1743,KUETIAU BANDUNG,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1743.png,404,,0,missing
-1744,KUETIAU LADNA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1744.png,404,,0,missing
-1745,KUETIAU KUNGFU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1745.png,404,,0,missing
-1746,CHAR KUETIAU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1746.png,404,,0,missing
-1747,MI HOKKIEN,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1747.png,404,,0,missing
-1748,KON LOH MI (KICAP),sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1748.png,404,,0,missing
-1749,WAN TAN MI,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1749.png,404,,0,missing
-1750,MI UDANG,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1750.png,404,,0,missing
-1751,MI KARI,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://img.manamurah.com/barang_nobg/1751.png,404,,0,missing
-1752,DAGING KAMBING MASAK KARI,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1752.png,404,,0,missing
-1753,PAK CHOY SOS TIRAM,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1753.png,404,,0,missing
-1754,SAYUR TAUGEH,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1754.png,404,,0,missing
-1755,BABI (PORK) GORENG,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1755.png,404,,0,missing
-1756,BABI (PORK) MASAM MANIS,sepiring,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1756.png,404,,0,missing
-1757,IKAN SIAKAP GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1757.png,404,,0,missing
-1758,IKAN SIAKAP MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1758.png,404,,0,missing
-1759,IKAN SIAKAP TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1759.png,404,,0,missing
-1760,IKAN SIAKAP KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1760.png,404,,0,missing
-1761,IKAN KERAPU GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1761.png,404,,0,missing
-1762,IKAN KERAPU MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1762.png,404,,0,missing
-1763,IKAN KERAPU TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1763.png,404,,0,missing
-1764,IKAN KERAPU KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1764.png,404,,0,missing
-1765,IKAN BAWAL HITAM GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1765.png,404,,0,missing
-1766,IKAN BAWAL HITAM MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1766.png,404,,0,missing
-1767,IKAN BAWAL HITAM TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1767.png,404,,0,missing
-1768,IKAN BAWAL HITAM KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1768.png,404,,0,missing
-1769,IKAN BAWAL PUTIH GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1769.png,404,,0,missing
-1770,IKAN BAWAL PUTIH MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1770.png,404,,0,missing
-1771,IKAN BAWAL PUTIH KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1771.png,404,,0,missing
-1772,IKAN KEMBUNG GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1772.png,404,,0,missing
-1773,IKAN KEMBUNG MASAK KICAP (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1773.png,404,,0,missing
-1774,IKAN KEMBUNG TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1774.png,404,,0,missing
-1775,IKAN TENGGIRI GORENG,sekeping,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1775.png,404,,0,missing
-1776,IKAN TENGGIRI MASAK KARI,sekeping,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1776.png,404,,0,missing
-1777,IKAN TILAPIA GORENG BIASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1777.png,404,,0,missing
-1778,IKAN TILAPIA MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1778.png,404,,0,missing
-1779,IKAN TILAPIA KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1779.png,404,,0,missing
-1780,SUP PERUT,semangkuk,MAKANAN SIAP MASAK,LAUK,https://img.manamurah.com/barang_nobg/1780.png,404,,0,missing
-1782,ROTI NAAN,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1782.png,404,,0,missing
-1783,ROTI CANAI BIASA,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1783.png,404,,0,missing
-1784,KUIH KARIPAP (KENTANG),sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1784.png,404,,0,missing
-1785,VADAI MASALA,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1785.png,404,,0,missing
-1786,VADAI ULUNDHU,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1786.png,404,,0,missing
-1787,ROJAK BIASA,sepinggan,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1787.png,404,,0,missing
-1788,ROJAK MI,sepinggan,MAKANAN SIAP MASAK,LAIN-LAIN,https://img.manamurah.com/barang_nobg/1788.png,404,,0,missing
-1789,TEH TARIK PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1789.png,404,,0,missing
-1790,"KOPI ""O"" AIS",gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1790.png,404,,0,missing
-1791,KOPI AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1791.png,404,,0,missing
-1792,TEH AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1792.png,404,,0,missing
-1793,NESCAFE AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1793.png,404,,0,missing
-1794,LIMAU AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1794.png,404,,0,missing
-1795,JUS OREN,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1795.png,404,,0,missing
-1796,CARROT SUSU,segelas,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1796.png,404,,0,missing
+1728,NASI GORENG BIASA,sepinggan,MAKANAN SIAP MASAK,NASI,https://img1.qunarzz.com/travel/d0/1709/97/c2f4c08587ea84b5.jpg,200,image/jpeg,155699,valid
+1729,NASI GORENG SEAFOOD,sepinggan,MAKANAN SIAP MASAK,NASI,https://pics.orderandeat.eu/wp-content/uploads/2018/08/26082800/chinese-fried-rice-1300x864.jpg,200,image/jpeg,133195,valid
+1730,MI GORENG BIASA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://static8.orstatic.com/userphoto/photo/D/AGQ/022F27AC1A7915E3A5A2EBpx.jpg,200,image/webp,104582,valid
+1731,MI GORENG MAMAK,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,"https://gimg2.baidu.com/image_search/src=http%3A%2F%2Fci.xiaohongshu.com%2F0295efab-83b7-9365-18e9-b1ffe8bd5bcf%3FimageView2%2F2%2Fw%2F1080%2Fformat%2Fjpg&refer=http%3A%2F%2Fci.xiaohongshu.com&app=2002&size=f9999,10000&q=a80&n=0&g=0n&fmt=auto?sec=1792678844&t=f6e28051ac3e60fc78ae95ad6a51f81e",200,image/webp,81810,valid
+1732,MI HAILAM,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.pinimg.com/originals/4e/78/73/4e787335103510f218d2653b230061b8.jpg,200,image/jpeg,111425,valid
+1733,MI SUP (AYAM/DAGING),semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://ww2.sinaimg.cn/mw690/0084QkXngy1hseeds94fxj32c0340qv6.jpg,200,image/jpeg,235764,valid
+1734,MI TOM YAM,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://qcloud.dpfile.com/pc/KzXTXoSXpVw64jLx-ZFVbO4s9ovs-2yvN7q0gjtYGCEdWFMDZue1tv2d7Lpf3MXh.jpg,200,image/jpeg,940736,valid
+1735,MI BANDUNG,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://upload.wikimedia.org/wikipedia/commons/6/6c/Mee_Bandung_Muar.jpg,200,image/jpeg,121408,valid
+1736,MI LADNA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://images.deliveryhero.io/image/fd-my/LH/vd98-hero.jpg,200,image/jpeg,398637,valid
+1737,MI KUNGFU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEg8XGHkpdlWgHUem1kgS5p69mTOtyLG9R2c8RKLwN2ZjwEN1J8ZZByedWPk1b-adaUVLTzmUYM2DCkZaPmcCLRKL0tB3XIaftPlPTe9H94J6pydWPQxZwBC4mbINFmmnFLtBakS61Dvkw0/s640/mee-kung-fu-resepi-malaya.jpg,200,image/jpeg,91586,valid
+1738,BIHUN SUP (AYAM/DAGING),semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://blogwana.wordpress.com/wp-content/uploads/2010/05/dsc081461.jpg,200,image/jpeg,91516,valid
+1739,KUETIAU GORENG BIASA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.pinimg.com/originals/7c/55/f2/7c55f29f47a80965dce467e30294a66f.jpg,200,image/jpeg,122832,valid
+1740,KUETIAU HAILAM,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.ytimg.com/vi/xO0NVXSs56c/maxresdefault.jpg,200,image/jpeg,145669,valid
+1741,KUETIAU SUP (AYAM/DAGING),semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://cdn.rasa.my/2021/06/370306.jpeg,200,image/jpeg,96186,valid
+1742,KUETIAU TOM YAM,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.ytimg.com/vi/amS5AG4Z3sU/maxresdefault.jpg,200,image/jpeg,124072,valid
+1743,KUETIAU BANDUNG,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.pinimg.com/originals/dc/b0/2c/dcb02c32ad3c66a017bbf3cbb0ebf756.jpg,200,image/jpeg,200356,valid
+1744,KUETIAU LADNA,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.ytimg.com/vi/q-fujI5VkSY/maxresdefault.jpg,200,image/jpeg,122238,valid
+1745,KUETIAU KUNGFU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://nadz.my/wp-content/uploads/2021/08/kuey-teow-kung-fu.jpg,200,image/jpeg,66077,valid
+1746,CHAR KUETIAU,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://kualisudip.com/wp-content/uploads/2021/02/Char-Kuey-Teow.jpg,200,image/jpeg,164600,valid
+1747,MI HOKKIEN,sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://babe.com.my/wp-content/uploads/2025/04/malaysian-hokkien-mee-recipe-1745325615.jpg,200,image/jpeg,254172,valid
+1748,KON LOH MI (KICAP),sepinggan,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.pinimg.com/736x/fe/2a/e8/fe2ae88dfc9589bb2308b390b1abf58d.jpg,200,image/jpeg,122565,valid
+1749,WAN TAN MI,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.pinimg.com/originals/8e/3a/88/8e3a8802fd37518300e1150c282a4067.jpg,200,image/jpeg,120813,valid
+1750,MI UDANG,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://upload.wikimedia.org/wikipedia/commons/1/1a/Mee_Udang.jpg,200,image/jpeg,2489173,valid
+1751,MI KARI,semangkuk,MAKANAN SIAP MASAK,MEE / BIHUN / KUEY TEOW,https://i.pinimg.com/736x/49/8a/ca/498aca0059892a2de6cbbf2e45a12124.jpg,200,image/jpeg,158425,valid
+1752,DAGING KAMBING MASAK KARI,sepiring,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/00/6b/e3/006be349be982b41c308875f43f683f3.jpg,200,image/jpeg,139225,valid
+1753,PAK CHOY SOS TIRAM,sepiring,MAKANAN SIAP MASAK,LAUK,https://ucarecdn.com/6f77bee8-1c45-4923-a03c-2cced548b077/-/scale_crop/1280x720/center/-/quality/normal/-/format/jpeg/baby-pak-choi-with-oyster-sauce.jpg,200,image/jpeg,108524,valid
+1754,SAYUR TAUGEH,sepiring,MAKANAN SIAP MASAK,LAUK,https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi58CMdqDgQYqQPShbPgTxs6Abc5RtQwPGkqblYdz9gb8t170p2LQ0aoQafH9fwdGLEv3Gi_LPOgiDNTzGt_iVRzLEIZRU424h3H4oWfTltYDM5PQI9PcAuzUC8GpBfjL-PiotznRnUHes/s1600/taugeh.jpg,200,image/jpeg,228030,valid
+1755,BABI (PORK) GORENG,sepiring,MAKANAN SIAP MASAK,LAUK,https://dynamic-media-cdn.tripadvisor.com/media/photo-o/0a/6b/a1/69/fried-pork-meat-babi.jpg?w=1200&h=1200&s=1,200,image/jpeg,230479,valid
+1756,BABI (PORK) MASAM MANIS,sepiring,MAKANAN SIAP MASAK,LAUK,https://www.cielchine.com/wp-content/uploads/2025/11/porc-aigre-doux-chine.jpg,200,image/jpeg,269285,valid
+1757,IKAN SIAKAP GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.ytimg.com/vi/d2lFv3hq_lc/maxresdefault.jpg,200,image/jpeg,230165,valid
+1758,IKAN SIAKAP MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/68/51/68/685168e4adb0dff564d64bf7d9adeaeb.jpg,200,image/jpeg,135342,valid
+1759,IKAN SIAKAP TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/b1/10/cc/b110cc0ecaf6870cd4de65c90e0c3f24.jpg,200,image/jpeg,151559,valid
+1760,IKAN SIAKAP KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.ytimg.com/vi/lJwLTF9g1VQ/maxresdefault.jpg,200,image/jpeg,128335,valid
+1761,IKAN KERAPU GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://media.myresipi.com/2024/12/jenis-ikan-sedap-digoreng-8-1200x630.jpg,200,image/jpeg,107237,valid
+1762,IKAN KERAPU MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://cdn.umpan.com.my/Umpan/0a9abfd2cc55619455db9316b6a1a5f4/kerapumasamanis.jpg,200,image/jpeg,75860,valid
+1763,IKAN KERAPU TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/e3/9a/ba/e39aba99c586326808ec5f397b806b58.jpg,200,image/jpeg,324873,valid
+1764,IKAN KERAPU KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/05/f2/f8/05f2f8baac727c00d57be0f2c69c93ae.jpg,200,image/jpeg,247989,valid
+1765,IKAN BAWAL HITAM GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.ytimg.com/vi/J4J_-RqVE-4/maxresdefault.jpg,200,image/jpeg,201846,valid
+1766,IKAN BAWAL HITAM MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/1c/19/a6/1c19a68d3ea35ffc4c7fc30ad46b8a3e.jpg,200,image/jpeg,155605,valid
+1767,IKAN BAWAL HITAM TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://1.bp.blogspot.com/-4NhvKi9Gae8/YMSIVet1bAI/AAAAAAAABsc/cXcyN3Gc-YUG8rB12G_ibSV1EEGAaUZwgCLcBGAsYHQ/s960/photo6206121524340042862.jpg,200,image/jpeg,142899,valid
+1768,IKAN BAWAL HITAM KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/e6/bf/f2/e6bff206cc676f1133ecbdb9f589c237.jpg,200,image/jpeg,103502,valid
+1769,IKAN BAWAL PUTIH GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://frozenfish.direct/wp-content/uploads/2021/05/pan-fried-silver-pomfret-240552513.jpg,200,image/jpeg,293808,valid
+1770,IKAN BAWAL PUTIH MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/cf/d1/14/cfd114c8203d77f581337ff25b514c32.jpg?nii=t,200,image/jpeg,68452,valid
+1771,IKAN BAWAL PUTIH KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://1.bp.blogspot.com/-4NhvKi9Gae8/YMSIVet1bAI/AAAAAAAABsc/cXcyN3Gc-YUG8rB12G_ibSV1EEGAaUZwgCLcBGAsYHQ/s960/photo6206121524340042862.jpg,200,image/jpeg,142899,valid
+1772,IKAN KEMBUNG GORENG (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/736x/d7/08/11/d7081109b3fa560f1c55bc487a80352b.jpg,200,image/jpeg,49611,valid
+1773,IKAN KEMBUNG MASAK KICAP (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://asset.kompas.com/crops/XxJ45wnv2NfY8KZ-6FwfdtloZvk=/0x0:1000x667/1200x800/data/photo/2020/04/26/5ea55657a07bd.jpg,200,image/jpeg,172761,valid
+1774,IKAN KEMBUNG TIGA RASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.ytimg.com/vi/0M7E71JkpgY/maxresdefault.jpg,200,image/jpeg,150992,valid
+1775,IKAN TENGGIRI GORENG,sekeping,MAKANAN SIAP MASAK,LAUK,https://sk-bucket.sgp1.cdn.digitaloceanspaces.com/2021/10/28094243/250010110_4677497568955528_6626585991565452002_n.jpg,200,image/jpeg,87026,valid
+1776,IKAN TENGGIRI MASAK KARI,sekeping,MAKANAN SIAP MASAK,LAUK,https://image.popbela.com/post/20220601/fromandroid-00261f3de8b3770f562eef3927f8e066.jpg,200,image/webp,136998,valid
+1777,IKAN TILAPIA GORENG BIASA (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://i.pinimg.com/originals/6c/a9/68/6ca968a650662eb54696a6f75026d876.jpg,200,image/jpeg,120345,valid
+1778,IKAN TILAPIA MASAM MANIS (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://img.freepik.com/free-photo/fried-tilapia-or-ikan-nila-goreng-served-on-white-plate-with-sambal-chilli-sauce-selected-focus_583400-2637.jpg?size=626&ext=jpg,200,image/avif,43966,valid
+1779,IKAN TILAPIA KUKUS/STIM (SAIZ SEDERHANA),1 ekor,MAKANAN SIAP MASAK,LAUK,https://cdn.rasa.my/2021/11/413258.jpeg,200,image/jpeg,101258,valid
+1780,SUP PERUT,semangkuk,MAKANAN SIAP MASAK,LAUK,https://i.ytimg.com/vi/5tsjubSLIHo/maxresdefault.jpg,200,image/jpeg,100262,valid
+1782,ROTI NAAN,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://skydecklounge.in/wp-content/uploads/2022/01/Tandoori-Roti-Butter.jpg,200,image/jpeg,265354,valid
+1783,ROTI CANAI BIASA,sekeping,MAKANAN SIAP MASAK,LAIN-LAIN,https://i.pinimg.com/originals/13/d7/a2/13d7a20266db6d191e691e811bf45d50.jpg,200,image/jpeg,123810,valid
+1784,KUIH KARIPAP (KENTANG),sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://foodie.my/wp-content/uploads/2022/12/IMG_4531.jpg,200,image/jpeg,233255,valid
+1785,VADAI MASALA,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://i.pinimg.com/originals/89/b1/5b/89b15b5cd97d96f68f53afdc2ab576cc.jpg,200,image/jpeg,49400,valid
+1786,VADAI ULUNDHU,sebiji,MAKANAN SIAP MASAK,LAIN-LAIN,https://cdn.commmerce.com/uploads/annams/productImages/full/16796492719303vadai1.jpg,200,image/jpeg,286469,valid
+1787,ROJAK BIASA,sepinggan,MAKANAN SIAP MASAK,LAIN-LAIN,https://i.pinimg.com/originals/75/85/42/75854281c5e762c9efd3e5c3d84a9881.jpg,200,image/jpeg,448074,valid
+1788,ROJAK MI,sepinggan,MAKANAN SIAP MASAK,LAIN-LAIN,https://listikel.com/wp-content/uploads/2022/01/Rojak-Mee-Sedap-Kerana-Kuahnya.jpg,200,image/jpeg,115102,valid
+1789,TEH TARIK PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://activeage.co/wp-content/uploads/2016/04/Teh-Tarik.jpg,200,image/jpeg,1163014,valid
+1790,"KOPI ""O"" AIS",gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://i.pinimg.com/736x/ca/98/88/ca98880b4aede4fac01bcb811473e8ec.jpg?nii=t,200,image/jpeg,59436,valid
+1791,KOPI AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://i.pinimg.com/originals/10/63/53/106353671f314ee289e0a2c589537d8e.jpg?nii=t,200,image/jpeg,197869,valid
+1792,TEH AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://bazaar.qniti.com/wp-content/uploads/2020/05/teh-ais.jpg,200,image/jpeg,84804,valid
+1793,NESCAFE AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://i.pinimg.com/originals/c0/77/5c/c0775ccd0ff0b34a6edca83aa4584a11.jpg?nii=t,200,image/jpeg,77384,valid
+1794,LIMAU AIS,gelas besar,MAKANAN SIAP MASAK,MINUMAN,https://cdn.mingguanwanita.my/2021/03/139798710_4245398635475770_2898316556589249814_o.jpg,200,image/jpeg,76055,valid
+1795,JUS OREN,segelas,MAKANAN SIAP MASAK,MINUMAN,https://i.pinimg.com/originals/85/41/9b/85419b3826856f7bff211c14cd5e3e2c.jpg,200,image/jpeg,22044,valid
+1796,CARROT SUSU,segelas,MAKANAN SIAP MASAK,MINUMAN,https://i.pinimg.com/originals/77/29/fd/7729fd2f8290d09399e6f4adabbb55cd.jpg,200,image/jpeg,106753,valid
 1804,KEPAK AYAM (CHICKEN WING),1kg,BARANGAN SEGAR,AYAM,https://img.manamurah.com/barang_nobg/1804.png,200,image/png,162212,valid
-1808,MENTOS (PELBAGAI PERISA),37g,BARANGAN KEDAI SERBANEKA,COKLAT,https://img.manamurah.com/barang_nobg/1808.png,404,,0,missing
-1814,LIMAU PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://img.manamurah.com/barang_nobg/1814.png,404,,0,missing
+1808,MENTOS (PELBAGAI PERISA),37g,BARANGAN KEDAI SERBANEKA,COKLAT,https://www.cafelax.com/cdn/shop/files/Cafelax-Mentos-Rainbow-Chewy-Dragees-285g.jpg?v=1784210780&width=1920,200,image/webp,61932,valid
+1814,LIMAU PANAS,gelas kecil,MAKANAN SIAP MASAK,MINUMAN,https://i.pinimg.com/originals/55/2b/70/552b70acd510143ae12e5a6b67579859.jpg,200,image/jpeg,88446,valid
 1818,KACANG BOTOL,1kg,BARANGAN SEGAR,SAYUR-SAYURAN,https://img.manamurah.com/barang_nobg/1818.png,200,image/png,162212,valid
 1819,LENGKUAS,1kg,BARANGAN SEGAR,SAYUR-SAYURAN,https://img.manamurah.com/barang_nobg/1819.png,200,image/png,162212,valid
 1820,TELUR MASIN,1 biji,BARANGAN SEGAR,TELUR,https://img.manamurah.com/barang_nobg/1820.png,200,image/png,162212,valid
