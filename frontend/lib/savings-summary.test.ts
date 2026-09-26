@@ -11,6 +11,7 @@ const swappedRice: BasketItem = {
   qty: 2,
   saraEligible: true,
   saraCategoryCandidate: true,
+  category: null,
   replacement: {
     original: {
       id: "db-101",
@@ -19,6 +20,7 @@ const swappedRice: BasketItem = {
       qty: 2,
       saraEligible: true,
       saraCategoryCandidate: true,
+      category: null,
     },
     premiseId: "10",
     premiseName: "Test Store",
@@ -37,6 +39,7 @@ const swappedOil: BasketItem = {
   qty: 3,
   saraEligible: true,
   saraCategoryCandidate: true,
+  category: null,
   replacement: {
     original: {
       id: "db-102",
@@ -45,6 +48,7 @@ const swappedOil: BasketItem = {
       qty: 3,
       saraEligible: true,
       saraCategoryCandidate: true,
+      category: null,
     },
     premiseId: "10",
     premiseName: "Test Store",
@@ -64,6 +68,7 @@ const plainEggs: BasketItem = {
   qty: 1,
   saraEligible: null,
   saraCategoryCandidate: false,
+  category: null,
 };
 
 describe("basketSavingsSummary", () => {

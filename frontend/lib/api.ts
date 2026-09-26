@@ -1,5 +1,6 @@
 // Epic 1 catalogue calls use the same FastAPI base as every other feature.
 import { API_BASE_URL } from "./api-base";
+import type { ItemCategory, SourceCategory } from "./contracts";
 
 // Shape of an item (matches backend response, Step 7 v2)
 export interface Item {
@@ -10,6 +11,8 @@ export interface Item {
   item_name_ms?: string | null;
   unit: string | null;
   item_category: string | null;
+  category: ItemCategory | null;
+  source_category?: SourceCategory | null;
   package_size: string | null;   // merged quantity/pricing basis: parsed size, else unit; null = show "—"
   image_url?: string | null;
   sara_eligible: boolean | null; // null means eligibility has not been verified
@@ -37,7 +40,7 @@ export interface SearchResult {
 // Shape of the categories endpoint response
 export interface CategoriesResult {
   count: number;
-  categories: string[];
+  categories: ItemCategory[];
 }
 
 /**

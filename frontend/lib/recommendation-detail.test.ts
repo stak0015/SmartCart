@@ -14,17 +14,22 @@ import {
   targetAlreadyInBasket,
 } from "./recommendation-detail";
 
+const cooking = { id: "cooking-ingredients" as const, labelEn: "Cooking Ingredients", labelMs: "Bahan Masakan", spendingClass: "essential" as const };
+const snacks = { id: "snacks-convenience" as const, labelEn: "Snacks & Convenience Foods", labelMs: "Snek & Makanan Mudah", spendingClass: "discretionary" as const };
+
 const line: BasketAlternativeLine = {
   quantity: 1,
   source: {
     itemId: "1", itemName: "Original oil", unit: "1 kg", packageSize: "1 kg",
     unitPriceRm: 10, lineTotalRm: 10, observedDate: "2026-08-31", priceObservedDaysAgo: 1,
     saraEligible: null, saraCategoryCandidate: true, isSaraCreditCandidate: true,
+    category: cooking,
   },
   alternative: {
     itemId: "2", itemName: "Lower-price oil", unit: "1 kg", packageSize: "1 kg",
     unitPriceRm: 8, lineTotalRm: 8, observedDate: "2026-08-31", priceObservedDaysAgo: 1,
     saraEligible: false, saraCategoryCandidate: false, isSaraCreditCandidate: false,
+    category: snacks,
   },
   savingsRm: 2,
   packOptions: [
@@ -33,12 +38,14 @@ const line: BasketAlternativeLine = {
       pricePerUnitRm: 8, unitKind: "KG", observedDate: "2026-09-01",
       saraEligible: true, saraCategoryCandidate: true, isSaraCreditCandidate: true,
       isBestValue: true,
+      category: snacks,
     },
     {
       itemId: "1", itemName: "Original oil", packageSize: "1 kg", totalPriceRm: 10,
       pricePerUnitRm: 10, unitKind: "KG", observedDate: "2026-08-31",
       saraEligible: null, saraCategoryCandidate: true, isSaraCreditCandidate: true,
       isBestValue: false,
+      category: cooking,
     },
   ],
 };
@@ -63,6 +70,7 @@ const store: StoreRecommendation = {
     itemId: "2", itemName: "Lower-price oil", packageSize: "1 kg", quantity: 1,
     unitPriceRm: 8, lineTotalRm: 8, priceObservedDate: "2026-08-31",
     saraEligible: false, saraCategoryCandidate: false,
+    category: snacks,
   }],
   saraStatus: "candidate",
   basketSubtotalRm: 8,
@@ -76,6 +84,7 @@ const store: StoreRecommendation = {
   basketLines: [{
     itemId: "2", itemName: "Lower-price oil", unit: "1 kg", quantity: 1,
     unitPriceRm: 8, lineTotalRm: 8, observedDate: "2026-08-31",
+    category: snacks,
   }],
   exceedsLimit: false,
 };
@@ -83,6 +92,7 @@ const store: StoreRecommendation = {
 const originalBasket: BasketItem[] = [{
   id: "db-1", name: "Original oil", size: "1 kg", qty: 1,
   saraEligible: null, saraCategoryCandidate: true,
+  category: cooking,
 }];
 
 describe("recommendation detail replacement model", () => {
@@ -105,12 +115,14 @@ describe("recommendation detail replacement model", () => {
     const reenteredRows = buildRecommendationDetailRows(swapped, store, [line]);
     expect(reenteredRows[0].source.itemId).toBe("1");
     expect(reenteredRows[0].current.itemId).toBe("2");
+    expect(reenteredRows[0].current.category).toEqual(snacks);
     expect(reenteredRows[0].replacement?.original.id).toBe("db-1");
     expect(recommendationDetailTotals(reenteredRows).netSavingRm).toBe(2);
 
     const restored = undoBasketReplacement(swapped, "db-2");
     const restoredRows = buildRecommendationDetailRows(restored, store, [line]);
     expect(restoredRows[0].current.itemId).toBe("1");
+    expect(restoredRows[0].current.category).toEqual(cooking);
     expect(restoredRows[0].alternatives.alternative?.itemId).toBe("2");
     expect(restoredRows[0].replacement).toBeNull();
   });
@@ -170,6 +182,7 @@ describe("recommendation detail replacement model", () => {
       [...originalBasket, {
         id: "db-4", name: "Unpriced rice", size: "5 kg", qty: 1,
         saraEligible: true, saraCategoryCandidate: true,
+        category: null,
       }],
       store,
       [line, missingLine],

@@ -1,14 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { addNextTripItem, nextTripBasket, parseNextTrip, saveForNextTrip, serializeNextTrip } from "./next-trip";
+import { addNextTripItem, NEXT_TRIP_VERSION, nextTripBasket, parseNextTrip, saveForNextTrip, serializeNextTrip } from "./next-trip";
 import {
   SHOPPING_CHECKLIST_VERSION, addManualChecklistItem, editChecklistValues, parseShoppingChecklist,
   revertChecklistItem, serializeShoppingChecklist, type ChecklistItem, type ShoppingChecklist,
 } from "./shopping-checklist";
 import { buildTripRecord, parseTripHistory, serializeTripHistory } from "./trip-history";
 
+const category = { id: "fresh-produce" as const, labelEn: "Fresh Produce", labelMs: "Hasil Segar", spendingClass: "essential" as const };
+
 const item: ChecklistItem = {
   id: "line-1", source: "catalogue", catalogueItemId: "1", itemName: "Rice",
-  itemNameEn: "Rice", itemNameMs: "Beras", packageSize: "5 kg", quantity: 2,
+  itemNameEn: "Rice", itemNameMs: "Beras", category, packageSize: "5 kg", quantity: 2,
   unitPriceRm: 10, lineTotalRm: 20, actualPriceRm: null, actualQuantity: null,
   quantitySource: "planned", priceSource: "store", observedDate: "2026-09-18", status: "not_bought",
   originalValues: {
@@ -42,6 +44,16 @@ describe("next trip carry-over", () => {
     expect(parseNextTrip(encoded)).toEqual(saved);
     expect(parseNextTrip("broken")).toEqual([]);
     expect(parseNextTrip('{"version":20,"items":[]}')).toEqual([]);
+  });
+
+  it("migrates valid v1 saved lines to null category and rejects malformed v2 categories", () => {
+    const legacyItem = JSON.parse(JSON.stringify(saveForNextTrip([], item)[0])) as Record<string, unknown>;
+    delete legacyItem.category;
+    expect(parseNextTrip(JSON.stringify({ version: 1, items: [legacyItem] }))[0].category).toBeNull();
+    const current = saveForNextTrip([], item)[0];
+    const malformed = { ...current, category: { ...category, spendingClass: "unknown" } };
+    expect(parseNextTrip(JSON.stringify({ version: NEXT_TRIP_VERSION, items: [current, malformed] }))).toEqual([current]);
+    expect(JSON.parse(serializeNextTrip([current])).version).toBe(NEXT_TRIP_VERSION);
   });
 
   it("uses unknown prices in a different checklist instead of an old store quote", () => {
@@ -104,6 +116,7 @@ describe("next trip carry-over", () => {
 
   it("carries manual items too, without inventing catalogue matches or stock", () => {
     const manual = addManualChecklistItem({ ...checklist, items: [] }, { itemName: "Bread", quantity: 1, unitPriceRm: 4 })!;
+    expect(manual.items[0].category).toBeNull();
     const saved = saveForNextTrip([], manual.items[0]);
     expect(nextTripBasket([], saved)).toEqual([]);
     const restored = addNextTripItem({ ...checklist, items: [] }, saved[0]);
@@ -114,7 +127,7 @@ describe("next trip carry-over", () => {
   it("reuses catalogue identities for planning and merges existing quantities without inflating them", () => {
     const saved = saveForNextTrip([], item);
     const basket = nextTripBasket([], saved);
-    expect(basket[0]).toMatchObject({ id: "db-1", qty: 2, saraEligible: null });
+    expect(basket[0]).toMatchObject({ id: "db-1", qty: 2, saraEligible: null, category });
     expect(nextTripBasket(basket, saved)).toEqual(basket);
     expect(nextTripBasket([{ ...basket[0], qty: 5 }], saved)[0].qty).toBe(5);
   });

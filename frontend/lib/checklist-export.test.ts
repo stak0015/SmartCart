@@ -14,6 +14,7 @@ import {
 
 // AC 5.7.2 fixtures: one catalogue row per relevant price/status shape plus
 // a custom (shopper-added) row.
+const category = { id: "staples" as const, labelEn: "Rice, Noodles & Bread", labelMs: "Beras, Mi & Roti", spendingClass: "essential" as const };
 const catalogueRow: ChecklistItem = {
   id: "catalogue-101-0",
   source: "catalogue",
@@ -21,6 +22,7 @@ const catalogueRow: ChecklistItem = {
   itemName: "BERAS SUPER CAP RODA SAZARICE 5%",
   itemNameEn: "Super rice 5%",
   itemNameMs: "Beras super 5%",
+  category,
   packageSize: "10 kg",
   quantity: 2,
   unitPriceRm: 32.5,
@@ -55,6 +57,7 @@ const noPriceRow: ChecklistItem = {
   itemName: "TELUR AYAM GRED C",
   itemNameEn: null,
   itemNameMs: null,
+  category: null,
   packageSize: "30 biji",
   quantity: 1,
   unitPriceRm: null,
@@ -84,6 +87,7 @@ const customRow: ChecklistItem = {
   itemName: "Homemade sambal from the pasar malam stall with a very long name",
   itemNameEn: null,
   itemNameMs: null,
+  category: null,
   packageSize: null,
   quantity: 1,
   unitPriceRm: null,

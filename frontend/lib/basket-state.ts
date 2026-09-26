@@ -1,6 +1,8 @@
 import type {
   AlternativePriceItem,
   BasketAlternativeLine,
+  ItemCategory,
+  SourceCategory,
   PackSizeOption,
 } from "./contracts";
 
@@ -14,6 +16,8 @@ export interface BasketItemBase {
   qty: number;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 export type BasketReplacementKind = "lower_cost" | "pack";
@@ -56,7 +60,15 @@ function baseItem(item: AlternativePriceItem): BasketItemBase {
     qty: 1,
     saraEligible: item.saraEligible,
     saraCategoryCandidate: item.saraCategoryCandidate,
+    category: item.category,
+    sourceCategory: item.sourceCategory ?? null,
   };
+}
+
+function withoutReplacement(item: BasketItem): BasketItemBase {
+  const original = { ...item };
+  delete original.replacement;
+  return original;
 }
 
 export function applyBasketReplacement(
@@ -87,17 +99,7 @@ export function applyBasketReplacement(
       : item);
   }
 
-  const original: BasketItemBase = current.replacement?.original ?? {
-    id: current.id,
-    name: current.name,
-    itemNameEn: current.itemNameEn,
-    itemNameMs: current.itemNameMs,
-    imageUrl: current.imageUrl,
-    size: current.size,
-    qty: current.qty,
-    saraEligible: current.saraEligible,
-    saraCategoryCandidate: current.saraCategoryCandidate,
-  };
+  const original: BasketItemBase = current.replacement?.original ?? withoutReplacement(current);
   const replacement: AppliedReplacement = {
     original,
     kind: choice.kind,
@@ -180,6 +182,8 @@ export function packReplacementChoice(
       qty: line.quantity,
       saraEligible: pack.saraEligible,
       saraCategoryCandidate: pack.saraCategoryCandidate,
+      category: pack.category,
+      sourceCategory: pack.sourceCategory ?? null,
     },
     sourceUnitPriceRm: line.source.unitPriceRm,
     replacementUnitPriceRm: pack.totalPriceRm,

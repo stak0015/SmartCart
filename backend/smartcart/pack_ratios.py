@@ -24,6 +24,7 @@ import re
 
 from .alternatives import _money, package_basis
 from .catalogue import catalogue_image_url, display_package_size
+from .categories import CategorySummary, SourceCategorySummary, category_for_raw, source_category_for_raw
 from .database import database_cursor
 from .models import BasketLineRequest
 from .sara import is_sara_credit_line
@@ -78,6 +79,8 @@ class PackSizeOption:
     item_name_en: str | None = None
     item_name_ms: str | None = None
     image_url: str | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 def _source_rows(item_ids: list[int]) -> list[tuple]:
@@ -103,11 +106,17 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
                    current_status.current_price,
                    current_status.price_observed_date,
                    item.item_category, item.sara_eligible,
-                   item.item_code
+                   item.item_code,
+                   COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                   COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
              AND current_status.premise_id = %s
+            LEFT JOIN category_translation ct_en
+              ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+              ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             WHERE current_status.current_price > 0
               AND item.quantity_value IS NOT NULL
               AND item.quantity_unit IS NOT NULL
@@ -148,6 +157,12 @@ def _option_from_row(row: tuple) -> PackSizeOption:
         _ratio=ratio,
         _price=Decimal(price),
         image_url=catalogue_image_url(image_code),
+        category=category_for_raw(category),
+        source_category=source_category_for_raw(
+            category,
+            row[11] if len(row) > 11 else None,
+            row[12] if len(row) > 12 else None,
+        ),
     )
 
 

@@ -1,3 +1,5 @@
+import type { ItemCategory } from "./contracts";
+
 export type Locale = "en" | "ms";
 
 export const COPY = {
@@ -694,69 +696,7 @@ export const COPY = {
 
 export type AppCopy = (typeof COPY)[Locale];
 
-const CATEGORY_ENGLISH: Record<string, string> = {
-  "ALAT TULIS DAN BAHAN BACAAN": "Stationery & Reading Materials",
-  AYAM: "Chicken",
-  "BAHAN LAUT": "Seafood",
-  "BAHAN-BAHAN MINUMAN": "Beverage Ingredients",
-  BAWANG: "Onions",
-  BERAS: "Rice",
-  "BERUS GIGI": "Toothbrushes",
-  BIHUN: "Rice Vermicelli",
-  BISKUT: "Biscuits",
-  "BUAH-BUAHAN": "Fruits",
-  "CILI KERING": "Dried Chillies",
-  COKLAT: "Chocolate",
-  DAGING: "Meat",
-  "ESEN DAN RAGI": "Essences & Yeast",
-  GULA: "Sugar",
-  "HASIL LAUT KERING": "Dried Seafood",
-  "IKAN DALAM TIN": "Canned Fish",
-  "IKAN DARAT": "Freshwater Fish",
-  KACANG: "Nuts & Legumes",
-  KELAPA: "Coconut",
-  "KICAP DAN SOS": "Soy Sauce & Sauces",
-  "KRIMER DAN SUSU TEPUNG": "Creamer & Milk Powder",
-  "LAIN-LAIN": "Other",
-  "LAMPIN PAKAI BUANG": "Disposable Diapers",
-  LAUK: "Prepared Dishes",
-  MAJALAH: "Magazines",
-  "MAKANAN BAYI": "Baby Food",
-  "MAKANAN RINGAN": "Snacks",
-  "MAKANAN SEGERA": "Instant Food",
-  "MEE / BIHUN / KUEY TEOW": "Noodles, Rice Vermicelli & Kuey Teow",
-  "MEE/KUETIAU": "Noodles & Kuey Teow",
-  MENTEGA: "Butter",
-  "MI SEGERA": "Instant Noodles",
-  MINUMAN: "Beverages",
-  "MINYAK DAN LEMAK": "Oils & Fats",
-  "MOUTH WASH": "Mouthwash",
-  NASI: "Cooked Rice",
-  "PENGHALAU NYAMUK": "Mosquito Repellent",
-  "PENJAGAAN DIRI": "Personal Care",
-  "PENJAGAAN RUMAH": "Household Care",
-  "PEWANGI RUMAH": "Air Fresheners",
-  "REMPAH RATUS (BERBUNGKUS)": "Spices (Packaged)",
-  "REMPAH RATUS (TIDAK BERBUNGKUS)": "Spices (Loose)",
-  ROTI: "Bread",
-  "SABUN BADAN": "Body Wash",
-  "SANTAN (KOTAK)": "Coconut Milk (Carton)",
-  "SAPUAN (SPREADS)": "Spreads",
-  "SAYUR-SAYURAN": "Vegetables",
-  "SUSU BAYI": "Infant Formula",
-  SYAMPU: "Shampoo",
-  "TAUHU DAN TEMPE": "Tofu & Tempeh",
-  TELUR: "Eggs",
-  TEPUNG: "Flour",
-  "TERSEDIA MINUM": "Ready-to-Drink",
-  TISU: "Tissues",
-  "TUALA WANITA": "Sanitary Pads",
-  "UBAT GIGI": "Toothpaste",
-  "UBAT-UBATAN": "Medicines",
-  "UBI KENTANG": "Potatoes",
-};
-
-export function categoryLabel(locale: Locale, category: string | null): string {
-  if (!category) return "—";
-  return locale === "en" ? CATEGORY_ENGLISH[category] ?? category : category;
+export function categoryLabel(locale: Locale, category: ItemCategory | null): string {
+  if (!category) return locale === "en" ? "Uncategorised" : "Tidak berkategori";
+  return locale === "en" ? category.labelEn : category.labelMs;
 }

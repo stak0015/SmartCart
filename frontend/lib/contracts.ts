@@ -2,6 +2,87 @@ export type TransportMode = "walk" | "public_transport" | "motorcycle" | "car";
 export type TravelLimitType = "distance" | "time" | "both";
 export type SaraFilter = "any" | "candidate" | "verified";
 
+export type ItemCategoryId =
+  | "fresh-produce"
+  | "protein"
+  | "staples"
+  | "cooking-ingredients"
+  | "drinks-milk"
+  | "snacks-convenience"
+  | "baby-care"
+  | "personal-health"
+  | "household"
+  | "education-reading"
+  | "other";
+
+export type ItemCategorySpendingClass = "essential" | "discretionary" | "mixed_or_unknown";
+
+export interface ItemCategory {
+  id: ItemCategoryId;
+  labelEn: string;
+  labelMs: string;
+  spendingClass: ItemCategorySpendingClass;
+}
+
+/** The catalogue's specific source category, kept alongside its broad group. */
+export interface SourceCategory {
+  id: string;
+  labelEn: string;
+  labelMs: string;
+}
+
+export function isSourceCategory(value: unknown): value is SourceCategory {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const category = value as Record<string, unknown>;
+  return typeof category.id === "string" && category.id.trim().length > 0
+    && typeof category.labelEn === "string" && category.labelEn.trim().length > 0
+    && typeof category.labelMs === "string" && category.labelMs.trim().length > 0;
+}
+
+export const ITEM_CATEGORY_IDS: readonly ItemCategoryId[] = [
+  "fresh-produce", "protein", "staples", "cooking-ingredients", "drinks-milk",
+  "snacks-convenience", "baby-care", "personal-health", "household", "education-reading", "other",
+];
+
+export const ITEM_CATEGORY_LABELS: Readonly<Record<ItemCategoryId, { en: string; ms: string }>> = {
+  "fresh-produce": { en: "Fresh Produce", ms: "Hasil Segar" },
+  protein: { en: "Meat, Seafood & Protein", ms: "Daging, Makanan Laut & Protein" },
+  staples: { en: "Rice, Noodles & Bread", ms: "Beras, Mi & Roti" },
+  "cooking-ingredients": { en: "Cooking Ingredients", ms: "Bahan Masakan" },
+  "drinks-milk": { en: "Drinks & Milk", ms: "Minuman & Susu" },
+  "snacks-convenience": { en: "Snacks & Convenience Foods", ms: "Snek & Makanan Mudah" },
+  "baby-care": { en: "Baby Food & Care", ms: "Makanan & Penjagaan Bayi" },
+  "personal-health": { en: "Personal Care & Health", ms: "Penjagaan Diri & Kesihatan" },
+  household: { en: "Household Care", ms: "Penjagaan Rumah" },
+  "education-reading": { en: "Education & Reading", ms: "Pendidikan & Bahan Bacaan" },
+  other: { en: "Other", ms: "Lain-lain" },
+};
+
+export const ITEM_CATEGORY_SPENDING_CLASS: Readonly<Record<ItemCategoryId, ItemCategorySpendingClass>> = {
+  "fresh-produce": "essential",
+  protein: "essential",
+  staples: "essential",
+  "cooking-ingredients": "essential",
+  "drinks-milk": "mixed_or_unknown",
+  "snacks-convenience": "discretionary",
+  "baby-care": "essential",
+  "personal-health": "essential",
+  household: "essential",
+  "education-reading": "essential",
+  other: "mixed_or_unknown",
+};
+
+export function isItemCategory(value: unknown): value is ItemCategory {
+  if (!value || typeof value !== "object") return false;
+  const category = value as Record<string, unknown>;
+  return ITEM_CATEGORY_IDS.includes(category.id as ItemCategoryId)
+    && typeof category.labelEn === "string" && category.labelEn.trim().length > 0
+    && typeof category.labelMs === "string" && category.labelMs.trim().length > 0
+    && (category.spendingClass === "essential"
+      || category.spendingClass === "discretionary"
+      || category.spendingClass === "mixed_or_unknown");
+}
+
 export type TravelLimit =
   | { type: "distance" | "time"; value: number }
   | { type: "both"; distanceKm: number; timeMinutes: number };
@@ -81,6 +162,8 @@ export interface BasketItemPrice {
   priceSource?: PriceSource | null;
   saraEligible?: boolean | null;
   saraCategoryCandidate?: boolean;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 // One basket line's priced detail at a store (AC 2.3.9), shown behind
@@ -97,6 +180,8 @@ export interface BasketLineDetail {
   lineTotalRm: number | null;
   observedDate: string | null;
   priceSource?: PriceSource | null;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 export interface AlternativePriceItem {
@@ -115,6 +200,8 @@ export interface AlternativePriceItem {
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 // One pack size of the same product family priced at the selected store
@@ -142,6 +229,8 @@ export interface PackSizeOption {
   // card itself, which the UI marks as the comparison baseline.
   upfrontDiffRm?: number | null;
   perUnitDiffRm?: number | null;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 export interface BasketAlternativeLine {

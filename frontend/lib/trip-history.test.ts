@@ -24,6 +24,9 @@ import {
   serializeTripHistory,
 } from "./trip-history";
 
+const cooking = { id: "cooking-ingredients" as const, labelEn: "Cooking Ingredients", labelMs: "Bahan Masakan", spendingClass: "essential" as const };
+const staples = { id: "staples" as const, labelEn: "Rice, Noodles & Bread", labelMs: "Beras, Mi & Roti", spendingClass: "essential" as const };
+
 const store: StoreRecommendation = {
   premiseId: "10",
   premiseCode: "P10",
@@ -46,6 +49,7 @@ const store: StoreRecommendation = {
       itemName: "Cooking oil",
       itemNameEn: "Cooking oil",
       itemNameMs: "Minyak masak",
+      category: cooking,
       packageSize: "1 kg",
       quantity: 2,
       unitPriceRm: 5,
@@ -58,6 +62,7 @@ const store: StoreRecommendation = {
       itemName: "Rice",
       itemNameEn: "Rice",
       itemNameMs: "Beras",
+      category: staples,
       packageSize: "5 kg",
       quantity: 1,
       unitPriceRm: 12,
@@ -70,6 +75,7 @@ const store: StoreRecommendation = {
       itemName: "Soap",
       itemNameEn: "Soap",
       itemNameMs: "Sabun",
+      category: null,
       packageSize: "3 pack",
       quantity: 1,
       unitPriceRm: null,
@@ -82,6 +88,7 @@ const store: StoreRecommendation = {
       itemName: "Bread",
       itemNameEn: "Bread",
       itemNameMs: "Roti",
+      category: staples,
       packageSize: "400 g",
       quantity: 1,
       unitPriceRm: 2.5,
@@ -144,6 +151,21 @@ function finishedChecklist() {
 }
 
 describe("buildTripRecord (AC 5.4.1)", () => {
+  it("freezes a catalogue-specific category without assigning one to manual lines", () => {
+    const sourceCategory = { id: "MINYAK DAN LEMAK", labelEn: "Oils & Fats", labelMs: "Minyak dan Lemak" };
+    const withSource = {
+      ...store,
+      basketPrices: store.basketPrices.map((price, index) => index === 0
+        ? { ...price, sourceCategory } : price),
+    };
+    let checklist = createShoppingChecklist(withSource, []);
+    checklist = addManualChecklistItem(checklist, { itemName: "Custom", quantity: 1, unitPriceRm: 3 })!;
+    const record = buildTripRecord(checklist);
+    expect(record.lines[0].sourceCategory).toEqual(sourceCategory);
+    expect(record.lines.at(-1)?.sourceCategory).toBeNull();
+    expect(parseTripHistory(serializeTripHistory([record]))[0].lines[0].sourceCategory).toEqual(sourceCategory);
+  });
+
   it("keeps the date and time, store, and every catalogue and custom line with its outcome", () => {
     const checklist = finishedChecklist();
     const record = buildTripRecord(checklist, {
@@ -151,7 +173,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       recordedAt: "2026-09-14T10:30:00.000Z",
     });
 
-    expect(record.version).toBe(2);
+    expect(record.version).toBe(3);
     expect(record.id).toBe("trip-1");
     expect(record.recordedAt).toBe("2026-09-14T10:30:00.000Z");
     expect(record.checklistId).toBe("checklist-trip");
@@ -176,6 +198,9 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       "neutral",
       "bought",
       "bought",
+    ]);
+    expect(record.lines.map(line => line.category)).toEqual([
+      cooking, staples, null, staples, null, null,
     ]);
   });
 
@@ -211,6 +236,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
     for (const line of customLines) {
       expect(line.catalogueItemId).toBeNull();
       expect(line.priceSource).toBe("manual");
+      expect(line.category).toBeNull();
     }
   });
 
@@ -298,11 +324,28 @@ describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
     const checklist = createShoppingChecklist(store, [], { checklistId: "legacy-price" });
     const bought = toggleChecklistItemStatus(checklist, checklist.items[0].id, "bought");
     const record = buildTripRecord(bought, { recordId: "legacy-receipt" });
-    const parsed = parseTripHistory(JSON.stringify({ version: 1, records: [{ ...record, version: 1, actualTotalRm: null }] }));
-    expect(parsed[0].version).toBe(2);
+    const legacy = JSON.parse(JSON.stringify({ ...record, version: 1, actualTotalRm: null })) as Record<string, unknown>;
+    delete (legacy.lines as Record<string, unknown>[])[0].category;
+    const parsed = parseTripHistory(JSON.stringify({ version: 1, records: [legacy] }));
+    expect(parsed[0].version).toBe(3);
     expect(parsed[0].actualTotalRm).toBe(10);
     expect(parsed[0].lines[0].status).toBe("bought");
     expect(parsed[0].lines[0].actualLineTotalRm).toBe(10);
+    expect(parsed[0].lines[0].category).toBeNull();
+  });
+
+  it("migrates v2 lines to null category and rejects malformed persisted categories", () => {
+    const record = buildTripRecord(finishedChecklist(), { recordId: "trip-v2" });
+    const v2 = JSON.parse(JSON.stringify({ ...record, version: 2 })) as Record<string, unknown>;
+    delete (v2.lines as Record<string, unknown>[])[0].category;
+    const migrated = parseTripHistory(JSON.stringify({ version: 2, records: [v2] }));
+    expect(migrated[0].lines[0].category).toBeNull();
+
+    const malformed = JSON.parse(JSON.stringify({ ...record, id: "trip-malformed" })) as Record<string, unknown>;
+    (malformed.lines as Record<string, unknown>[])[0].category = {
+      id: "unknown", labelEn: "Unknown", labelMs: "Unknown", spendingClass: "other",
+    };
+    expect(parseTripHistory(JSON.stringify({ version: 3, records: [record, malformed] })).map(item => item.id)).toEqual([record.id]);
   });
 
   it("restores a recorded selected pack whose price date was absent", () => {

@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { formatRm } from "@/lib/format-rm";
 import { CatalogueItemImage } from "./catalogue-item-image";
+import { categoryLabel } from "@/lib/i18n";
 import { StoreChainLogo } from "./store-chain-logo";
 import { DropdownChevron, UIIcon } from "./ui-icon";
 import {
@@ -575,6 +576,7 @@ function ChecklistRow({ item, locale, copy, saved, onToggleBought, onToggleNotBo
       <div className="checklist-item-copy">
         <h3>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{name}</h3>
         <p className="checklist-mobile-package">{item.packageSize || "—"} × {quantity}</p>
+        <small>{categoryLabel(locale, item.category)}</small>
       </div>
     </div>
     <span className="checklist-package">{item.packageSize || "—"}</span>
@@ -620,7 +622,7 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }
         const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
         return <li key={item.id} className="flex items-center gap-2 py-2">
           <span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span>
-          <div className="next-trip-item-copy min-w-0 flex-1"><p className="next-trip-item-name break-words text-sm font-bold text-[#10152e]">{name}</p><p className="next-trip-item-meta text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p></div>
+          <div className="next-trip-item-copy min-w-0 flex-1"><p className="next-trip-item-name break-words text-sm font-bold text-[#10152e]">{name}</p><p className="next-trip-item-meta text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p><small>{categoryLabel(locale, item.category)}</small></div>
           {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
           <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="trash" /></IconButton>
         </li>;
