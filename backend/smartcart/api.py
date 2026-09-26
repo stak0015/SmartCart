@@ -5,21 +5,34 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
-from time import monotonic
+import logging
+from time import monotonic, perf_counter
 from uuid import uuid4
 
-from fastapi import APIRouter, Path, Query
+from fastapi import APIRouter, Path, Query, Request
+from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
 
 from .catalogue import (
     catalogue_price_ranges,
     SARA_CATEGORY_SOURCE,
     count_items,
-    list_catalogue_categories,
     search_catalogue,
 )
+from .categories import CATEGORY_SUMMARIES, CATEGORIES_BY_ID
 from .config import get_settings
 from .errors import AppError
+from .report_models import (
+    GenerateReportRequest,
+    GeneratedReport,
+    REPORT_MAX_BODY_BYTES,
+)
+from .reporting import (
+    ReportRateLimitRejected,
+    ReportRequestRejected,
+    generate_report,
+    report_request_id,
+)
 from .alternatives import (
     get_basket_alternatives,
     get_basket_alternatives_with_pack_options,
@@ -55,6 +68,7 @@ from .recommendation import (
 )
 
 router = APIRouter(prefix="/api")
+logger = logging.getLogger(__name__)
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
 FALLBACK_NEAREST_LIMIT = 25
@@ -188,7 +202,14 @@ def search_items(
     category: list[str] = Query(default=[]),
     candidate_cache_id: str | None = None,
 ) -> dict[str, object]:
-    items, total = search_catalogue(q, page, page_size, category)
+    selected_categories = [value.strip() for value in category if value.strip()]
+    if any(category_id not in CATEGORIES_BY_ID for category_id in selected_categories):
+        raise AppError(
+            "INVALID_CATEGORY",
+            "Select a valid SmartCart catalogue category.",
+            400,
+        )
+    items, total = search_catalogue(q, page, page_size, selected_categories)
     _prune_candidate_cache(monotonic())
     snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
     stores = (
@@ -215,7 +236,9 @@ def search_items(
 
 @router.get("/items/categories")
 def list_categories() -> dict[str, object]:
-    categories = list_catalogue_categories()
+    categories = [
+        category.model_dump(by_alias=True) for category in CATEGORY_SUMMARIES
+    ]
     return {"count": len(categories), "categories": categories}
 
 
@@ -525,3 +548,125 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         route_warning=" ".join(route_warning_parts) if route_warning_parts else None,
         expanded_search=expanded_search,
     )
+
+
+async def _read_report_body(request: Request) -> tuple[bytes | None, int]:
+    """Read at most the report size limit before any JSON parsing occurs."""
+    chunks: list[bytes] = []
+    request_bytes = 0
+    async for chunk in request.stream():
+        request_bytes += len(chunk)
+        if request_bytes > REPORT_MAX_BODY_BYTES:
+            return None, request_bytes
+        chunks.append(chunk)
+    return b"".join(chunks), request_bytes
+
+
+@router.post(
+    "/reports/generate",
+    response_model=GeneratedReport,
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": GenerateReportRequest.model_json_schema(by_alias=True)
+                }
+            },
+        }
+    },
+)
+async def generate_report_endpoint(request: Request) -> GeneratedReport:
+    request_id = uuid4().hex
+    started = perf_counter()
+    outcome = "invalid_request"
+    request_bytes = 0
+    cadence: str | None = None
+    locale: str | None = None
+    trip_count = 0
+    line_count = 0
+    generation_source: str | None = None
+
+    try:
+        now = request.app.state.report_clock()
+        if not isinstance(now, datetime) or now.tzinfo is None:
+            raise RuntimeError("report clock must return an aware UTC datetime")
+        now = now.astimezone(timezone.utc)
+
+        raw_body, request_bytes = await _read_report_body(request)
+        if raw_body is None:
+            outcome = "too_large"
+            raise AppError(
+                "REPORT_REQUEST_TOO_LARGE",
+                "Report request exceeds the allowed size.",
+                413,
+            )
+
+        try:
+            payload = GenerateReportRequest.model_validate_json(raw_body)
+        except ValidationError:
+            outcome = "invalid_request"
+            raise AppError(
+                "INVALID_REPORT_REQUEST",
+                "The report request is invalid.",
+                400,
+            ) from None
+
+        cadence = payload.cadence
+        locale = payload.locale
+        trip_count = len(payload.trips)
+        line_count = sum(len(trip.bought_lines) for trip in payload.trips)
+
+        rate_limiter = request.app.state.report_rate_limit_hook
+        allowed = await rate_limiter(request)
+        if allowed is False:
+            raise ReportRateLimitRejected()
+
+        narrator = request.app.state.report_narrator
+        correlation_token = report_request_id.set(request_id)
+        try:
+            report = await generate_report(payload, now, narrator)
+        finally:
+            report_request_id.reset(correlation_token)
+        outcome = "success"
+        generation_source = report.generation_source
+        return report
+    except ReportRateLimitRejected:
+        outcome = "rate_limited"
+        raise AppError(
+            "REPORT_RATE_LIMITED",
+            "Report generation is temporarily unavailable. Please try again later.",
+            429,
+        ) from None
+    except ReportRequestRejected:
+        outcome = "invalid_request"
+        raise AppError(
+            "INVALID_REPORT_REQUEST",
+            "The report request is invalid.",
+            400,
+        ) from None
+    except AppError:
+        raise
+    except Exception:
+        outcome = "failed"
+        raise AppError(
+            "REPORT_UNAVAILABLE",
+            "SmartCart could not generate that report. Please try again.",
+            500,
+        ) from None
+    finally:
+        logger.info(
+            "report_generation",
+            extra={
+                "event": "report_generation",
+                "request_id": request_id,
+                "outcome": outcome,
+                "duration_ms": round((perf_counter() - started) * 1000, 3),
+                "cadence": cadence,
+                "locale": locale,
+                "trip_count": trip_count,
+                "line_count": line_count,
+                "request_bytes": request_bytes,
+                "generation_source": generation_source,
+            },
+        )

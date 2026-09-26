@@ -14,6 +14,7 @@ from smartcart.alternatives import (
     package_basis,
     premise_exists,
 )
+from smartcart.categories import category_for_raw, source_category_for_raw
 from smartcart.models import BasketLineRequest
 
 
@@ -90,6 +91,46 @@ def test_get_basket_alternatives_chooses_cheapest_best_name_match(monkeypatch) -
     assert lines[0].savings_rm == 6.0
     assert lines[0].source.price_source == "store"
     assert lines[0].alternative.price_source == "store"
+    assert lines[0].source.category == category_for_raw("IKAN DALAM TIN")
+    assert lines[0].alternative.category == category_for_raw("IKAN DALAM TIN")
+
+
+def test_alternatives_preserve_specific_category_for_source_and_replacement(monkeypatch) -> None:
+    source_rows = [(
+        1, 1, "TELUR AYAM", "Chicken Eggs", "10 biji", "TELUR", None,
+        Decimal("8.00"), None, TODAY, "eggs-code", "Eggs", "Telur",
+    )]
+    candidate_rows = [(
+        2, "TELUR AYAM", "Chicken Eggs", "10 biji", "TELUR", None,
+        Decimal("5.00"), TODAY, "eggs-cheap-code", "Eggs", "Telur",
+    )]
+
+    class Cursor:
+        def __init__(self) -> None:
+            self.rows = []
+
+        def execute(self, query, _params) -> None:
+            self.rows = source_rows if "WITH requested" in query else candidate_rows
+
+        def fetchall(self):
+            return self.rows
+
+    @contextmanager
+    def fake_cursor():
+        yield Cursor()
+
+    monkeypatch.setattr("smartcart.alternatives.database_cursor", fake_cursor)
+    lines = get_basket_alternatives(
+        "10", [BasketLineRequest(item_id=1, quantity=1)], today=TODAY
+    )
+
+    assert lines[0].source.source_category == source_category_for_raw(
+        "TELUR", "Eggs", "Telur"
+    )
+    assert lines[0].alternative is not None
+    assert lines[0].alternative.source_category == source_category_for_raw(
+        "TELUR", "Eggs", "Telur"
+    )
 
 
 def test_median_source_is_returned_but_cannot_drive_alternatives(monkeypatch) -> None:
@@ -137,6 +178,8 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
         price_observed_days_ago=0, sara_eligible=None,
         sara_category_candidate=True, is_sara_credit_candidate=True,
         price_source="store",
+        category=category_for_raw("BAWANG"),
+        source_category=source_category_for_raw("BAWANG", "Onions", "Bawang"),
     )
     alternative = AlternativePriceItem(
         item_id="2", item_name="SARDIN CHEAP", unit="425 g", package_size="425 g",
@@ -144,6 +187,8 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
         price_observed_days_ago=0, sara_eligible=None,
         sara_category_candidate=True, is_sara_credit_candidate=True,
         price_source="store",
+        category=category_for_raw("BERAS"),
+        source_category=source_category_for_raw("BERAS", "Rice", "Beras"),
     )
     monkeypatch.setattr("smartcart.api.premise_exists", lambda _premise_id: True)
     monkeypatch.setattr(
@@ -162,6 +207,14 @@ def test_alternatives_endpoint_returns_camel_case_contract(monkeypatch) -> None:
     assert response.status_code == 200
     assert response.json()["premiseId"] == "10"
     assert response.json()["lines"][0]["alternative"]["itemId"] == "2"
+    assert response.json()["lines"][0]["source"]["category"] == category_for_raw("BAWANG").model_dump(by_alias=True)
+    assert response.json()["lines"][0]["alternative"]["category"] == category_for_raw("BERAS").model_dump(by_alias=True)
+    assert response.json()["lines"][0]["source"]["sourceCategory"] == {
+        "id": "BAWANG", "labelEn": "Onions", "labelMs": "Bawang",
+    }
+    assert response.json()["lines"][0]["alternative"]["sourceCategory"] == {
+        "id": "BERAS", "labelEn": "Rice", "labelMs": "Beras",
+    }
     assert response.json()["lines"][0]["savingsRm"] == 3.0
     assert response.json()["lines"][0]["packOptions"] == []
 
@@ -200,24 +253,24 @@ def test_endpoint_uses_one_cursor_and_one_shared_premise_scan(monkeypatch) -> No
     source_rows = [
         (
             1, 1, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "425 g",
-            "IKAN DALAM TIN", None, Decimal("8.00"), None, TODAY,
+            "IKAN DALAM TIN", None, Decimal("8.00"), None, TODAY, None,
         ),
     ]
     premise_rows = [
         (
             1, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "425 g",
             Decimal("0.425"), "KG", Decimal("8.00"), TODAY,
-            "IKAN DALAM TIN", None,
+            "IKAN DALAM TIN", None, None,
         ),
         (
             2, "SARDIN CAP CHEAP (SOS TOMATO)", "SARDIN EN", "425 g",
             Decimal("0.425"), "KG", Decimal("5.00"), TODAY,
-            "IKAN DALAM TIN", None,
+            "IKAN DALAM TIN", None, None,
         ),
         (
             3, "SARDIN CAP SOURCE (SOS TOMATO)", "SARDIN EN", "850 g",
             Decimal("0.850"), "KG", Decimal("14.00"), TODAY,
-            "IKAN DALAM TIN", None,
+            "IKAN DALAM TIN", None, None,
         ),
     ]
 

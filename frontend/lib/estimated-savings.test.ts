@@ -45,6 +45,7 @@ function store(
       lineTotalRm: 5,
       observedDate: null,
       priceSource: "store",
+      category: null,
     })),
     exceedsLimit: false,
     ...options,

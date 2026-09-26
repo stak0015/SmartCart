@@ -1,11 +1,11 @@
-import type { BasketItemPrice, StoreRecommendation } from "./contracts";
+import { isItemCategory, isSourceCategory, type BasketItemPrice, type ItemCategory, type SourceCategory, type StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 import {
   isEstimatedSavingsSnapshot,
   type EstimatedSavingsSnapshot,
 } from "./estimated-savings";
 
-export const SHOPPING_CHECKLIST_VERSION = 5 as const;
+export const SHOPPING_CHECKLIST_VERSION = 6 as const;
 export const SHOPPING_CHECKLIST_STORAGE_KEY = "smartcart.shopping-checklist.v1";
 
 export type ChecklistStatus = "neutral" | "bought" | "not_bought";
@@ -40,6 +40,8 @@ export interface ChecklistItem {
   itemName: string;
   itemNameEn: string | null;
   itemNameMs: string | null;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
   imageUrl?: string | null;
   packageSize: string | null;
   quantity: number;
@@ -199,6 +201,8 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     itemName: current.itemName,
     itemNameEn: current.itemNameEn ?? null,
     itemNameMs: current.itemNameMs ?? null,
+    category: current.category,
+    sourceCategory: current.sourceCategory ?? null,
     imageUrl: current.imageUrl || row.basketItem?.imageUrl || row.source.imageUrl || null,
     packageSize: current.packageSize,
     quantity,
@@ -223,6 +227,8 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     itemName: price.itemName,
     itemNameEn: price.itemNameEn ?? null,
     itemNameMs: price.itemNameMs ?? null,
+    category: price.category,
+    sourceCategory: price.sourceCategory ?? null,
     packageSize: price.packageSize,
     quantity,
     unitPriceRm,
@@ -364,6 +370,8 @@ export function addManualChecklistItem(
     itemName,
     itemNameEn: null,
     itemNameMs: null,
+    category: null,
+    sourceCategory: null,
     packageSize: null,
     quantity,
     unitPriceRm,
@@ -687,6 +695,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
     && item.itemName.trim().length > 0
     && isNullableString(item.itemNameEn)
     && isNullableString(item.itemNameMs)
+    && (item.category === null || isItemCategory(item.category))
+    && (item.sourceCategory === undefined || item.sourceCategory === null || isSourceCategory(item.sourceCategory))
     && (item.imageUrl === undefined || isNullableString(item.imageUrl))
     && isNullableString(item.packageSize)
     && typeof item.quantity === "number"
@@ -713,6 +723,8 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   if ((item.actualQuantity === null) !== (item.quantitySource === "planned")) return false;
   if (item.source === "manual") {
     return item.catalogueItemId === null
+      && item.category === null
+      && (item.sourceCategory === undefined || item.sourceCategory === null)
       && item.priceSource === "manual"
       && (item.unitPriceRm === null
         || (typeof item.unitPriceRm === "number" && item.unitPriceRm > 0))
@@ -805,6 +817,7 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
     && candidate.version !== 2
     && candidate.version !== 3
     && candidate.version !== 4
+    && candidate.version !== 5
     && candidate.version !== SHOPPING_CHECKLIST_VERSION) return null;
   const normalized = {
     ...candidate,
@@ -824,6 +837,9 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
             actualQuantity: null,
             quantitySource: "planned",
             ...legacy,
+            ...(candidate.version === SHOPPING_CHECKLIST_VERSION ? {} : {
+              category: legacy.category === undefined ? null : legacy.category,
+            }),
             observedDate: legacy.observedDate ?? null,
             originalValues: legacy.originalValues && typeof legacy.originalValues === "object"
               ? { ...legacy.originalValues as Record<string, unknown>, observedDate: (legacy.originalValues as Record<string, unknown>).observedDate ?? null }

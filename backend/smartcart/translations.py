@@ -18,7 +18,7 @@ def catalogue_translation_joins() -> str:
 
 
 def catalogue_search_where() -> str:
-    """SQL WHERE fragment for bilingual q matching and category filtering."""
+    """SQL WHERE fragment for bilingual q matching and broad category filters."""
     return """
         (
             i.item_name ILIKE %s
@@ -30,21 +30,34 @@ def catalogue_search_where() -> str:
         AND (
             cardinality(%s::text[]) = 0
             OR i.item_category = ANY(%s::text[])
-            OR ct_en.translated_name = ANY(%s::text[])
-            OR ct_ms.translated_name = ANY(%s::text[])
+            OR (
+                %s::boolean
+                AND NULLIF(BTRIM(i.item_category), '') IS NOT NULL
+                AND NOT (i.item_category = ANY(%s::text[]))
+            )
         )
     """
 
 
-def catalogue_search_params(keyword: str, categories: list[str]) -> tuple[object, ...]:
-    selected = [category.strip() for category in categories if category.strip()]
-    return (keyword,) * 5 + (selected, selected, selected, selected)
+def catalogue_search_params(
+    keyword: str,
+    raw_categories: list[str],
+    include_unmapped: bool,
+    all_mapped_raw_categories: tuple[str, ...],
+) -> tuple[object, ...]:
+    selected = [category.strip() for category in raw_categories if category.strip()]
+    return (keyword,) * 5 + (
+        selected,
+        selected,
+        include_unmapped,
+        list(all_mapped_raw_categories),
+    )
 
 
 def translation_select_columns() -> str:
     return """
         COALESCE(NULLIF(i.item_name_en, ''), i.item_name) AS item_name_en,
         i.item_name AS item_name_ms,
-        COALESCE(ct_en.translated_name, i.item_category) AS item_category_en,
-        COALESCE(ct_ms.translated_name, i.item_category) AS item_category_ms
+        COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), i.item_category) AS item_category_en,
+        COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), i.item_category) AS item_category_ms
     """

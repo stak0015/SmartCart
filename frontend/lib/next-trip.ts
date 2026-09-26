@@ -1,5 +1,5 @@
 import type { BasketItem } from "./basket-state";
-import type { PriceSource } from "./contracts";
+import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory, type PriceSource } from "./contracts";
 import {
   effectiveChecklistQuantity,
   effectiveChecklistUnitPrice,
@@ -8,6 +8,7 @@ import {
 } from "./shopping-checklist";
 
 export const NEXT_TRIP_STORAGE_KEY = "smartcart.next-trip.v1";
+export const NEXT_TRIP_VERSION = 2 as const;
 
 function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -16,7 +17,7 @@ function money(value: number): number {
 // Only item identity and quantity travel between trips. A previous store's
 // price, shopping outcome and location are not a quote for the next trip.
 export type NextTripItem = Pick<ChecklistItem,
-  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "imageUrl" | "packageSize" | "quantity"
+  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "category" | "sourceCategory" | "imageUrl" | "packageSize" | "quantity"
 >;
 
 export interface NextTripPriceQuote {
@@ -28,6 +29,8 @@ export interface NextTripPriceQuote {
   unitPriceRm: number | null;
   observedDate: string | null;
   priceSource?: PriceSource | null;
+  category?: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 export function nextTripItemId(item: Pick<ChecklistItem, "id" | "catalogueItemId">): string {
@@ -43,6 +46,8 @@ export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): Nex
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    category: item.category,
+    sourceCategory: item.sourceCategory ?? null,
     imageUrl: item.imageUrl,
     packageSize: item.packageSize,
     quantity: effectiveChecklistQuantity(item),
@@ -52,7 +57,7 @@ export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): Nex
 }
 
 export function serializeNextTrip(items: NextTripItem[]): string {
-  return JSON.stringify({ version: 1, items });
+  return JSON.stringify({ version: NEXT_TRIP_VERSION, items });
 }
 
 export function parseNextTrip(serialized: string | null): NextTripItem[] {
@@ -60,7 +65,7 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
     const value: unknown = JSON.parse(serialized ?? "null");
     if (!value || typeof value !== "object") return [];
     const envelope = value as Record<string, unknown>;
-    if (envelope.version !== 1 || !Array.isArray(envelope.items)) return [];
+    if ((envelope.version !== 1 && envelope.version !== NEXT_TRIP_VERSION) || !Array.isArray(envelope.items)) return [];
     const seen = new Set<string>();
     return envelope.items.filter((entry): entry is NextTripItem => {
       if (!entry || typeof entry !== "object") return false;
@@ -68,9 +73,13 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
       if (typeof item.id !== "string" || !item.id.trim() || seen.has(item.id)
         || typeof item.itemName !== "string" || !item.itemName.trim()
         || ![item.itemNameEn, item.itemNameMs, item.packageSize].every(field => field === null || typeof field === "string")
+        || !(item.category === null || (envelope.version === 1 && item.category === undefined) || isItemCategory(item.category))
+        || !(item.sourceCategory === undefined || item.sourceCategory === null || isSourceCategory(item.sourceCategory))
         || (item.imageUrl !== undefined && item.imageUrl !== null && typeof item.imageUrl !== "string")
         || typeof item.quantity !== "number" || !Number.isSafeInteger(item.quantity) || item.quantity < 1
         || !(item.source === "manual" && item.catalogueItemId === null
+          && (item.category === null || envelope.version === 1 && item.category === undefined)
+          && (item.sourceCategory === undefined || item.sourceCategory === null)
           || item.source === "catalogue" && typeof item.catalogueItemId === "string" && item.catalogueItemId.length > 0)
         || item.catalogueItemId !== null && item.id !== `catalogue:${item.catalogueItemId}`) return false;
       seen.add(item.id);
@@ -82,6 +91,8 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
       itemName: item.itemName,
       itemNameEn: item.itemNameEn,
       itemNameMs: item.itemNameMs,
+      category: item.category === undefined ? null : item.category as ItemCategory | null,
+      sourceCategory: item.sourceCategory === undefined ? null : item.sourceCategory as SourceCategory | null,
       ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
       packageSize: item.packageSize,
       quantity: item.quantity,
@@ -101,6 +112,8 @@ export function nextTripBasket(basket: BasketItem[], saved: NextTripItem[]): Bas
       ? items.map(line => line.id === id ? { ...line, imageUrl: line.imageUrl ?? item.imageUrl, qty: Math.max(line.qty, item.quantity) } : line)
       : [...items, {
         id, name: item.itemName, itemNameEn: item.itemNameEn, itemNameMs: item.itemNameMs,
+        category: item.category,
+        sourceCategory: item.sourceCategory ?? null,
         imageUrl: item.imageUrl,
         size: item.packageSize ?? "—", qty: item.quantity,
         saraEligible: null, saraCategoryCandidate: false,
@@ -130,6 +143,8 @@ export function addNextTripItem(
     ...existing,
     status: "neutral",
     imageUrl,
+    category: quote?.category ?? saved.category,
+    sourceCategory: quote?.sourceCategory ?? saved.sourceCategory ?? null,
     quantity,
     ...(quote ? {
       itemName,
@@ -157,6 +172,8 @@ export function addNextTripItem(
     itemName,
     itemNameEn,
     itemNameMs,
+    category: quote?.category ?? saved.category,
+    sourceCategory: quote?.sourceCategory ?? saved.sourceCategory ?? null,
     imageUrl,
     packageSize,
     quantity,

@@ -1,22 +1,38 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { COPY, categoryLabel } from "./i18n";
 
 describe("categoryLabel", () => {
-  it("shows English category translations in English mode", () => {
-    expect(categoryLabel("en", "BERAS")).toBe("Rice");
-    expect(categoryLabel("en", "ALAT TULIS DAN BAHAN BACAAN")).toBe(
-      "Stationery & Reading Materials",
-    );
+  const category = {
+    id: "fresh-produce" as const,
+    labelEn: "Fresh Produce",
+    labelMs: "Hasil Segar",
+    spendingClass: "essential" as const,
+  };
+
+  it("uses the G1 localized broad category fields", () => {
+    expect(categoryLabel("en", category)).toBe("Fresh Produce");
+    expect(categoryLabel("ms", category)).toBe("Hasil Segar");
   });
 
-  it("keeps the source Malay category in Malay mode", () => {
-    expect(categoryLabel("ms", "SAYUR-SAYURAN")).toBe("SAYUR-SAYURAN");
+  it("localizes null categories as uncategorised", () => {
+    expect(categoryLabel("en", null)).toBe("Uncategorised");
+    expect(categoryLabel("ms", null)).toBe("Tidak berkategori");
   });
 
-  it("falls back safely for missing or newly introduced categories", () => {
-    expect(categoryLabel("en", null)).toBe("—");
-    expect(categoryLabel("en", "KATEGORI BAHARU")).toBe("KATEGORI BAHARU");
+  it("uses the shared localized label helper on active item-row components", () => {
+    const sources = [
+      "../components/ItemSearch.tsx",
+      "../components/smartcart-app.tsx",
+      "../components/shopping-checklist.tsx",
+      "../components/report-screens.tsx",
+    ];
+    for (const path of sources) {
+      const source = readFileSync(new URL(path, import.meta.url), "utf8");
+      expect(source, path).toMatch(/categoryLabel\(/);
+      expect(source, path).not.toMatch(/item_category/);
+    }
   });
 });
 

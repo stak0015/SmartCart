@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 from main import create_app
 from smartcart.alternatives import AlternativePriceItem, BasketAlternative
+from smartcart.categories import category_for_raw, source_category_for_raw
 from smartcart.models import BasketLineRequest
 from smartcart.pack_ratios import get_pack_options
 
@@ -72,10 +73,21 @@ def test_multi_size_family_lists_every_priced_pack(monkeypatch) -> None:
     assert packs[0].unit_kind == "KG"
     assert packs[0].sara_category_candidate
     assert packs[0].is_sara_credit_candidate
+    assert packs[0].category == category_for_raw("MINYAK DAN LEMAK")
     assert packs[1].sara_eligible is True
     assert packs[1].is_sara_credit_candidate
     # AC 3.2.2: exactly one Best value pick, the cheapest unit price.
     assert [pack.is_best_value for pack in packs] == [True, False, False, False]
+
+
+def test_pack_option_keeps_specific_category_labels(monkeypatch) -> None:
+    premise_rows = [
+        (1, "MINYAK JAGUNG CAP MAZOLA", "Corn oil", "1 kg", Decimal("1"), "KG", Decimal("10.00"), TODAY, "MINYAK DAN LEMAK", None, "001", "Oils & Fats", "Minyak dan Lemak"),
+        (3, "MINYAK JAGUNG CAP MAZOLA", "Corn oil", "2 kg", Decimal("2"), "KG", Decimal("18.00"), TODAY, "MINYAK DAN LEMAK", None, "003", "Oils & Fats", "Minyak dan Lemak"),
+    ]
+    monkeypatch.setattr("smartcart.pack_ratios.database_cursor", fake_cursor_factory(SOURCE_ROWS, premise_rows))
+    packs = get_pack_options("10", basket(1))["1"]
+    assert all(pack.source_category == source_category_for_raw("MINYAK DAN LEMAK", "Oils & Fats", "Minyak dan Lemak") for pack in packs)
 
 
 def test_tradeoff_diffs_measured_against_best_value(monkeypatch) -> None:
@@ -185,6 +197,8 @@ def test_endpoint_returns_pack_options_in_camel_case(monkeypatch) -> None:
         total_price_rm=18.0, price_per_unit_rm=9.0, unit_kind="KG",
         observed_date=TODAY, sara_eligible=True, sara_category_candidate=True,
         is_sara_credit_candidate=True,
+        category=category_for_raw("MINYAK DAN LEMAK"),
+        source_category=source_category_for_raw("MINYAK DAN LEMAK", "Oils & Fats", "Minyak dan Lemak"),
     )
     monkeypatch.setattr(
         "smartcart.api.get_pack_options",
@@ -201,3 +215,5 @@ def test_endpoint_returns_pack_options_in_camel_case(monkeypatch) -> None:
     assert line["packOptions"][0]["saraEligible"] is True
     assert line["packOptions"][0]["saraCategoryCandidate"] is True
     assert line["packOptions"][0]["isSaraCreditCandidate"] is True
+    assert line["packOptions"][0]["category"] == category_for_raw("MINYAK DAN LEMAK").model_dump(by_alias=True)
+    assert line["packOptions"][0]["sourceCategory"] == source_category_for_raw("MINYAK DAN LEMAK", "Oils & Fats", "Minyak dan Lemak").model_dump(by_alias=True)

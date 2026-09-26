@@ -29,6 +29,7 @@ import type {
   TransportMode,
   TravelLimitType,
   TravelPreferencesRequest,
+  ItemCategory,
 } from "@/lib/contracts";
 import { toAlternativeLineRequests, toBasketLineRequests } from "@/lib/basket-lines";
 import {
@@ -54,9 +55,10 @@ import {
 import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
 import {
   SmartCartHomeScreen,
+  HomeToolIcon,
   type TripJourneyStep,
 } from "@/components/journey-screens";
-import { ReceiptHistoryScreen, ReportScreen } from "@/components/report-screens";
+import { ReceiptHistoryScreen, ReportConsentDialog, ReportScreen, type ConsentDialogMode, type ReportGenerationUiState } from "@/components/report-screens";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { uppercaseItemName } from "@/lib/item-name";
@@ -81,6 +83,7 @@ import {
   addTripRecord,
   buildTripRecord,
   parseTripHistory,
+  removeTripRecord,
   serializeTripHistory,
   type TripRecord,
 } from "@/lib/trip-history";
@@ -101,13 +104,15 @@ import {
   INBOX_STORAGE_KEY,
   markReportRead,
   parseInboxState,
+  clearInboxReports,
   serializeInboxState,
+  saveReadyReport,
   setReportCadence,
-  setSummaryHidden,
-  syncInboxReports,
+  unreadReportCount,
   type InboxState,
-  type ReportCadence,
 } from "@/lib/inbox";
+import { readReportConsent, writeReportConsent, type ReportConsentRead, type ReportConsentStatus } from "@/lib/report-consent";
+import { buildGenerateReportRequest, claimAutomaticReportPeriods, getEligibleReportPeriods, getManualReportPeriods, requestGeneratedReport, type ReportCadence, type ReportPeriod } from "@/lib/report-generation";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
@@ -291,7 +296,7 @@ function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): nu
   return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
 }
 
-function CompactBasketPriceList({ prices, basket = [], copy }: { prices: BasketItemPrice[]; basket?: BasketItem[]; copy: AppCopy }) {
+function CompactBasketPriceList({ prices, basket = [], copy, locale }: { prices: BasketItemPrice[]; basket?: BasketItem[]; copy: AppCopy; locale: Locale }) {
   return (
     <ul className="flex flex-col gap-2 rounded-xl bg-[#f4f8f9] p-3">
       {prices.map(price => (
@@ -299,6 +304,7 @@ function CompactBasketPriceList({ prices, basket = [], copy }: { prices: BasketI
           <span className="store-price-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={basket.find(item => item.id === `db-${price.itemId}`)?.imageUrl} fallbackSize={24}/></span>
           <div className="min-w-0">
             <p className="break-words text-[13px] font-semibold text-[#10152e]">{localizedName(copy, price.itemName, price)}</p>
+            <p className="text-[11px] text-[#526078]">{categoryLabel(locale, price.category)}</p>
             {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{packageSizeForCopy(copy, price.packageSize)}</p>}
             {price.priceSource === "median" && (
               <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{copy.medianPriceEstimate}</p>
@@ -364,7 +370,7 @@ function Header({ basketCount, onBasket, basketActive, onHome, locale, onToggleL
     <button type="button" className="mobile-menu" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰</button>
     <button type="button" onClick={onHome} aria-label="SmartCart home" className="brand"><UIIcon name="basket" size={30} style={{color: "#007d38"}}/><span>Smart<span>Cart</span></span></button>
     <nav aria-label={locale === "en" ? "Main navigation" : "Navigasi utama"} className={"header-nav " + (menuOpen ? "is-open" : "")}>
-      {links.map(link => <button key={link.id} type="button" aria-current={screen === link.id ? "page" : undefined} onClick={() => { onNavigate(link.id); setMenuOpen(false); }}><UIIcon name={link.icon}/>{link.label}</button>)}
+      {links.map(link => <button key={link.id} type="button" aria-current={screen === link.id ? "page" : undefined} onClick={() => { onNavigate(link.id); setMenuOpen(false); }}>{link.id === "checklist" ? <HomeToolIcon kind="checklist"/> : link.id === "inbox" ? <HomeToolIcon kind="inbox"/> : <UIIcon name={link.icon} />}{link.label}</button>)}
     </nav>
     <LanguageToggle locale={locale} onToggle={onToggleLanguage}/>
     <button type="button" className="header-basket" onClick={onBasket} aria-label={copy.viewBasketAria(basketCount)} aria-current={basketActive ? "page" : undefined}><UIIcon name="basket" size={30} style={{color: "#007d38"}}/><span>{basketCount}</span></button>
@@ -446,7 +452,7 @@ function BasketScreen({
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
+  const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState(false);
 
@@ -531,6 +537,8 @@ function BasketScreen({
       : [...current, category]);
   };
 
+  const categoryById = (id: string) => categories.find(category => category.id === id) ?? null;
+
   const stepResultQty = (itemId: number, delta: number) => {
     setQtyById(current => {
       const base = parseQty(current[itemId] ?? String(DEFAULT_QTY)) ?? DEFAULT_QTY;
@@ -581,6 +589,8 @@ function BasketScreen({
       qty,
       saraEligible: item.sara_eligible,
       saraCategoryCandidate: item.sara_category_candidate,
+      category: item.category,
+      sourceCategory: item.source_category ?? null,
     }));
   };
 
@@ -613,7 +623,7 @@ function BasketScreen({
         <ul className="basket-rows">{basket.map(item => {
           const replacement = item.replacement && item.id !== item.replacement.original.id ? item.replacement : null;
           return <li key={item.id} className={"basket-row " + (replacement ? "is-replaced" : "")}>
-          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span></div></div>
+          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span><small>{categoryLabel(locale, item.category)}</small></div></div>
           <div className="basket-sara"><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
           <span className="basket-package">{packageSizeForCopy(copy, item.size)}</span>
           <div className="basket-quantity"><QuantitySelector value={basketQtyById[item.id] ?? String(item.qty)} onChange={raw => typeBasketQty(item.id, raw)} onStep={delta => stepBasketQty(item.id, delta)} decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))} increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))} quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))} errorId={`basket-quantity-error-${item.id}`} errorText={copy.quantityError}/></div>
@@ -673,7 +683,7 @@ function BasketScreen({
           <span>
             <span className="block text-xs font-semibold text-[#718078]">{copy.categories}</span>
             <span className="block text-[15px] font-bold text-[#10152e]">
-              {activeCategories.length === 0 ? copy.allCategories : activeCategories.map(category => categoryLabel(locale, category)).join(", ")}
+              {activeCategories.length === 0 ? copy.allCategories : activeCategories.map(category => categoryLabel(locale, categoryById(category))).join(", ")}
             </span>
           </span>
           <DropdownChevron className="text-[#007d38]"/>
@@ -691,11 +701,11 @@ function BasketScreen({
               {categoriesLoading && <p className="col-span-full px-2 py-3 text-sm text-[#526078]">{copy.loadingCategories}</p>}
               {!categoriesLoading && categoriesError && <p className="col-span-full px-2 py-3 text-sm text-[#ba1a1a]">{copy.categoriesUnavailable}</p>}
               {categories.map(category => (
-                <label key={category} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-2 hover:bg-[#f2f6f3]">
+                <label key={category.id} className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl px-2 hover:bg-[#f2f6f3]">
                   <input
                     type="checkbox"
-                    checked={activeCategories.includes(category)}
-                    onChange={() => toggleCategory(category)}
+                    checked={activeCategories.includes(category.id)}
+                    onChange={() => toggleCategory(category.id)}
                     className="h-5 w-5 accent-[#007d38]"
                   />
                   <span className="min-w-0 break-words text-sm font-medium text-[#263b33]">{categoryLabel(locale, category)}</span>
@@ -755,7 +765,7 @@ function BasketScreen({
                   <h3 className="break-words text-[15px] font-extrabold leading-5 text-[#10152e]">{fields.name}</h3>
                   <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-5">
                     <span className="break-words text-[#526078]">{packageSizeForCopy(copy, fields.packageSize)}</span>
-                    <span className="break-words text-[#718078]">{categoryLabel(locale, item.item_category)}</span>
+                    <span className="break-words text-[#718078]">{categoryLabel(locale, item.category)}</span>
                   </div>
                   <SaraEligibilityFlag status={item.sara_eligible} candidate={item.sara_category_candidate} copy={copy} />
                 </div>
@@ -825,7 +835,7 @@ function BasketScreen({
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
           <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
-          <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.item_category)}</p>
+          <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
           {selectedItem.price_range && <p>{locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
@@ -1318,6 +1328,7 @@ function StoreCard({
   onSelectStore,
   routeUrl,
   copy,
+  locale,
   transportMode,
 }: {
   store: StoreRecommendation;
@@ -1327,6 +1338,7 @@ function StoreCard({
   onSelectStore: () => void;
   routeUrl?: string;
   copy: AppCopy;
+  locale: Locale;
   transportMode: TransportMode;
 }) {
   const storeMedianPriceCount = medianPriceCount(store.basketPrices, store.medianPriceCount);
@@ -1370,7 +1382,7 @@ function StoreCard({
           {pricesExpanded && <div id={priceListId} className="store-price-popover" onKeyDown={event => { if (event.key === "Escape") onTogglePrices(); }}>
             <div className="store-price-popover-heading"><strong>{copy.basketItems}</strong><button type="button" onClick={onTogglePrices} aria-label={copy.dismiss}>×</button></div>
             <div className="store-price-table-head"><span>{copy === COPY.ms ? "Item" : "Item"}</span><span>{copy === COPY.ms ? "Saiz" : "Pack"}</span><span>{copy === COPY.ms ? "Kuantiti" : "Qty"}</span><span>{copy === COPY.ms ? "Harga" : "Unit"}</span><span>{copy === COPY.ms ? "Jumlah" : "Total"}</span></div>
-            <ul>{store.basketPrices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{localizedName(copy, price.itemName, price)}{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{packageSizeForCopy(copy, price.packageSize) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
+            <ul>{store.basketPrices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{localizedName(copy, price.itemName, price)}<small>{categoryLabel(locale, price.category)}</small>{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{packageSizeForCopy(copy, price.packageSize) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
             {store.missingItems.length > 0 && <p className="store-price-missing">{copy.missingItemPrices(store.missingItems.map(name => localizedName(copy, name, store.basketPrices.find(price => price.itemName === name))).join(", "))}</p>}
           </div>}
         </div>}
@@ -1384,6 +1396,7 @@ function RecommendationBasketRow({
   row,
   basket,
   copy,
+  locale,
   onApplyAlternative,
   onApplyPack,
   onUndo,
@@ -1392,6 +1405,7 @@ function RecommendationBasketRow({
   row: RecommendationDetailRow;
   basket: BasketItem[];
   copy: AppCopy;
+  locale: Locale;
   onApplyAlternative: (line: BasketAlternativeLine) => void;
   onApplyPack: (row: RecommendationDetailRow, packItemId: string) => void;
   onUndo: (row: RecommendationDetailRow) => void;
@@ -1433,6 +1447,7 @@ function RecommendationBasketRow({
         <span className="store-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={currentImageUrl} fallbackSize={27}/></span>
         <div className="store-item-name">
           <strong>{localizedName(copy, row.current.itemName, row.current)}</strong>
+          <small>{categoryLabel(locale, row.current.category)}</small>
           <small>{packageSizeForCopy(copy, row.current.packageSize) ?? "—"}<span className="store-item-mobile-quantity"> × {row.current.quantity}</span>{row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}</small>
           {row.replacement && <small className="store-item-replaced">{row.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</small>}
           {row.current.priceSource === "median" && <small className="store-item-estimate">{copy.medianPriceEstimate}</small>}
@@ -1460,6 +1475,7 @@ function RecommendationBasketRow({
           <div className="min-w-0">
             <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
             <p className="mt-0.5 break-words text-xs font-semibold text-[#10152e]">{localizedName(copy, alternative.itemName, alternative)}</p>
+            <p className="text-[11px] text-[#526078]">{categoryLabel(locale, alternative.category)}</p>
             <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
             <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
             {eligibilityChanges && (
@@ -1514,6 +1530,7 @@ function RecommendationBasketRow({
                     {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#526078]">{copy.currentPack}</span>}
                   </div>
                   <p className="mt-1 break-words text-xs font-bold leading-4 text-[#10152e]">{localizedName(copy, pack.itemName, pack)}</p>
+                  <p className="text-[11px] text-[#526078]">{categoryLabel(locale, pack.category)}</p>
                   <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, pack.packageSize) ?? "—"}</p>
                   <div className="mt-2 flex items-end justify-between gap-2">
                     <div>
@@ -1617,6 +1634,8 @@ function RecommendationOverview({
         saraEligible: price.saraEligible ?? null,
         saraCategoryCandidate: price.saraCategoryCandidate ?? false,
         isSaraCreditCandidate: price.saraEligible === true || price.saraCategoryCandidate === true,
+        category: price.category,
+        sourceCategory: price.sourceCategory ?? null,
       },
       alternative: null,
       savingsRm: null,
@@ -1721,8 +1740,8 @@ function RecommendationOverview({
             <div className="store-item-columns"><span>{locale === "en" ? "Product" : "Produk"}</span><span>SARA</span><span>{locale === "en" ? "Unit size" : "Saiz unit"}</span><span>{locale === "en" ? "Qty" : "Kuantiti"}</span><span>{locale === "en" ? "Unit price" : "Harga unit"}</span><span>{locale === "en" ? "Total" : "Jumlah"}</span><span/></div>
             {alternativesLoading && <p role="status" className="store-detail-message">{copy.alternativesLoading}</p>}
             {alternativesError && <p role="alert" className="store-detail-message">{copy.alternativesUnavailable}</p>}
-            {detailRows.length > 0 ? <ul className="store-item-list">{detailRows.map(row => <RecommendationBasketRow key={row.source.itemId} row={row} basket={basket} copy={copy} onApplyAlternative={applyAlternative} onApplyPack={applyPack} onUndo={undoReplacement} onChangeQuantity={changeQuantity}/>)}</ul>
-              : !alternativesLoading && store.basketPrices.length > 0 ? <div className="store-detail-fallback"><CompactBasketPriceList prices={store.basketPrices} basket={basket} copy={copy}/></div> : null}
+            {detailRows.length > 0 ? <ul className="store-item-list">{detailRows.map(row => <RecommendationBasketRow key={row.source.itemId} row={row} basket={basket} copy={copy} locale={locale} onApplyAlternative={applyAlternative} onApplyPack={applyPack} onUndo={undoReplacement} onChangeQuantity={changeQuantity}/>)}</ul>
+              : !alternativesLoading && store.basketPrices.length > 0 ? <div className="store-detail-fallback"><CompactBasketPriceList prices={store.basketPrices} basket={basket} copy={copy} locale={locale}/></div> : null}
             <p className="store-price-note">{copy.stockNotVerified}</p>
           </section>
           <aside className="store-detail-sidebar">
@@ -1744,7 +1763,6 @@ function RecommendationOverview({
         body={copy.replaceChecklistConfirm}
         confirmLabel={copy.replaceChecklist}
         cancelLabel={copy.cancel}
-        destructive
         onCancel={() => setReplaceChecklistOpen(false)}
         onConfirm={createChecklist}
       />
@@ -1936,6 +1954,7 @@ function CompareScreen({
                   onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
                   onSelectStore={() => onSelectStore(store)}
                   copy={copy}
+                  locale={copy === COPY.ms ? "ms" : "en"}
                   transportMode={preferences.transportMode}
                 />
               ))}
@@ -1988,6 +2007,15 @@ export default function App() {
   const [tripHistoryStorageReady, setTripHistoryStorageReady] = useState(false);
   const [inbox, setInbox] = useState<InboxState>(EMPTY_INBOX);
   const [inboxStorageReady, setInboxStorageReady] = useState(false);
+  const inboxRef = useRef<InboxState>(EMPTY_INBOX);
+  const [reportGenerationStates, setReportGenerationStates] = useState<Record<string, ReportGenerationUiState>>({});
+  const [reportConsent, setReportConsent] = useState<ReportConsentRead>({ status: "undecided", source: "unavailable", record: null });
+  const [reportConsentLoaded, setReportConsentLoaded] = useState(false);
+  const [consentDialogMode, setConsentDialogMode] = useState<ConsentDialogMode>(null);
+  const [consentStorageError, setConsentStorageError] = useState(false);
+  const automaticReportAttemptedRef = useRef<Set<string>>(new Set());
+  const pendingManualReportCadenceRef = useRef<ReportCadence | null>(null);
+  const activeReportControllerRef = useRef<AbortController | null>(null);
   const [restartTripOpen, setRestartTripOpen] = useState(false);
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
@@ -1999,6 +2027,66 @@ export default function App() {
     timeMinutes: 20,
     saraFilter: "any",
   });
+
+  const runReportGeneration = useCallback(async (period: ReportPeriod) => {
+    if (activeReportControllerRef.current) return;
+    const controller = new AbortController();
+    activeReportControllerRef.current = controller;
+    setReportGenerationStates(current => ({
+      ...current,
+      [period.id]: { ...period, status: "generating" },
+    }));
+    const clearTransient = () => setReportGenerationStates(current => {
+      if (!current[period.id]) return current;
+      const next = { ...current };
+      delete next[period.id];
+      return next;
+    });
+    try {
+      const request = buildGenerateReportRequest(tripHistory, period, locale);
+      let storage: Storage;
+      try {
+        storage = window.localStorage;
+      } catch {
+        setReportConsent({ status: "undecided", source: "unavailable", record: null });
+        clearTransient();
+        return;
+      }
+      const report = await requestGeneratedReport(request, storage, { signal: controller.signal });
+      if (!report) {
+        clearTransient();
+        return;
+      }
+      if (controller.signal.aborted || readReportConsent(storage).status !== "accepted") {
+        clearTransient();
+        return;
+      }
+      const next = saveReadyReport(inboxRef.current, report);
+      const serialized = serializeInboxState(next);
+      storage.setItem(INBOX_STORAGE_KEY, serialized);
+      const readback = storage.getItem(INBOX_STORAGE_KEY);
+      if (readback !== serialized) throw new Error("Inbox storage readback failed");
+      const persisted = parseInboxState(readback);
+      if (JSON.stringify(persisted) !== JSON.stringify(next)
+        || !persisted.messages.some(message => message.id === report.id)) {
+        throw new Error("Ready report was not persisted completely");
+      }
+      inboxRef.current = persisted;
+      setInbox(persisted);
+      clearTransient();
+    } catch {
+      if (controller.signal.aborted) {
+        clearTransient();
+      } else {
+        setReportGenerationStates(current => ({
+          ...current,
+          [period.id]: { ...period, status: "failed" },
+        }));
+      }
+    } finally {
+      if (activeReportControllerRef.current === controller) activeReportControllerRef.current = null;
+    }
+  }, [locale, tripHistory]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -2131,8 +2219,11 @@ export default function App() {
 
   useEffect(() => {
     try {
-      setInbox(parseInboxState(window.localStorage.getItem(INBOX_STORAGE_KEY)));
+      const restored = parseInboxState(window.localStorage.getItem(INBOX_STORAGE_KEY));
+      inboxRef.current = restored;
+      setInbox(restored);
     } catch {
+      inboxRef.current = EMPTY_INBOX;
       setInbox(EMPTY_INBOX);
     } finally {
       setInboxStorageReady(true);
@@ -2141,6 +2232,7 @@ export default function App() {
 
   useEffect(() => {
     if (!inboxStorageReady) return;
+    inboxRef.current = inbox;
     try {
       window.localStorage.setItem(INBOX_STORAGE_KEY, serializeInboxState(inbox));
     } catch {
@@ -2149,9 +2241,50 @@ export default function App() {
   }, [inbox, inboxStorageReady]);
 
   useEffect(() => {
-    if (!inboxStorageReady || !tripHistoryStorageReady) return;
-    setInbox(current => syncInboxReports(current, tripHistory));
-  }, [inboxStorageReady, tripHistory, tripHistoryStorageReady]);
+    try {
+      setReportConsent(readReportConsent(window.localStorage));
+    } catch {
+      setReportConsent({ status: "undecided", source: "unavailable", record: null });
+    } finally {
+      setReportConsentLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!reportConsentLoaded || !inboxStorageReady || !tripHistoryStorageReady) return;
+    const candidates = getEligibleReportPeriods(tripHistory, new Date());
+    const readyIds = new Set(inbox.messages.map(message => message.id));
+    const missing = candidates.filter(period => !readyIds.has(period.id));
+    if (reportConsent.status === "undecided") {
+      if (reportConsent.source === "missing" && missing.length > 0 && consentDialogMode == null) {
+        setConsentDialogMode("automatic");
+      }
+      return;
+    }
+    if (reportConsent.status !== "accepted") return;
+    if (pendingManualReportCadenceRef.current) {
+      const cadence = pendingManualReportCadenceRef.current;
+      pendingManualReportCadenceRef.current = null;
+      const period = getManualReportPeriods(tripHistory, new Date()).find(candidate => candidate.cadence === cadence);
+      if (period) {
+        void runReportGeneration(period);
+        return;
+      }
+    }
+    if (missing.length === 0) return;
+    const claimed = claimAutomaticReportPeriods(automaticReportAttemptedRef.current, missing, readyIds);
+    if (claimed.length === 0) return;
+    void (async () => {
+      for (const period of claimed) {
+        try {
+          if (readReportConsent(window.localStorage).status !== "accepted") return;
+        } catch {
+          return;
+        }
+        await runReportGeneration(period);
+      }
+    })();
+  }, [consentDialogMode, inbox.messages, inboxStorageReady, reportConsent, reportConsentLoaded, runReportGeneration, tripHistory, tripHistoryStorageReady]);
 
   useEffect(() => {
     const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
@@ -2182,8 +2315,90 @@ export default function App() {
   const basketCount = basket.reduce((count, item) => count + item.qty, 0);
   const copy = COPY[locale];
   const hasTripInProgress = preferences.origin != null || basket.length > 0;
-  const unreadReportCount = inbox.messages.filter(message => !message.read).length;
+  const unreadCount = unreadReportCount(inbox);
   const toggleLanguage = () => setLocale(current => current === "en" ? "ms" : "en");
+  const setConsentChoice = (status: ReportConsentStatus, closeDialog = true) => {
+    setConsentStorageError(false);
+    try {
+      const storage = window.localStorage;
+      const record = writeReportConsent(storage, status);
+      if (!record) throw new Error("Consent readback failed");
+      setReportConsent({ status: record.status, source: "valid", record });
+      if (closeDialog) setConsentDialogMode(null);
+      if (status === "declined") activeReportControllerRef.current?.abort();
+      if (status === "declined") pendingManualReportCadenceRef.current = null;
+    } catch {
+      if (status === "declined") activeReportControllerRef.current?.abort();
+      setReportConsent({ status: "undecided", source: "unavailable", record: null });
+      setConsentStorageError(true);
+      if (closeDialog) setConsentDialogMode(null);
+    }
+  };
+  const persistInboxTransition = (next: InboxState, expectedId?: string, expectedRead?: boolean) => {
+    const storage = window.localStorage;
+    const serialized = serializeInboxState(next);
+    storage.setItem(INBOX_STORAGE_KEY, serialized);
+    const readback = storage.getItem(INBOX_STORAGE_KEY);
+    if (readback !== serialized) throw new Error("Inbox storage readback failed");
+    const persisted = parseInboxState(readback);
+    if (JSON.stringify(persisted) !== JSON.stringify(next)) throw new Error("Inbox state did not round-trip");
+    if (expectedId && !persisted.messages.some(message => message.id === expectedId && (expectedRead == null || message.read === expectedRead))) {
+      throw new Error("Inbox transition was not persisted");
+    }
+    inboxRef.current = persisted;
+    setInbox(persisted);
+  };
+  const markLocalReportRead = (id: string) => {
+    try {
+      persistInboxTransition(markReportRead(inboxRef.current, id), id, true);
+    } catch {
+      setConsentStorageError(true);
+    }
+  };
+  const deleteLocalReports = () => {
+    const confirmation = locale === "ms"
+      ? "Padam semua laporan yang disimpan pada peranti ini? Tindakan ini tidak boleh dibuat asal."
+      : "Delete all reports stored on this device? This cannot be undone.";
+    if (!window.confirm(confirmation)) return;
+    try {
+      persistInboxTransition(clearInboxReports(inboxRef.current));
+      setConsentStorageError(false);
+    } catch {
+      setConsentStorageError(true);
+    }
+  };
+  const retryReport = (id: string) => {
+    const period = reportGenerationStates[id];
+    if (!period || period.status !== "failed") return;
+    let accepted = false;
+    try {
+      accepted = readReportConsent(window.localStorage).status === "accepted";
+    } catch {
+      accepted = false;
+    }
+    if (!accepted) {
+      setConsentDialogMode("settings");
+      return;
+    }
+    void runReportGeneration(period);
+  };
+  const generateReportForCadence = (cadence: ReportCadence) => {
+    const period = getManualReportPeriods(tripHistory, new Date()).find(candidate => candidate.cadence === cadence);
+    if (!period) return;
+    let accepted = false;
+    try {
+      accepted = readReportConsent(window.localStorage).status === "accepted";
+    } catch {
+      accepted = false;
+    }
+    if (!accepted) {
+      pendingManualReportCadenceRef.current = cadence;
+      setConsentStorageError(false);
+      setConsentDialogMode("settings");
+      return;
+    }
+    void runReportGeneration(period);
+  };
   const updatePreferencesDraft = useCallback((next: TravelPreferences) => {
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
@@ -2222,6 +2437,15 @@ export default function App() {
     resetTrip();
     setRestartTripOpen(false);
     navigateTo("location");
+  };
+  const deleteTripFromHistory = (recordId: string) => {
+    const record = tripHistory.find(candidate => candidate.id === recordId);
+    if (!record) return;
+    const prompt = locale === "ms"
+      ? `Padam perjalanan ke ${record.store.name} daripada sejarah membeli-belah pada peranti ini?`
+      : `Delete the trip to ${record.store.name} from shopping history on this device?`;
+    if (!window.confirm(prompt)) return;
+    setTripHistory(current => removeTripRecord(current, recordId));
   };
   const updateChecklistStatus = (itemId: string, status: Exclude<ChecklistStatus, "neutral">) => {
     if (!checklist) return;
@@ -2284,6 +2508,8 @@ export default function App() {
             unitPriceRm: source.unitPriceRm,
             observedDate: source.observedDate,
             priceSource: source.priceSource,
+            category: source.category,
+            sourceCategory: source.sourceCategory ?? null,
           };
         }
       } catch {
@@ -2338,7 +2564,7 @@ export default function App() {
             locale={locale}
             checklist={checklist}
             history={tripHistory}
-            unreadReports={unreadReportCount}
+            unreadReports={unreadCount}
             hasTripInProgress={hasTripInProgress}
             resumeStep={resumeStep}
             onStartOrResume={() => navigateTrip(hasTripInProgress ? resumeStep : "location")}
@@ -2377,15 +2603,23 @@ export default function App() {
             onStartOrResume={() => navigateTrip(hasTripInProgress ? resumeStep : "location")}
           />
         ) : null}
-        {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} /> : null}
+        {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} onDeleteTrip={deleteTripFromHistory} /> : null}
         {screen === "inbox" ? (
           <ReportScreen
             state={inbox}
             locale={locale}
             history={tripHistory}
-            onCadence={(cadence: ReportCadence) => setInbox(current => setReportCadence(current, cadence))}
-            onRead={id => setInbox(current => markReportRead(current, id))}
-            onToggleSummary={() => setInbox(current => setSummaryHidden(current, !current.summaryHidden))}
+            generationStates={reportGenerationStates}
+            consentStatus={reportConsent.status}
+            onCadence={(cadence: ReportCadence) => {
+              const next = setReportCadence(inboxRef.current, cadence);
+              inboxRef.current = next;
+              setInbox(next);
+            }}
+            onRead={markLocalReportRead}
+            onRetry={retryReport}
+            onGenerate={generateReportForCadence}
+            onOpenSettings={() => { setConsentStorageError(false); setConsentDialogMode("settings"); }}
           />
         ) : null}
         {screen === "shop" ? (
@@ -2455,6 +2689,17 @@ export default function App() {
           />
         ) : null}
       </main>
+      <ReportConsentDialog
+        mode={consentDialogMode}
+        status={reportConsent.status}
+        locale={locale}
+        storageError={consentStorageError}
+        onAccept={() => setConsentChoice("accepted")}
+        onDecline={() => setConsentChoice("declined")}
+        onDisable={() => setConsentChoice("declined")}
+        onDeleteAll={deleteLocalReports}
+        onClose={() => setConsentDialogMode(null)}
+      />
       <ConfirmationDialog
         open={restartTripOpen}
         title={locale === "ms" ? "Mulakan perjalanan baharu?" : "Start a new trip?"}
@@ -2463,7 +2708,6 @@ export default function App() {
           : "Your current basket and trip progress will be cleared. Your active checklist and shopping history will not change."}
         confirmLabel={locale === "ms" ? "Mulakan baharu" : "Start new"}
         cancelLabel={copy.cancel}
-        destructive
         onCancel={() => setRestartTripOpen(false)}
         onConfirm={startNewTrip}
       />

@@ -20,7 +20,11 @@ Set `DATABASE_URL` in `.env`. Google keys are optional for local development:
 `GOOGLE_MAPS_API_KEY` works as a fallback for both). If the Routes key is
 missing, recommendations automatically use the 25 nearest fresh premises with
 straight-line distance and clearly marked approximate travel estimates. Then
-start the API:
+start the API. Report narratives use Cerebras when the server-only
+`CEREBRAS_API_KEY` is set; otherwise reports use deterministic localized
+fallback text. `CEREBRAS_MODEL` selects the model and defaults to
+`gpt-oss-120b`. Keep the key in the backend `.env` only; never expose it through
+a `NEXT_PUBLIC_*` variable.
 
 ```powershell
 uvicorn main:app --reload --port 8000

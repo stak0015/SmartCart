@@ -12,6 +12,12 @@ from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
 from .catalogue import display_package_size
+from .categories import (
+    CategorySummary,
+    SourceCategorySummary,
+    category_for_raw,
+    source_category_for_raw,
+)
 from .database import database_cursor
 from .models import BasketItemPrice, BasketLineRequest
 from .sara import is_sara_credit_line
@@ -35,6 +41,8 @@ class BasketLinePrice:
     price_source: str | None = None
     item_name_en: str | None = None
     item_name_ms: str | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 @dataclass(frozen=True)
@@ -80,7 +88,9 @@ def fetch_basket_price_rows(
                    current_status.current_price,
                    item.median_price_rm,
                    item.sara_eligible, item.item_category,
-                   current_status.price_observed_date
+                   current_status.price_observed_date,
+                   COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                   COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM unnest(%s::bigint[]) AS requested(premise_id)
             CROSS JOIN unnest(%s::bigint[], %s::integer[])
                 WITH ORDINALITY AS lines(item_id, quantity, position)
@@ -88,6 +98,10 @@ def fetch_basket_price_rows(
             LEFT JOIN current_status
                 ON current_status.premise_id = requested.premise_id
                AND current_status.item_id = lines.item_id
+            LEFT JOIN category_translation ct_en
+                ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+                ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             ORDER BY requested.premise_id, lines.position
             """,
             ([int(premise_id) for premise_id in premise_ids], item_ids, quantities),
@@ -112,8 +126,8 @@ def summarize_basket_prices(
     lines_by_store: dict[str, list[BasketLinePrice]] = {}
 
     for raw_row in rows:
-        # Keep accepting the pre-lookup_item-en tuple shape for callers that
-        # build rows in-process; database queries use the 10-column shape.
+        # Keep accepting legacy tuple shapes for callers that build rows
+        # in-process; the current database query returns 13 columns.
         if len(raw_row) == 9:
             (
                 premise_id, item_id, quantity, item_name, unit,
@@ -121,17 +135,29 @@ def summarize_basket_prices(
             ) = raw_row
             item_name_en = None
             median_price = None
+            item_category_en = None
+            item_category_ms = None
         elif len(raw_row) == 10:
             (
                 premise_id, item_id, quantity, item_name, item_name_en, unit,
                 current_price, sara_eligible, item_category, observed,
             ) = raw_row
             median_price = None
-        else:
+            item_category_en = None
+            item_category_ms = None
+        elif len(raw_row) == 11:
             (
                 premise_id, item_id, quantity, item_name, item_name_en, unit,
                 current_price, median_price, sara_eligible, item_category, observed,
             ) = raw_row
+            item_category_en = None
+            item_category_ms = None
+        else:
+            (
+                premise_id, item_id, quantity, item_name, item_name_en, unit,
+                current_price, median_price, sara_eligible, item_category, observed,
+                item_category_en, item_category_ms,
+            ) = raw_row[:13]
         key = str(premise_id)
         has_store_price = (
             item_name is not None
@@ -175,6 +201,10 @@ def summarize_basket_prices(
                 sara_eligible=sara_eligible,
                 sara_category_candidate=bool(
                     item_category and is_sara_credit_line(False, item_category)
+                ),
+                category=category_for_raw(item_category),
+                source_category=source_category_for_raw(
+                    item_category, item_category_en, item_category_ms
                 ),
             )
         )
@@ -269,13 +299,20 @@ def get_basket_prices_for_premises(
                 basket.quantity,
                 current_status.current_price,
                 item.median_price_rm,
-                current_status.price_observed_date
+                current_status.price_observed_date,
+                item.item_category,
+                COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM requested_premise
             CROSS JOIN basket
             JOIN item ON item.item_id = basket.item_id
             LEFT JOIN current_status
                 ON current_status.premise_id = requested_premise.premise_id
                AND current_status.item_id = basket.item_id
+            LEFT JOIN category_translation ct_en
+                ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+                ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             ORDER BY requested_premise.premise_id, basket.position
             """,
             (item_ids, quantities, [int(value) for value in premise_ids]),
@@ -284,8 +321,8 @@ def get_basket_prices_for_premises(
 
     result: dict[str, list[BasketItemPrice]] = defaultdict(list)
     for row in rows:
-        # The current query includes item_name_en (8 columns); the 7-column
-        # form is retained for existing E2 adapters.
+        # Retain the old 7- and 8-column forms for E2 adapters. The current
+        # query includes median price, raw category and both translated labels.
         if len(row) == 7:
             item_name_en = None
             item_name_ms = (row[2] or "").strip() or None
@@ -328,6 +365,12 @@ def get_basket_prices_for_premises(
                 ),
                 price_observed_date=row[observed_index] if has_store_price else None,
                 price_source=price_source,
+                category=category_for_raw(row[9] if len(row) > 9 else None),
+                source_category=source_category_for_raw(
+                    row[9] if len(row) > 9 else None,
+                    row[10] if len(row) > 10 else None,
+                    row[11] if len(row) > 11 else None,
+                ),
             )
         )
 

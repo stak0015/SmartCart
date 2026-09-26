@@ -9,12 +9,13 @@ import type {
   ShoppingChecklist,
 } from "./shopping-checklist";
 import { effectiveChecklistLineTotal } from "./shopping-checklist";
+import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory } from "./contracts";
 import {
   isEstimatedSavingsSnapshot,
   type EstimatedSavingsSnapshot,
 } from "./estimated-savings";
 
-export const TRIP_HISTORY_VERSION = 2 as const;
+export const TRIP_HISTORY_VERSION = 3 as const;
 export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
 
 /**
@@ -30,6 +31,8 @@ export interface TripRecordLine {
   itemName: string;
   itemNameEn: string | null;
   itemNameMs: string | null;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
   imageUrl?: string | null;
   packageSize: string | null;
   // Planned quantity plus the shopper-recorded actual quantity (AC 5.3.4);
@@ -99,15 +102,20 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
-export function boughtLineQuantity(line: TripRecordLine): number {
+export type BoughtLineTotalInput = Pick<
+  TripRecordLine,
+  "actualQuantity" | "quantity" | "actualPriceRm" | "unitPriceRm"
+>;
+
+export function boughtLineQuantity(line: Pick<TripRecordLine, "actualQuantity" | "quantity">): number {
   return line.actualQuantity ?? line.quantity;
 }
 
-export function boughtLineUnitPrice(line: TripRecordLine): number | null {
+export function boughtLineUnitPrice(line: Pick<TripRecordLine, "actualPriceRm" | "unitPriceRm">): number | null {
   return line.actualPriceRm ?? line.unitPriceRm;
 }
 
-export function boughtLineTotalRm(line: TripRecordLine): number | null {
+export function boughtLineTotalRm(line: BoughtLineTotalInput): number | null {
   const unitPrice = boughtLineUnitPrice(line);
   return unitPrice == null ? null : money(unitPrice * boughtLineQuantity(line));
 }
@@ -131,6 +139,8 @@ function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    category: item.category,
+    sourceCategory: item.sourceCategory ?? null,
     ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
     packageSize: item.packageSize,
     quantity: item.quantity,
@@ -181,6 +191,11 @@ export function buildTripRecord(
 /** Newest first: a freshly recorded trip is prepended. */
 export function addTripRecord(records: TripRecord[], record: TripRecord): TripRecord[] {
   return [record, ...records];
+}
+
+/** Remove one saved trip while preserving the order of all remaining records. */
+export function removeTripRecord(records: TripRecord[], recordId: string): TripRecord[] {
+  return records.filter(record => record.id !== recordId);
 }
 
 /** Newest first by recordedAt, stable for equal timestamps. */
@@ -237,6 +252,8 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
     && line.itemName.trim().length > 0
     && isNullableString(line.itemNameEn)
     && isNullableString(line.itemNameMs)
+    && (line.category === null || isItemCategory(line.category))
+    && (line.sourceCategory === undefined || line.sourceCategory === null || isSourceCategory(line.sourceCategory))
     && (line.imageUrl === undefined || isNullableString(line.imageUrl))
     && isNullableString(line.packageSize)
     && typeof line.quantity === "number"
@@ -259,7 +276,8 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
   if ((line.actualQuantity === null) !== (line.quantitySource === "planned")) return false;
   if (line.source === "manual") {
     // Shopper-added lines are never matched to an official item (AC 5.4.1).
-    return line.catalogueItemId === null && line.priceSource === "manual";
+    return line.catalogueItemId === null && line.priceSource === "manual" && line.category === null
+      && (line.sourceCategory === undefined || line.sourceCategory === null);
   }
   return typeof line.catalogueItemId === "string" && line.catalogueItemId.length > 0;
 }
@@ -303,13 +321,13 @@ export function isTripRecord(value: unknown): value is TripRecord {
 export function migrateTripHistory(raw: unknown): TripRecord[] {
   if (!raw || typeof raw !== "object") return [];
   const envelope = raw as Record<string, unknown>;
-  if ((envelope.version !== 1 && envelope.version !== TRIP_HISTORY_VERSION)
+  if ((envelope.version !== 1 && envelope.version !== 2 && envelope.version !== TRIP_HISTORY_VERSION)
     || !Array.isArray(envelope.records)) return [];
   return envelope.records
     .map(record => {
       if (!record || typeof record !== "object") return record;
       const candidate = record as Record<string, unknown>;
-      if (candidate.version !== 1 && candidate.version !== TRIP_HISTORY_VERSION) return record;
+      if (candidate.version !== 1 && candidate.version !== 2 && candidate.version !== TRIP_HISTORY_VERSION) return record;
       if (!Array.isArray(candidate.lines)) return record;
       // Out-of-stock registration was abolished: legacy out_of_stock lines
       // degrade to not_bought instead of dropping the whole record.
@@ -321,6 +339,9 @@ export function migrateTripHistory(raw: unknown): TripRecord[] {
           const fields = line as Record<string, unknown>;
           return {
             ...fields,
+            ...(candidate.version === TRIP_HISTORY_VERSION ? {} : {
+              category: fields.category === undefined ? null : fields.category,
+            }),
             observedDate: fields.observedDate ?? null,
             status: fields.status === "out_of_stock" ? "not_bought" : fields.status,
           };

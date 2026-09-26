@@ -11,6 +11,12 @@ from decimal import Decimal, ROUND_HALF_UP
 import re
 
 from .catalogue import catalogue_image_url, display_package_size
+from .categories import (
+    CategorySummary,
+    SourceCategorySummary,
+    category_for_raw,
+    source_category_for_raw,
+)
 from .database import database_cursor
 from .models import BasketLineRequest
 from .sara import is_sara_credit_line
@@ -93,6 +99,8 @@ class AlternativePriceItem:
     item_name_ms: str | None = None
     price_source: str | None = None
     image_url: str | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 @dataclass(frozen=True)
@@ -139,6 +147,8 @@ def _item_from_row(
     *,
     allow_median: bool = False,
     image_code: str | None = None,
+    source_category_label_en: str | None = None,
+    source_category_label_ms: str | None = None,
 ) -> AlternativePriceItem:
     if len(row) == 7:
         item_id, item_name, unit, category, sara_eligible, current_price, observed = row
@@ -195,6 +205,10 @@ def _item_from_row(
         sara_category_candidate=category_candidate,
         is_sara_credit_candidate=is_sara_credit_line(sara_eligible, category),
         image_url=catalogue_image_url(image_code),
+        category=category_for_raw(category),
+        source_category=source_category_for_raw(
+            category, source_category_label_en, source_category_label_ms
+        ),
     )
 
 
@@ -224,12 +238,18 @@ def get_basket_alternatives(
                    current_status.current_price,
                    item.median_price_rm,
                    current_status.price_observed_date,
-                   item.item_code
+                   item.item_code,
+                   COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                   COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM requested
             LEFT JOIN item ON item.item_id = requested.item_id
             LEFT JOIN current_status
               ON current_status.item_id = requested.item_id
              AND current_status.premise_id = %s
+            LEFT JOIN category_translation ct_en
+              ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+              ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             ORDER BY requested.position
             """,
             (item_ids, quantities, int(premise_id)),
@@ -242,11 +262,17 @@ def get_basket_alternatives(
                    item.item_category, item.sara_eligible,
                    current_status.current_price,
                    current_status.price_observed_date,
-                   item.item_code
+                   item.item_code,
+                   COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                   COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
              AND current_status.premise_id = %s
+            LEFT JOIN category_translation ct_en
+              ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+              ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             WHERE current_status.current_price > 0
               AND item.item_id <> ALL(%s::BIGINT[])
             """,
@@ -265,9 +291,9 @@ def _build_basket_alternatives(
 ) -> list[BasketAlternative]:
     """Build alternatives from rows already fetched for the request.
 
-    ``candidate_rows`` uses the eight-column shape returned by the legacy
-    alternatives query.  The request-level service converts the shared
-    premise-wide rows into this shape before calling this pure builder.
+    Current candidate rows append an image code and translated category labels
+    to the legacy item/price columns. Older 7- and 8-column tuples remain
+    supported for callers that build rows in-process.
     """
 
     quantities = [line.quantity for line in basket]
@@ -303,6 +329,8 @@ def _build_basket_alternatives(
             today,
             allow_median=True,
             image_code=source_row[10] if len(source_row) > 10 else None,
+            source_category_label_en=source_row[11] if len(source_row) > 11 else None,
+            source_category_label_ms=source_row[12] if len(source_row) > 12 else None,
         )
         alternatives: list[tuple[float, AlternativePriceItem]] = []
         if len(source_row) == 8:
@@ -326,6 +354,8 @@ def _build_basket_alternatives(
                     quantity,
                     today,
                     image_code=candidate[8] if len(candidate) > 8 else None,
+                    source_category_label_en=candidate[9] if len(candidate) > 9 else None,
+                    source_category_label_ms=candidate[10] if len(candidate) > 10 else None,
                 )
                 if (
                     candidate_item.unit_price_rm is not None
@@ -405,12 +435,18 @@ def get_basket_alternatives_with_pack_options(
                    current_status.current_price,
                    item.median_price_rm,
                    current_status.price_observed_date,
-                   item.item_code
+                   item.item_code,
+                   COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                   COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM requested
             LEFT JOIN item ON item.item_id = requested.item_id
             LEFT JOIN current_status
               ON current_status.item_id = requested.item_id
              AND current_status.premise_id = %s
+            LEFT JOIN category_translation ct_en
+              ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+              ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             ORDER BY requested.position
             """,
             (item_ids, quantities, int(premise_id)),
@@ -427,11 +463,17 @@ def get_basket_alternatives_with_pack_options(
                    current_status.current_price,
                    current_status.price_observed_date,
                    item.item_category, item.sara_eligible,
-                   item.item_code
+                   item.item_code,
+                   COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
+                   COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
             FROM item
             JOIN current_status
               ON current_status.item_id = item.item_id
              AND current_status.premise_id = %s
+            LEFT JOIN category_translation ct_en
+              ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
+            LEFT JOIN category_translation ct_ms
+              ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
             WHERE current_status.current_price > 0
             """,
             (int(premise_id),),
@@ -443,6 +485,8 @@ def get_basket_alternatives_with_pack_options(
     candidate_rows = [
         (
             row[0], row[1], row[2], row[3], row[8], row[9], row[6], row[7], row[10],
+            row[11] if len(row) > 11 else None,
+            row[12] if len(row) > 12 else None,
         )
         for row in premise_rows
         if row[0] not in item_ids

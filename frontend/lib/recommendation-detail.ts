@@ -4,6 +4,8 @@ import type {
   PackSizeOption,
   PriceSource,
   StoreRecommendation,
+  ItemCategory,
+  SourceCategory,
 } from "./contracts";
 import type { AppliedReplacement, BasketItem } from "./basket-state";
 
@@ -22,6 +24,8 @@ export interface RecommendationDetailPrice {
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 export interface RecommendationDetailRow {
@@ -67,6 +71,8 @@ function detailFromAlternative(item: AlternativePriceItem, quantity: number): Re
     saraEligible: item.saraEligible,
     saraCategoryCandidate: item.saraCategoryCandidate,
     isSaraCreditCandidate: item.isSaraCreditCandidate,
+    category: item.category,
+    sourceCategory: item.sourceCategory ?? null,
   };
 }
 
@@ -86,6 +92,8 @@ function detailFromPack(pack: PackSizeOption, quantity: number): RecommendationD
     saraEligible: pack.saraEligible,
     saraCategoryCandidate: pack.saraCategoryCandidate,
     isSaraCreditCandidate: pack.isSaraCreditCandidate,
+    category: pack.category,
+    sourceCategory: pack.sourceCategory ?? null,
   };
 }
 
@@ -114,6 +122,8 @@ function fallbackCurrentPrice(
     saraEligible,
     saraCategoryCandidate,
     isSaraCreditCandidate: saraEligible === true || saraCategoryCandidate,
+    category: line.category ?? price?.category ?? basketItem.category,
+    sourceCategory: line.sourceCategory ?? price?.sourceCategory ?? basketItem.sourceCategory ?? null,
   };
 }
 
