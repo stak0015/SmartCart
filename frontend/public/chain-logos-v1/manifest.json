@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "chains": [
+    {
+      "name": "99 SPEEDMART",
+      "asset": "/chain-logos-v1/99-speedmart.webp",
+      "source_asset": "/chain-logos/99-speedmart.png"
+    },
+    {
+      "name": "ECONSAVE",
+      "asset": "/chain-logos-v1/econsave.webp",
+      "source_asset": "/chain-logos/econsave.jpg"
+    },
+    {
+      "name": "LOTUS",
+      "asset": "/chain-logos-v1/lotus.webp",
+      "source_asset": "/chain-logos/lotus.png"
+    },
+    {
+      "name": "AEON",
+      "asset": "/chain-logos-v1/aeon.webp",
+      "source_asset": "/chain-logos/aeon.jpg"
+    },
+    {
+      "name": "GIANT",
+      "asset": "/chain-logos-v1/giant.webp",
+      "source_asset": "/chain-logos/giant.png"
+    },
+    {
+      "name": "TMG",
+      "asset": "/chain-logos-v1/tmg.webp",
+      "source_asset": "/chain-logos/tmg.png"
+    },
+    {
+      "name": "TF VALUE MART",
+      "asset": "/chain-logos-v1/tf-value-mart.webp",
+      "source_asset": "/chain-logos/tf-value-mart.png"
+    },
+    {
+      "name": "MYDIN",
+      "asset": "/chain-logos-v1/mydin.webp",
+      "source_asset": "/chain-logos/mydin.jpg"
+    },
+    {
+      "name": "SEGI",
+      "asset": "/chain-logos-v1/segi-fresh.webp",
+      "source_asset": "/chain-logos/segi-fresh.png"
+    },
+    {
+      "name": "SERVAY",
+      "asset": "/chain-logos-v1/servay.webp",
+      "source_asset": "/chain-logos/servay.jpg"
+    },
+    {
+      "name": "BATARAS",
+      "asset": "/chain-logos-v1/bataras.webp",
+      "source_asset": "/chain-logos/bataras.png"
+    },
+    {
+      "name": "BILLION",
+      "asset": "/chain-logos-v1/billion.webp",
+      "source_asset": "/chain-logos/billion.png"
+    },
+    {
+      "name": "EVERWIN",
+      "asset": "/chain-logos-v1/everwin.webp",
+      "source_asset": "/chain-logos/everwin.jpg"
+    },
+    {
+      "name": "PKT",
+      "asset": "/chain-logos-v1/pkt.webp",
+      "source_asset": "/chain-logos/pkt.png"
+    },
+    {
+      "name": "HERO",
+      "asset": "/chain-logos-v1/hero.webp",
+      "source_asset": "/chain-logos/hero.jpg"
+    },
+    {
+      "name": "PANTAI TIMOR",
+      "asset": "/chain-logos-v1/pantai-timor.webp",
+      "source_asset": "/chain-logos/pantai-timor.jpg"
+    },
+    {
+      "name": "MASLEE",
+      "asset": "/chain-logos-v1/maslee.webp",
+      "source_asset": "/chain-logos/maslee.png"
+    },
+    {
+      "name": "VILLAGE GROCER",
+      "asset": "/chain-logos-v1/village-grocer.webp",
+      "source_asset": "/chain-logos/village-grocer.jpg"
+    },
+    {
+      "name": "NSK",
+      "asset": "/chain-logos-v1/nsk.webp",
+      "source_asset": "/chain-logos/nsk.png"
+    },
+    {
+      "name": "THE STORE",
+      "asset": "/chain-logos-v1/the-store.webp",
+      "source_asset": "/chain-logos/the-store.png"
+    },
+    {
+      "name": "JAYA GROCER",
+      "asset": "/chain-logos-v1/jaya-grocer.webp",
+      "source_asset": "/chain-logos/jaya-grocer.png"
+    },
+    {
+      "name": "PASARAYA BS",
+      "asset": "/chain-logos-v1/pasaraya-bs.webp",
+      "source_asset": "/chain-logos/pasaraya-bs.png"
+    },
+    {
+      "name": "DOREMART",
+      "asset": "/chain-logos-v1/doremart.webp",
+      "source_asset": "/chain-logos/doremart.png"
+    },
+    {
+      "name": "PACIFIC",
+      "asset": "/chain-logos-v1/pacific.webp",
+      "source_asset": "/chain-logos/pacific.png"
+    },
+    {
+      "name": "EMART",
+      "asset": "/chain-logos-v1/emart.webp",
+      "source_asset": "/chain-logos/emart.png"
+    }
+  ]
+}

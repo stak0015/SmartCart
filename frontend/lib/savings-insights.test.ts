@@ -59,6 +59,7 @@ const line = (
   lineTotalRm,
   observedDate: "2026-09-10",
   priceSource,
+  category: null,
 });
 
 const google: SavingsRouteContext = { routeProvider: "google", routeWarning: null };
@@ -287,7 +288,7 @@ describe("savingsInsights (AC 8.2.3)", () => {
 // AC 8.2.1 from a recorded trip: the estimates frozen by US 5.4 let the saving
 // be computed on-device without re-querying recommendations.
 const tripRecord = (overrides: Partial<TripRecord> = {}): TripRecord => ({
-  version: 2,
+  version: 3,
   id: "trip-1",
   recordedAt: "2026-09-14T09:00:00.000Z",
   checklistId: "checklist-1",

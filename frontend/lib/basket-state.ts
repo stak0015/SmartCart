@@ -1,6 +1,8 @@
 import type {
   AlternativePriceItem,
   BasketAlternativeLine,
+  ItemCategory,
+  SourceCategory,
   PackSizeOption,
 } from "./contracts";
 
@@ -9,10 +11,13 @@ export interface BasketItemBase {
   name: string;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
+  imageUrl?: string | null;
   size: string;
   qty: number;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
+  category: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
 }
 
 export type BasketReplacementKind = "lower_cost" | "pack";
@@ -50,11 +55,20 @@ function baseItem(item: AlternativePriceItem): BasketItemBase {
     name: item.itemName ?? "Catalogue item",
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    imageUrl: item.imageUrl,
     size: item.packageSize ?? item.unit ?? "—",
     qty: 1,
     saraEligible: item.saraEligible,
     saraCategoryCandidate: item.saraCategoryCandidate,
+    category: item.category,
+    sourceCategory: item.sourceCategory ?? null,
   };
+}
+
+function withoutReplacement(item: BasketItem): BasketItemBase {
+  const original = { ...item };
+  delete original.replacement;
+  return original;
 }
 
 export function applyBasketReplacement(
@@ -79,16 +93,13 @@ export function applyBasketReplacement(
     return basket;
   }
 
-  const original: BasketItemBase = current.replacement?.original ?? {
-    id: current.id,
-    name: current.name,
-    itemNameEn: current.itemNameEn,
-    itemNameMs: current.itemNameMs,
-    size: current.size,
-    qty: current.qty,
-    saraEligible: current.saraEligible,
-    saraCategoryCandidate: current.saraCategoryCandidate,
-  };
+  if (current.replacement?.original.id === choice.replacement.id) {
+    return basket.map((item, index) => index === sourceIndex
+      ? { ...current.replacement!.original, qty: current.qty }
+      : item);
+  }
+
+  const original: BasketItemBase = current.replacement?.original ?? withoutReplacement(current);
   const replacement: AppliedReplacement = {
     original,
     kind: choice.kind,
@@ -166,10 +177,13 @@ export function packReplacementChoice(
       name: pack.itemName ?? "Catalogue item",
       itemNameEn: pack.itemNameEn,
       itemNameMs: pack.itemNameMs,
+      imageUrl: pack.imageUrl,
       size: pack.packageSize ?? "—",
       qty: line.quantity,
       saraEligible: pack.saraEligible,
       saraCategoryCandidate: pack.saraCategoryCandidate,
+      category: pack.category,
+      sourceCategory: pack.sourceCategory ?? null,
     },
     sourceUnitPriceRm: line.source.unitPriceRm,
     replacementUnitPriceRm: pack.totalPriceRm,

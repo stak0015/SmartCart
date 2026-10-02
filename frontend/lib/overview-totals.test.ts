@@ -11,6 +11,7 @@ const line = (lineTotalRm: number | null): BasketLineDetail => ({
   unitPriceRm: lineTotalRm,
   lineTotalRm,
   observedDate: null,
+  category: null,
 });
 
 describe("sumPricedLineTotals", () => {

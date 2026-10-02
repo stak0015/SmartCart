@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 from pydantic_core import PydanticCustomError
 
+from .categories import CategorySummary, SourceCategorySummary
+
 TransportMode = Literal["walk", "public_transport", "motorcycle", "car"]
 TravelLimitType = Literal["distance", "time", "both"]
 SaraFilter = Literal["any", "candidate", "verified"]
@@ -143,6 +145,8 @@ class BasketItemPrice(CamelModel):
     price_source: Literal["store", "median"] | None = None
     sara_eligible: bool | None = None
     sara_category_candidate: bool = False
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 class BasketLineDetail(CamelModel):
@@ -162,6 +166,8 @@ class BasketLineDetail(CamelModel):
     line_total_rm: float | None
     observed_date: str | None
     price_source: Literal["store", "median"] | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 class AlternativePriceItem(CamelModel):
@@ -181,6 +187,9 @@ class AlternativePriceItem(CamelModel):
     sara_category_candidate: bool = False
     is_sara_credit_candidate: bool = False
     price_source: Literal["store", "median"] | None = None
+    image_url: str | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 class PackSizeOption(CamelModel):
@@ -211,6 +220,9 @@ class PackSizeOption(CamelModel):
     # baseline of the comparison.
     upfront_diff_rm: float | None = None
     per_unit_diff_rm: float | None = None
+    image_url: str | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
 
 
 class BasketAlternativeLine(CamelModel):

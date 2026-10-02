@@ -524,8 +524,8 @@ def test_item_search_passes_page_and_multiple_category_filters(monkeypatch) -> N
         params=[
             ("q", "milk"),
             ("page", "3"),
-            ("category", "DAIRY"),
-            ("category", "DRINKS"),
+            ("category", "drinks-milk"),
+            ("category", "staples"),
         ],
     )
 
@@ -534,7 +534,7 @@ def test_item_search_passes_page_and_multiple_category_filters(monkeypatch) -> N
         "query": "milk",
         "page": 3,
         "page_size": 25,
-        "categories": ["DAIRY", "DRINKS"],
+        "categories": ["drinks-milk", "staples"],
     }
     assert response.json()["total_pages"] == 0
 
@@ -574,12 +574,179 @@ def test_item_search_allows_empty_query_for_default_catalogue(monkeypatch) -> No
 
 def test_sara_category_candidates_are_conservative() -> None:
     from smartcart.catalogue import is_sara_category_candidate
+    from smartcart.categories import category_for_raw
 
     assert is_sara_category_candidate("BERAS") is True
     assert is_sara_category_candidate("TELUR") is True
+    assert category_for_raw("BERAS").id == "staples"
     assert is_sara_category_candidate("AYAM") is False
     assert is_sara_category_candidate("LAIN-LAIN") is False
     assert is_sara_category_candidate(None) is False
+
+
+def test_broad_category_mapping_is_complete_and_unique() -> None:
+    from smartcart.categories import CATEGORY_RAW_CATEGORIES, RAW_CATEGORY_TO_ID
+
+    expected = {
+        "fresh-produce": (
+            "BAWANG", "BUAH-BUAHAN", "KELAPA", "SAYUR-SAYURAN", "UBI KENTANG",
+        ),
+        "protein": (
+            "AYAM", "BAHAN LAUT", "DAGING", "HASIL LAUT KERING",
+            "IKAN DALAM TIN", "IKAN DARAT", "KACANG", "TAUHU DAN TEMPE", "TELUR",
+        ),
+        "staples": (
+            "BERAS", "BIHUN", "MEE / BIHUN / KUEY TEOW", "MEE/KUETIAU",
+            "MI SEGERA", "NASI", "ROTI",
+        ),
+        "cooking-ingredients": (
+            "CILI KERING", "ESEN DAN RAGI", "GULA", "KICAP DAN SOS", "MENTEGA",
+            "MINYAK DAN LEMAK", "REMPAH RATUS (BERBUNGKUS)",
+            "REMPAH RATUS (TIDAK BERBUNGKUS)", "SANTAN (KOTAK)",
+            "SAPUAN (SPREADS)", "TEPUNG",
+        ),
+        "drinks-milk": (
+            "BAHAN-BAHAN MINUMAN", "KRIMER DAN SUSU TEPUNG", "MINUMAN",
+            "TERSEDIA MINUM",
+        ),
+        "snacks-convenience": (
+            "BISKUT", "COKLAT", "LAUK", "MAKANAN RINGAN", "MAKANAN SEGERA",
+        ),
+        "baby-care": ("LAMPIN PAKAI BUANG", "MAKANAN BAYI", "SUSU BAYI"),
+        "personal-health": (
+            "BERUS GIGI", "MOUTH WASH", "PENJAGAAN DIRI", "SABUN BADAN", "SYAMPU",
+            "TUALA WANITA", "UBAT GIGI", "UBAT-UBATAN",
+        ),
+        "household": (
+            "PENGHALAU NYAMUK", "PENJAGAAN RUMAH", "PEWANGI RUMAH", "TISU",
+        ),
+        "education-reading": ("ALAT TULIS DAN BAHAN BACAAN", "MAJALAH"),
+        "other": ("LAIN-LAIN",),
+    }
+
+    assert dict(CATEGORY_RAW_CATEGORIES) == expected
+    assert len(RAW_CATEGORY_TO_ID) == sum(map(len, expected.values()))
+    assert dict(RAW_CATEGORY_TO_ID) == {
+        raw_category: category_id
+        for category_id, raw_categories in expected.items()
+        for raw_category in raw_categories
+    }
+
+
+def test_broad_category_mapping_handles_blank_and_unknown_values(caplog) -> None:
+    from smartcart.categories import category_for_raw
+
+    assert category_for_raw(None) is None
+    assert category_for_raw("  ") is None
+    assert category_for_raw("BAWANG").id == "fresh-produce"
+
+    summary = category_for_raw("FUTURE SOURCE CATEGORY")
+
+    assert summary.id == "other"
+    warning = next(
+        record for record in caplog.records
+        if getattr(record, "event", None) == "unmapped_source_category"
+    )
+    assert warning.raw_category == "FUTURE SOURCE CATEGORY"
+    assert warning.broad_category_id == "other"
+
+
+def test_item_categories_endpoint_returns_static_broad_taxonomy(monkeypatch) -> None:
+    from smartcart import catalogue
+
+    def fail_if_database_is_used():
+        raise AssertionError("The category taxonomy must not query the database")
+
+    monkeypatch.setattr(catalogue, "database_cursor", fail_if_database_is_used)
+    response = TestClient(create_app()).get("/api/items/categories")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "count": 11,
+        "categories": [
+            {
+                "id": "fresh-produce",
+                "labelEn": "Fresh Produce",
+                "labelMs": "Hasil Segar",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "protein",
+                "labelEn": "Meat, Seafood & Protein",
+                "labelMs": "Daging, Makanan Laut & Protein",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "staples",
+                "labelEn": "Rice, Noodles & Bread",
+                "labelMs": "Beras, Mi & Roti",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "cooking-ingredients",
+                "labelEn": "Cooking Ingredients",
+                "labelMs": "Bahan Masakan",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "drinks-milk",
+                "labelEn": "Drinks & Milk",
+                "labelMs": "Minuman & Susu",
+                "spendingClass": "mixed_or_unknown",
+            },
+            {
+                "id": "snacks-convenience",
+                "labelEn": "Snacks & Convenience Foods",
+                "labelMs": "Snek & Makanan Mudah",
+                "spendingClass": "discretionary",
+            },
+            {
+                "id": "baby-care",
+                "labelEn": "Baby Food & Care",
+                "labelMs": "Makanan & Penjagaan Bayi",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "personal-health",
+                "labelEn": "Personal Care & Health",
+                "labelMs": "Penjagaan Diri & Kesihatan",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "household",
+                "labelEn": "Household Care",
+                "labelMs": "Penjagaan Rumah",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "education-reading",
+                "labelEn": "Education & Reading",
+                "labelMs": "Pendidikan & Bahan Bacaan",
+                "spendingClass": "essential",
+            },
+            {
+                "id": "other",
+                "labelEn": "Other",
+                "labelMs": "Lain-lain",
+                "spendingClass": "mixed_or_unknown",
+            },
+        ],
+    }
+
+
+def test_item_search_rejects_raw_and_unknown_category_filters(monkeypatch) -> None:
+    from smartcart import api
+
+    def fail_if_search_is_called(*_args):
+        raise AssertionError("Invalid category filters must fail before search")
+
+    monkeypatch.setattr(api, "search_catalogue", fail_if_search_is_called)
+    for category_id in ("BERAS", "not-a-category"):
+        response = TestClient(create_app()).get(
+            "/api/items/search", params={"category": category_id}
+        )
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "INVALID_CATEGORY"
 
 
 def test_item_name_parsing_returns_none_when_nothing_parseable() -> None:

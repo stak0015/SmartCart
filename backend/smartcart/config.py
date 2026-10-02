@@ -22,6 +22,17 @@ def _non_negative_number(name: str, fallback: float) -> float:
     return value if isfinite(value) and value >= 0 else fallback
 
 
+def _bounded_text(name: str, fallback: str, maximum: int) -> str:
+    value = os.getenv(name, "").strip()
+    if (
+        not value
+        or len(value) > maximum
+        or any(ord(character) < 32 for character in value)
+    ):
+        return fallback
+    return value
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str | None
@@ -38,6 +49,8 @@ class Settings:
     public_transport_per_km_rm: float
     motorcycle_per_km_rm: float
     car_per_km_rm: float
+    cerebras_api_key: str | None
+    cerebras_model: str
 
 
 @lru_cache
@@ -86,4 +99,6 @@ def get_settings() -> Settings:
             "TRAVEL_COST_MOTORCYCLE_PER_KM_RM", 0.12
         ),
         car_per_km_rm=_non_negative_number("TRAVEL_COST_CAR_PER_KM_RM", 0.45),
+        cerebras_api_key=(os.getenv("CEREBRAS_API_KEY", "").strip() or None),
+        cerebras_model=_bounded_text("CEREBRAS_MODEL", "gpt-oss-120b", 100),
     )

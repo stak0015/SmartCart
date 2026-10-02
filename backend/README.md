@@ -20,7 +20,11 @@ Set `DATABASE_URL` in `.env`. Google keys are optional for local development:
 `GOOGLE_MAPS_API_KEY` works as a fallback for both). If the Routes key is
 missing, recommendations automatically use the 25 nearest fresh premises with
 straight-line distance and clearly marked approximate travel estimates. Then
-start the API:
+start the API. Report narratives use Cerebras when the server-only
+`CEREBRAS_API_KEY` is set; otherwise reports use deterministic localized
+fallback text. `CEREBRAS_MODEL` selects the model and defaults to
+`gpt-oss-120b`. Keep the key in the backend `.env` only; never expose it through
+a `NEXT_PUBLIC_*` variable.
 
 ```powershell
 uvicorn main:app --reload --port 8000
@@ -59,7 +63,10 @@ python -m pytest
 The API does not persist user origins or route calculations. Google-derived
 premise coordinates remain subject to the documented 30-day deletion rule.
 
-The selected-store alternatives endpoint returns one cheaper strict equivalent
-per requested basket line when the same category, package basis, and product
-family are available at that premise. Price observations remain estimates and
-do not prove stock.
+The selected-store alternatives endpoint returns one lower-priced, name-similar
+item per requested basket line when a candidate in the same category and exact
+package basis is available at that premise. Names are normalized for package
+sizes and brand markers, then compared with a 0.67 token Jaccard threshold;
+parenthetical product details remain part of the match. The closest match is
+preferred, with price used to break similarity ties. Price observations remain
+estimates and do not prove stock.
