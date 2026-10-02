@@ -321,6 +321,8 @@ def apply_basket_pricing(
                 price_source=line.price_source,
                 sara_eligible=line.sara_eligible,
                 sara_category_candidate=line.sara_category_candidate,
+                category=line.category,
+                source_category=line.source_category,
             )
             for line in summary.lines
         ]
@@ -336,6 +338,8 @@ def apply_basket_pricing(
                 line_total_rm=line.line_total_rm,
                 observed_date=line.observed_date,
                 price_source=line.price_source,
+                category=line.category,
+                source_category=line.source_category,
             )
             for line in summary.lines
         ]

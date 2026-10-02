@@ -10,6 +10,9 @@ import {
   type BasketItem,
 } from "./basket-state";
 
+const produce = { id: "fresh-produce" as const, labelEn: "Fresh Produce", labelMs: "Hasil Segar", spendingClass: "essential" as const };
+const snacks = { id: "snacks-convenience" as const, labelEn: "Snacks & Convenience Foods", labelMs: "Snek & Makanan Mudah", spendingClass: "discretionary" as const };
+
 const basket: BasketItem[] = [{
   id: "db-1",
   name: "Sardines 425g",
@@ -17,6 +20,7 @@ const basket: BasketItem[] = [{
   qty: 2,
   saraEligible: null,
   saraCategoryCandidate: true,
+  category: produce,
 }];
 
 const suggestion: BasketAlternativeLine = {
@@ -25,11 +29,13 @@ const suggestion: BasketAlternativeLine = {
     itemId: "1", itemName: "Sardines 425g", unit: "425 g", packageSize: "425 g",
     unitPriceRm: 8, lineTotalRm: 16, observedDate: "2026-08-31", priceObservedDaysAgo: 0,
     saraEligible: null, saraCategoryCandidate: true, isSaraCreditCandidate: true,
+    category: produce,
   },
   alternative: {
     itemId: "2", itemName: "Sardines Value 425g", unit: "425 g", packageSize: "425 g",
     unitPriceRm: 5, lineTotalRm: 10, observedDate: "2026-08-31", priceObservedDaysAgo: 0,
     saraEligible: null, saraCategoryCandidate: true, isSaraCreditCandidate: true,
+    category: snacks,
   },
   savingsRm: 6,
 };
@@ -46,6 +52,7 @@ const pack: PackSizeOption = {
   saraCategoryCandidate: true,
   isSaraCreditCandidate: true,
   isBestValue: true,
+  category: snacks,
 };
 
 describe("basket replacements", () => {
@@ -56,6 +63,8 @@ describe("basket replacements", () => {
     expect(swapped[0].qty).toBe(2);
     expect(swapped[0].replacement?.original.id).toBe("db-1");
     expect(swapped[0].replacement?.kind).toBe("lower_cost");
+    expect(swapped[0].category).toEqual(snacks);
+    expect(undoBasketReplacement(swapped, "db-2")[0].category).toEqual(produce);
     expect(currentReplacementImpactRm(swapped[0])).toBe(6);
   });
 
@@ -71,6 +80,7 @@ describe("basket replacements", () => {
     expect(changed[0].id).toBe("db-3");
     expect(changed[0].qty).toBe(2);
     expect(changed[0].replacement?.kind).toBe("pack");
+    expect(changed[0].category).toEqual(snacks);
     expect(currentReplacementImpactRm(changed[0])).toBe(-8);
   });
 

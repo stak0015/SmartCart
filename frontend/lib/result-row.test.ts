@@ -5,9 +5,11 @@ import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, basketSummary, parseQty
 
 const baseItem: Item = {
   item_id: 1,
+  item_code: "TEST-1",
   item_name: "BERAS CAP JATI (SST5%)",
   unit: "10 kg",
   item_category: "BERAS",
+  category: null,
   package_size: "10 kg",
   sara_eligible: true,
   sara_category_candidate: true,
@@ -85,7 +87,13 @@ describe("basketDetails", () => {
     expect(basketDetails(baseItem)).toEqual({
       name: fields.name,
       size: fields.packageSize,
+      imageUrl: null,
     });
+  });
+
+  it("carries the catalogue image into the basket", () => {
+    expect(basketDetails({ ...baseItem, image_url: "/pricecatcher-v1/1183.webp" }).imageUrl)
+      .toBe("/pricecatcher-v1/1183.webp");
   });
 
   it("uses the same package-size fallback as the result row", () => {

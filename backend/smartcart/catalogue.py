@@ -4,6 +4,13 @@ import re
 from typing import Any
 
 from .database import database_cursor
+from .catalogue_image_manifest import catalogue_image_url
+from .categories import (
+    ALL_MAPPED_RAW_CATEGORIES,
+    category_for_raw,
+    expand_broad_category_filters,
+    source_category_for_raw,
+)
 from .translations import (
     catalogue_search_params,
     catalogue_search_where,
@@ -127,10 +134,18 @@ def search_catalogue(
     selected_categories = [
         category.strip() for category in categories or [] if category.strip()
     ]
+    raw_categories, include_unmapped = expand_broad_category_filters(
+        selected_categories
+    )
     offset = (page - 1) * page_size
     where = catalogue_search_where()
     joins = catalogue_translation_joins()
-    params = catalogue_search_params(keyword, selected_categories)
+    params = catalogue_search_params(
+        keyword,
+        raw_categories,
+        include_unmapped,
+        ALL_MAPPED_RAW_CATEGORIES,
+    )
     with database_cursor() as cursor:
         cursor.execute(
             f"""
@@ -146,7 +161,7 @@ def search_catalogue(
 
         cursor.execute(
             f"""
-            SELECT i.item_id, i.item_name, i.unit, i.item_category,
+            SELECT i.item_id, i.item_code, i.item_name, i.unit, i.item_category,
                    i.sara_eligible,
                    {translation_select_columns()}
             FROM item i
@@ -160,6 +175,7 @@ def search_catalogue(
         )
         columns = [
             "item_id",
+            "item_code",
             "item_name",
             "unit",
             "item_category",
@@ -172,10 +188,23 @@ def search_catalogue(
         rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
 
     for row in rows:
+        category = category_for_raw(row["item_category"])
+        row["category"] = category.model_dump(by_alias=True) if category else None
+        source_category = source_category_for_raw(
+            row["item_category"],
+            row.get("item_category_en"),
+            row.get("item_category_ms"),
+        )
+        row["source_category"] = (
+            source_category.model_dump(by_alias=True) if source_category else None
+        )
         row["package_size"] = display_package_size(row["item_name"], row["unit"])
         row["sara_category_candidate"] = is_sara_category_candidate(
             row["item_category"]
         )
+        # Only advertise checked-in thumbnails. This avoids making the browser
+        # issue a failed request for every catalogue row without an image.
+        row["image_url"] = catalogue_image_url(row["item_code"])
     return rows, total
 
 
@@ -190,3 +219,30 @@ def list_catalogue_categories() -> list[str]:
             """
         )
         return [row[0] for row in cursor.fetchall()]
+
+
+def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[int, dict]:
+    """Observed prices only, bounded to the cached nearby stores (no medians)."""
+    if not item_ids or not premise_ids:
+        return {}
+    with database_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT item_id, MIN(current_price), MAX(current_price),
+                   COUNT(DISTINCT premise_id), MIN(price_observed_date)
+            FROM current_status
+            WHERE item_id = ANY(%s::bigint[])
+              AND premise_id = ANY(%s::bigint[])
+              AND current_price > 0
+            GROUP BY item_id
+            """,
+            (item_ids, [int(value) for value in premise_ids]),
+        )
+        return {
+            int(item_id): {
+                "min_rm": float(low), "max_rm": float(high),
+                "store_count": int(count),
+                "oldest_observed_date": observed.isoformat() if observed else None,
+            }
+            for item_id, low, high, count, observed in cursor.fetchall()
+        }

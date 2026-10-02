@@ -1,169 +1,64 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import type { TripRecord } from "./trip-history";
 import {
+  clearInboxReports,
   EMPTY_INBOX,
   INBOX_VERSION,
   markReportRead,
   parseInboxState,
+  saveReadyReport,
   serializeInboxState,
   setReportCadence,
-  syncInboxReports,
-  type InboxState,
 } from "./inbox";
+import type { GeneratedReport } from "./report-generation";
 
-function trip(id: string, recordedAt: string, actualTotalRm: number | null, saving: number | null): TripRecord {
-  return {
-    version: 2,
-    id,
-    recordedAt,
-    checklistId: `checklist-${id}`,
-    store: { premiseId: "1", premiseCode: "P1", name: "Store", address: null },
-    plannedSubtotalRm: 20,
-    estimatedRoundTripCostRm: 2,
-    plannedCombinedTotalRm: 22,
-    alternativeStoreEstimates: [],
-    estimatedSavings: saving == null ? null : {
-      medianCombinedCostRm: 25,
-      selectedBaselineCombinedCostRm: 22,
-      selectedCurrentCombinedCostRm: 20,
-      storeChoiceImpactRm: 3,
-      itemChangeImpactRm: 2,
-      netSavingRm: saving,
-      comparableStoreCount: 3,
-      estimatedPriceCount: 0,
-      routeEstimated: false,
-    },
-    actualTotalRm,
-    lines: [],
-  };
-}
+const fixture = JSON.parse(readFileSync(new URL(
+  "../../tests/fixtures/reports/G4-report-response.json",
+  import.meta.url,
+), "utf8")) as { expected: GeneratedReport };
+const report = fixture.expected;
 
-describe("inbox reports", () => {
-  it("recalculates saved reports while preserving read state and generates both cadences", () => {
-    const records = [trip("a", "2026-08-12T10:00:00.000Z", 12, 3)];
-    const now = new Date("2026-09-15T08:00:00.000Z");
-    const generated = syncInboxReports(EMPTY_INBOX, records, now);
-    expect(generated.messages.map(message => message.cadence).sort()).toEqual(["monthly", "weekly"]);
-    const old = { ...generated, messages: generated.messages.map(message => ({ ...message, actualSpendingRm: null, read: true })) };
-    const refreshed = syncInboxReports(old, records, now);
-    expect(refreshed.messages.every(message => message.actualSpendingRm === 12 && message.read)).toBe(true);
+describe("device-local ready inbox", () => {
+  it("stores complete G4 reports only and preserves read state on a stable-id replacement", () => {
+    const generated = saveReadyReport(EMPTY_INBOX, report);
+    expect(generated.messages).toHaveLength(1);
+    expect(generated.messages[0]).toMatchObject({ id: report.id, read: false, sections: report.sections });
+
+    const opened = markReportRead(generated, report.id);
+    const refreshed = saveReadyReport(opened, { ...report, generatedAt: "2026-09-27T12:00:00.000Z" });
+    expect(refreshed.messages).toHaveLength(1);
+    expect(refreshed.messages[0].read).toBe(true);
+    expect(parseInboxState(serializeInboxState(refreshed))).toEqual(refreshed);
   });
 
-  it("creates one unread report for a completed week with activity", () => {
-    const initialized = syncInboxReports(EMPTY_INBOX, [], new Date("2026-09-07T08:00:00.000Z"));
-    const state = syncInboxReports(
-      initialized,
-      [
-        trip("a", "2026-09-07T10:00:00.000Z", 20, 5),
-        trip("b", "2026-09-09T10:00:00.000Z", 30, 4),
-      ],
-      new Date("2026-09-14T08:00:00.000Z"),
-    );
-
-    expect(state.messages).toHaveLength(1);
-    expect(state.messages[0]).toMatchObject({
-      id: "weekly:2026-09-07",
-      tripCount: 2,
-      actualSpendingRm: 50,
-      estimatedNetSavingsRm: 9,
-      read: false,
-    });
-  });
-
-  it("does not generate a message for the current incomplete period", () => {
-    const state = syncInboxReports(
-      EMPTY_INBOX,
-      [trip("a", "2026-09-14T10:00:00.000Z", 20, 5)],
-      new Date("2026-09-15T08:00:00.000Z"),
-    );
-    expect(state.messages).toEqual([]);
-  });
-
-  it("supports cadence, read state, persistence, and deduplication", () => {
-    const monthly = setReportCadence(EMPTY_INBOX, "monthly");
-    const generated = syncInboxReports(
-      monthly,
-      [trip("a", "2026-08-12T10:00:00.000Z", null, null)],
-      new Date("2026-09-15T08:00:00.000Z"),
-    );
-    const duplicate = syncInboxReports(generated, [trip("a", "2026-08-12T10:00:00.000Z", null, null)], new Date("2026-09-15T08:00:00.000Z"));
-    expect(duplicate.messages).toHaveLength(2);
-    expect(duplicate.messages.map(message => message.cadence).sort()).toEqual(["monthly", "weekly"]);
-    expect(duplicate.messages[0].spendingIncomplete).toBe(true);
-    expect(duplicate.messages[0].savingsIncomplete).toBe(true);
-
-    const read = markReportRead(duplicate, duplicate.messages[0].id);
+  it("supports cadence, read state, clearing only reports, and unread counts through state shape", () => {
+    const populated = saveReadyReport(EMPTY_INBOX, report);
+    const monthly = setReportCadence(populated, "monthly");
+    expect(monthly.cadence).toBe("monthly");
+    const read = markReportRead(monthly, report.id);
     expect(read.messages[0].read).toBe(true);
-    expect(parseInboxState(serializeInboxState(read))).toEqual(read);
-    expect(parseInboxState("{broken")).toEqual(EMPTY_INBOX);
-  });
-});
-
-describe("summary visibility setting (AC 8.4.3)", () => {
-  it("defaults to visible so hiding is always an opt-in choice", () => {
-    expect(EMPTY_INBOX.summaryHidden).toBe(false);
-    expect(parseInboxState(null).summaryHidden).toBe(false);
+    expect(clearInboxReports(read)).toEqual({ ...read, messages: [] });
   });
 
-  it("normalises payloads written before the field existed", () => {
-    // The version is deliberately unchanged: hiding a section is additive, so
-    // an older payload must still parse rather than be discarded.
-    const legacy = JSON.stringify({
-      version: INBOX_VERSION,
-      cadence: "weekly",
-      messages: [],
-    });
-    const parsed = parseInboxState(legacy);
-    expect(parsed).toEqual(EMPTY_INBOX);
-    expect(parsed.summaryHidden).toBe(false);
-  });
-
-  it("treats any non-boolean value as visible instead of trusting it", () => {
-    for (const bad of ["yes", 1, 0, null, {}, []]) {
-      const parsed = parseInboxState(JSON.stringify({
-        version: INBOX_VERSION,
-        cadence: "weekly",
-        messages: [],
-        summaryHidden: bad,
-      }));
-      expect(parsed.summaryHidden).toBe(false);
+  it("clears older reports while retaining the v3 cadence preference", () => {
+    for (const version of [1, 2]) {
+      const legacy = JSON.stringify({ version, cadence: "weekly", messages: [{ id: "weekly:2026-09-13", read: false }] });
+      expect(parseInboxState(legacy)).toEqual(EMPTY_INBOX);
     }
+    const v3 = JSON.stringify({ version: 3, cadence: "monthly", messages: [{ ...report, read: true }] });
+    expect(parseInboxState(v3)).toEqual({ ...EMPTY_INBOX, cadence: "monthly" });
+    expect(INBOX_VERSION).toBe(4);
   });
 
-  it("round-trips the hidden setting through local storage", () => {
-    const hidden: InboxState = { ...EMPTY_INBOX, summaryHidden: true };
-    const restored = parseInboxState(serializeInboxState(hidden));
-    expect(restored.summaryHidden).toBe(true);
-    expect(restored).toEqual(hidden);
-  });
-
-  it("keeps the setting when the cadence switches", () => {
-    const hidden = setReportCadence({ ...EMPTY_INBOX, summaryHidden: true }, "monthly");
-    expect(hidden.summaryHidden).toBe(true);
-    expect(hidden.cadence).toBe("monthly");
-  });
-
-  it("keeps the setting when a report is marked read", () => {
-    const generated = syncInboxReports(
-      EMPTY_INBOX,
-      [trip("a", "2026-08-12T10:00:00.000Z", 20, 3)],
-      new Date("2026-09-15T08:00:00.000Z"),
-    );
-    const hidden: InboxState = { ...generated, summaryHidden: true };
-    const read = markReportRead(hidden, hidden.messages[0].id);
-    expect(read.summaryHidden).toBe(true);
-    expect(read.messages[0].read).toBe(true);
-  });
-
-  it("is not reset by the automatic report sync", () => {
-    // syncInboxReports runs from an effect on every history change, so losing
-    // the field here would silently un-hide the summary on every app launch.
-    const hidden = syncInboxReports(
-      { ...EMPTY_INBOX, summaryHidden: true },
-      [trip("a", "2026-08-12T10:00:00.000Z", 20, 3)],
-      new Date("2026-09-15T08:00:00.000Z"),
-    );
-    expect(hidden.summaryHidden).toBe(true);
-    expect(hidden.messages).toHaveLength(2);
+  it("rejects malformed, incomplete, duplicated, and noncanonical ready reports", () => {
+    const incomplete = { ...report, sections: report.sections.slice(0, 3) };
+    const duplicated = { ...EMPTY_INBOX, messages: [{ ...report, read: false }, { ...report, read: true }] };
+    const noncanonical = { ...report, id: "weekly:2026-09-13" };
+    for (const value of [
+      "{broken",
+      JSON.stringify({ ...EMPTY_INBOX, messages: [incomplete] }),
+      JSON.stringify(duplicated),
+      JSON.stringify({ ...EMPTY_INBOX, messages: [{ ...noncanonical, read: false }] }),
+    ]) expect(parseInboxState(value)).toEqual(EMPTY_INBOX);
   });
 });

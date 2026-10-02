@@ -37,9 +37,9 @@ export function parseQty(raw: string): number | null {
 
 // A basket row must show the same attributes as the result row it came from;
 // both views read from this single mapping so they cannot drift apart.
-export function basketDetails(item: Item): { name: string; size: string } {
+export function basketDetails(item: Item): { name: string; size: string; imageUrl: string | null } {
   const fields = resultRowFields(item);
-  return { name: fields.name, size: fields.packageSize };
+  return { name: fields.name, size: fields.packageSize, imageUrl: item.image_url ?? null };
 }
 
 // ── Basket add & summary (AC-1.4.2) ─────────────────────────────────────────

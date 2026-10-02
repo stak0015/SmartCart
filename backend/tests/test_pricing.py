@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 
+from smartcart.categories import category_for_raw
 from smartcart.models import BasketLineRequest, StoreRecommendation
 from smartcart.pricing import (
     PRICE_FRESHNESS_THRESHOLD_DAYS,
@@ -302,6 +303,8 @@ def test_basket_lines_detail_attached() -> None:
     assert lines[0].unit_price_rm == 5.15
     assert lines[0].line_total_rm == 10.30
     assert lines[0].observed_date == "2026-08-27"
+    assert lines[0].category.id == "staples"
+    assert ordered[0].basket_prices[0].category.id == "staples"
     assert lines[1].item_name == "Telur"
     assert lines[1].unit_price_rm is None
     assert lines[1].line_total_rm is None
@@ -409,6 +412,63 @@ def test_e2_item_price_adapter_uses_median_without_store_observation(monkeypatch
     assert result["1"][0].line_total_rm == 6.5
     assert result["1"][0].price_source == "median"
     assert result["1"][0].price_observed_date is None
+
+
+def test_current_item_price_query_carries_broad_category(monkeypatch) -> None:
+    class CurrentCursor:
+        def execute(self, query, _parameters) -> None:
+            assert "item.item_category" in query
+
+        def fetchall(self):
+            return [(
+                1, 10, "Stationery", "Stationery EN", "1 pack", 2,
+                Decimal("4.00"), None, FRESH, "ALAT TULIS DAN BAHAN BACAAN",
+                "Stationery", "Alat Tulis",
+            )]
+
+    cursor = CurrentCursor()
+
+    @contextmanager
+    def fake_database_cursor():
+        yield cursor
+
+    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
+    prices = get_basket_prices_for_premises(
+        premise_ids=["1"], basket=[BasketLineRequest(item_id=10, quantity=2)],
+    )
+
+    assert prices["1"][0].category == category_for_raw("ALAT TULIS DAN BAHAN BACAAN")
+    assert prices["1"][0].source_category.model_dump(by_alias=True) == {
+        "id": "ALAT TULIS DAN BAHAN BACAAN",
+        "labelEn": "Stationery",
+        "labelMs": "Alat Tulis",
+    }
+
+
+def test_category_propagates_without_changing_raw_sara_candidacy() -> None:
+    raw_category = "ALAT TULIS DAN BAHAN BACAAN"
+    summary = summarize_basket_prices([(
+        1, 10, 1, "Pensel", "Pencil", "1 pack", Decimal("4.00"), None,
+        None, raw_category, FRESH, "Stationery & Reading", "Alat Tulis & Bacaan",
+    )], today=TODAY)
+    recommendations = apply_basket_pricing([store("1", cost=0.5)], summary)
+    expected = category_for_raw(raw_category)
+
+    assert expected is not None and expected.id == "education-reading"
+    assert summary["1"].lines[0].sara_category_candidate is True
+    assert recommendations[0].basket_prices[0].category == expected
+    assert recommendations[0].basket_lines[0].category == expected
+    wire = recommendations[0].model_dump(by_alias=True)
+    expected_wire = expected.model_dump(by_alias=True)
+    assert wire["basketPrices"][0]["category"] == expected_wire
+    assert wire["basketLines"][0]["category"] == expected_wire
+    expected_source = {
+        "id": raw_category,
+        "labelEn": "Stationery & Reading",
+        "labelMs": "Alat Tulis & Bacaan",
+    }
+    assert wire["basketPrices"][0]["sourceCategory"] == expected_source
+    assert wire["basketLines"][0]["sourceCategory"] == expected_source
 
 
 def test_unified_ranking_prioritizes_coverage_then_all_tie_breakers() -> None:

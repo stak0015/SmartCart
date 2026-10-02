@@ -1,0 +1,193 @@
+{
+  "scope": {
+    "source_page": "https://manamurah.com/en/kedai",
+    "observed_at": "2026-09-23",
+    "chain_count": 30,
+    "note": "The directory was used to identify chain names only. Logo files were collected from the retailer, partner, mall, employer, or logo-host pages recorded below."
+  },
+  "chains": [
+    {
+      "name": "99 SPEEDMART",
+      "asset": "/chain-logos/99-speedmart.png",
+      "image_source": "https://www.touchngo.com.my/assets/key-visual/speedmartLogo.png",
+      "source_page": "https://www.touchngo.com.my/tng-ewallet-reload-pin"
+    },
+    {
+      "name": "ECONSAVE",
+      "asset": "/chain-logos/econsave.jpg",
+      "image_source": "https://s3-ap-southeast-1.amazonaws.com/ricebowl/employers/117595.jpg",
+      "source_page": "https://www.ricebowl.my/"
+    },
+    {
+      "name": "LOTUS",
+      "asset": "/chain-logos/lotus.png",
+      "image_source": "https://graduan.sgp1.cdn.digitaloceanspaces.com/media/488531/original/767f1dbe-9c8d-4528-81aa-a922bc1118b7-NDg4NTMx.png",
+      "source_page": "https://graduan.com/company/lotuss-stores-malaysia-sdn-bhd-odg5mzy"
+    },
+    {
+      "name": "AEON",
+      "asset": "/chain-logos/aeon.jpg",
+      "image_source": "https://awards.brandingforum.org/wp-content/uploads/2021/01/AEON_Logo_Colour-01-1024x1024.jpg",
+      "source_page": "https://awards.brandingforum.org/brands/aeon/"
+    },
+    {
+      "name": "GIANT",
+      "asset": "/chain-logos/giant.png",
+      "image_source": "https://resources.wobbjobs.com/jobs-malaysia/companies/ecd15000-aa08-48cb-833f-22e447bcb49b/company_logo/original/2c3dd2ea-2337-4781-aa5d-40fa4a4f17d7-New%20Giant%20Logo-01.png",
+      "source_page": "https://my.hiredly.com/jobs/jobs-malaysia-giant-malaysia-job-executive-finance-ap-ar-gl"
+    },
+    {
+      "name": "TMG",
+      "asset": "/chain-logos/tmg.png",
+      "image_source": "https://cdn.store-assets.com/s/400214/f/9286891.png",
+      "source_page": "https://www.tishasfood.com.my/pages/structure-for-hyper-super"
+    },
+    {
+      "name": "TF VALUE MART",
+      "asset": "/chain-logos/tf-value-mart.png",
+      "image_source": "https://cdn.prod.website-files.com/667023fcf1cc6ad1819415ec/68668f47f1d3326d0a382065_TF%20Logo.png",
+      "source_page": "https://www.zevero.earth/customer-stories/tf-value-mart"
+    },
+    {
+      "name": "MYDIN",
+      "asset": "/chain-logos/mydin.jpg",
+      "image_source": "https://www.aussiebeefandlamb.my/contentassets/6752f6ace23a4d7fb9971de7b177aed0/mydin-logo.jpg",
+      "source_page": "https://www.aussiebeefandlamb.my/en-us/where-to-buy/"
+    },
+    {
+      "name": "SEGI",
+      "asset": "/chain-logos/segi-fresh.png",
+      "image_source": "https://segigroup.com/perkenalrakan/images/logo.png",
+      "source_page": "https://segigroup.com/perkenalrakan/"
+    },
+    {
+      "name": "SERVAY",
+      "asset": "/chain-logos/servay.jpg",
+      "image_source": "https://pbs.twimg.com/profile_images/1912795642281496576/SFDDlSqo.jpg",
+      "source_page": "https://x.com/servayputatan",
+      "note": "Official outlet avatar; the mark includes the Putatan branch label."
+    },
+    {
+      "name": "BATARAS",
+      "asset": "/chain-logos/bataras.png",
+      "image_source": "https://bataras.com/wp-content/uploads/2022/05/LOGO-BTR-SDN-BHD-300x274.png",
+      "source_page": "https://bataras.com/about/"
+    },
+    {
+      "name": "BILLION",
+      "asset": "/chain-logos/billion.png",
+      "image_source": "https://images.seeklogo.com/logo-png/36/1/billion-super-market-logo-png_seeklogo-362186.png",
+      "source_page": "https://seeklogo.com/vector-logo/362186/billion-super-market"
+    },
+    {
+      "name": "EVERWIN",
+      "asset": "/chain-logos/everwin.jpg",
+      "image_source": "https://listings.caricari.my/laravel_project/public/storage/item/everwin-centre-sdn-bhd-601f69c066e577aefa8abde36d4a1fdb-2024-04-02-660b898f819f4.jpg",
+      "source_page": "https://listings.caricari.my/listing/everwin-centre-sdn-bhd-601f69c066e577aefa8abde36d4a1fdb"
+    },
+    {
+      "name": "PKT",
+      "asset": "/chain-logos/pkt.png",
+      "image_source": "https://files.ajobthing.com/employers/190355-1745291902.png",
+      "source_page": "https://www.maukerja.my/en/company/pkt-wholesale-warehouse-sdn-bhd"
+    },
+    {
+      "name": "HERO",
+      "asset": "/chain-logos/hero.jpg",
+      "image_source": "https://assets.theedgemarkets.com/Hero.jpg",
+      "source_page": "https://theedgemalaysia.com/node/665227"
+    },
+    {
+      "name": "PANTAI TIMUR",
+      "asset": null,
+      "status": "unavailable",
+      "note": "Only storefront imagery found. Kept separate from PANTAI TIMOR because the directory lists them as distinct chains."
+    },
+    {
+      "name": "PANTAI TIMOR",
+      "asset": "/chain-logos/pantai-timor.jpg",
+      "image_source": "https://www.sagamje.com.my/Data/Sites/1/media/customers/logo-pantai-timur1.jpg",
+      "source_page": "https://www.sagamje.com.my/satisfied-customer"
+    },
+    {
+      "name": "MASLEE",
+      "asset": "/chain-logos/maslee.png",
+      "image_source": "https://www.zubirfood.com/data/cms/images/masleee.png",
+      "source_page": "https://www.zubirfood.com/"
+    },
+    {
+      "name": "VILLAGE GROCER",
+      "asset": "/chain-logos/village-grocer.jpg",
+      "image_source": "https://www.aussiebeefandlamb.my/contentassets/6752f6ace23a4d7fb9971de7b177aed0/village-grocer-logo.jpg",
+      "source_page": "https://www.aussiebeefandlamb.my/en-us/where-to-buy/"
+    },
+    {
+      "name": "NSK",
+      "asset": "/chain-logos/nsk.png",
+      "image_source": "https://cdn.store-assets.com/s/400214/f/10603806.png",
+      "source_page": "https://www.tishasfood.com.my/pages/market-selangor"
+    },
+    {
+      "name": "THE STORE",
+      "asset": "/chain-logos/the-store.png",
+      "image_source": "https://images.seeklogo.com/logo-png/28/1/the-store-logo-png_seeklogo-284997.png",
+      "source_page": "https://seeklogo.com/vector-logo/284997/the-store"
+    },
+    {
+      "name": "JAYA GROCER",
+      "asset": "/chain-logos/jaya-grocer.png",
+      "image_source": "https://preorder.cheese.jayagrocer.com/cdn/shop/files/logo_with_trolley_Stroke.png?height=628&pad_color=ffffff&v=1761012814&width=1200",
+      "source_page": "https://preorder.cheese.jayagrocer.com/"
+    },
+    {
+      "name": "SALAMKU",
+      "asset": null,
+      "status": "unavailable",
+      "note": "Found employer and recruitment graphics, but no clean standalone chain mark."
+    },
+    {
+      "name": "PASARAYA BS",
+      "asset": "/chain-logos/pasaraya-bs.png",
+      "image_source": "https://cdn.store-assets.com/s/400214/f/10560834.png",
+      "source_page": "https://www.tishasfood.com.my/pages/market-terengganu",
+      "note": "The mark reads BS Freshmart."
+    },
+    {
+      "name": "DOREMART",
+      "asset": "/chain-logos/doremart.png",
+      "image_source": "https://images.seeklogo.com/logo-png/55/1/doremart-logo-png_seeklogo-551008.png",
+      "source_page": "https://seeklogo.com/vector-logo/551008/doremart"
+    },
+    {
+      "name": "PACIFIC",
+      "asset": "/chain-logos/pacific.png",
+      "image_source": "https://pacificgrocer-dept.com.my/images/logo-footer.png",
+      "source_page": "https://pacificgrocer-dept.com.my/",
+      "note": "Official site logo is only 110 × 27 px and may look soft when enlarged."
+    },
+    {
+      "name": "PASARAYA LYC",
+      "asset": null,
+      "status": "unavailable",
+      "note": "Found a company page and store collage, but no clean standalone logo."
+    },
+    {
+      "name": "TARGET",
+      "asset": null,
+      "status": "unavailable",
+      "note": "This is the Batu Pahat retailer; no clean local chain logo found."
+    },
+    {
+      "name": "EMART",
+      "asset": "/chain-logos/emart.png",
+      "image_source": "https://mall.emart.my/wp-content/uploads/2024/03/Emart-Group-Logo-02.png",
+      "source_page": "https://mall.emart.my/outlet/emart-tudan/"
+    },
+    {
+      "name": "ECONJAYA",
+      "asset": null,
+      "status": "unavailable",
+      "note": "Found storefront signs but no clean standalone chain mark."
+    }
+  ]
+}

@@ -18,6 +18,11 @@ This is the Next.js development copy of the Iteration 1 React prototype. The mob
    `../backend/.env`.
 7. Run `pnpm dev` and open `http://localhost:3000`.
 
+Catalogue thumbnails are pre-compressed, versioned WebP assets so Vercel can
+serve them directly from its CDN without transforming each image at request
+time. If the source PNG set changes, regenerate them with
+`pnpm optimize:catalogue-images`.
+
 ## Current implementation
 
 The live item search and the location and recommendation flow all call the
@@ -54,9 +59,10 @@ The UI covers:
   combined-cost ranking with transparent missing-price coverage; fallback
   responses explain that travel limits and route feasibility are unverified.
 - `POST /api/premises/{premiseId}/basket-alternatives` checks the selected
-  premise for one cheaper strict equivalent per basket line. Applying an
-  alternative updates the in-memory basket, exposes the saving, and keeps an
-  Undo action available in both the store overview and basket.
+  premise for one lower-priced, name-similar item in the same category and
+  package basis per basket line. Applying an alternative updates the in-memory
+  basket, exposes the saving, and keeps an Undo action available in both the
+  store overview and basket.
 
 Run `pnpm lint` and `pnpm build` here and `python -m pytest` in `../backend`
 before handoff. See

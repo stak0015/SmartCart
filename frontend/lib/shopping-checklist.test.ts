@@ -26,6 +26,8 @@ import {
   validateManualChecklistItem,
 } from "./shopping-checklist";
 
+const category = { id: "cooking-ingredients" as const, labelEn: "Cooking Ingredients", labelMs: "Bahan Masakan", spendingClass: "essential" as const };
+
 const store: StoreRecommendation = {
   premiseId: "10",
   premiseCode: "P10",
@@ -48,6 +50,7 @@ const store: StoreRecommendation = {
       itemName: "Cooking oil",
       itemNameEn: "Cooking oil",
       itemNameMs: "Minyak masak",
+      category,
       packageSize: "1 kg",
       quantity: 2,
       unitPriceRm: 5,
@@ -60,6 +63,7 @@ const store: StoreRecommendation = {
       itemName: "Rice",
       itemNameEn: "Rice",
       itemNameMs: "Beras",
+      category,
       packageSize: "5 kg",
       quantity: 1,
       unitPriceRm: 5,
@@ -72,6 +76,7 @@ const store: StoreRecommendation = {
       itemName: "Soap",
       itemNameEn: "Soap",
       itemNameMs: "Sabun",
+      category: null,
       packageSize: "3 pack",
       quantity: 1,
       unitPriceRm: null,
@@ -109,6 +114,7 @@ const details: RecommendationDetailRow[] = [
       saraEligible: true,
       saraCategoryCandidate: true,
       isSaraCreditCandidate: true,
+      category,
     },
     current: {
       itemId: "4",
@@ -124,6 +130,7 @@ const details: RecommendationDetailRow[] = [
       saraEligible: false,
       saraCategoryCandidate: false,
       isSaraCreditCandidate: false,
+      category,
     },
     alternatives: {
       quantity: 2,
@@ -141,6 +148,7 @@ const details: RecommendationDetailRow[] = [
         saraEligible: true,
         saraCategoryCandidate: true,
         isSaraCreditCandidate: true,
+        category,
       },
       alternative: null,
       savingsRm: null,
@@ -163,6 +171,7 @@ const details: RecommendationDetailRow[] = [
       saraEligible: null,
       saraCategoryCandidate: true,
       isSaraCreditCandidate: true,
+      category,
     },
     current: {
       itemId: "2",
@@ -178,6 +187,7 @@ const details: RecommendationDetailRow[] = [
       saraEligible: null,
       saraCategoryCandidate: true,
       isSaraCreditCandidate: true,
+      category,
     },
     alternatives: {
       quantity: 1,
@@ -195,6 +205,7 @@ const details: RecommendationDetailRow[] = [
         saraEligible: null,
         saraCategoryCandidate: true,
         isSaraCreditCandidate: true,
+        category,
       },
       alternative: null,
       savingsRm: null,
@@ -492,6 +503,7 @@ describe("manual item validation", () => {
       unitPriceRm: null,
       lineTotalRm: null,
       priceSource: "manual",
+      category: null,
     });
     expect(parseShoppingChecklist(serializeShoppingChecklist(added))).toEqual(added);
   });
@@ -540,6 +552,25 @@ describe("shopping checklist persistence", () => {
     expect(migrated?.plannedCombinedTotalRm).toBeNull();
     expect(migrated?.items).toEqual(checklist.items);
     expect(migrated?.store).toEqual(checklist.store);
+  });
+
+  it("migrates v5 catalogue lines without categories and rejects malformed persisted categories", () => {
+    const checklist = checklistFromDetails();
+    const legacy = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
+    legacy.version = 5;
+    legacy.items = (legacy.items as Record<string, unknown>[]).map(item => {
+      const copy = { ...item };
+      delete copy.category;
+      return copy;
+    });
+
+    const migrated = parseShoppingChecklist(JSON.stringify(legacy));
+    expect(migrated?.items.map(item => item.category)).toEqual([null, null]);
+    const malformed = JSON.parse(JSON.stringify(legacy)) as Record<string, unknown>;
+    (malformed.items as Record<string, unknown>[])[0].category = {
+      id: "unknown", labelEn: "Unknown", labelMs: "Unknown", spendingClass: "other",
+    };
+    expect(parseShoppingChecklist(JSON.stringify(malformed))).toBeNull();
   });
 
   it("drops unknown versions and non-object payloads without throwing", () => {

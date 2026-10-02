@@ -17,6 +17,7 @@ function line(overrides: Partial<TripRecordLine> = {}): TripRecordLine {
     itemName: "Rice",
     itemNameEn: "Rice",
     itemNameMs: "Beras",
+    category: null,
     packageSize: "5 kg",
     quantity: 1,
     actualQuantity: null,
@@ -32,7 +33,7 @@ function line(overrides: Partial<TripRecordLine> = {}): TripRecordLine {
 }
 
 function record(overrides: Partial<TripRecord> = {}): TripRecord {
-  return {
+  const result: TripRecord = {
     version: TRIP_HISTORY_VERSION,
     id: "trip-1",
     recordedAt: "2026-09-14T08:00:00.000Z",
@@ -47,6 +48,15 @@ function record(overrides: Partial<TripRecord> = {}): TripRecord {
     lines: [line()],
     ...overrides,
   };
+  if (overrides.lines === undefined && overrides.actualTotalRm != null) {
+    result.lines = [line({
+      status: "bought" as ChecklistStatus,
+      unitPriceRm: null,
+      actualPriceRm: overrides.actualTotalRm,
+      actualQuantity: 1,
+    })];
+  }
+  return result;
 }
 
 describe("periodSummary - AC 8.1.1 weekly confirmed total", () => {
@@ -66,9 +76,9 @@ describe("periodSummary - AC 8.1.1 weekly confirmed total", () => {
 
   it("excludes records from the previous and next week", () => {
     const records = [
-      record({ id: "prev", recordedAt: "2026-09-13T23:00:00.000Z", actualTotalRm: 100 }),
+      record({ id: "prev", recordedAt: "2026-09-13T15:59:59.000Z", actualTotalRm: 100 }),
       record({ id: "this", recordedAt: "2026-09-14T08:00:00.000Z", actualTotalRm: 20 }),
-      record({ id: "next", recordedAt: "2026-09-21T00:00:00.000Z", actualTotalRm: 100 }),
+      record({ id: "next", recordedAt: "2026-09-20T16:00:00.000Z", actualTotalRm: 100 }),
     ];
 
     const summary = periodSummary(records, "weekly", NOW);
@@ -80,19 +90,19 @@ describe("periodSummary - AC 8.1.1 weekly confirmed total", () => {
   it("runs the weekly period from Monday", () => {
     const summary = periodSummary([], "weekly", NOW);
 
-    expect(summary.periodStart).toBe("2026-09-14T00:00:00.000Z");
-    expect(summary.periodEnd).toBe("2026-09-21T00:00:00.000Z");
+    expect(summary.periodStart).toBe("2026-09-13T16:00:00.000Z");
+    expect(summary.periodEnd).toBe("2026-09-20T16:00:00.000Z");
   });
 
   it("follows the monthly cadence when selected", () => {
     const records = [
-      record({ id: "aug", recordedAt: "2026-08-31T23:00:00.000Z", actualTotalRm: 100 }),
+      record({ id: "aug", recordedAt: "2026-08-31T15:59:59.000Z", actualTotalRm: 100 }),
       record({ id: "sep", recordedAt: "2026-09-01T00:00:00.000Z", actualTotalRm: 30 }),
     ];
 
     const summary = periodSummary(records, "monthly", NOW);
 
-    expect(summary.periodStart).toBe("2026-09-01T00:00:00.000Z");
+    expect(summary.periodStart).toBe("2026-08-31T16:00:00.000Z");
     expect(summary.tripCount).toBe(1);
     expect(summary.confirmedSpendingRm).toBe(30);
   });
@@ -140,7 +150,12 @@ describe("periodSummary - AC 8.1.2 estimates stay estimates", () => {
   it("keeps the estimate out of the total when one trip is confirmed and another is not", () => {
     const records = [
       record({ id: "a", actualTotalRm: 20 }),
-      record({ id: "b", actualTotalRm: null, plannedCombinedTotalRm: 40 }),
+      record({
+        id: "b",
+        actualTotalRm: null,
+        plannedCombinedTotalRm: 40,
+        lines: [line({ status: "bought" as ChecklistStatus, unitPriceRm: null })],
+      }),
     ];
 
     const summary = periodSummary(records, "weekly", NOW);
@@ -176,7 +191,7 @@ describe("periodSummary - AC 8.1.4 no confirmed expenses for the period", () => 
   it("distinguishes 'records exist' from 'confirmed spending exists'", () => {
     const records = [record({
       actualTotalRm: null,
-      lines: [line({ status: "bought", actualLineTotalRm: null })],
+      lines: [line({ status: "bought", unitPriceRm: null, actualPriceRm: null })],
     })];
 
     const summary = periodSummary(records, "weekly", NOW);
@@ -190,7 +205,7 @@ describe("periodSummary - AC 8.1.4 no confirmed expenses for the period", () => 
     const records = [record({
       actualTotalRm: 10,
       lines: [
-        line({ id: "a", status: "bought", actualLineTotalRm: 10 }),
+        line({ id: "a", status: "bought", actualPriceRm: 10 }),
         line({ id: "b", status: "bought", unitPriceRm: null, priceSource: null, actualLineTotalRm: null }),
       ],
     })];
@@ -365,7 +380,7 @@ describe("periodComparison - cadence boundaries", () => {
     // NOW is mid-September; the previous monthly period is August.
     const records = [
       record({ id: "sep", recordedAt: "2026-09-01T08:00:00.000Z", actualTotalRm: 10 }),
-      record({ id: "aug", recordedAt: "2026-08-31T23:00:00.000Z", actualTotalRm: 20 }),
+      record({ id: "aug", recordedAt: "2026-08-31T15:59:59.000Z", actualTotalRm: 20 }),
     ];
 
     const comparison = periodComparison(records, "monthly", NOW);
@@ -379,7 +394,7 @@ describe("periodComparison - cadence boundaries", () => {
     const firstOfJanuary = new Date("2027-01-05T10:00:00.000Z");
     const records = [
       record({ id: "jan", recordedAt: "2027-01-01T08:00:00.000Z", actualTotalRm: 10 }),
-      record({ id: "dec", recordedAt: "2026-12-31T23:00:00.000Z", actualTotalRm: 20 }),
+      record({ id: "dec", recordedAt: "2026-12-31T15:59:59.000Z", actualTotalRm: 20 }),
     ];
 
     const comparison = periodComparison(records, "monthly", firstOfJanuary);
