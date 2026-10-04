@@ -1,0 +1,92 @@
+AC 4i.7.3 README - Item-level festival price statistics and category summaries
+AC 4i.7.3 交付说明 - 逐商品节日价格统计与类别汇总
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增逐商品节日价格统计模块：在“商品 × 节日 × 州属窗口”的原始门店
+  观测上执行 3σ 剔除，再计算商品 × 日期的中位价格。
+- 对每个价格覆盖商品计算 baseline、peak、recovery 三个实际价格，以及
+  涨幅、恢复跌幅和相对 baseline 的恢复百分比。
+- 新增上涨状态 rise_status：rise 表示峰值高于 baseline；flat_or_fall
+  表示窗口数据完整但未上涨。
+- 商品级样本规则：最少 3 个有效观测日；3 至 13 天标记 limited；14 天
+  及以上标记 full；少于 3 天标记 insufficient_baseline。
+- 复用 backend/smartcart/categories.py 的 11 个广义类别，逐商品行带
+  broad_category_id，并输出类别汇总，包括商品数、上涨商品数、平均涨幅、
+  上涨商品平均涨幅、中位涨幅和平均恢复百分比。
+- 新增离线全量脚本：读取 AC 4i.7.2 的窗口 JSON，一次流式扫描 PriceCatcher
+  CSV，按州分片后在内存中逐州处理，输出 festival_price_stats.json。
+- 全量运行结果：68 个节日-州属窗口，20,928 行逐商品统计，18,192 行 ok，
+  10,146 行 rise，612 行类别汇总。
+- 本提交只交付离线 JSON 数据底座，不修改 PostgreSQL schema，不实现 API
+  或前端页面。
+
+English:
+- Adds an item-level festival price statistics module: 3-sigma exclusion is
+  applied to raw premise observations within each item / festival / state
+  window before daily item median prices are calculated.
+- Calculates baseline, peak, and recovery actual prices for every
+  price-covered item, together with rise percentage, recovery percentage, and
+  recovery relative to baseline.
+- Adds rise_status: rise means the peak is above baseline; flat_or_fall means
+  the window is complete but the item did not rise.
+- Item-level sample rules: at least 3 observed days; 3 to 13 days are marked
+  limited; 14 days or more are marked full; fewer than 3 days are marked
+  insufficient_baseline.
+- Reuses the 11 broad categories from backend/smartcart/categories.py, adds
+  broad_category_id to every item row, and outputs category summaries with
+  item counts, rising-item counts, average rise, average positive rise, median
+  rise, and average recovery percentage.
+- Adds an offline full-run script: it reads the AC 4i.7.2 windows JSON, streams
+  the PriceCatcher CSV once into per-state partitions, processes each state in
+  memory, and writes festival_price_stats.json.
+- Full run result: 68 festival-state windows, 20,928 item rows, 18,192 ok rows,
+  10,146 rise rows, and 612 category summaries.
+- This commit delivers the offline JSON foundation only. It does not change the
+  PostgreSQL schema and does not implement an API or frontend page.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 单元测试：在 backend 目录运行
+  python -m pytest tests/test_festival_price_stats.py
+    tests/test_festival_analytics.py -q
+  预期 41 项通过。
+- 先生成窗口 JSON：
+  python database/compute_festival_stats.py --data-dir <数据目录>
+    --register data/festivals.json --out <窗口 JSON>
+- 再生成逐商品统计：
+  python database/compute_festival_price_stats.py --data-dir <数据目录>
+    --windows <窗口 JSON> --lookup-item <数据目录>/lookup_item.csv
+    --out <逐商品 JSON>
+- 预期输出：68 个窗口、20,928 行逐商品统计、18,192 行 ok、
+  10,146 行 rise、612 行类别汇总。
+- 完整性检查：ok 行必须同时存在 baseline、peak、recovery 价格和日期；
+  peak_date 不得晚于 recovery_date；rise 状态必须对应正涨幅。
+
+English:
+- Unit tests: from the backend directory run
+  python -m pytest tests/test_festival_price_stats.py
+    tests/test_festival_analytics.py -q
+  Expect 41 passing tests.
+- Generate the windows JSON first:
+  python database/compute_festival_stats.py --data-dir <data-dir>
+    --register data/festivals.json --out <windows.json>
+- Then generate item-level statistics:
+  python database/compute_festival_price_stats.py --data-dir <data-dir>
+    --windows <windows.json> --lookup-item <data-dir>/lookup_item.csv
+    --out <price-stats.json>
+- Expected output: 68 windows, 20,928 item rows, 18,192 ok rows,
+  10,146 rise rows, and 612 category summaries.
+- Integrity checks: every ok row must contain baseline, peak, and recovery
+  prices and dates; peak_date must not be later than recovery_date; rise status
+  must correspond to a positive rise percentage.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/festival_price_stats.py（新增 / new）
+- database/compute_festival_price_stats.py（新增 / new）
+- backend/tests/test_festival_price_stats.py（新增 / new）
+- AC4i.7.3README.txt（新增 / new）
