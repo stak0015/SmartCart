@@ -131,6 +131,8 @@ def search_catalogue(
     categories: list[str] | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     keyword = f"%{query.strip()}%"
+    normalized_query = query.strip()
+    prefix_query = f"{normalized_query}%"
     selected_categories = [
         category.strip() for category in categories or [] if category.strip()
     ]
@@ -161,17 +163,33 @@ def search_catalogue(
 
         cursor.execute(
             f"""
+            WITH priced_items AS (
+                SELECT item_id, COUNT(DISTINCT premise_id) AS price_store_count
+                FROM current_status
+                WHERE current_price > 0
+                GROUP BY item_id
+            )
             SELECT i.item_id, i.item_code, i.item_name, i.unit, i.item_category,
                    i.sara_eligible,
                    {translation_select_columns()}
             FROM item i
             {joins}
+            LEFT JOIN priced_items coverage ON coverage.item_id = i.item_id
             WHERE {where}
-            ORDER BY i.item_name
+            ORDER BY
+                CASE
+                    WHEN %s = '' THEN 0
+                    WHEN LOWER(COALESCE(i.item_name, '')) = LOWER(%s) THEN 0
+                    WHEN COALESCE(i.item_name, '') ILIKE %s THEN 1
+                    ELSE 2
+                END,
+                COALESCE(coverage.price_store_count, 0) DESC,
+                CASE WHEN i.median_price_rm IS NOT NULL AND i.median_price_rm > 0 THEN 1 ELSE 0 END DESC,
+                i.item_name
             LIMIT %s
             OFFSET %s
             """,
-            (*params, page_size, offset),
+            (*params, normalized_query, normalized_query, prefix_query, page_size, offset),
         )
         columns = [
             "item_id",
@@ -206,6 +224,7 @@ def search_catalogue(
         # issue a failed request for every catalogue row without an image.
         row["image_url"] = catalogue_image_url(row["item_code"])
     return rows, total
+
 
 
 def list_catalogue_categories() -> list[str]:
@@ -246,3 +265,99 @@ def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[
             }
             for item_id, low, high, count, observed in cursor.fetchall()
         }
+
+
+def catalogue_median_prices(item_codes: list[str]) -> dict[str, float]:
+    """Return the cached cross-store median price for each item code."""
+
+    if not item_codes:
+        return {}
+    with database_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT item_code, median_price_rm
+            FROM item
+            WHERE item_code = ANY(%s::varchar[])
+            """,
+            (list(item_codes),),
+        )
+        return {
+            str(item_code): float(value)
+            for item_code, value in cursor.fetchall()
+            if value is not None
+        }
+
+
+def catalogue_item_summaries(item_codes: list[str]) -> dict[str, dict[str, Any]]:
+    """Return catalogue display and basket fields keyed by item code.
+
+    Festival statistics use item codes, while the existing basket and
+    checklist flows use the numeric catalogue item_id. This adapter keeps that
+    boundary explicit and avoids inventing an item_id on the frontend.
+    """
+
+    if not item_codes:
+        return {}
+    with database_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT item_id, item_code, item_name, item_name_en, unit,
+                   item_category, sara_eligible, median_price_rm
+            FROM item
+            WHERE item_code = ANY(%s::varchar[])
+            """,
+            (list(item_codes),),
+        )
+        summaries: dict[str, dict[str, Any]] = {}
+        for (
+            item_id,
+            item_code,
+            item_name,
+            item_name_en,
+            unit,
+            item_category,
+            sara_eligible,
+            median_price_rm,
+        ) in cursor.fetchall():
+            code = str(item_code)
+            category = category_for_raw(item_category)
+            source_category = source_category_for_raw(item_category)
+            summaries[code] = {
+                "item_id": str(item_id),
+                "item_code": code,
+                "item_name": item_name or code,
+                "item_name_en": item_name_en or item_name or code,
+                "item_name_ms": item_name or code,
+                "unit": unit or "",
+                "package_size": display_package_size(item_name, unit) or "",
+                "category": category.model_dump(by_alias=True) if category else None,
+                "source_category": (
+                    source_category.model_dump(by_alias=True)
+                    if source_category
+                    else None
+                ),
+                "image_url": catalogue_image_url(code),
+                "sara_eligible": sara_eligible,
+                "sara_category_candidate": is_sara_category_candidate(item_category),
+                "current_price_rm": (
+                    float(median_price_rm) if median_price_rm is not None else None
+                ),
+            }
+        return summaries
+
+
+def catalogue_item_codes_by_ids(item_ids: list[int]) -> dict[str, str]:
+    """Map numeric catalogue ids to the item codes used by festival data."""
+
+    if not item_ids:
+        return {}
+    with database_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT item_id, item_code
+            FROM item
+            WHERE item_id = ANY(%s::bigint[])
+            """,
+            (list(item_ids),),
+        )
+        return {str(item_id): str(item_code) for item_id, item_code in cursor.fetchall()}

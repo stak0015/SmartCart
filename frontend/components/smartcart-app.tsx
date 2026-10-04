@@ -7,6 +7,7 @@ import { CatalogueItemImage } from "./catalogue-item-image";
 import { StoreChainLogo } from "./store-chain-logo";
 import FestivalPricesScreen from "./festival-prices";
 import FestivalAlertBanner from "./festival-alert-banner";
+import { FestivalItemForecast } from "./festival-item-forecast";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
@@ -55,6 +56,7 @@ import {
   ShoppingChecklistScreen,
 } from "@/components/shopping-checklist";
 import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
+import { FestivalEarlyPurchaseSaving } from "./festival-early-purchase-saving";
 import {
   SmartCartHomeScreen,
   HomeToolIcon,
@@ -63,6 +65,7 @@ import {
 import { ReceiptHistoryScreen, ReportConsentDialog, ReportScreen, type ConsentDialogMode, type ReportGenerationUiState } from "@/components/report-screens";
 import { mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
+import { festivalTopItemToBasketItem } from "@/lib/festival-items";
 import { uppercaseItemName } from "@/lib/item-name";
 import { localizedPackageSize } from "@/lib/package-size";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -840,6 +843,7 @@ function BasketScreen({
           <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
+          <FestivalItemForecast item={selectedItem} locale={locale}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
           {selectedItem.price_range && <p>{locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
           {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
@@ -1757,6 +1761,7 @@ function RecommendationOverview({
               <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={beginChecklistCreation}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist} →</button>
             </section>
             {!alternativesLoading && <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale}/>}
+            {!alternativesLoading && <FestivalEarlyPurchaseSaving store={store} locale={locale}/>}
           </aside>
         </div>
       </div>
@@ -2608,7 +2613,7 @@ export default function App() {
           />
         ) : null}
         {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} onDeleteTrip={deleteTripFromHistory} /> : null}
-        {screen === "festivals" ? <FestivalPricesScreen locale={locale} /> : null}
+        {screen === "festivals" ? <FestivalPricesScreen locale={locale} onAddToBasket={item => setBasket(current => upsertBasketLine(current, festivalTopItemToBasketItem(item)))} /> : null}
         {screen === "inbox" ? (
           <ReportScreen
             state={inbox}

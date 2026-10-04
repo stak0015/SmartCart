@@ -1,0 +1,147 @@
+US 4i.3–4i.6 README - Per-item festival estimates, recommendations, and early-purchase savings
+US 4i.3–4i.6 交付说明 - 逐商品节庆估价、采购推荐与提前采购节省
+================================================================
+
+1. What this change does / 本次交付内容
+----------------------------------------------------------------
+中文：
+- 新增逐商品节庆估价接口：
+  GET /api/festivals/{festival_id}/items?state={state}
+- 完整数据商品使用自身 baseline/peak 窗口，展示预计价格区间、历史涨幅、
+  历史窗口、观察数和样本天数。
+- 价格数据不完整的商品在存在当前中位价时，按节日-州属平均涨价比例
+  换算预计区间，并显示 Estimated from the festival average rise。
+- 无可用基准价时返回 unavailable，不编造价格。
+- 新增历史涨幅 Top 10 推荐：
+  GET /api/festivals/{festival_id}/top-items?state={state}&limit=10
+- 推荐只取完整样本、正涨幅的逐商品统计；当前价使用跨店中位补值；
+  节庆特有关键商品显示独立标记。
+- 推荐项可通过既有购物篮加入，数量为 1；没有 catalogue item_id 或
+  当前价时禁用加入按钮。
+- 新增提前采购节省核算：
+  POST /api/festivals/early-purchase-savings
+- 提前采购节省只使用历史同期价格；购买日期必须在对应节前涨价窗口内，
+  且成交单价低于历史同期均价时才计入。
+- Shopping history 单独显示 Early-purchase savings 总额和逐记录金额，
+  不与常规比价节省合并。
+- estimated_price_method_version=4i.6.1-v1；不修改 PostgreSQL schema，
+  不持久化购买明细。
+
+English:
+- Adds the per-item festival estimate endpoint:
+  GET /api/festivals/{festival_id}/items?state={state}
+- Items with complete history use their own baseline/peak window and show the
+  expected price range, historical rise percentage, history window, observation
+  count, and observed days.
+- Incomplete items with a current median price use the festival-state average
+  rise ratio and are labelled "Estimated from the festival average rise".
+- Items without a usable baseline return unavailable; no price is invented.
+- Adds historical top-ten recommendations:
+  GET /api/festivals/{festival_id}/top-items?state={state}&limit=10
+- Recommendations use complete-sample, positive item-level rises only. Current
+  price uses the cached cross-store median, and festival-specific items carry a
+  separate badge.
+- A recommendation can be added to the existing basket with quantity 1. Add is
+  disabled when the catalogue item id or current price is unavailable.
+- Adds early-purchase savings:
+  POST /api/festivals/early-purchase-savings
+- Only historical same-period prices are eligible. A purchase counts only when
+  its date is inside the festival-state rise window and its paid unit price is
+  below the historical average.
+- Shopping history shows a separate Early-purchase savings total and per-record
+  amount; it is never merged into ordinary comparison savings.
+- estimated_price_method_version=4i.6.1-v1. No PostgreSQL schema change and no
+  purchase-detail persistence.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 后端测试：
+  ..\..\SmartCart\backend\.venv\Scripts\python.exe -m pytest
+    tests\test_festivals.py tests\test_festival_specialty.py
+    tests\test_festival_dataset.py tests\test_festival_price_stats.py
+    tests\test_festival_analytics.py tests\test_catalogue_ranking.py -q
+  预期 74 项通过。
+- 前端：
+  node_modules\.bin\tsc --noEmit
+  node_modules\.bin\vitest run lib\festival-chart.test.ts
+    lib\festival-alert-state.test.ts lib\festival-items.test.ts
+    lib\festival-savings.test.ts
+  node_modules\.bin\next build
+  预期类型检查通过、13 项测试通过、生产构建成功。
+- API 检查：
+  GET /api/festivals/wesak-2026/items?state=Selangor
+  GET /api/festivals/wesak-2026/top-items?state=Selangor
+  POST /api/festivals/early-purchase-savings
+  GET /api/festivals/item-forecast?item_id=2&state=Selangor&on=2025-12-01
+  POST /api/festivals/early-purchase-preview
+- 页面检查：
+  /festivals?festival=christmas-2025&state=Selangor
+  /festivals?festival=wesak-2026&state=Selangor
+  /history
+- 限制：没有配置 PostgreSQL 时，中位价和 item_id 缺失，页面显示
+  Price unavailable 并禁用加入；推算与提前采购节省的真实换算由服务层
+  单元测试覆盖。
+
+English:
+- Backend tests:
+  ..\..\SmartCart\backend\.venv\Scripts\python.exe -m pytest
+    tests\test_festivals.py tests\test_festival_specialty.py
+    tests\test_festival_dataset.py tests\test_festival_price_stats.py
+    tests\test_festival_analytics.py tests\test_catalogue_ranking.py -q
+  Expect 74 passing tests.
+- Frontend:
+  node_modules\.bin\tsc --noEmit
+  node_modules\.bin\vitest run lib\festival-chart.test.ts
+    lib\festival-alert-state.test.ts lib\festival-items.test.ts
+    lib\festival-savings.test.ts
+  node_modules\.bin\next build
+  Expect type-check success, 13 passing tests, and a successful build.
+- API checks:
+  GET /api/festivals/wesak-2026/items?state=Selangor
+  GET /api/festivals/wesak-2026/top-items?state=Selangor
+  POST /api/festivals/early-purchase-savings
+  GET /api/festivals/item-forecast?item_id=2&state=Selangor&on=2025-12-01
+  POST /api/festivals/early-purchase-preview
+- Page checks:
+  /festivals?festival=christmas-2025&state=Selangor
+  /festivals?festival=wesak-2026&state=Selangor
+  /history
+- Limitation: without PostgreSQL, median prices and catalogue item ids are
+  unavailable, so the page shows Price unavailable and disables Add. The
+  derived-price and early-purchase calculations are covered by service tests.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/catalogue.py
+- backend/smartcart/festival_service.py
+- backend/smartcart/festivals.py
+- backend/tests/test_festivals.py
+- backend/tests/test_catalogue_ranking.py
+- docs/festival-price-methods.md
+- frontend/components/festival-prices.tsx
+- frontend/components/report-screens.tsx
+- frontend/components/smartcart-app.tsx
+- frontend/lib/festival-api.ts
+- frontend/lib/festival-contracts.ts
+- frontend/lib/festival-items.ts
+- frontend/lib/festival-items.test.ts
+- frontend/lib/festival-savings.ts
+- frontend/lib/festival-savings.test.ts
+- frontend/components/festival-item-forecast.tsx
+- frontend/components/festival-early-purchase-saving.tsx
+- frontend/lib/festival-context.ts
+- docs/evidence/epic4i.3screenshot-zhihao/（7 张验收截图）
+- US4i.3-4i.6README.txt
+
+4. Additional product-surface ACs / 新增商品界面 AC
+----------------------------------------------------------------
+中文：
+- AC 4i.3.5：商品选择卡片在生效节前窗口内显示节日名称、预计上涨百分比范围、预计价格范围和提前购买提醒。
+- AC 4i.3.6：结算侧栏新增独立的“提前购买预计可省”，按 max(0, 预计最高价 - 实际成交单价) × 数量计算；仅门店实际价格参与，不与常规比价节省合并。
+- AC 4i.3.7：默认商品列表和搜索结果按匹配度、门店价格覆盖数、中位价可用性、商品名排序；无价格商品置底。
+
+English:
+- AC 4i.3.5: the product selection card shows the festival name, expected rise percentage range, expected price range, and an early-purchase reminder while the pre-festival window is active.
+- AC 4i.3.6: checkout shows a separate estimated early-purchase saving calculated as max(0, forecast maximum price - actual store unit price) x quantity. Only actual store prices participate, and the amount is not merged with comparison savings.
+- AC 4i.3.7: default product browsing and search results are ordered by match tier, store-price coverage, median-price availability, and item name. Items without prices appear last.

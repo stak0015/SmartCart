@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { getFestivalAlerts } from "@/lib/festival-api";
 import type { FestivalAlert } from "@/lib/festival-contracts";
 import {
+  ALERT_DATE_STORAGE_KEY,
   ALERT_STATE_STORAGE_KEY,
   MALAYSIA_STATES,
   inferStateFromLabel,
@@ -13,6 +14,7 @@ import {
   type MalaysiaState,
 } from "@/lib/festival-alert-state";
 import type { Locale } from "@/lib/i18n";
+import { rememberFestivalContext } from "@/lib/festival-context";
 
 const DISMISSED_KEY = "smartcart.festival-alert-dismissed";
 
@@ -81,12 +83,18 @@ export default function FestivalAlertBanner({
     setDismissed(readDismissed());
     const params = new URLSearchParams(window.location.search);
     const queryState = params.get("alertState");
+    const queryDate = params.get("alertDate");
+    rememberFestivalContext(queryState, queryDate);
     const stored = sessionStorage.getItem(ALERT_STATE_STORAGE_KEY);
     const initial = inferStateFromLabel(locationLabel)
       ?? (isMalaysiaState(queryState) ? queryState : null)
       ?? (isMalaysiaState(stored) ? stored : null);
     if (initial) setSelectedState(initial);
-    setAlertDate(params.get("alertDate"));
+    if (isMalaysiaState(queryState)) {
+      sessionStorage.setItem(ALERT_STATE_STORAGE_KEY, queryState);
+    }
+    if (queryDate) sessionStorage.setItem(ALERT_DATE_STORAGE_KEY, queryDate);
+    setAlertDate(queryDate ?? sessionStorage.getItem(ALERT_DATE_STORAGE_KEY));
   }, [locationLabel]);
 
   useEffect(() => {

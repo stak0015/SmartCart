@@ -2,12 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getFestivalDetail, listFestivals } from "@/lib/festival-api";
+import { getFestivalDetail, getFestivalItems, getFestivalTopItems, listFestivals } from "@/lib/festival-api";
 import { buildChartData, chartGeometry, type FestivalChartMode } from "@/lib/festival-chart";
 import type {
   FestivalDetailResponse,
+  FestivalItemsResponse,
   FestivalSummary,
+  FestivalTopItem,
+  FestivalTopItemsResponse,
 } from "@/lib/festival-contracts";
+import { formatRm } from "@/lib/format-rm";
+import { sortFestivalItems, type FestivalItemSort } from "@/lib/festival-items";
 import type { Locale } from "@/lib/i18n";
 
 const TEXT = {
@@ -36,6 +41,26 @@ const TEXT = {
     unavailable: "—",
     festival: "Festival date",
     insufficient: "This festival has a limited sample and should be treated as indicative only.",
+    itemsTitle: "Expected price rises",
+    itemsDescription: "Every item with price data is shown with its own historical or derived estimate.",
+    sortHigh: "Highest rise first",
+    sortLow: "Lowest rise first",
+    priceRange: "Expected price range",
+    history: "History window",
+    samples: "samples",
+    days: "days",
+    measured: "Measured",
+    derived: "Estimated",
+    loadingItems: "Loading item estimates…",
+    noItems: "No item price estimates are available.",
+    topTitle: "Top 10 historical rises",
+    topDescription: "Item-level recommendations ranked by their own festival-window price change.",
+    specialty: "Festival-specific item",
+    currentPrice: "Current price",
+    add: "Add to basket",
+    added: "Added",
+    addUnavailable: "Price unavailable",
+    loadingTop: "Loading recommendations…",
   },
   ms: {
     eyebrow: "Bukti harga perayaan",
@@ -62,6 +87,26 @@ const TEXT = {
     unavailable: "—",
     festival: "Tarikh perayaan",
     insufficient: "Perayaan ini mempunyai sampel terhad dan hanya boleh dijadikan indikatif.",
+    itemsTitle: "Anggaran kenaikan harga",
+    itemsDescription: "Setiap item dengan data harga dipaparkan dengan anggaran sejarah atau terbitannya.",
+    sortHigh: "Kenaikan tertinggi dahulu",
+    sortLow: "Kenaikan terendah dahulu",
+    priceRange: "Julat harga dijangka",
+    history: "Tetingkap sejarah",
+    samples: "sampel",
+    days: "hari",
+    measured: "Diukur",
+    derived: "Dianggarkan",
+    loadingItems: "Memuatkan anggaran item…",
+    noItems: "Tiada anggaran harga item tersedia.",
+    topTitle: "10 kenaikan sejarah tertinggi",
+    topDescription: "Cadangan item disusun mengikut perubahan harga item itu sendiri dalam tetingkap perayaan.",
+    specialty: "Item khusus perayaan",
+    currentPrice: "Harga semasa",
+    add: "Tambah ke bakul",
+    added: "Ditambah",
+    addUnavailable: "Harga tidak tersedia",
+    loadingTop: "Memuatkan cadangan…",
   },
 } as const;
 
@@ -78,7 +123,13 @@ function formatValue(value: number, mode: FestivalChartMode): string {
   return mode === "percent" ? value.toFixed(2) + "%" : "RM " + value.toFixed(2);
 }
 
-export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
+export default function FestivalPricesScreen({
+  locale,
+  onAddToBasket,
+}: {
+  locale: Locale;
+  onAddToBasket: (item: FestivalTopItem) => void;
+}) {
   const text = TEXT[locale];
   const [festivals, setFestivals] = useState<FestivalSummary[]>([]);
   const [listStatus, setListStatus] = useState<"loading" | "ready" | "error">("loading");
@@ -89,6 +140,12 @@ export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
   const [chartMode, setChartMode] = useState<FestivalChartMode>("price");
   const [reloadToken, setReloadToken] = useState(0);
   // alertState will be handled by banner
+  const [items, setItems] = useState<FestivalItemsResponse | null>(null);
+  const [itemsStatus, setItemsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [itemSort, setItemSort] = useState<FestivalItemSort>("rise_desc");
+  const [topItems, setTopItems] = useState<FestivalTopItemsResponse | null>(null);
+  const [topStatus, setTopStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -135,6 +192,45 @@ export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
     return () => controller.abort();
   }, [selectedFestivalId, selectedState]);
 
+  useEffect(() => {
+    if (!detail) {
+      setItems(null);
+      return;
+    }
+    const controller = new AbortController();
+    setItemsStatus("loading");
+    getFestivalItems(detail.festival_id, detail.selected_state, controller.signal)
+      .then(payload => {
+        setItems(payload);
+        setItemsStatus("ready");
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setItemsStatus("error");
+      });
+    return () => controller.abort();
+  }, [detail]);
+
+  useEffect(() => {
+    if (!detail?.selected.significant) {
+      setTopItems(null);
+      setTopStatus("ready");
+      return;
+    }
+    const controller = new AbortController();
+    setTopStatus("loading");
+    getFestivalTopItems(detail.festival_id, detail.selected_state, controller.signal)
+      .then(payload => {
+        setTopItems(payload);
+        setTopStatus("ready");
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setTopStatus("error");
+      });
+    return () => controller.abort();
+  }, [detail]);
+
   const chartData = useMemo(() => {
     if (!detail) return [];
     return buildChartData(
@@ -146,6 +242,10 @@ export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
   const geometry = useMemo(
     () => chartGeometry(chartData, chartMode),
     [chartData, chartMode],
+  );
+  const sortedItems = useMemo(
+    () => sortFestivalItems(items?.items ?? [], itemSort),
+    [items, itemSort],
   );
 
   return (
@@ -249,14 +349,14 @@ export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
 
                   {geometry ? (
                     <div className="mt-3 overflow-x-auto rounded-xl border border-[#edf1ef] bg-[#fbfdfc] p-2">
-                      <svg role="img" aria-label={text.priceChart} viewBox="0 0 720 260" className="h-[260px] min-w-[620px] w-full">
+                      <svg role="img" aria-label={text.priceChart} viewBox="0 0 720 300" className="h-[300px] min-w-[620px] w-full">
                         {geometry.zeroX != null ? <line x1={geometry.zeroX} x2={geometry.zeroX} y1="20" y2="232" stroke="#9aa8a1" strokeDasharray="4 4" /> : null}
                         {geometry.zeroY != null ? <line x1="28" x2="692" y1={geometry.zeroY} y2={geometry.zeroY} stroke="#cbd8d1" strokeDasharray="4 4" /> : null}
                         <polyline points={geometry.points} fill="none" stroke="#007d38" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
                         <text x="30" y="18" className="fill-[#526078] text-[11px]">{formatValue(geometry.maxValue, chartMode)}</text>
-                        <text x="30" y="252" className="fill-[#526078] text-[11px]">{formatValue(geometry.minValue, chartMode)}</text>
-                        <text x="34" y="248" className="fill-[#526078] text-[11px]">{geometry.firstRelativeDay} days</text>
-                        <text x="620" y="248" className="fill-[#526078] text-[11px]">+{geometry.lastRelativeDay} days</text>
+                        <text x="30" y="244" className="fill-[#526078] text-[11px]">{formatValue(geometry.minValue, chartMode)}</text>
+                        <text x="34" y="282" className="fill-[#526078] text-[11px]">{geometry.firstRelativeDay} days</text>
+                        <text x="620" y="282" className="fill-[#526078] text-[11px]">+{geometry.lastRelativeDay} days</text>
                       </svg>
                     </div>
                   ) : (
@@ -264,6 +364,83 @@ export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
                   )}
                 </div>
 
+                <div className="border-t border-[#edf1ef] pt-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-extrabold uppercase tracking-wide text-[#526078]">{text.itemsTitle}</h3>
+                      <p className="mt-1 text-xs text-[#526078]">{text.itemsDescription}</p>
+                    </div>
+                    <button type="button" className="rounded-full border border-[#cbd8d1] px-3 py-2 text-xs font-bold text-[#007d38]" onClick={() => setItemSort(current => current === "rise_desc" ? "rise_asc" : "rise_desc")}>
+                      {itemSort === "rise_desc" ? text.sortHigh : text.sortLow}
+                    </button>
+                  </div>
+                  {itemsStatus === "loading" ? <p className="mt-3 text-sm text-[#526078]">{text.loadingItems}</p> : null}
+                  {itemsStatus === "error" ? <p className="mt-3 text-sm font-bold text-[#93000a]">{text.noItems}</p> : null}
+                  {itemsStatus === "ready" && sortedItems.length === 0 ? <p className="mt-3 text-sm text-[#526078]">{text.noItems}</p> : null}
+                  {itemsStatus === "ready" && sortedItems.length > 0 ? (
+                    <div className="mt-3 max-h-[520px] space-y-2 overflow-y-auto pr-1">
+                      {sortedItems.map(item => (
+                        <article key={item.item_code} className="rounded-xl border border-[#e4ebe7] bg-[#fbfdfc] p-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-extrabold text-[#10152e]">{item.item_name}</p>
+                              <p className="mt-0.5 text-xs text-[#526078]">{item.unit || "—"}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className={"text-base font-extrabold " + (item.data_quality === "measured" ? "text-[#007d38]" : item.data_quality === "derived" ? "text-[#9b5d00]" : "text-[#93000a]")}>
+                                {item.rise_pct == null ? "—" : item.rise_pct + "%"}
+                              </p>
+                              <span className={"rounded-full px-2 py-1 text-[10px] font-extrabold uppercase " + (item.data_quality === "measured" ? "bg-[#d9f4e5] text-[#006b31]" : item.data_quality === "derived" ? "bg-[#fff0cc] text-[#7a4b00]" : "bg-[#f1e2e2] text-[#93000a]")}>
+                                {text[item.data_quality]}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-2 grid gap-1 text-xs text-[#526078] sm:grid-cols-2">
+                            <p>{text.priceRange}: {item.price_range == null ? "—" : "RM " + item.price_range.min + " – RM " + item.price_range.max}</p>
+                            <p>{text.history}: {dateLabel(item.history_start, locale)} – {dateLabel(item.history_end, locale)}</p>
+                            <p>{item.observation_count} {text.samples} · {item.observed_days} {text.days}</p>
+                            <p>{item.quality_label[locale]}</p>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+                {detail.selected.significant && topStatus === "ready" && topItems && topItems.items.length > 0 ? (
+                  <div className="border-t border-[#edf1ef] pt-4">
+                    <div>
+                      <h3 className="text-sm font-extrabold uppercase tracking-wide text-[#526078]">{text.topTitle}</h3>
+                      <p className="mt-1 text-xs text-[#526078]">{text.topDescription}</p>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {topItems.items.map(item => {
+                        const added = addedItems.has(item.item_code);
+                        const canAdd = item.item_id != null && item.current_price_rm != null;
+                        return (
+                          <article key={item.item_code} className="rounded-xl border border-[#e4ebe7] bg-[#fbfdfc] p-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-sm font-extrabold text-[#10152e]">{item.item_name}</p>
+                                  {item.is_specialty ? <span className="rounded-full bg-[#e7f1ff] px-2 py-0.5 text-[10px] font-extrabold uppercase text-[#245aa8]">{text.specialty}</span> : null}
+                                </div>
+                                <p className="mt-0.5 text-xs text-[#526078]">{item.unit || "—"} · {text.currentPrice}: {item.current_price_rm == null ? "—" : formatRm(item.current_price_rm)}</p>
+                                <p className="mt-1 text-xs text-[#526078]">{dateLabel(item.history_start, locale)} – {dateLabel(item.history_end, locale)} · {item.observation_count} {text.samples} · {item.observed_days} {text.days}</p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <p className="text-base font-extrabold text-[#007d38]">{item.historical_rise_pct}%</p>
+                                <button type="button" disabled={!canAdd || added} onClick={() => { onAddToBasket(item); setAddedItems(current => new Set(current).add(item.item_code)); }} className="rounded-full bg-[#007d38] px-3 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:bg-[#cbd8d1]">
+                                  {added ? text.added : canAdd ? text.add : text.addUnavailable}
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
+                {detail.selected.significant && topStatus === "loading" ? <p className="mt-3 text-sm text-[#526078]">{text.loadingTop}</p> : null}
                 <dl className="grid gap-3 border-t border-[#edf1ef] pt-4 text-xs sm:grid-cols-2">
                   <div><dt className="font-bold text-[#526078]">{text.source}</dt><dd className="mt-0.5 text-[#10152e]">{detail.dataset.source_label}</dd></div>
                   <div><dt className="font-bold text-[#526078]">{text.sampleItems}</dt><dd className="mt-0.5 text-[#10152e]">{detail.selected.sample_items}</dd></div>

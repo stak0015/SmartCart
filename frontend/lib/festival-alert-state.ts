@@ -20,6 +20,7 @@ export const MALAYSIA_STATES = [
 export type MalaysiaState = (typeof MALAYSIA_STATES)[number];
 
 export const ALERT_STATE_STORAGE_KEY = "smartcart.festival-alert-state";
+export const ALERT_DATE_STORAGE_KEY = "smartcart.festival-alert-date";
 
 const ALIASES: Array<[RegExp, MalaysiaState]> = [
   [/kuala lumpur/i, "W.P. Kuala Lumpur"],

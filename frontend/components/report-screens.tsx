@@ -4,6 +4,10 @@ import { DropdownChevron, UIIcon } from "./ui-icon";
 import { StoreChainLogo } from "./store-chain-logo";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { getEarlyPurchaseSavings } from "@/lib/festival-api";
+import { ALERT_STATE_STORAGE_KEY, isMalaysiaState } from "@/lib/festival-alert-state";
+import type { EarlyPurchaseSavingsResponse } from "@/lib/festival-contracts";
+import { buildEarlyPurchaseRequests, groupEarlySavingsByRecord } from "@/lib/festival-savings";
 import { formatRm } from "@/lib/format-rm";
 import type { InboxState } from "@/lib/inbox";
 import { categoryLabel, type Locale } from "@/lib/i18n";
@@ -23,6 +27,7 @@ const COPY = {
     noBought: "No bought items on this trip.", deleteTrip: "Delete trip",
     itemsTotal: "Items", travelCost: "Return travel (estimated)", tripTotal: "Trip total",
     planDetails: "Planning details", planned: "Planned basket + transport", savings: "Estimated net savings",
+    earlyPurchaseSavings: "Early-purchase saving", earlyPurchaseSavingsTotal: "Early-purchase savings (separate from comparison savings)",
     travel: "Travel-cost saving vs cheapest alternative", routeEstimate: "Travel used an approximate straight-line route.",
     report: "Reports", inbox: "Inbox", statistics: "Statistics", weekly: "Weekly", monthly: "Monthly",
     weeklyReport: "Your weekly report", monthlyReport: "Your monthly report",
@@ -67,6 +72,7 @@ const COPY = {
     noBought: "Tiada item dibeli dalam perjalanan ini.", deleteTrip: "Padam perjalanan",
     itemsTotal: "Item", travelCost: "Perjalanan pergi balik (anggaran)", tripTotal: "Jumlah perjalanan",
     planDetails: "Butiran perancangan", planned: "Bakul + pengangkutan yang dirancang", savings: "Anggaran penjimatan bersih",
+    earlyPurchaseSavings: "Penjimatan belian awal", earlyPurchaseSavingsTotal: "Penjimatan belian awal (asing daripada penjimatan perbandingan)",
     travel: "Penjimatan perjalanan vs alternatif termurah", routeEstimate: "Perjalanan menggunakan anggaran jarak garis lurus.",
     report: "Laporan", inbox: "Peti masuk", statistics: "Statistik", weekly: "Mingguan", monthly: "Bulanan",
     weeklyReport: "Laporan mingguan anda", monthlyReport: "Laporan bulanan anda",
@@ -129,10 +135,49 @@ function receiptTotals(record: TripRecord) {
 
 export function ReceiptHistoryScreen({ history, locale, onDeleteTrip }: { history: TripRecord[]; locale: Locale; onDeleteTrip: (recordId: string) => void }) {
   const copy = COPY[locale];
-  const records = listTripRecords(history);
+  const records = useMemo(() => listTripRecords(history), [history]);
+  const [earlySavings, setEarlySavings] = useState<EarlyPurchaseSavingsResponse | null>(null);
+  const [earlySavingsStatus, setEarlySavingsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+
+  useEffect(() => {
+    const state = typeof window === "undefined"
+      ? null
+      : window.localStorage.getItem(ALERT_STATE_STORAGE_KEY);
+    if (!isMalaysiaState(state)) {
+      setEarlySavings(null);
+      setEarlySavingsStatus("idle");
+      return;
+    }
+    const purchases = buildEarlyPurchaseRequests(records);
+    if (purchases.length === 0) {
+      setEarlySavings(null);
+      setEarlySavingsStatus("ready");
+      return;
+    }
+    const controller = new AbortController();
+    setEarlySavingsStatus("loading");
+    getEarlyPurchaseSavings(state, purchases, controller.signal)
+      .then(payload => {
+        setEarlySavings(payload);
+        setEarlySavingsStatus("ready");
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setEarlySavings(null);
+        setEarlySavingsStatus("error");
+      });
+    return () => controller.abort();
+  }, [records]);
+
+  const earlySavingsByRecord = useMemo(
+    () => groupEarlySavingsByRecord(earlySavings),
+    [earlySavings],
+  );
+
   return (
     <div className="screen-enter history-screen">
       <h1 className="text-3xl font-extrabold text-[#10152e]">{copy.history}</h1><p className="page-description">{locale === "en" ? "Your recorded shopping trips and receipts." : "Perjalanan membeli-belah dan resit anda."}</p>
+      {earlySavingsStatus === "ready" && earlySavings && earlySavings.total_early_purchase_savings_rm > 0 ? <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-[#b9e5cd] bg-[#effaf3] p-4"><span className="text-sm font-bold text-[#006b31]">{copy.earlyPurchaseSavingsTotal}</span><strong className="text-xl font-extrabold text-[#007d38]">{formatRm(earlySavings.total_early_purchase_savings_rm)}</strong></div> : null}
       {records.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center"><p className="font-bold">{copy.emptyHistory}</p><p className="mt-1 text-sm text-[#526078]">{copy.emptyHistoryHint}</p></div> : (
         <ol className="mt-5 space-y-3">{records.map((record, index) => {
           const bought = record.lines.filter(line => line.status === "bought");
@@ -158,7 +203,7 @@ export function ReceiptHistoryScreen({ history, locale, onDeleteTrip }: { histor
                   <div className="receipt-totals"><h2>{locale === "en" ? "Trip summary" : "Ringkasan perjalanan"}</h2><p className="flex justify-between gap-3"><span>{copy.itemsTotal}</span><span>{receipt.items == null ? "—" : formatRm(receipt.items)}</span></p><p className="flex justify-between gap-3"><span>{copy.travelCost}</span><span>{receipt.travel == null ? "—" : formatRm(receipt.travel)}</span></p></div>
                   <div className="receipt-grand-total"><span>{copy.tripTotal}</span><span>{receipt.total == null ? "—" : formatRm(receipt.total)}</span></div>
                   {incomplete && <p className="mt-2 text-xs text-[#526078]">{copy.incomplete}</p>}
-                  <details className="receipt-planning"><summary className="dropdown-summary cursor-pointer font-bold text-[#007d38]">{copy.planDetails}<DropdownChevron/></summary><div className="mt-2 space-y-1"><p>{copy.planned}: {record.plannedCombinedTotalRm == null ? "—" : formatRm(record.plannedCombinedTotalRm)}</p>{record.estimatedSavings?.netSavingRm != null && <p>{copy.savings}: {signedRm(record.estimatedSavings.netSavingRm)}</p>}{travel.available && travel.savingsRm != null && <p>{copy.travel}: {formatRm(travel.savingsRm)}</p>}{record.routeProvider === "straight_line" && <p>{copy.routeEstimate}</p>}</div></details>
+                  <details className="receipt-planning"><summary className="dropdown-summary cursor-pointer font-bold text-[#007d38]">{copy.planDetails}<DropdownChevron/></summary><div className="mt-2 space-y-1"><p>{copy.planned}: {record.plannedCombinedTotalRm == null ? "—" : formatRm(record.plannedCombinedTotalRm)}</p>{record.estimatedSavings?.netSavingRm != null && <p>{copy.savings}: {signedRm(record.estimatedSavings.netSavingRm)}</p>}{travel.available && travel.savingsRm != null && <p>{copy.travel}: {formatRm(travel.savingsRm)}</p>}{earlySavingsByRecord.has(record.id) && <p>{copy.earlyPurchaseSavings}: {formatRm(earlySavingsByRecord.get(record.id) ?? 0)}</p>}{record.routeProvider === "straight_line" && <p>{copy.routeEstimate}</p>}</div></details>
                   <button type="button" className="receipt-delete-button" aria-label={locale === "en" ? `Delete trip to ${record.store.name}` : `Padam perjalanan ke ${record.store.name}`} onClick={() => onDeleteTrip(record.id)}>{copy.deleteTrip}</button>
                 </div>
               </details>

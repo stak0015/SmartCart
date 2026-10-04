@@ -192,6 +192,13 @@ def list_festivals(payloads):
     }
 
 
+def _sample_rank(row):
+    return (
+        int(row.get("sample_items") or 0),
+        int(row.get("observation_days") or 0),
+    )
+
+
 def get_festival_detail(payloads, festival_id, state=None):
     rows = [
         row
@@ -204,7 +211,11 @@ def get_festival_detail(payloads, festival_id, state=None):
     selected = _row_for_state(rows, state)
     if selected is None:
         significant_rows = [row for row in rows if row.get("significant")]
-        selected = (significant_rows or rows)[0]
+        # Prefer a significant state; when none is significant, use the state
+        # with the most complete sample instead of trusting an arbitrary row
+        # order. This prevents a zero-sample observance from becoming the
+        # default view for state-level festivals such as Kaamatan.
+        selected = max(significant_rows or rows, key=_sample_rank)
         if state is not None:
             raise KeyError(state)
 
@@ -334,4 +345,559 @@ def get_active_alerts(payloads, state=None, on_date=None):
         "dataset": _dataset_metadata(payloads),
         "count": len(alerts),
         "alerts": alerts,
+    }
+
+ESTIMATED_PRICE_METHOD_VERSION = "4i.6.1-v1"
+
+ITEM_QUALITY_LABELS = {
+    "measured": {
+        "en": "Measured from this item's festival-window price history",
+        "ms": "Diukur daripada sejarah harga item ini dalam tetingkap perayaan",
+        "zh": "基于该商品在节日窗口内的实测价格历史",
+    },
+    "derived": {
+        "en": "Estimated from the festival average rise",
+        "ms": "Dianggarkan daripada purata kenaikan perayaan",
+        "zh": "按节日平均涨幅推算",
+    },
+    "unavailable": {
+        "en": "No usable price data",
+        "ms": "Tiada data harga yang boleh digunakan",
+        "zh": "无可用价格数据",
+    },
+}
+
+
+def _price_range(low, high):
+    if low is None or high is None:
+        return None
+    first, second = sorted((low, high))
+    return {"min": str(round(first, 2)), "max": str(round(second, 2))}
+
+
+def _date_range(start, end):
+    if not start or not end:
+        return None, None
+    return tuple(sorted((str(start), str(end))))
+
+
+def _state_average_ratio(payloads, festival_id, state):
+    for row in (payloads.get("rise_ratios") or {}).get(
+        "festival_state_rise_ratios", []
+    ):
+        if str(row.get("festival_id")) == str(festival_id) and row.get("state") == state:
+            value = _numeric_or_none(row.get("avg_rise_ratio"))
+            if value is not None:
+                return value
+    for row in (payloads.get("rise_ratios") or {}).get("festival_rise_ratios", []):
+        if str(row.get("festival_id")) == str(festival_id):
+            value = _numeric_or_none(row.get("avg_rise_ratio"))
+            if value is not None:
+                return value
+    return None
+
+
+def get_festival_items(
+    payloads,
+    festival_id,
+    state=None,
+    median_price_provider=None,
+):
+    detail = get_festival_detail(payloads, festival_id, state=state)
+    if detail is None:
+        return None
+    selected_state = detail["selected_state"]
+    rows = [
+        row
+        for row in (payloads.get("price_stats") or {}).get("items", [])
+        if str(row.get("festival_id")) == str(festival_id)
+        and row.get("state") == selected_state
+    ]
+    item_codes = [str(row.get("item_code")) for row in rows if row.get("item_code")]
+    medians = {}
+    if median_price_provider is not None and item_codes:
+        try:
+            medians = median_price_provider(item_codes) or {}
+        except Exception:
+            medians = {}
+    average_ratio = _state_average_ratio(payloads, festival_id, selected_state)
+
+    items = []
+    for row in rows:
+        code = str(row.get("item_code"))
+        measured = row.get("status") == "ok" and _numeric_or_none(row.get("rise_pct")) is not None
+        quality = "unavailable"
+        rise = None
+        price_range = None
+        baseline = None
+        peak = None
+        history_start = None
+        history_end = None
+
+        if measured:
+            rise = _numeric_or_none(row.get("rise_pct"))
+            low = _numeric_or_none(row.get("baseline_price"))
+            high = _numeric_or_none(row.get("peak_price"))
+            if low is not None and high is not None:
+                quality = "measured"
+                baseline = low
+                peak = high
+                price_range = _price_range(low, high)
+                history_start, history_end = _date_range(
+                    row.get("baseline_date"), row.get("peak_date")
+                )
+        else:
+            median = _numeric_or_none(medians.get(code))
+            if median is not None and average_ratio is not None:
+                quality = "derived"
+                rise = average_ratio
+                baseline = median
+                high = median * (Decimal("1") + average_ratio / Decimal("100"))
+                peak = high
+                price_range = _price_range(median, high)
+
+        items.append(
+            {
+                "item_code": code,
+                "item_name": row.get("item_name") or code,
+                "unit": row.get("unit") or "",
+                "source_category": row.get("source_category") or "",
+                "broad_category_id": row.get("broad_category_id") or "other",
+                "broad_category_label_en": row.get("broad_category_label_en") or "Other",
+                "broad_category_label_ms": row.get("broad_category_label_ms") or "Lain-lain",
+                "data_quality": quality,
+                "quality_label": ITEM_QUALITY_LABELS[quality],
+                "rise_pct": None if rise is None else str(round(rise, 2)),
+                "baseline_price": None if baseline is None else str(round(baseline, 2)),
+                "peak_price": None if peak is None else str(round(peak, 2)),
+                "price_range": price_range,
+                "history_start": history_start,
+                "history_end": history_end,
+                "observation_count": int(row.get("observation_count") or 0),
+                "observed_days": int(row.get("observed_days") or 0),
+                "sample_status": row.get("sample_status"),
+            }
+        )
+    return {
+        "festival_id": festival_id,
+        "state": selected_state,
+        "dataset": _dataset_metadata(payloads),
+        "average_rise_ratio": None if average_ratio is None else str(round(average_ratio, 2)),
+        "average_rise_ratio_method_version": (
+            (payloads.get("rise_ratios") or {}).get("rise_ratio_method_version")
+            or "4i.7.4-v1"
+        ),
+        "estimated_price_method_version": ESTIMATED_PRICE_METHOD_VERSION,
+        "item_count": len(items),
+        "items": items,
+    }
+
+def _specialty_code_map(payloads, festival_id, state):
+    payload = payloads.get("specialty_stats") or {}
+    result = {}
+    state_codes = set()
+    for row in payload.get("festival_state_specialties") or []:
+        if (
+            str(row.get("festival_id")) != str(festival_id)
+            or row.get("state") != state
+        ):
+            continue
+        for code in row.get("item_codes") or []:
+            state_codes.add(str(code))
+        if not row.get("significant_above_average"):
+            continue
+        for code in row.get("item_codes") or []:
+            result[str(code)] = {
+                "specialty_id": row.get("specialty_id"),
+                "name_en": row.get("name_en"),
+                "name_zh": row.get("name_zh"),
+            }
+    for row in payload.get("festival_specialties") or []:
+        if str(row.get("festival_id")) != str(festival_id):
+            continue
+        if not row.get("significant_above_average"):
+            continue
+        for code in row.get("item_codes") or []:
+            code = str(code)
+            if code not in state_codes:
+                result[code] = {
+                    "specialty_id": row.get("specialty_id"),
+                    "name_en": row.get("name_en"),
+                    "name_zh": row.get("name_zh"),
+                }
+    return result
+
+
+def _money(value):
+    return value.quantize(Decimal("0.01"))
+
+
+def get_festival_top_items(
+    payloads,
+    festival_id,
+    state=None,
+    limit=10,
+    item_summary_provider=None,
+):
+    detail = get_festival_detail(payloads, festival_id, state=state)
+    if detail is None:
+        return None
+    selected_state = detail["selected_state"]
+    rows = [
+        row
+        for row in (payloads.get("price_stats") or {}).get("items", [])
+        if str(row.get("festival_id")) == str(festival_id)
+        and row.get("state") == selected_state
+        and row.get("status") == "ok"
+        and row.get("rise_status") == "rise"
+        and row.get("sample_status") == "full"
+        and _numeric_or_none(row.get("rise_pct")) is not None
+        and _numeric_or_none(row.get("rise_pct")) > 0
+    ]
+    codes = [str(row.get("item_code")) for row in rows if row.get("item_code")]
+    summaries = {}
+    if item_summary_provider is not None and codes:
+        try:
+            summaries = item_summary_provider(codes) or {}
+        except Exception:
+            summaries = {}
+    specialties = _specialty_code_map(payloads, festival_id, selected_state)
+    candidates = []
+    for row in rows:
+        code = str(row.get("item_code"))
+        summary = summaries.get(code) or {}
+        rise = _numeric_or_none(row.get("rise_pct"))
+        current_price = _numeric_or_none(summary.get("current_price_rm"))
+        specialty = specialties.get(code) or {}
+        candidates.append(
+            {
+                "item_id": summary.get("item_id"),
+                "item_code": code,
+                "item_name": summary.get("item_name") or row.get("item_name") or code,
+                "item_name_en": summary.get("item_name_en") or row.get("item_name"),
+                "item_name_ms": summary.get("item_name_ms") or row.get("item_name"),
+                "unit": summary.get("unit") or row.get("unit") or "",
+                "package_size": summary.get("package_size") or row.get("unit") or "",
+                "category": summary.get("category"),
+                "source_category": summary.get("source_category"),
+                "image_url": summary.get("image_url"),
+                "sara_eligible": summary.get("sara_eligible"),
+                "sara_category_candidate": bool(
+                    summary.get("sara_category_candidate")
+                ),
+                "current_price_rm": (
+                    None if current_price is None else float(_money(current_price))
+                ),
+                "historical_rise_pct": str(round(rise, 2)),
+                "historical_price_range": _price_range(
+                    _numeric_or_none(row.get("baseline_price")),
+                    _numeric_or_none(row.get("peak_price")),
+                ),
+                "history_start": _date_range(
+                    row.get("baseline_date"), row.get("peak_date")
+                )[0],
+                "history_end": _date_range(
+                    row.get("baseline_date"), row.get("peak_date")
+                )[1],
+                "observation_count": int(row.get("observation_count") or 0),
+                "observed_days": int(row.get("observed_days") or 0),
+                "sample_status": row.get("sample_status"),
+                "is_specialty": code in specialties,
+                "specialty_id": specialty.get("specialty_id"),
+                "specialty_name_en": specialty.get("name_en"),
+                "specialty_name_zh": specialty.get("name_zh"),
+            }
+        )
+    candidates.sort(
+        key=lambda item: (
+            -float(_numeric_or_none(item["historical_rise_pct"])),
+            str(item["item_name"]),
+        )
+    )
+    top_items = candidates[: max(0, int(limit))]
+    return {
+        "festival_id": festival_id,
+        "state": selected_state,
+        "dataset": _dataset_metadata(payloads),
+        "method_version": (
+            (payloads.get("price_stats") or {}).get("price_stats_method_version")
+            or "4i.7.3-v1"
+        ),
+        "specialty_method_version": (
+            (payloads.get("specialty_stats") or {}).get(
+                "specialty_analysis_method_version"
+            )
+            or "4i.7.7-v1"
+        ),
+        "item_count": len(candidates),
+        "limit": int(limit),
+        "items": top_items,
+    }
+
+
+def get_early_purchase_savings(
+    payloads,
+    state,
+    purchases,
+    item_code_provider=None,
+):
+    historical = payloads.get("historical_prices") or {}
+    rows = [
+        row
+        for row in historical.get("rows") or []
+        if row.get("state") == state
+    ]
+    if not rows:
+        raise KeyError("state")
+    by_code = {}
+    for row in rows:
+        by_code.setdefault(str(row.get("item_code")), []).append(row)
+    item_ids = []
+    for purchase in purchases:
+        try:
+            item_id = int(str(purchase.get("item_id")))
+        except (TypeError, ValueError):
+            continue
+        item_ids.append(item_id)
+    code_by_id = {}
+    if item_code_provider is not None and item_ids:
+        try:
+            code_by_id = item_code_provider(item_ids) or {}
+        except Exception:
+            code_by_id = {}
+    matches = []
+    for purchase in purchases:
+        item_id = str(purchase.get("item_id"))
+        code = code_by_id.get(item_id)
+        if not code:
+            continue
+        try:
+            purchase_date = date.fromisoformat(str(purchase.get("purchased_on")))
+        except ValueError as error:
+            raise ValueError("The purchase date must use YYYY-MM-DD.") from error
+        quantity = int(purchase.get("quantity") or 0)
+        paid = _numeric_or_none(purchase.get("unit_price_rm"))
+        if quantity < 1 or paid is None:
+            continue
+        candidates = []
+        for row in by_code.get(str(code)) or []:
+            if row.get("baseline_quality") != "historical_partial":
+                continue
+            try:
+                start = date.fromisoformat(str(row.get("current_rise_start")))
+                end = date.fromisoformat(str(row.get("current_rise_end")))
+            except ValueError:
+                continue
+            average = _numeric_or_none(row.get("historical_avg_price"))
+            if average is None or not start <= purchase_date <= end:
+                continue
+            candidates.append((start, row, average))
+        candidates.sort(key=lambda candidate: candidate[0])
+        match = None
+        for _start, row, average in candidates:
+            saving = (average - paid) * quantity
+            if saving > 0:
+                match = (row, average, _money(saving))
+                break
+        if match is None:
+            continue
+        row, average, saving = match
+        matches.append(
+            {
+                "record_id": purchase.get("record_id") or "",
+                "item_id": item_id,
+                "item_code": str(code),
+                "item_name": row.get("item_name") or code,
+                "festival_id": row.get("festival_id"),
+                "festival_name_en": row.get("name_en"),
+                "festival_name_zh": row.get("name_zh"),
+                "purchased_on": purchase_date.isoformat(),
+                "quantity": quantity,
+                "paid_unit_price_rm": float(_money(paid)),
+                "historical_avg_price_rm": float(_money(average)),
+                "saving_rm": float(saving),
+                "baseline_quality": row.get("baseline_quality"),
+                "sample_status": row.get("sample_status"),
+                "history_window_start": row.get("baseline_window_start"),
+                "history_window_end": row.get("baseline_window_end"),
+            }
+        )
+    total = _money(sum((Decimal(str(item["saving_rm"])) for item in matches), Decimal("0")))
+    return {
+        "state": state,
+        "dataset": _dataset_metadata(payloads),
+        "method_version": (
+            historical.get("historical_price_method_version") or "4i.7.5-v1"
+        ),
+        "purchase_count": len(purchases),
+        "qualifying_count": len(matches),
+        "excluded_count": max(0, len(purchases) - len(matches)),
+        "total_early_purchase_savings_rm": float(total),
+        "items": matches,
+    }
+
+
+FORECAST_METHOD_VERSION = "4i.3.5-v1"
+EARLY_PURCHASE_PREVIEW_METHOD_VERSION = "4i.3.6-v1"
+
+
+def _forecast_payload(payloads, alert, item):
+    rise = _numeric_or_none(item.get("rise_pct"))
+    baseline = _numeric_or_none(item.get("baseline_price"))
+    price_range = item.get("price_range") or {}
+    low = _numeric_or_none(price_range.get("min"))
+    high = _numeric_or_none(price_range.get("max"))
+    if rise is None or low is None or high is None:
+        return None
+    rise_min = Decimal("0")
+    rise_max = rise
+    if baseline is not None and baseline > 0:
+        calculated_min = (low - baseline) / baseline * Decimal("100")
+        calculated_max = (high - baseline) / baseline * Decimal("100")
+        rise_min, rise_max = sorted((calculated_min, calculated_max))
+        rise_min = max(Decimal("0"), rise_min)
+        rise_max = max(rise_min, rise_max)
+    return {
+        "festival_id": alert.get("festival_id"),
+        "festival_name_en": alert.get("name_en"),
+        "festival_name_zh": alert.get("name_zh"),
+        "festival_name_ms": alert.get("name_ms"),
+        "state": alert.get("state") or item.get("state"),
+        "rise_start": alert.get("rise_start"),
+        "rise_end": alert.get("rise_end"),
+        "item_code": item.get("item_code"),
+        "item_name": item.get("item_name"),
+        "unit": item.get("unit") or "",
+        "data_quality": item.get("data_quality"),
+        "rise_pct_min": str(round(rise_min, 2)),
+        "rise_pct_max": str(round(rise_max, 2)),
+        "price_range": {
+            "min": str(round(low, 2)),
+            "max": str(round(high, 2)),
+        },
+        "history_start": item.get("history_start"),
+        "history_end": item.get("history_end"),
+        "method_version": FORECAST_METHOD_VERSION,
+    }
+
+
+def _active_item_forecasts(
+    payloads,
+    state=None,
+    on_date=None,
+    median_price_provider=None,
+):
+    alerts_payload = get_active_alerts(payloads, state=state, on_date=on_date)
+    forecasts = {}
+    for alert in alerts_payload.get("alerts") or []:
+        festival_state = alert.get("state") or state
+        items_payload = get_festival_items(
+            payloads,
+            alert.get("festival_id"),
+            state=festival_state,
+            median_price_provider=median_price_provider,
+        )
+        if not items_payload:
+            continue
+        for item in items_payload.get("items") or []:
+            code = str(item.get("item_code"))
+            if code in forecasts:
+                continue
+            forecast = _forecast_payload(payloads, alert, item)
+            if forecast is not None:
+                forecasts[code] = forecast
+    return forecasts
+
+
+def get_festival_item_forecast(
+    payloads,
+    item_code,
+    state=None,
+    on_date=None,
+    median_price_provider=None,
+):
+    forecasts = _active_item_forecasts(
+        payloads,
+        state=state,
+        on_date=on_date,
+        median_price_provider=median_price_provider,
+    )
+    return {
+        "state": state,
+        "on": on_date,
+        "method_version": FORECAST_METHOD_VERSION,
+        "forecast": forecasts.get(str(item_code)),
+    }
+
+
+def get_early_purchase_preview(
+    payloads,
+    state,
+    lines,
+    item_code_provider=None,
+    median_price_provider=None,
+    on_date=None,
+):
+    item_ids = []
+    for line in lines:
+        try:
+            item_ids.append(int(str(line.get("item_id"))))
+        except (TypeError, ValueError):
+            continue
+    code_by_id = {}
+    if item_code_provider is not None and item_ids:
+        try:
+            code_by_id = item_code_provider(item_ids) or {}
+        except Exception:
+            code_by_id = {}
+    forecasts = _active_item_forecasts(
+        payloads,
+        state=state,
+        on_date=on_date,
+        median_price_provider=median_price_provider,
+    )
+    results = []
+    total = Decimal("0")
+    for line in lines:
+        item_id = str(line.get("item_id"))
+        code = code_by_id.get(item_id)
+        if not code:
+            continue
+        forecast = forecasts.get(str(code))
+        if not forecast:
+            continue
+        actual = _numeric_or_none(line.get("actual_unit_price_rm"))
+        maximum = _numeric_or_none((forecast.get("price_range") or {}).get("max"))
+        try:
+            quantity = int(line.get("quantity") or 0)
+        except (TypeError, ValueError):
+            quantity = 0
+        if actual is None or maximum is None or quantity < 1:
+            continue
+        saving = max(Decimal("0"), (maximum - actual) * quantity)
+        if saving <= 0:
+            continue
+        total += saving
+        results.append(
+            {
+                "item_id": item_id,
+                "item_code": str(code),
+                "item_name": forecast.get("item_name"),
+                "festival_id": forecast.get("festival_id"),
+                "festival_name_en": forecast.get("festival_name_en"),
+                "festival_name_zh": forecast.get("festival_name_zh"),
+                "actual_unit_price_rm": float(_money(actual)),
+                "forecast_max_price_rm": float(_money(maximum)),
+                "quantity": quantity,
+                "estimated_saving_rm": float(_money(saving)),
+            }
+        )
+    return {
+        "state": state,
+        "on": on_date,
+        "method_version": EARLY_PURCHASE_PREVIEW_METHOD_VERSION,
+        "line_count": len(lines),
+        "qualifying_count": len(results),
+        "total_early_purchase_estimated_saving_rm": float(_money(total)),
+        "items": results,
     }

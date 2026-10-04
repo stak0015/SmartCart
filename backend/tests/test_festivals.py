@@ -10,7 +10,12 @@ import pytest
 from smartcart.festival_service import (
     FestivalDatasetError,
     get_active_alerts,
+    get_early_purchase_preview,
+    get_early_purchase_savings,
     get_festival_detail,
+    get_festival_item_forecast,
+    get_festival_items,
+    get_festival_top_items,
     list_festivals,
     load_dataset,
 )
@@ -77,9 +82,32 @@ def write_dataset(tmp_path: Path, *, drop=None):
                     "status": "ok",
                     "rise_status": "rise",
                     "rise_pct": "20",
+                    "baseline_price": "10",
+                    "baseline_date": "2026-01-01",
+                    "peak_price": "12",
+                    "peak_date": "2026-01-10",
+                    "observation_count": 120,
+                    "observed_days": 10,
+                    "sample_status": "full",
                     "broad_category_id": "protein",
                     "broad_category_label_en": "Protein",
                     "broad_category_label_ms": "Protein",
+                },
+                {
+                    "festival_id": "f",
+                    "state": "S1",
+                    "item_code": "C",
+                    "item_name": "Item C",
+                    "unit": "1kg",
+                    "status": "insufficient_baseline",
+                    "rise_status": None,
+                    "rise_pct": None,
+                    "observation_count": 2,
+                    "observed_days": 2,
+                    "sample_status": "insufficient",
+                    "broad_category_id": "other",
+                    "broad_category_label_en": "Other",
+                    "broad_category_label_ms": "Other",
                 },
                 {
                     "festival_id": "f",
@@ -90,15 +118,108 @@ def write_dataset(tmp_path: Path, *, drop=None):
                     "status": "ok",
                     "rise_status": "rise",
                     "rise_pct": "10",
+                    "baseline_price": "5",
+                    "baseline_date": "2026-01-01",
+                    "peak_price": "6",
+                    "peak_date": "2026-01-10",
+                    "observation_count": 80,
+                    "observed_days": 10,
+                    "sample_status": "full",
                     "broad_category_id": "staples",
                     "broad_category_label_en": "Staples",
                     "broad_category_label_ms": "Staples",
                 },
             ],
         },
-        "festival_rise_ratios.json": {"festival_rise_ratios": []},
-        "festival_historical_prices.json": {"rows": []},
-        "festival_specialty_stats.json": {"row_count": 0},
+        "festival_rise_ratios.json": {
+            "rise_ratio_method_version": "4i.7.4-v1",
+            "festival_rise_ratios": [
+                {"festival_id": "f", "avg_rise_ratio": "15", "ratio_status": "ok"}
+            ],
+            "festival_state_rise_ratios": [
+                {"festival_id": "f", "state": "S1", "avg_rise_ratio": "15", "ratio_status": "ok"}
+            ],
+        },
+        "festival_historical_prices.json": {
+            "historical_price_method_version": "4i.7.5-v1",
+            "rows": [
+                {
+                    "festival_id": "f",
+                    "name_en": "Test Festival",
+                    "name_zh": "测试节日",
+                    "state": "S1",
+                    "item_code": "A",
+                    "item_name": "Item A",
+                    "current_rise_start": "2026-01-10",
+                    "current_rise_end": "2026-01-20",
+                    "observance_start": "2026-02-01",
+                    "baseline_method": "previous_year_same_window",
+                    "baseline_quality": "historical_partial",
+                    "baseline_window_start": "2025-01-10",
+                    "baseline_window_end": "2025-01-20",
+                    "historical_avg_price": "12",
+                    "sample_status": "full",
+                },
+                {
+                    "festival_id": "f",
+                    "name_en": "Test Festival",
+                    "name_zh": "测试节日",
+                    "state": "S1",
+                    "item_code": "B",
+                    "item_name": "Item B",
+                    "current_rise_start": "2026-01-10",
+                    "current_rise_end": "2026-01-20",
+                    "observance_start": "2026-02-01",
+                    "baseline_method": "current_rise_window_fallback",
+                    "baseline_quality": "current_fallback",
+                    "historical_avg_price": "12",
+                    "sample_status": "full",
+                },
+            ],
+        },
+        "festival_specialty_stats.json": {
+            "specialty_analysis_method_version": "4i.7.7-v1",
+            "festival_specialties": [
+                {
+                    "festival_id": "f",
+                    "state": None,
+                    "specialty_id": "new-year-favourite",
+                    "name_en": "New year favourite",
+                    "name_zh": "新年特色商品",
+                    "significant_above_average": True,
+                    "item_codes": ["A"],
+                },
+                {
+                    "festival_id": "f",
+                    "state": None,
+                    "specialty_id": "avoid-override",
+                    "name_en": "Avoid override",
+                    "name_zh": "避免误标记",
+                    "significant_above_average": True,
+                    "item_codes": ["B"],
+                }
+            ],
+            "festival_state_specialties": [
+                {
+                    "festival_id": "f",
+                    "state": "S1",
+                    "specialty_id": "new-year-favourite",
+                    "name_en": "New year favourite",
+                    "name_zh": "新年特色商品",
+                    "significant_above_average": True,
+                    "item_codes": ["A"],
+                },
+                {
+                    "festival_id": "f",
+                    "state": "S1",
+                    "specialty_id": "avoid-override",
+                    "name_en": "Avoid override",
+                    "name_zh": "避免误标记",
+                    "significant_above_average": False,
+                    "item_codes": ["B"],
+                }
+            ],
+        },
         "festival_method_registry.json": {
             "dataset_id": "US4i.7",
             "dataset_version": "4i.7-dataset-v3",
@@ -151,6 +272,15 @@ def test_detail_state_selection_and_error(tmp_path):
     with pytest.raises(KeyError):
         get_festival_detail(payloads, "f", state="missing")
 
+
+def test_detail_defaults_to_best_sample_when_no_state_is_significant(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    for row in payloads["significance"]["rows"]:
+        row["significant"] = False
+    detail = get_festival_detail(payloads, "f")
+    assert detail["selected_state"] == "S2"
+    assert detail["selected"]["observation_days"] == 20
+
 def test_active_alerts_in_window(tmp_path):
     payloads = load_dataset(write_dataset(tmp_path))
     result = get_active_alerts(payloads, state="S1", on_date="2026-01-15")
@@ -170,3 +300,125 @@ def test_active_alerts_outside_window(tmp_path):
 def test_active_alerts_respect_state_significance(tmp_path):
     payloads = load_dataset(write_dataset(tmp_path))
     assert get_active_alerts(payloads, state="S2", on_date="2026-01-15")["count"] == 0
+
+
+def test_festival_items_marks_measured_and_derived(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_festival_items(
+        payloads,
+        "f",
+        state="S1",
+        median_price_provider=lambda _codes: {"C": 5.0},
+    )
+    assert result["item_count"] == 3
+    by_code = {item["item_code"]: item for item in result["items"]}
+    assert by_code["A"]["data_quality"] == "measured"
+    assert by_code["A"]["rise_pct"] == "20.00"
+    assert by_code["A"]["history_start"] == "2026-01-01"
+    assert by_code["A"]["history_end"] == "2026-01-10"
+    assert by_code["C"]["data_quality"] == "derived"
+    assert by_code["C"]["rise_pct"] == "15.00"
+    assert by_code["C"]["price_range"] == {"min": "5.00", "max": "5.75"}
+    assert by_code["C"]["quality_label"]["en"] == "Estimated from the festival average rise"
+
+
+def test_festival_items_marks_unavailable_without_median(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_festival_items(payloads, "f", state="S1")
+    by_code = {item["item_code"]: item for item in result["items"]}
+    assert by_code["C"]["data_quality"] == "unavailable"
+    assert by_code["C"]["rise_pct"] is None
+    assert by_code["C"]["history_start"] is None
+    assert by_code["C"]["history_end"] is None
+
+
+def test_festival_top_items_returns_specialty_and_current_price(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_festival_top_items(
+        payloads,
+        "f",
+        state="S1",
+        item_summary_provider=lambda _codes: {
+            "A": {
+                "item_id": "101",
+                "item_name": "Item A",
+                "unit": "1kg",
+                "current_price_rm": 10.0,
+                "category": {"id": "protein"},
+                "source_category": {"id": "AYAM"},
+            }
+        },
+    )
+    assert result["items"][0]["item_code"] == "A"
+    assert result["items"][0]["item_id"] == "101"
+    assert result["items"][0]["current_price_rm"] == 10.0
+    assert result["items"][0]["is_specialty"] is True
+    assert result["items"][0]["historical_rise_pct"] == "20.00"
+    by_code = {item["item_code"]: item for item in result["items"]}
+    assert by_code["B"]["is_specialty"] is False
+
+
+def test_early_purchase_savings_uses_only_historical_baselines(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_early_purchase_savings(
+        payloads,
+        state="S1",
+        purchases=[
+            {
+                "item_id": "101",
+                "item_name": "Item A",
+                "quantity": 2,
+                "unit_price_rm": 10.0,
+                "purchased_on": "2026-01-15",
+            },
+            {
+                "item_id": "102",
+                "item_name": "Item B",
+                "quantity": 1,
+                "unit_price_rm": 10.0,
+                "purchased_on": "2026-01-15",
+            },
+        ],
+        item_code_provider=lambda _ids: {"101": "A", "102": "B"},
+    )
+    assert result["qualifying_count"] == 1
+    assert result["excluded_count"] == 1
+    assert result["total_early_purchase_savings_rm"] == 4.0
+    assert result["items"][0]["festival_id"] == "f"
+
+
+def test_festival_item_forecast_uses_active_window_and_price_range(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_festival_item_forecast(
+        payloads,
+        "A",
+        state="S1",
+        on_date="2026-01-15",
+        median_price_provider=lambda _codes: {},
+    )
+    forecast = result["forecast"]
+    assert forecast["festival_id"] == "f"
+    assert forecast["rise_pct_min"] == "0.00"
+    assert forecast["rise_pct_max"] == "20.00"
+    assert forecast["price_range"] == {"min": "10.00", "max": "12.00"}
+
+
+def test_early_purchase_preview_uses_actual_price_and_forecast_max(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_early_purchase_preview(
+        payloads,
+        state="S1",
+        on_date="2026-01-15",
+        lines=[
+            {
+                "item_id": "101",
+                "quantity": 2,
+                "actual_unit_price_rm": 10.0,
+            }
+        ],
+        item_code_provider=lambda _ids: {"101": "A"},
+        median_price_provider=lambda _codes: {},
+    )
+    assert result["qualifying_count"] == 1
+    assert result["total_early_purchase_estimated_saving_rm"] == 4.0
+    assert result["items"][0]["forecast_max_price_rm"] == 12.0
