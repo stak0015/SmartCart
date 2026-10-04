@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./api-base";
-import type { FestivalDetailResponse, FestivalListResponse } from "./festival-contracts";
+import type { FestivalAlertResponse, FestivalDetailResponse, FestivalListResponse } from "./festival-contracts";
 
 interface ApiErrorBody {
   error?: { message?: string; code?: string };
@@ -30,6 +30,21 @@ export function getFestivalDetail(
   const query = params.toString();
   return request<FestivalDetailResponse>(
     `/festivals/${encodeURIComponent(festivalId)}${query ? `?${query}` : ""}`,
+    signal,
+  );
+}
+
+export function getFestivalAlerts(
+  state?: string | null,
+  on?: string | null,
+  signal?: AbortSignal,
+): Promise<FestivalAlertResponse> {
+  const params = new URLSearchParams();
+  if (state) params.set("state", state);
+  if (on) params.set("on", on);
+  const query = params.toString();
+  return request<FestivalAlertResponse>(
+    `/festivals/alerts${query ? `?${query}` : ""}`,
     signal,
   );
 }

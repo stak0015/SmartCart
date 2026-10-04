@@ -11,6 +11,7 @@ from .errors import AppError
 from .festival_service import (
     DATASET_FILES,
     FestivalDatasetError,
+    get_active_alerts,
     get_festival_detail,
     list_festivals,
     load_dataset,
@@ -56,6 +57,20 @@ def _cached_dataset():
 def festivals_endpoint():
     return list_festivals(_cached_dataset())
 
+
+@router.get("/festivals/alerts")
+def festival_alerts_endpoint(
+    state: str | None = Query(default=None),
+    on: str | None = Query(default=None),
+):
+    try:
+        return get_active_alerts(_cached_dataset(), state=state, on_date=on)
+    except ValueError as error:
+        raise AppError(
+            "INVALID_ALERT_DATE",
+            "The alert date must use YYYY-MM-DD.",
+            400,
+        ) from error
 
 @router.get("/festivals/{festival_id}")
 def festival_detail_endpoint(

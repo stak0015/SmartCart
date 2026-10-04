@@ -9,6 +9,7 @@ import pytest
 
 from smartcart.festival_service import (
     FestivalDatasetError,
+    get_active_alerts,
     get_festival_detail,
     list_festivals,
     load_dataset,
@@ -64,7 +65,37 @@ def write_dataset(tmp_path: Path, *, drop=None):
     }
     payloads = {
         "festival_significance.json": significance,
-        "festival_price_stats.json": {"items": []},
+        "festival_price_stats.json": {
+            "price_stats_method_version": "4i.7.3-v1",
+            "items": [
+                {
+                    "festival_id": "f",
+                    "state": "S1",
+                    "item_code": "A",
+                    "item_name": "Item A",
+                    "unit": "1kg",
+                    "status": "ok",
+                    "rise_status": "rise",
+                    "rise_pct": "20",
+                    "broad_category_id": "protein",
+                    "broad_category_label_en": "Protein",
+                    "broad_category_label_ms": "Protein",
+                },
+                {
+                    "festival_id": "f",
+                    "state": "S1",
+                    "item_code": "B",
+                    "item_name": "Item B",
+                    "unit": "1kg",
+                    "status": "ok",
+                    "rise_status": "rise",
+                    "rise_pct": "10",
+                    "broad_category_id": "staples",
+                    "broad_category_label_en": "Staples",
+                    "broad_category_label_ms": "Staples",
+                },
+            ],
+        },
         "festival_rise_ratios.json": {"festival_rise_ratios": []},
         "festival_historical_prices.json": {"rows": []},
         "festival_specialty_stats.json": {"row_count": 0},
@@ -119,3 +150,23 @@ def test_detail_state_selection_and_error(tmp_path):
     assert detail["selected_state"] == "S2"
     with pytest.raises(KeyError):
         get_festival_detail(payloads, "f", state="missing")
+
+def test_active_alerts_in_window(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    result = get_active_alerts(payloads, state="S1", on_date="2026-01-15")
+    assert result["count"] == 1
+    alert = result["alerts"][0]
+    assert alert["festival_id"] == "f"
+    assert alert["affected_item_count"] == 2
+    assert alert["evidence_url"] == "/festivals?festival=f&state=S1"
+    assert alert["affected_items"][0]["item_code"] == "A"
+
+
+def test_active_alerts_outside_window(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    assert get_active_alerts(payloads, state="S1", on_date="2026-03-01")["count"] == 0
+
+
+def test_active_alerts_respect_state_significance(tmp_path):
+    payloads = load_dataset(write_dataset(tmp_path))
+    assert get_active_alerts(payloads, state="S2", on_date="2026-01-15")["count"] == 0

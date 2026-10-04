@@ -6,6 +6,7 @@ import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { StoreChainLogo } from "./store-chain-logo";
 import FestivalPricesScreen from "./festival-prices";
+import FestivalAlertBanner from "./festival-alert-banner";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
@@ -2627,7 +2628,9 @@ export default function App() {
           />
         ) : null}
         {screen === "shop" ? (
-          <BasketScreen
+          <>
+            <FestivalAlertBanner locale={locale} locationLabel={preferences.origin?.label} />
+            <BasketScreen
             view="shop"
             candidateCacheId={candidateCacheId}
             basket={basket}
@@ -2637,9 +2640,12 @@ export default function App() {
             copy={copy}
             locale={locale}
           />
+          </>
         ) : null}
         {screen === "basket" ? (
-          <BasketScreen
+          <>
+            <FestivalAlertBanner locale={locale} locationLabel={preferences.origin?.label} />
+            <BasketScreen
             view="basket"
             basket={basket}
             setBasket={setBasket}
@@ -2648,6 +2654,7 @@ export default function App() {
             copy={copy}
             locale={locale}
           />
+          </>
         ) : null}
         {screen === "location" ? (
           <LocationScreen

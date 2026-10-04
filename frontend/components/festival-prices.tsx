@@ -88,6 +88,15 @@ export default function FestivalPricesScreen({ locale }: { locale: Locale }) {
   const [detailStatus, setDetailStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [chartMode, setChartMode] = useState<FestivalChartMode>("price");
   const [reloadToken, setReloadToken] = useState(0);
+  // alertState will be handled by banner
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const festivalId = params.get("festival");
+    const state = params.get("state");
+    if (festivalId) setSelectedFestivalId(festivalId);
+    if (state) setSelectedState(state);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -84,3 +84,40 @@ export interface FestivalDetailResponse {
   selected_state: string;
   selected: FestivalSelectedState;
 }
+
+
+export interface FestivalAlertItem {
+  item_code: string;
+  item_name: string;
+  unit: string;
+  broad_category_id: string;
+  broad_category_label_en: string;
+  broad_category_label_ms: string;
+  rise_pct: string;
+}
+
+export interface FestivalAlert {
+  festival_id: string;
+  name_en: string;
+  name_zh: string;
+  name_ms: string;
+  scope: "national" | "state";
+  state: string | null;
+  rise_start: string;
+  rise_end: string;
+  affected_item_count: number;
+  affected_items: FestivalAlertItem[];
+  evidence_url: string;
+  method_version: string;
+  window_method_version: string;
+  alert_rule_version: string;
+}
+
+export interface FestivalAlertResponse {
+  on: string;
+  state: string | null;
+  alert_rule_version: string;
+  dataset: FestivalDatasetInfo;
+  count: number;
+  alerts: FestivalAlert[];
+}

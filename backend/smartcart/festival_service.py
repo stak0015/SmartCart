@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Mapping
 
@@ -12,6 +14,8 @@ SOURCE_URL = "https://data.gov.my/data-catalogue/pricecatcher"
 INSUFFICIENT_EN = "Insufficient sample — indicative only"
 INSUFFICIENT_MS = "Sampel tidak mencukupi — indikatif sahaja"
 INSUFFICIENT_ZH = "样本不足，仅供参考"
+ALERT_RULE_VERSION = "4i.2.1-v1"
+MALAYSIA_TZ = timezone(timedelta(hours=8))
 
 MALAY_FESTIVAL_NAMES = {
     "deepavali-2025": "Deepavali",
@@ -223,4 +227,111 @@ def get_festival_detail(payloads, festival_id, state=None):
         "states": states,
         "selected_state": selected.get("state"),
         "selected": _selected_payload(selected),
+    }
+
+def _parse_date(value):
+    if isinstance(value, date):
+        return value
+    if not value:
+        return datetime.now(MALAYSIA_TZ).date()
+    return date.fromisoformat(str(value))
+
+
+def _numeric_or_none(value):
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+
+
+def _alert_items(payloads, festival_id, state):
+    rows = (payloads.get("price_stats") or {}).get("items", [])
+    by_item = {}
+    for row in rows:
+        if str(row.get("festival_id")) != str(festival_id):
+            continue
+        if state is not None and row.get("state") != state:
+            continue
+        if row.get("status") != "ok" or row.get("rise_status") != "rise":
+            continue
+        rise = _numeric_or_none(row.get("rise_pct"))
+        if rise is None:
+            continue
+        code = str(row.get("item_code"))
+        entry = by_item.setdefault(
+            code,
+            {
+                "item_code": code,
+                "item_name": row.get("item_name"),
+                "unit": row.get("unit"),
+                "broad_category_id": row.get("broad_category_id"),
+                "broad_category_label_en": row.get("broad_category_label_en"),
+                "broad_category_label_ms": row.get("broad_category_label_ms"),
+                "_rises": [],
+            },
+        )
+        entry["_rises"].append(rise)
+    items = []
+    for entry in by_item.values():
+        rises = entry.pop("_rises")
+        entry["rise_pct"] = str(round(sum(rises) / Decimal(len(rises)), 2))
+        items.append(entry)
+    items.sort(key=lambda item: (-float(item["rise_pct"]), item["item_code"]))
+    return items
+
+
+def get_active_alerts(payloads, state=None, on_date=None):
+    on = _parse_date(on_date)
+    significance = payloads.get("significance") or {}
+    rows = significance.get("rows", [])
+    if state is not None:
+        candidates = [row for row in rows if row.get("state") == state]
+    else:
+        candidates = [row for row in rows if row.get("scope") == "national"]
+
+    grouped = {}
+    for row in candidates:
+        if not row.get("significant") or row.get("window_status") != "ok":
+            continue
+        start = row.get("rise_start")
+        end = row.get("rise_end")
+        if not start or not end:
+            continue
+        if not (date.fromisoformat(start) <= on <= date.fromisoformat(end)):
+            continue
+        grouped.setdefault(str(row["festival_id"]), []).append(row)
+
+    alerts = []
+    for festival_id, group in grouped.items():
+        first = group[0]
+        affected_items = _alert_items(payloads, festival_id, state)
+        if not affected_items:
+            continue
+        state_param = f"&state={state}" if state else ""
+        alerts.append(
+            {
+                "festival_id": festival_id,
+                "name_en": first.get("name_en"),
+                "name_zh": first.get("name_zh"),
+                "name_ms": MALAY_FESTIVAL_NAMES.get(festival_id, first.get("name_en")),
+                "scope": first.get("scope"),
+                "state": state,
+                "rise_start": min(row["rise_start"] for row in group),
+                "rise_end": max(row["rise_end"] for row in group),
+                "affected_item_count": len(affected_items),
+                "affected_items": affected_items,
+                "evidence_url": f"/festivals?festival={festival_id}{state_param}",
+                "method_version": first.get("method_version") or "4i.7-v1",
+                "window_method_version": first.get("window_method_version") or "4i.7.2-v1",
+                "alert_rule_version": ALERT_RULE_VERSION,
+            }
+        )
+    alerts.sort(key=lambda alert: (alert["rise_end"], alert["festival_id"]))
+    return {
+        "on": on.isoformat(),
+        "state": state,
+        "alert_rule_version": ALERT_RULE_VERSION,
+        "dataset": _dataset_metadata(payloads),
+        "count": len(alerts),
+        "alerts": alerts,
     }

@@ -1,0 +1,116 @@
+US 4i.2 README - Pre-festival price-rise banners
+US 4i.2 交付说明 - 节前涨价提醒横幅
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增节前涨价提醒 API：
+  GET /api/festivals/alerts?state={state}&on={YYYY-MM-DD}
+- 提醒触发条件：节日价格显著波动、关键窗口可用，且当前日期位于
+  rise_start 至 rise_end 之间。
+- 已设置州属时，只返回全国性节日与该州适用的州级节日；未设置州属时，
+  只返回全国性节日提醒。
+- 同一 item_code 跨州去重，并按上涨商品计算受影响商品数量。
+- 在 Shop 与 Basket 页面显示一条汇总横幅，包含节日名称、预计涨价窗口、
+  受影响商品数量和可展开商品清单。
+- 横幅提供州属选择、Dismiss 和 View evidence。
+- 同一窗口内关闭后，不再重复显示该提醒。
+- View evidence 跳转到 US4i.1 证据页，并选中对应节日和州属。
+- 提醒规则版本为 4i.2.1-v1，复用现有 price / window 数据集版本。
+- 本提交不修改 PostgreSQL schema，不实现 US4i.3–4i.6。
+
+English:
+- Adds the pre-festival alert endpoint:
+  GET /api/festivals/alerts?state={state}&on={YYYY-MM-DD}
+- An alert is active when the festival is significant, its key window is
+  ready, and the current date falls between rise_start and rise_end.
+- When a state is set, only national festivals and state-level festivals
+  applicable to that state are returned. Without a state, only national
+  festivals are returned.
+- Deduplicates each item_code across states and counts the affected items.
+- Shows one summary banner on the Shop and Basket pages with the festival name,
+  expected price-rise window, affected item count, and an expandable item list.
+- The banner provides state selection, Dismiss, and View evidence.
+- Dismissing hides the alert for the same session and window.
+- View evidence opens the US4i.1 evidence page with the corresponding festival
+  and state selected.
+- The alert rule version is 4i.2.1-v1 and reuses the existing price/window
+  dataset versions.
+- This commit does not change the PostgreSQL schema and does not implement
+  US 4i.3–4i.6.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 后端测试：
+  python -m pytest backend/tests/test_festivals.py
+    backend/tests/test_festival_specialty.py
+    backend/tests/test_festival_dataset.py
+    backend/tests/test_festival_price_stats.py
+    backend/tests/test_festival_analytics.py -q
+  预期 65 项通过。
+- 前端：
+  node_modules/.bin/tsc --noEmit
+  node_modules/.bin/vitest run lib/festival-chart.test.ts
+    lib/festival-alert-state.test.ts
+  node_modules/.bin/next build
+  预期类型检查通过、6 项测试通过、生产构建成功。
+- API 检查：
+  GET /api/festivals/alerts?state=Selangor&on=2025-12-01
+  GET /api/festivals/alerts?on=2025-12-01
+  GET /api/festivals/alerts?state=Selangor&on=2026-10-04
+- 前端演示：
+  /shop?alertDate=2025-12-01&alertState=Selangor
+  /basket?alertDate=2025-12-01&alertState=Selangor
+  alertDate 仅用于可控演示；正常运行时使用当前马来西亚日期。
+- 手动检查：
+  Shop 与 Basket 均显示同一条汇总横幅；
+  窗口外不显示；
+  Dismiss 后同一窗口内不重复；
+  View evidence 跳转到对应节日和州属。
+
+English:
+- Backend tests:
+  python -m pytest backend/tests/test_festivals.py
+    backend/tests/test_festival_specialty.py
+    backend/tests/test_festival_dataset.py
+    backend/tests/test_festival_price_stats.py
+    backend/tests/test_festival_analytics.py -q
+  Expect 65 passing tests.
+- Frontend:
+  node_modules/.bin/tsc --noEmit
+  node_modules/.bin/vitest run lib/festival-chart.test.ts
+    lib/festival-alert-state.test.ts
+  node_modules/.bin/next build
+  Expect type-check success, 6 passing tests, and a successful production build.
+- API checks:
+  GET /api/festivals/alerts?state=Selangor&on=2025-12-01
+  GET /api/festivals/alerts?on=2025-12-01
+  GET /api/festivals/alerts?state=Selangor&on=2026-10-04
+- Frontend demo:
+  /shop?alertDate=2025-12-01&alertState=Selangor
+  /basket?alertDate=2025-12-01&alertState=Selangor
+  alertDate is a deterministic demo-only override; normal operation uses the
+  current Malaysia date.
+- Manual checks:
+  Shop and Basket show the same summary banner;
+  no banner outside the window;
+  Dismiss prevents repetition in the same window;
+  View evidence opens the corresponding festival and state.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/festival_service.py
+- backend/smartcart/festivals.py
+- backend/tests/test_festivals.py
+- docs/festival-price-methods.md
+- frontend/lib/festival-contracts.ts
+- frontend/lib/festival-api.ts
+- frontend/lib/festival-alert-state.ts
+- frontend/lib/festival-alert-state.test.ts
+- frontend/components/festival-alert-banner.tsx
+- frontend/components/festival-prices.tsx
+- frontend/components/smartcart-app.tsx
+- docs/evidence/epic4i.2screenshot-zhihao/（3 张验收截图）
+- US4i.2README.txt

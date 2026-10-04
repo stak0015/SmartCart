@@ -54,6 +54,13 @@ The four output datasets are:
 Consumers must not treat historical_partial, prior_occurrence, or
 current_fallback as a complete previous-year value.
 
+## Festival alert rule
+
+- Alert rule version: 4i.2.1-v1
+- Uses the current key-window method to show Shop/Basket banners only while the current date is inside the rise window.
+- State filtering uses national festivals plus state-level festivals applicable to the selected state.
+- Affected item counts are derived from item_price_stats rows with status=ok and rise_status=rise.
+
 ## Version change rule
 
 When a method or formula changes:
