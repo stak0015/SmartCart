@@ -1,0 +1,101 @@
+AC 4i.7.5 README - Historical festival price baselines with fallback quality
+AC 4i.7.5 交付说明 - 历史节日价格基线与回退质量
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增逐商品历史均价计算，作为 US 4i.5 判定提前采购节省的基准。
+- 优先使用去年同期同涨价窗口；窗口日期整体平移一年，2 月 29 日按
+  2 月 28 日处理。
+- 去年同期不可得时，依次退化为同一节日同一州属最近一次历史 occurrence
+  的涨价窗口，再退化为当前涨价窗口。
+- 均价计算先对商品在目标窗口内的原始观测执行 3σ 剔除，再取算术平均。
+- 输出 baseline_method 与 baseline_quality：
+  previous_year_same_window / prior_occurrence_window /
+  current_rise_window_fallback / unavailable / window_not_ready；
+  historical / historical_partial / current_fallback / unavailable /
+  window_not_ready。
+- 输出 observed_days、window_days、coverage_ratio、observation_count、
+  excluded_observation_count 和 sample_status。
+- 新增离线脚本 database/compute_festival_historical_prices.py，读取窗口
+  JSON 和 PriceCatcher CSV，输出 festival_historical_prices.json。
+- 全量结果：23,078 行；1,083 行 partial previous-year；18,303 行 current
+  fallback；2,437 行 unavailable；1,255 行 window_not_ready。
+- 数据仅覆盖 2025-09-01 至 2026-09-24，当前没有完整覆盖的 previous-year
+  窗口；历史 partial 与 current fallback 必须按质量标记使用。
+- 本提交只交付离线 JSON，不修改 PostgreSQL schema，不实现 API 或前端页面。
+
+English:
+- Adds item-level historical average prices as the baseline for US 4i.5
+  early-purchase savings.
+- Prefers the previous-year counterpart of the key price-rise window, shifting
+  the whole window by one year and clamping 29 February to 28 February.
+- If previous-year data is unavailable, falls back to the most recent prior
+  occurrence of the same festival and state, then to the current rise window.
+- Applies 3-sigma exclusion to raw item observations in the target window
+  before calculating the arithmetic average.
+- Outputs baseline_method and baseline_quality:
+  previous_year_same_window / prior_occurrence_window /
+  current_rise_window_fallback / unavailable / window_not_ready;
+  historical / historical_partial / current_fallback / unavailable /
+  window_not_ready.
+- Outputs observed_days, window_days, coverage_ratio, observation_count,
+  excluded_observation_count, and sample_status.
+- Adds the offline script database/compute_festival_historical_prices.py, which
+  reads the windows JSON and PriceCatcher CSV and writes
+  festival_historical_prices.json.
+- Full result: 23,078 rows; 1,083 partial previous-year rows; 18,303 current
+  fallback rows; 2,437 unavailable rows; 1,255 window_not_ready rows.
+- Data covers only 2025-09-01 to 2026-09-24, so no previous-year window is fully
+  covered; historical partial and current fallback rows must be consumed
+  according to their quality marker.
+- This commit delivers offline JSON only. It does not change the PostgreSQL
+  schema and does not implement an API or frontend page.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 单元测试：在 backend 目录运行
+  python -m pytest tests/test_festival_price_stats.py
+    tests/test_festival_analytics.py -q
+  预期 48 项通过。
+- 全量运行：
+  python database/compute_festival_historical_prices.py
+    --data-dir <数据目录> --windows <窗口 JSON>
+    --lookup-item <数据目录>/lookup_item.csv
+    --out <历史均价 JSON>
+- 预期结果：23,078 行；1,083 行 previous_year_same_window；
+  18,303 行 current_rise_window_fallback；2,437 行 unavailable；
+  1,255 行 window_not_ready。
+- 重点检查：
+  historical_partial 覆盖率必须小于 0.8；
+  current_fallback 必须标记 current_fallback；
+  unavailable 和 window_not_ready 不得携带 historical_avg_price；
+  window_not_ready 必须保留显著节日状态。
+
+English:
+- Unit tests: from the backend directory run
+  python -m pytest tests/test_festival_price_stats.py
+    tests/test_festival_analytics.py -q
+  Expect 48 passing tests.
+- Full run:
+  python database/compute_festival_historical_prices.py
+    --data-dir <data-dir> --windows <windows.json>
+    --lookup-item <data-dir>/lookup_item.csv
+    --out <historical-prices.json>
+- Expected result: 23,078 rows; 1,083 previous_year_same_window rows;
+  18,303 current_rise_window_fallback rows; 2,437 unavailable rows;
+  1,255 window_not_ready rows.
+- Key checks:
+  historical_partial coverage must be below 0.8;
+  current fallback rows must be marked current_fallback;
+  unavailable and window_not_ready rows must not carry historical_avg_price;
+  window_not_ready must preserve significant festival status.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/festival_price_stats.py（修改 / modified）
+- backend/tests/test_festival_price_stats.py（修改 / modified）
+- database/compute_festival_historical_prices.py（新增 / new）
+- AC4i.7.5README.txt（新增 / new）

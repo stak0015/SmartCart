@@ -6,10 +6,12 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from smartcart.festival_price_stats import (
+    compute_historical_price,
     compute_item_window_stats,
     compute_rise_ratios,
     daily_item_medians,
     filter_window_observations,
+    shift_year,
     summarize_categories,
 )
 
@@ -212,3 +214,72 @@ def test_compute_rise_ratios_marks_sufficient_sample():
     assert festival["ratio_status"] == "ok"
     assert festival["avg_rise_ratio"] == Decimal("10")
     assert festival["rising_item_count"] == 30
+
+def test_shift_year_clamps_leap_day():
+    assert shift_year(date(2024, 2, 29)) == date(2023, 2, 28)
+    assert shift_year(date(2026, 9, 16)) == date(2025, 9, 16)
+
+
+def _window_observations(start, prices):
+    return [
+        (start + timedelta(days=index), Decimal(str(price)))
+        for index, price in enumerate(prices)
+    ]
+
+
+def test_compute_historical_price_prefers_previous_year():
+    current_start = date(2026, 9, 10)
+    previous_start = date(2025, 9, 10)
+    observations = _window_observations(previous_start, [10, 11, 12])
+    result = compute_historical_price(
+        observations,
+        current_start=current_start,
+        current_end=current_start + timedelta(days=2),
+        previous_start=previous_start,
+        previous_end=previous_start + timedelta(days=2),
+    )
+    assert result.method == "previous_year_same_window"
+    assert result.average_price == Decimal("11")
+
+
+def test_compute_historical_price_falls_back_to_prior_occurrence():
+    current_start = date(2026, 9, 10)
+    prior_start = date(2026, 3, 10)
+    observations = _window_observations(prior_start, [20, 21, 22])
+    result = compute_historical_price(
+        observations,
+        current_start=current_start,
+        current_end=current_start + timedelta(days=2),
+        previous_start=date(2025, 9, 10),
+        previous_end=date(2025, 9, 12),
+        prior_start=prior_start,
+        prior_end=prior_start + timedelta(days=2),
+    )
+    assert result.method == "prior_occurrence_window"
+    assert result.average_price == Decimal("21")
+
+
+def test_compute_historical_price_falls_back_to_current_window():
+    current_start = date(2026, 9, 10)
+    observations = _window_observations(current_start, [30, 31, 32])
+    result = compute_historical_price(
+        observations,
+        current_start=current_start,
+        current_end=current_start + timedelta(days=2),
+        previous_start=date(2025, 9, 10),
+        previous_end=date(2025, 9, 12),
+    )
+    assert result.method == "current_rise_window_fallback"
+    assert result.average_price == Decimal("31")
+
+
+def test_compute_historical_price_unavailable():
+    current_start = date(2026, 9, 10)
+    result = compute_historical_price(
+        [],
+        current_start=current_start,
+        current_end=current_start + timedelta(days=2),
+    )
+    assert result.method == "unavailable"
+    assert result.average_price is None
+    assert result.sample_status == "insufficient"

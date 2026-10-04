@@ -525,3 +525,100 @@ def compute_rise_ratios(rows, *, skipped_windows=(), festival_meta=None):
         "festival_rise_ratios": festival_ratios,
         "festival_state_rise_ratios": state_ratios,
     }
+
+
+HISTORICAL_PRICE_METHOD_VERSION = "4i.7.5-v1"
+MIN_HISTORICAL_OBSERVATIONS = 3
+
+
+@dataclass(frozen=True)
+class HistoricalPriceResult:
+    average_price: Decimal | None
+    method: str
+    window_start: date | None
+    window_end: date | None
+    observation_count: int
+    excluded_observation_count: int
+    sample_status: str
+    observed_days: int = 0
+    window_days: int = 0
+
+
+def shift_year(value: date, *, years: int = -1) -> date:
+    """Shift a date by whole years, clamping 29 February if needed."""
+
+    try:
+        return value.replace(year=value.year + years)
+    except ValueError:
+        return value.replace(year=value.year + years, day=28)
+
+
+def _window_average(observations, start, end, sigma_limit):
+    kept, excluded = filter_window_observations(
+        observations, start=start, end=end, sigma_limit=sigma_limit
+    )
+    observed_days = len({day for day, _ in kept})
+    window_days = (end - start).days + 1
+    if not kept:
+        return None, 0, excluded, observed_days, window_days
+    average = sum(price for _, price in kept) / Decimal(len(kept))
+    return average, len(kept), excluded, observed_days, window_days
+
+
+def compute_historical_price(
+    observations,
+    *,
+    current_start: date,
+    current_end: date,
+    previous_start: date | None = None,
+    previous_end: date | None = None,
+    prior_start: date | None = None,
+    prior_end: date | None = None,
+    minimum_observations: int = MIN_HISTORICAL_OBSERVATIONS,
+    sigma_limit: Decimal = SIGMA_LIMIT,
+) -> HistoricalPriceResult:
+    """Compute a historical average price using the D4i.2 fallback chain."""
+
+    candidates = []
+    if previous_start is not None and previous_end is not None:
+        candidates.append(
+            ("previous_year_same_window", previous_start, previous_end)
+        )
+    if prior_start is not None and prior_end is not None:
+        candidates.append(
+            ("prior_occurrence_window", prior_start, prior_end)
+        )
+    candidates.append(("current_rise_window_fallback", current_start, current_end))
+
+    last_counts = (0, 0, 0, 0)
+    for method, start, end in candidates:
+        average, kept_count, excluded_count, observed_days, window_days = _window_average(
+            observations, start, end, sigma_limit
+        )
+        last_counts = (kept_count, excluded_count, observed_days, window_days)
+        if average is None or kept_count < minimum_observations:
+            continue
+        sample_status = "full" if observed_days >= 14 else "limited"
+        return HistoricalPriceResult(
+            average_price=average,
+            method=method,
+            window_start=start,
+            window_end=end,
+            observation_count=kept_count,
+            excluded_observation_count=excluded_count,
+            sample_status=sample_status,
+            observed_days=observed_days,
+            window_days=window_days,
+        )
+
+    return HistoricalPriceResult(
+        average_price=None,
+        method="unavailable",
+        window_start=None,
+        window_end=None,
+        observation_count=last_counts[0],
+        excluded_observation_count=last_counts[1],
+        sample_status="insufficient",
+        observed_days=last_counts[2],
+        window_days=last_counts[3],
+    )
