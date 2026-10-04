@@ -51,6 +51,7 @@ class Settings:
     car_per_km_rm: float
     cerebras_api_key: str | None
     cerebras_model: str
+    festival_dataset_dir: str | None
 
 
 @lru_cache
@@ -101,4 +102,5 @@ def get_settings() -> Settings:
         car_per_km_rm=_non_negative_number("TRAVEL_COST_CAR_PER_KM_RM", 0.45),
         cerebras_api_key=(os.getenv("CEREBRAS_API_KEY", "").strip() or None),
         cerebras_model=_bounded_text("CEREBRAS_MODEL", "gpt-oss-120b", 100),
+        festival_dataset_dir=(os.getenv("FESTIVAL_DATASET_DIR", "").strip() or None),
     )

@@ -5,6 +5,7 @@ import { DropdownChevron, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { StoreChainLogo } from "./store-chain-logo";
+import FestivalPricesScreen from "./festival-prices";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { listCategories, searchItems, type Item } from "@/lib/api";
@@ -118,11 +119,12 @@ import svgPathsLocation from "@/components/icons/location";
 import svgPathsCompare from "@/components/icons/compare";
 
 // ── Types ───────────────────────────────────────────────────────────────────
-type Screen = "home" | "shop" | "basket" | "location" | "compare" | "checklist" | "history" | "inbox";
+type Screen = "home" | "shop" | "basket" | "location" | "compare" | "checklist" | "history" | "inbox" | "festivals";
 
 const SCREEN_ROUTES: Record<Screen, string> = {
   home: "/", location: "/location", shop: "/shop", basket: "/basket",
   compare: "/compare", checklist: "/checklist", history: "/history", inbox: "/reports",
+  festivals: "/festivals",
 };
 
 function screenForPath(pathname: string): Screen {
@@ -362,10 +364,10 @@ function LanguageToggle({ locale, onToggle }: { locale: Locale; onToggle: () => 
 function Header({ basketCount, onBasket, basketActive, onHome, locale, onToggleLanguage, copy, screen, onNavigate }: {
   basketCount: number; onBasket: () => void; basketActive: boolean; showBasket: boolean;
   onHome: () => void; locale: Locale; onToggleLanguage: () => void; copy: AppCopy;
-  screen: string; onNavigate: (screen: "home" | "checklist" | "history" | "inbox") => void;
+  screen: string; onNavigate: (screen: "home" | "checklist" | "history" | "inbox" | "festivals") => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const links = [{id: "home", label: locale === "en" ? "Home" : "Utama", icon: "home"}, {id: "checklist", label: locale === "en" ? "Checklist" : "Senarai semak", icon: "checklist"}, {id: "history", label: locale === "en" ? "History" : "Sejarah", icon: "history"}, {id: "inbox", label: locale === "en" ? "Reports" : "Laporan", icon: "reports"}] as const;
+  const links = [{id: "home", label: locale === "en" ? "Home" : "Utama", icon: "home"}, {id: "festivals", label: locale === "en" ? "Festive Prices" : "Harga Perayaan", icon: "festivals"}, {id: "checklist", label: locale === "en" ? "Checklist" : "Senarai semak", icon: "checklist"}, {id: "history", label: locale === "en" ? "History" : "Sejarah", icon: "history"}, {id: "inbox", label: locale === "en" ? "Reports" : "Laporan", icon: "reports"}] as const;
   return <header className="app-header"><div className="header-inner">
     <button type="button" className="mobile-menu" aria-label="Menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>☰</button>
     <button type="button" onClick={onHome} aria-label="SmartCart home" className="brand"><UIIcon name="basket" size={30} style={{color: "#007d38"}}/><span>Smart<span>Cart</span></span></button>
@@ -2572,6 +2574,7 @@ export default function App() {
             onChecklist={() => navigateTo("checklist")}
             onHistory={() => navigateTo("history")}
             onInbox={() => navigateTo("inbox")}
+            onFestivals={() => navigateTo("festivals")}
           />
           {savedItems.length > 0 && <div className="px-4 pb-8 sm:px-6"><NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} /></div>}
           </>
@@ -2604,6 +2607,7 @@ export default function App() {
           />
         ) : null}
         {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} onDeleteTrip={deleteTripFromHistory} /> : null}
+        {screen === "festivals" ? <FestivalPricesScreen locale={locale} /> : null}
         {screen === "inbox" ? (
           <ReportScreen
             state={inbox}

@@ -16,6 +16,7 @@ const paths: Record<string, string> = {
   document: "M6 2h8l5 5v15H6V2ZM14 2v6h5M9 12h7M9 16h7",
   settings: "M10 3h4l.5 2.1 1.8.8 1.8-1.2 2.8 2.8-1.2 1.8.8 1.8L21 14l-2.1.5-.8 1.8 1.2 1.8-2.8 2.8-1.8-1.2-1.8.8L14 21h-4l-.5-2.1-1.8-.8-1.8 1.2-2.8-2.8 1.2-1.8-.8-1.8L3 10l2.1-.5.8-1.8-1.2-1.8 2.8-2.8 1.8 1.2 1.8-.8L10 3ZM12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z",
   route: "M4 19h4a3 3 0 0 0 0-6H7a3 3 0 0 1 0-6h10M17 4l3 3-3 3M4 16l-2 3 2 3",
+  festivals: "M4 5h16v15H4zM8 3v4M16 3v4M4 10h16M8 15h2M12 15h2M8 18h2",
 };
 
 /** Small shared line icons; decorative by default because controls carry labels. */

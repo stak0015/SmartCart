@@ -6,7 +6,7 @@ from datetime import date
 from typing import Mapping, Sequence
 
 DATASET_ID = "US4i.7"
-DATASET_VERSION = "4i.7-dataset-v2"
+DATASET_VERSION = "4i.7-dataset-v3"
 DATASET_EFFECTIVE_DATE = "2026-10-04"
 
 OUTPUT_CONTRACTS = {

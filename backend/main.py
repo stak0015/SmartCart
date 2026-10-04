@@ -16,6 +16,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 
 from smartcart.api import router  # noqa: E402
+from smartcart.festivals import router as festival_router  # noqa: E402
 from smartcart.cerebras_narrator import CerebrasReportNarrator  # noqa: E402
 from smartcart.config import get_settings  # noqa: E402
 from smartcart.errors import register_error_handlers  # noqa: E402

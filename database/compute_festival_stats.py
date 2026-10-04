@@ -277,6 +277,13 @@ def main(argv=None):
                 "baseline_value": baseline_value,
                 "peak_value": peak_value,
                 "peak_rise_pct": peak_rise_pct,
+                "daily_index": [
+                    {
+                        "date": day.isoformat(),
+                        "value": str(round(value, 2)),
+                    }
+                    for day, value in zip(series.days, series.index)
+                ],
             })
 
     payload = {

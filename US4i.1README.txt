@@ -1,0 +1,122 @@
+US 4i.1 README - Festive price evidence page
+US 4i.1 交付说明 - 节日价格依据页
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增节日价格依据页 /festivals，作为 US 4i.1 的公开只读页面。
+- 页面展示 12 个节日清单，并明确标记价格显著波动节日。
+- 支持选择节日和适用州属，展示节前价格变动窗口与节后恢复窗口。
+- 展示基于价格数据最齐全 50 种商品的逐日价格曲线，支持 Price 与
+  Percentage change 两种视图。
+- 展示数据来源、样本商品数、统计期和方法版本。
+- 当观测天数少于 14 天或样本商品少于 30 个时，逐字展示
+  "Insufficient sample — indicative only"。
+- 新增只读 API：
+  GET /api/festivals
+  GET /api/festivals/{festival_id}?state={state}
+- 数据集新增 daily_index 曲线字段，数据集版本升级为 4i.7-dataset-v3。
+- 新增 EN/BM 节日名称映射；Header 与首页均提供 Festive Prices 入口。
+- 本提交不修改 PostgreSQL schema，不实现 US 4i.2–4i.6。
+
+English:
+- Adds the /festivals festive-price evidence page as the public read-only
+  surface for US 4i.1.
+- Shows the 12-festival list and clearly marks significantly fluctuating
+  festivals.
+- Supports festival and applicable-state selection, with key pre-festival
+  price-change and post-festival recovery windows.
+- Shows the daily price series based on the 50 items with the most complete
+  price data, with Price and Percentage change modes.
+- Shows the source, sample item count, statistics period, and method versions.
+- When fewer than 14 observation days or fewer than 30 sample items are
+  available, displays "Insufficient sample — indicative only".
+- Adds read-only endpoints:
+  GET /api/festivals
+  GET /api/festivals/{festival_id}?state={state}
+- Adds a daily_index series to the significance dataset and bumps the dataset
+  to 4i.7-dataset-v3.
+- Adds English/Malay festival names and Festive Prices entries in the header
+  and home tools.
+- This commit does not change the PostgreSQL schema and does not implement
+  US 4i.2–4i.6.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 后端测试：
+  python -m pytest backend/tests/test_festivals.py
+    backend/tests/test_festival_specialty.py
+    backend/tests/test_festival_dataset.py
+    backend/tests/test_festival_price_stats.py
+    backend/tests/test_festival_analytics.py -q
+  预期 62 项通过。
+- 前端：
+  node_modules/.bin/tsc --noEmit
+  node_modules/.bin/vitest run lib/festival-chart.test.ts
+  node_modules/.bin/next build
+  预期类型检查通过、4 项图表测试通过、生产构建成功。
+- 配置数据集目录：
+  FESTIVAL_DATASET_DIR=<包含五份 JSON、registry 与 manifest 的目录>
+- 启动后端：
+  uvicorn main:app --reload --port 8000
+- 启动前端：
+  pnpm dev
+- 打开 http://localhost:3000/festivals
+- 检查：
+  GET /api/festivals 返回 12 个节日；
+  GET /api/festivals/christmas-2025?state=Selangor 返回关键窗口和日曲线；
+  Thaipusam / Kuala Lumpur 显示样本不足提示。
+
+English:
+- Backend tests:
+  python -m pytest backend/tests/test_festivals.py
+    backend/tests/test_festival_specialty.py
+    backend/tests/test_festival_dataset.py
+    backend/tests/test_festival_price_stats.py
+    backend/tests/test_festival_analytics.py -q
+  Expect 62 passing tests.
+- Frontend:
+  node_modules/.bin/tsc --noEmit
+  node_modules/.bin/vitest run lib/festival-chart.test.ts
+  node_modules/.bin/next build
+  Expect type-check success, 4 chart tests passing, and a successful
+  production build.
+- Configure the dataset directory:
+  FESTIVAL_DATASET_DIR=<directory containing the five JSON files and registry/manifest>
+- Start the backend:
+  uvicorn main:app --reload --port 8000
+- Start the frontend:
+  pnpm dev
+- Open http://localhost:3000/festivals
+- Checks:
+  GET /api/festivals returns 12 festivals;
+  GET /api/festivals/christmas-2025?state=Selangor returns key windows and a
+  daily series;
+  Thaipusam / Kuala Lumpur shows the insufficient-sample notice.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- database/compute_festival_stats.py
+- backend/smartcart/festival_dataset.py
+- backend/smartcart/festival_service.py
+- backend/smartcart/festivals.py
+- backend/smartcart/config.py
+- backend/main.py
+- backend/.env.example
+- backend/tests/test_festivals.py
+- data/festival_method_registry.json
+- data/festival_dataset_manifest.json
+- docs/festival-price-methods.md
+- frontend/lib/festival-contracts.ts
+- frontend/lib/festival-api.ts
+- frontend/lib/festival-chart.ts
+- frontend/lib/festival-chart.test.ts
+- frontend/components/festival-prices.tsx
+- frontend/app/festivals/page.tsx
+- frontend/components/smartcart-app.tsx
+- frontend/components/journey-screens.tsx
+- frontend/components/ui-icon.tsx
+- docs/evidence/epic4i.1screenshot-zhihao/（4 张验收截图）
+- US4i.1README.txt

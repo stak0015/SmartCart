@@ -24,6 +24,8 @@ const TEXT = {
     checklistProgress: (done: number, total: number) => `${done} of ${total} items bought`,
     history: "Shopping history",
     tripsRecorded: (count: number) => `${count} ${count === 1 ? "trip" : "trips"} recorded`,
+    festivals: "Festive Prices",
+    festivalsDetail: "See evidence for significant festive price movement",
     inbox: "Report",
     unreadReports: (count: number) => count === 0 ? "No unread reports" : `${count} unread ${count === 1 ? "report" : "reports"}`,
     open: "Open",
@@ -68,6 +70,8 @@ const TEXT = {
     checklistProgress: (done: number, total: number) => `${done} daripada ${total} item dibeli`,
     history: "Sejarah membeli-belah",
     tripsRecorded: (count: number) => `${count} perjalanan direkodkan`,
+    festivals: "Harga Perayaan",
+    festivalsDetail: "Lihat bukti perubahan harga perayaan yang signifikan",
     inbox: "Laporan",
     unreadReports: (count: number) => count === 0 ? "Tiada laporan belum dibaca" : `${count} laporan belum dibaca`,
     open: "Buka",
@@ -99,16 +103,17 @@ const TEXT = {
 
 export type TripJourneyStep = "location" | "shop" | "basket" | "compare";
 
-export function HomeToolIcon({ kind }: { kind: "checklist" | "inbox" }) {
+export function HomeToolIcon({ kind }: { kind: "checklist" | "inbox" | "festivals" }) {
   const paths = {
     checklist: <><path d="M8 4h11v16H5V4h3" /><path d="m8 11 2 2 4-5m-6 9h7" /></>,
     inbox: <><path d="M5 20v-6m7 6V9m7 11V3" strokeWidth="4" /></>,
+    festivals: <><path d="M4 5h16v15H4zM8 3v4M16 3v4M4 10h16" /><path d="m8 16 2-2 2 2 3-4" /></>,
   }[kind];
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-6 w-6 stroke-current" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{paths}</svg>;
 }
 
-function Icon({ kind }: { kind: "trip" | "checklist" | "history" | "inbox" }) {
-  if (kind === "checklist" || kind === "inbox") return <HomeToolIcon kind={kind}/>;
+function Icon({ kind }: { kind: "trip" | "checklist" | "history" | "inbox" | "festivals" }) {
+  if (kind === "checklist" || kind === "inbox" || kind === "festivals") return <HomeToolIcon kind={kind}/>;
   const paths = {
     trip: <><path d="m3 9 6-3 6 3 6-3v14l-6 3-6-3-6 3V9Z"/><path d="M9 6v14m6-11v14"/><path d="M16 6c0 3-4 7-4 7S8 9 8 6a4 4 0 1 1 8 0Z" fill="currentColor" stroke="white"/><circle cx="12" cy="6" r="1" fill="white" stroke="white"/></>,
     history: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>,
@@ -135,7 +140,7 @@ function HomeCard({
   actionLabel,
 }: {
   actionLabel: string;
-  icon: "checklist" | "history" | "inbox";
+  icon: "checklist" | "history" | "inbox" | "festivals";
   title: string;
   detail: string;
   badge?: number;
@@ -162,6 +167,7 @@ export function SmartCartHomeScreen({
   onChecklist,
   onHistory,
   onInbox,
+  onFestivals,
 }: {
   locale: Locale;
   checklist: ShoppingChecklist | null;
@@ -174,6 +180,7 @@ export function SmartCartHomeScreen({
   onChecklist: () => void;
   onHistory: () => void;
   onInbox: () => void;
+  onFestivals: () => void;
 }) {
   const text = TEXT[locale];
   const progress = checklist ? checklistProgress(checklist) : null;
@@ -185,6 +192,7 @@ export function SmartCartHomeScreen({
       <section className="home-trip"><span className="home-trip-icon"><Icon kind="trip"/></span><div><h2>{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2><p>{hasTripInProgress ? text.resumeAt(journeyStepLabel(locale, resumeStep)) : (locale === "en" ? "Choose your location and travel preferences to begin." : text.travelStep)}</p></div>
       <div className="home-trip-actions"><button type="button" className="primary-button" onClick={onStartOrResume}>{hasTripInProgress ? text.resumeTrip : text.startTrip} <span aria-hidden="true">→</span></button>{hasTripInProgress && <button type="button" className="secondary-button" onClick={onStartNew}>{text.startNew}</button>}</div></section>
       <section className="home-tools" aria-label="SmartCart tools">
+        <HomeCard actionLabel={locale === "en" ? "View festive prices" : "Lihat harga perayaan"} icon="festivals" title={text.festivals} detail={text.festivalsDetail} onClick={onFestivals}/>
         <HomeCard actionLabel={locale === "en" ? "View checklist" : "Lihat senarai"} icon="checklist" title={text.checklist} detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist} onClick={onChecklist}/>
         <HomeCard actionLabel={locale === "en" ? "View history" : "Lihat sejarah"} icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory}/>
         <HomeCard actionLabel={locale === "en" ? "View reports" : "Lihat laporan"} icon="inbox" title={locale === "en" ? "Reports" : text.inbox} detail={text.unreadReports(unreadReports)} badge={unreadReports} onClick={onInbox}/>

@@ -3,7 +3,7 @@
 ## Dataset identity
 
 - Dataset ID: US4i.7
-- Dataset version: 4i.7-dataset-v2
+- Dataset version: 4i.7-dataset-v3
 - Effective date: 2026-10-04
 - Registry: data/festival_method_registry.json
 - Manifest: data/festival_dataset_manifest.json
@@ -13,6 +13,8 @@
 US 4i.1 to US 4i.6 must consume only the US 4i.7 output datasets listed in the
 manifest. Displayed figures must not be calculated directly from raw CSV files
 or from third-party price sources.
+
+The significance dataset also includes a per-row `daily_index` series used by the US 4i.1 evidence chart.
 
 The four output datasets are:
 
