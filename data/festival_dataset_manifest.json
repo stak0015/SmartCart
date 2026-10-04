@@ -1,0 +1,75 @@
+{
+  "dataset_id": "US4i.7",
+  "dataset_version": "4i.7-dataset-v1",
+  "effective_date": "2026-10-04",
+  "generated_at": "2026-10-04T13:50:50+00:00",
+  "registry": "data/festival_method_registry.json",
+  "single_source_rule": "US 4i.1-4i.6 must consume only the US 4i.7 output datasets listed in the manifest; direct raw CSV or third-party price sources are not permitted for displayed figures.",
+  "source_datasets": [
+    {
+      "name": "PriceCatcher monthly prices",
+      "files": "pricecatcher_*.csv",
+      "provider": "data.gov.my PriceCatcher"
+    },
+    {
+      "name": "PriceCatcher item lookup",
+      "files": "lookup_item.csv",
+      "provider": "data.gov.my PriceCatcher"
+    },
+    {
+      "name": "PriceCatcher premise lookup",
+      "files": "lookup_premise.csv",
+      "provider": "data.gov.my PriceCatcher"
+    },
+    {
+      "name": "Festival register",
+      "files": "data/festivals.json",
+      "provider": "maintained project register"
+    }
+  ],
+  "outputs": [
+    {
+      "file": "festival_significance.json",
+      "status": "present",
+      "producer": "database/compute_festival_stats.py",
+      "row_count": 140,
+      "method_versions": {
+        "method_version": "4i.7-v1",
+        "window_method_version": "4i.7.2-v1"
+      }
+    },
+    {
+      "file": "festival_price_stats.json",
+      "status": "present",
+      "producer": "database/compute_festival_price_stats.py",
+      "row_count": 20928,
+      "method_versions": {
+        "price_stats_method_version": "4i.7.3-v1",
+        "window_method_version": "4i.7.2-v1"
+      }
+    },
+    {
+      "file": "festival_rise_ratios.json",
+      "status": "present",
+      "producer": "database/compute_festival_rise_ratios.py",
+      "row_count": 75,
+      "method_versions": {
+        "rise_ratio_method_version": "4i.7.4-v1"
+      }
+    },
+    {
+      "file": "festival_historical_prices.json",
+      "status": "present",
+      "producer": "database/compute_festival_historical_prices.py",
+      "row_count": 23078,
+      "method_versions": {
+        "historical_price_method_version": "4i.7.5-v1",
+        "window_method_version": "4i.7.2-v1"
+      }
+    }
+  ],
+  "validation": {
+    "status": "pass",
+    "errors": []
+  }
+}

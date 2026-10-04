@@ -1,0 +1,60 @@
+{
+  "dataset_id": "US4i.7",
+  "dataset_version": "4i.7-dataset-v1",
+  "effective_date": "2026-10-04",
+  "single_source_rule": "US 4i.1-4i.6 must consume only the US 4i.7 output datasets listed in the manifest; direct raw CSV or third-party price sources are not permitted for displayed figures.",
+  "source_datasets": [
+    {
+      "name": "PriceCatcher monthly prices",
+      "files": "pricecatcher_*.csv",
+      "provider": "data.gov.my PriceCatcher"
+    },
+    {
+      "name": "PriceCatcher item lookup",
+      "files": "lookup_item.csv",
+      "provider": "data.gov.my PriceCatcher"
+    },
+    {
+      "name": "PriceCatcher premise lookup",
+      "files": "lookup_premise.csv",
+      "provider": "data.gov.my PriceCatcher"
+    },
+    {
+      "name": "Festival register",
+      "files": "data/festivals.json",
+      "provider": "maintained project register"
+    }
+  ],
+  "methods": [
+    {
+      "method_id": "significance",
+      "version": "4i.7-v1",
+      "effective_date": "2026-10-04",
+      "description": "Per-state festival significance from the top 50 sample items, 3-sigma outlier exclusion, robust baseline and 5 percent rise threshold."
+    },
+    {
+      "method_id": "key_windows",
+      "version": "4i.7.2-v1",
+      "effective_date": "2026-10-04",
+      "description": "Per festival-state rise and recovery windows with three-observation rise confirmation and peak-to-trough recovery."
+    },
+    {
+      "method_id": "item_price_stats",
+      "version": "4i.7.3-v1",
+      "effective_date": "2026-10-04",
+      "description": "Item-level baseline, peak, recovery prices, rise percentages and broad-category summaries."
+    },
+    {
+      "method_id": "average_rise_ratio",
+      "version": "4i.7.4-v1",
+      "effective_date": "2026-10-04",
+      "description": "Equal-weighted festival average rise ratio using unique rising items and fallback-aware metadata."
+    },
+    {
+      "method_id": "historical_price_baseline",
+      "version": "4i.7.5-v1",
+      "effective_date": "2026-10-04",
+      "description": "Item historical average price with previous-year, prior-occurrence and current-window fallback quality markers."
+    }
+  ]
+}

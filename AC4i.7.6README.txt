@@ -1,0 +1,90 @@
+AC 4i.7.6 README - Dataset registry, manifest, and single-source validation
+AC 4i.7.6 交付说明 - 数据集注册表、清单与单源校验
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增 US 4i.7 数据集注册表，记录 dataset_id、dataset_version、
+  effective_date、来源数据集和 5 个统计方法版本。
+- 新增数据集清单，记录四个输出文件、行数、方法版本与 single_source_rule。
+- 新增纯校验模块，检查注册表完整性、重复版本、未知版本以及 manifest
+  与 registry 的一致性。
+- 新增 manifest 构建脚本，读取实际输出并校验方法版本；默认缺失输出即
+  失败，只有显式 --allow-missing 才允许生成不完整清单。
+- 新增方法说明文档，记录单源规则、方法版本表、历史均价质量标记和版本
+  变更规则。
+- 四个输出数据集：
+  festival_significance.json（140 行）
+  festival_price_stats.json（20,928 行）
+  festival_rise_ratios.json（75 行）
+  festival_historical_prices.json（23,078 行）
+- 本提交只新增离线元数据、校验器、文档和测试；不修改统计公式，不修改
+  PostgreSQL schema，不实现 API 或前端页面。
+
+English:
+- Adds the US 4i.7 dataset registry with dataset_id, dataset_version,
+  effective_date, source datasets, and five method versions.
+- Adds the dataset manifest with four output files, row counts, method versions,
+  and the single-source rule.
+- Adds a pure validation module for registry integrity, duplicate versions,
+  unknown versions, and manifest-registry consistency.
+- Adds a manifest builder that reads actual outputs and validates their method
+  versions; missing outputs fail by default unless --allow-missing is explicit.
+- Adds human-readable method documentation covering the single-source rule,
+  method versions, historical-price quality markers, and version change rules.
+- The four output datasets are:
+  festival_significance.json (140 rows)
+  festival_price_stats.json (20,928 rows)
+  festival_rise_ratios.json (75 rows)
+  festival_historical_prices.json (23,078 rows)
+- This commit adds offline metadata, validation, documentation, and tests only.
+  It does not change statistical formulas, the PostgreSQL schema, an API, or a
+  frontend page.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 单元测试：在 backend 目录运行
+  python -m pytest tests/test_festival_dataset.py
+    tests/test_festival_price_stats.py tests/test_festival_analytics.py -q
+  预期 53 项通过。
+- 构建并校验清单：
+  python database/build_festival_dataset_manifest.py
+    --registry data/festival_method_registry.json
+    --dataset-dir <四份输出所在目录>
+    --out data/festival_dataset_manifest.json
+- 预期结果：dataset_version=4i.7-dataset-v1；4 个输出；0 missing；
+  validation.status=pass。
+- 重点检查：
+  5 个方法版本均在 registry 中；
+  manifest 行数分别为 140、20928、75、23078；
+  single_source_rule 明确禁止 US 4i.1–4i.6 直接读取原始 CSV 或第三方价格源。
+
+English:
+- Unit tests: from the backend directory run
+  python -m pytest tests/test_festival_dataset.py
+    tests/test_festival_price_stats.py tests/test_festival_analytics.py -q
+  Expect 53 passing tests.
+- Build and validate the manifest:
+  python database/build_festival_dataset_manifest.py
+    --registry data/festival_method_registry.json
+    --dataset-dir <directory containing the four outputs>
+    --out data/festival_dataset_manifest.json
+- Expected result: dataset_version=4i.7-dataset-v1; 4 outputs; 0 missing;
+  validation.status=pass.
+- Key checks:
+  all five method versions are present in the registry;
+  manifest row counts are 140, 20928, 75, and 23078;
+  single_source_rule prohibits US 4i.1-4i.6 from reading raw CSV or
+  third-party price sources directly.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/festival_dataset.py（新增 / new）
+- backend/tests/test_festival_dataset.py（新增 / new）
+- data/festival_method_registry.json（新增 / new）
+- data/festival_dataset_manifest.json（新增 / new）
+- database/build_festival_dataset_manifest.py（新增 / new）
+- docs/festival-price-methods.md（新增 / new）
+- AC4i.7.6README.txt（新增 / new）
