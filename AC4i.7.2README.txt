@@ -1,0 +1,76 @@
+AC 4i.7.2 README - Per-state festival price windows with corrected outlier handling
+AC 4i.7.2 交付说明 - 分州节日价格窗口与异常值口径修正
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 修正节日窗口异常值处理顺序：先在“商品 × 节日 × 州属窗口”的原始门店
+  观测上执行 3 倍标准差剔除，再按商品 × 日期取中位数，最后计算等权日指数。
+  这消除了单店异常价对显著性判定的污染。
+- 新增按“节日 × 适用州属”计算关键时间窗。全国性节日对每个州属分别计算；
+  州级节日只使用适用州属的日期记录；同一节日在不同州有不同日期时，窗口
+  彼此独立。
+- 涨价关键段保留连续 3 个观测日确认；恢复关键段取阶段峰值之后、下一个
+  适用节日起点之前的阶段最低点。
+- 输出新增异常值剔除统计、恢复搜索边界、恢复低点、恢复天数、下一节日
+  起点和是否回到基线等字段。
+- 修正后全量结果为 140 行，其中 75 行显著，68 行得到完整涨价与恢复窗口。
+
+English:
+- Corrects the order of outlier handling: 3-sigma exclusion is applied to raw
+  premise observations within each item / festival / state window before daily
+  item medians and the equal-weighted daily index are calculated. This removes
+  contamination from a single abnormal store price.
+- Adds key-window calculation per festival and applicable state. National
+  festivals are calculated separately for each state; state-level festivals use
+  only their applicable date records; different state dates produce independent
+  windows.
+- The price-rise period keeps three-observation confirmation. The recovery
+  period uses the lowest smoothed observation after the peak and before the next
+  applicable festival.
+- Adds output fields for exclusion counts, recovery search bounds, recovery
+  value, recovery duration, next festival start, and whether the recovery
+  returned to the baseline.
+- The full run produces 140 rows, of which 75 are significant and 68 have a
+  complete price-rise and recovery window.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 单元测试：在 backend 目录运行
+  python -m pytest tests/test_festival_analytics.py -q
+  预期 35 项通过。
+- 全量运行：在项目根目录运行
+  python database/compute_festival_stats.py --data-dir <数据目录>
+    --register data/festivals.json --out <输出文件>
+  预期输出 140 行、75 行显著、68 行 window_status=ok。
+- 抽查：
+  cny-2026 / Selangor 应为 significant=false；
+  christmas-2025 / Selangor 应为 window_status=ok；
+  hari-raya-haji-2026 / Kedah 应为 window_status=ok。
+- 完整性检查：recovery_end 不得晚于 recovery_search_end；所有 ok 行必须
+  同时具备涨价起点、涨价终点、恢复起点、恢复终点和恢复低点值。
+
+English:
+- Unit tests: from the backend directory run
+  python -m pytest tests/test_festival_analytics.py -q
+  Expect 35 passing tests.
+- Full run: from the project root run
+  python database/compute_festival_stats.py --data-dir <data-dir>
+    --register data/festivals.json --out <output-file>
+  Expect 140 rows, 75 significant rows, and 68 rows with window_status=ok.
+- Spot checks:
+  cny-2026 / Selangor should be significant=false;
+  christmas-2025 / Selangor should be window_status=ok;
+  hari-raya-haji-2026 / Kedah should be window_status=ok.
+- Integrity checks: recovery_end must not be later than recovery_search_end;
+  every ok row must include rise start, rise end, recovery start, recovery end,
+  and recovery value.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/festival_analytics.py
+- backend/tests/test_festival_analytics.py
+- database/compute_festival_stats.py
+- AC4i.7.2README.txt

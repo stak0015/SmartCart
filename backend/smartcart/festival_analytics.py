@@ -50,6 +50,14 @@ BASELINE_DAYS = 14
 PRE_WINDOW_DAYS = 60
 POST_WINDOW_DAYS = 30
 
+# AC 4i.7.2 - deterministic key-window detection (D4i.8).
+WINDOW_METHOD_VERSION = "4i.7.2-v1"
+WINDOW_SMOOTHING_OBSERVATIONS = 3
+WINDOW_CONFIRMATION_OBSERVATIONS = 3
+WINDOW_RISE_RATIO = Decimal("1.02")
+WINDOW_RECOVERY_RATIO = Decimal("1.02")
+RECOVERY_SEARCH_DAYS = 180
+
 
 class RegisterError(ValueError):
     """Raised when the festival register is missing or malformed."""
@@ -99,6 +107,8 @@ class WindowSeries:
     index: tuple
     observation_days: int
     sample_items: int
+    excluded_observations: int = 0
+    remaining_observations: int = 0
 
     @property
     def enough_sample(self) -> bool:
@@ -115,6 +125,20 @@ class Significance:
     rise_pct: object
     enough_sample: bool
     reason: str
+
+@dataclass(frozen=True)
+class KeyWindowResult:
+    """Result of the AC 4i.7.2 key-window detection."""
+
+    status: str
+    baseline: Decimal | None = None
+    rise_start: date | None = None
+    rise_end: date | None = None
+    recovery_start: date | None = None
+    recovery_end: date | None = None
+    peak_value: Decimal | None = None
+    recovery_below_baseline: bool | None = None
+    recovery_value: Decimal | None = None
 
 
 def load_register(path, *, allow_unverified: bool = False):
@@ -223,6 +247,58 @@ def applies_to_state(festival, state):
     allowed = applicable_states(festival)
     return allowed is None or state in allowed
 
+def observances_for_state(festival, state):
+    """Return the date records that apply to one state (AC 4i.7.2)."""
+
+    if not festival.national and state not in festival.states:
+        return ()
+    return tuple(
+        observance
+        for observance in festival.observances
+        if not observance.states or state in observance.states
+    )
+
+
+def state_observance_span(festival, state):
+    """Return the first and last observance dates for one state."""
+
+    observances = observances_for_state(festival, state)
+    if not observances:
+        return None
+    return (
+        min(observance.start for observance in observances),
+        max(observance.end for observance in observances),
+    )
+
+
+def state_window_bounds(
+    festival, state, *, pre_days=PRE_WINDOW_DAYS, post_days=POST_WINDOW_DAYS
+):
+    """Return the inclusive search window for one festival-and-state pair."""
+
+    span = state_observance_span(festival, state)
+    if span is None:
+        return None
+    start, end = span
+    return start - timedelta(days=pre_days), end + timedelta(days=post_days)
+
+
+def next_festival_start(festivals, current, state):
+    """Return the next applicable festival start after one state observance."""
+
+    span = state_observance_span(current, state)
+    if span is None:
+        return None
+    current_end = span[1]
+    starts = []
+    for festival in festivals:
+        if festival.id == current.id or not applies_to_state(festival, state):
+            continue
+        other_span = state_observance_span(festival, state)
+        if other_span is not None and other_span[0] > current_end:
+            starts.append(other_span[0])
+    return min(starts) if starts else None
+
 
 def _drop_outliers(prices, sigma_limit):
     """Remove observations beyond sigma_limit standard deviations."""
@@ -238,16 +314,67 @@ def _drop_outliers(prices, sigma_limit):
     return [price for price in prices if abs(price - mean) <= limit]
 
 
-def daily_index(observations, *, items, start, end, sigma_limit=SIGMA_LIMIT):
-    """Equal-weighted daily index over items between start and end.
+def _filter_item_observations(observations, sigma_limit):
+    """Filter raw observations against one item's window-level mean/sigma."""
 
-    Per day each item contributes the median of its non-outlier observations;
-    the day index is the equal-weighted mean across contributing items, so no
-    category weighting is applied (AC 4i.7.4).
-    """
+    if len(observations) < 3:
+        return list(observations)
+    prices = [price for _, price in observations]
+    mean = sum(prices) / Decimal(len(prices))
+    variance = sum((price - mean) ** 2 for price in prices) / Decimal(len(prices))
+    sigma = variance.sqrt()
+    if sigma == 0:
+        return list(observations)
+    limit = sigma * sigma_limit
+    return [
+        (day, price)
+        for day, price in observations
+        if abs(price - mean) <= limit
+    ]
+
+
+def _daily_index_from_per_item(per_item, sigma_limit):
+    total_observations = sum(len(pairs) for pairs in per_item.values())
+    remaining_observations = 0
+    contributing_items = set()
+    per_day_item = {}
+    for item_code, pairs in per_item.items():
+        kept = _filter_item_observations(pairs, sigma_limit)
+        if not kept:
+            continue
+        contributing_items.add(item_code)
+        remaining_observations += len(kept)
+        for day, price in kept:
+            per_day_item.setdefault(day, {}).setdefault(item_code, []).append(price)
+
+    days = []
+    index = []
+    for day in sorted(per_day_item):
+        item_prices = [
+            median(prices)
+            for prices in per_day_item[day].values()
+            if prices
+        ]
+        if not item_prices:
+            continue
+        days.append(day)
+        index.append(sum(item_prices) / Decimal(len(item_prices)))
+
+    return WindowSeries(
+        days=tuple(days),
+        index=tuple(index),
+        observation_days=len(days),
+        sample_items=len(contributing_items),
+        excluded_observations=total_observations - remaining_observations,
+        remaining_observations=remaining_observations,
+    )
+
+
+def daily_index(observations, *, items, start, end, sigma_limit=SIGMA_LIMIT):
+    """Equal-weighted daily index over raw PriceObservation inputs."""
 
     allowed = set(items)
-    per_day_item = {}
+    per_item = {}
     for observation in observations:
         if observation.item_code not in allowed:
             continue
@@ -256,31 +383,158 @@ def daily_index(observations, *, items, start, end, sigma_limit=SIGMA_LIMIT):
         price = _to_decimal(observation.price)
         if price is None:
             continue
-        per_day_item.setdefault(observation.day, {}).setdefault(
-            observation.item_code, []
-        ).append(price)
+        per_item.setdefault(observation.item_code, []).append(
+            (observation.day, price)
+        )
+    return _daily_index_from_per_item(per_item, sigma_limit)
 
-    days = []
-    index = []
-    for day in sorted(per_day_item):
-        item_prices = []
-        for prices in per_day_item[day].values():
-            kept = _drop_outliers(prices, sigma_limit)
-            if kept:
-                item_prices.append(median(kept))
-        if not item_prices:
+
+def daily_index_from_prices(price_index, *, items, start, end, sigma_limit=SIGMA_LIMIT):
+    """Equal-weighted daily index over state -> day -> item -> raw prices."""
+
+    allowed = set(items)
+    per_item = {}
+    for day, day_items in price_index.items():
+        if day < start or day > end:
             continue
-        days.append(day)
-        index.append(sum(item_prices) / Decimal(len(item_prices)))
+        for item_code, prices in day_items.items():
+            if item_code not in allowed:
+                continue
+            for raw_price in prices:
+                price = _to_decimal(raw_price)
+                if price is None:
+                    continue
+                per_item.setdefault(item_code, []).append((day, price))
+    return _daily_index_from_per_item(per_item, sigma_limit)
 
-    sample_items_count = len(
-        {item for day in per_day_item for item in per_day_item[day]}
-    )
+
+def smooth_index(series, *, window=WINDOW_SMOOTHING_OBSERVATIONS):
+    """Smooth a daily index with a centred rolling median over observations."""
+
+    if window < 1:
+        raise ValueError("window must be at least 1")
+    if window % 2 == 0:
+        raise ValueError("window must be odd")
+    half = window // 2
+    smoothed = []
+    for position in range(len(series.index)):
+        first = max(0, position - half)
+        last = min(len(series.index), position + half + 1)
+        smoothed.append(median(series.index[first:last]))
     return WindowSeries(
-        days=tuple(days),
-        index=tuple(index),
-        observation_days=len(days),
-        sample_items=sample_items_count,
+        days=series.days,
+        index=tuple(smoothed),
+        observation_days=series.observation_days,
+        sample_items=series.sample_items,
+        excluded_observations=series.excluded_observations,
+        remaining_observations=series.remaining_observations,
+    )
+
+
+def _first_confirmed_run(values, predicate, start, run_length):
+    matches = 0
+    for position in range(start, len(values)):
+        if predicate(values[position]):
+            matches += 1
+            if matches >= run_length:
+                return position - run_length + 1
+        else:
+            matches = 0
+    return None
+
+
+def detect_key_windows(series, *, recovery_end_limit=None):
+    """Detect price-rise and peak-to-trough recovery windows.
+
+    The rise side keeps the approved three-observation confirmation.  The
+    recovery side deliberately uses the lowest smoothed observation after the
+    peak, optionally bounded by the day before the next applicable festival.
+    """
+
+    if not series.index:
+        return KeyWindowResult("no_price_observations")
+    if not series.enough_sample:
+        return KeyWindowResult("insufficient_sample")
+    if len(series.index) < BASELINE_DAYS + WINDOW_CONFIRMATION_OBSERVATIONS:
+        return KeyWindowResult("insufficient_sample")
+
+    smoothed = smooth_index(series)
+    baseline = median(smoothed.index[:BASELINE_DAYS])
+    if baseline <= 0:
+        return KeyWindowResult("invalid_baseline", baseline=baseline)
+
+    rise_threshold = baseline * WINDOW_RISE_RATIO
+    rise_start_index = _first_confirmed_run(
+        smoothed.index,
+        lambda value: value >= rise_threshold,
+        BASELINE_DAYS,
+        WINDOW_CONFIRMATION_OBSERVATIONS,
+    )
+    if rise_start_index is None:
+        return KeyWindowResult("no_rise", baseline=baseline)
+
+    peak_index = max(
+        range(rise_start_index, len(smoothed.index)),
+        key=lambda position: (smoothed.index[position], -position),
+    )
+    peak_value = smoothed.index[peak_index]
+    recovery_start = smoothed.days[peak_index]
+    common = {
+        "baseline": baseline,
+        "rise_start": smoothed.days[rise_start_index],
+        "rise_end": recovery_start,
+        "peak_value": peak_value,
+    }
+
+    if peak_index + 1 >= len(smoothed.index):
+        return KeyWindowResult(
+            "recovery_not_reached",
+            recovery_start=recovery_start,
+            **common,
+        )
+
+    if recovery_end_limit is not None and recovery_start >= recovery_end_limit:
+        return KeyWindowResult(
+            "overlapped_by_next_festival",
+            recovery_start=recovery_start,
+            **common,
+        )
+
+    limit_index = len(smoothed.index) - 1
+    if recovery_end_limit is not None:
+        eligible = [
+            position
+            for position, day in enumerate(smoothed.days)
+            if day <= recovery_end_limit
+        ]
+        if not eligible:
+            return KeyWindowResult(
+                "overlapped_by_next_festival",
+                recovery_start=recovery_start,
+                **common,
+            )
+        limit_index = eligible[-1]
+
+    if limit_index <= peak_index:
+        return KeyWindowResult(
+            "overlapped_by_next_festival",
+            recovery_start=recovery_start,
+            **common,
+        )
+
+    trough_index = min(
+        range(peak_index + 1, limit_index + 1),
+        key=lambda position: (smoothed.index[position], position),
+    )
+    trough_value = smoothed.index[trough_index]
+    recovery_threshold = baseline * WINDOW_RECOVERY_RATIO
+    return KeyWindowResult(
+        "ok",
+        recovery_start=recovery_start,
+        recovery_end=smoothed.days[trough_index],
+        recovery_below_baseline=trough_value <= recovery_threshold,
+        recovery_value=trough_value,
+        **common,
     )
 
 

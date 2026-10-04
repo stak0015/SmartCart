@@ -14,12 +14,21 @@ from smartcart.festival_analytics import (
     PRE_WINDOW_DAYS,
     POST_WINDOW_DAYS,
     Festival,
+    Observance,
     PriceObservation,
     RegisterError,
+    WindowSeries,
     classify_significance,
     daily_index,
+    daily_index_from_prices,
+    detect_key_windows,
     load_register,
+    next_festival_start,
+    observances_for_state,
     sample_items,
+    smooth_index,
+    state_observance_span,
+    state_window_bounds,
     window_bounds,
 )
 
@@ -150,6 +159,56 @@ class TestDailyIndex:
         series = daily_index(observations, items=["A"], start=day, end=day)
         assert series.index == ()
 
+    def test_daily_index_from_prices_matches_observations(self):
+        day = date(2026, 2, 1)
+        price_index = {
+            day: {
+                "A": [Decimal("1"), Decimal("3")],
+                "B": [Decimal("5")],
+            }
+        }
+        observations = [
+            PriceObservation(day, "A", Decimal("1")),
+            PriceObservation(day, "A", Decimal("3")),
+            PriceObservation(day, "B", Decimal("5")),
+        ]
+        from_observations = daily_index(
+            observations, items=["A", "B"], start=day, end=day
+        )
+        from_prices = daily_index_from_prices(
+            price_index, items=["A", "B"], start=day, end=day
+        )
+        assert from_prices.index == from_observations.index
+        assert from_prices.sample_items == from_observations.sample_items
+
+    def test_excludes_window_level_outlier_before_daily_aggregation(self):
+        day = date(2026, 2, 22)
+        prices = [
+            1299,
+            20,
+            20,
+            19.9,
+            18,
+            17,
+            17,
+            16,
+            14.8,
+            14.49,
+            14,
+            11.99,
+            11.99,
+            9.99,
+            9.99,
+            9.99,
+        ]
+        observations = [
+            PriceObservation(day, "A", Decimal(str(price))) for price in prices
+        ]
+        series = daily_index(observations, items=["A"], start=day, end=day)
+        assert series.index == (Decimal("14.8"),)
+        assert series.excluded_observations == 1
+        assert series.remaining_observations == 15
+
 
 def make_series(values):
     from smartcart.festival_analytics import WindowSeries
@@ -223,3 +282,213 @@ class TestWindowBounds:
         start, end = window_bounds(observance)
         assert start == observance.start - timedelta(days=PRE_WINDOW_DAYS)
         assert end == observance.end + timedelta(days=POST_WINDOW_DAYS)
+
+
+def make_festival(*, id="test-festival", scope="national", states=(), observances=()):
+    return Festival(
+        id=id,
+        name_en="Test Festival",
+        name_zh="测试节日",
+        scope=scope,
+        states=tuple(states),
+        observances=tuple(observances),
+        specialties=(),
+        source_url="https://www.malaysia.gov.my/",
+        verified=True,
+    )
+
+
+class TestStateObservances:
+    def test_selects_national_and_matching_state_extension(self):
+        festival = make_festival(
+            observances=(
+                Observance(date(2026, 2, 17), date(2026, 2, 18), "festival", ()),
+                Observance(date(2026, 2, 19), date(2026, 2, 19), "holiday", ("Kedah",)),
+            )
+        )
+        assert len(observances_for_state(festival, "Kedah")) == 2
+        assert len(observances_for_state(festival, "Selangor")) == 1
+        assert state_observance_span(festival, "Kedah") == (
+            date(2026, 2, 17),
+            date(2026, 2, 19),
+        )
+        start, end = state_window_bounds(festival, "Kedah")
+        assert start == date(2025, 12, 19)
+        assert end == date(2026, 3, 21)
+
+    def test_rejects_state_not_listed_on_state_festival(self):
+        festival = make_festival(
+            scope="state",
+            states=("Sarawak",),
+            observances=(
+                Observance(date(2026, 6, 1), date(2026, 6, 2), "festival", ()),
+            ),
+        )
+        assert observances_for_state(festival, "Sabah") == ()
+        assert state_window_bounds(festival, "Sabah") is None
+
+    def test_finds_next_applicable_festival(self):
+        current = make_festival(
+            id="current",
+            observances=(
+                Observance(date(2026, 2, 17), date(2026, 2, 18), "festival", ()),
+            ),
+        )
+        following = make_festival(
+            id="following",
+            observances=(
+                Observance(date(2026, 3, 21), date(2026, 3, 22), "festival", ()),
+            ),
+        )
+        assert next_festival_start((current, following), current, "Selangor") == date(
+            2026, 3, 21
+        )
+
+    def test_keeps_different_state_dates_independent(self):
+        festival = make_festival(
+            scope="state",
+            states=("A", "B"),
+            observances=(
+                Observance(date(2026, 1, 1), date(2026, 1, 1), "festival", ("A",)),
+                Observance(date(2026, 2, 1), date(2026, 2, 1), "festival", ("B",)),
+            ),
+        )
+        assert state_observance_span(festival, "A")[0] == date(2026, 1, 1)
+        assert state_observance_span(festival, "B")[0] == date(2026, 2, 1)
+
+
+class TestSmoothIndex:
+    def test_centred_median_removes_single_day_spike(self):
+        series = make_series([10, 10, 100, 10, 10])
+        smoothed = smooth_index(series)
+        assert smoothed.index == (Decimal("10"),) * 5
+        assert smoothed.days == series.days
+
+    def test_rejects_even_window(self):
+        with pytest.raises(ValueError, match="odd"):
+            smooth_index(make_series([1, 2, 3]), window=2)
+
+
+class TestKeyWindows:
+    def test_detects_rise_peak_and_recovery(self):
+        values = [100] * 14 + [
+            101,
+            102,
+            103,
+            105,
+            110,
+            120,
+            115,
+            110,
+            105,
+            103,
+            102,
+            101,
+            100,
+            100,
+            100,
+        ]
+        series = make_series(values)
+        result = detect_key_windows(series)
+        assert result.status == "ok"
+        assert result.baseline == Decimal("100")
+        assert result.rise_start == series.days[15]
+        assert result.rise_end == series.days[19]
+        assert result.recovery_start == series.days[19]
+        assert result.recovery_end == series.days[26]
+        assert result.recovery_below_baseline is True
+        assert result.recovery_value == Decimal("100")
+        assert result.peak_value == Decimal("115")
+
+    def test_two_high_observations_do_not_confirm_rise(self):
+        values = [100] * 14 + [101, 102, 103, 100, 100, 100, 100, 100, 100, 100]
+        result = detect_key_windows(make_series(values))
+        assert result.status == "no_rise"
+
+    def test_uses_lowest_point_without_three_day_confirmation(self):
+        values = [100] * 14 + [
+            101,
+            102,
+            103,
+            105,
+            110,
+            120,
+            115,
+            112,
+            110,
+            109,
+            108,
+            107,
+            106,
+            105,
+            104,
+            103,
+            104,
+            105,
+            106,
+        ]
+        result = detect_key_windows(make_series(values))
+        assert result.status == "ok"
+        assert result.recovery_end is not None
+        assert result.recovery_below_baseline is False
+
+    def test_marks_recovery_not_reached_when_peak_is_last(self):
+        values = [100] * 14 + [101, 102, 103, 105, 110, 120]
+        result = detect_key_windows(make_series(values))
+        assert result.status == "recovery_not_reached"
+        assert result.recovery_end is None
+
+    def test_respects_recovery_end_limit(self):
+        values = [100] * 14 + [
+            101,
+            102,
+            103,
+            105,
+            110,
+            120,
+            115,
+            110,
+            105,
+            103,
+            102,
+            101,
+            100,
+            100,
+            100,
+        ]
+        series = make_series(values)
+        result = detect_key_windows(series, recovery_end_limit=series.days[22])
+        assert result.status == "ok"
+        assert result.recovery_end == series.days[22]
+
+    def test_marks_overlap_when_peak_reaches_limit(self):
+        values = [100] * 14 + [
+            101,
+            102,
+            103,
+            105,
+            110,
+            120,
+            115,
+            110,
+            105,
+        ]
+        series = make_series(values)
+        result = detect_key_windows(series, recovery_end_limit=series.days[19])
+        assert result.status == "overlapped_by_next_festival"
+        assert result.recovery_end is None
+
+    def test_marks_short_series_as_insufficient(self):
+        result = detect_key_windows(make_series([100] * 10))
+        assert result.status == "insufficient_sample"
+
+    def test_marks_too_few_items_as_insufficient(self):
+        series = make_series([100] * 20)
+        short = WindowSeries(
+            days=series.days,
+            index=series.index,
+            observation_days=series.observation_days,
+            sample_items=MIN_SAMPLE_ITEMS - 1,
+        )
+        result = detect_key_windows(short)
+        assert result.status == "insufficient_sample"
