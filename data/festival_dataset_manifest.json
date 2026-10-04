@@ -1,8 +1,8 @@
 {
   "dataset_id": "US4i.7",
-  "dataset_version": "4i.7-dataset-v1",
+  "dataset_version": "4i.7-dataset-v2",
   "effective_date": "2026-10-04",
-  "generated_at": "2026-10-04T13:50:50+00:00",
+  "generated_at": "2026-10-04T13:57:30+00:00",
   "registry": "data/festival_method_registry.json",
   "single_source_rule": "US 4i.1-4i.6 must consume only the US 4i.7 output datasets listed in the manifest; direct raw CSV or third-party price sources are not permitted for displayed figures.",
   "source_datasets": [
@@ -25,6 +25,11 @@
       "name": "Festival register",
       "files": "data/festivals.json",
       "provider": "maintained project register"
+    },
+    {
+      "name": "Festival specialty mapping",
+      "files": "data/festival_specialty_map.json",
+      "provider": "maintained project mapping"
     }
   ],
   "outputs": [
@@ -65,6 +70,15 @@
       "method_versions": {
         "historical_price_method_version": "4i.7.5-v1",
         "window_method_version": "4i.7.2-v1"
+      }
+    },
+    {
+      "file": "festival_specialty_stats.json",
+      "status": "present",
+      "producer": "database/compute_festival_specialty_stats.py",
+      "row_count": 161,
+      "method_versions": {
+        "specialty_analysis_method_version": "4i.7.7-v1"
       }
     }
   ],

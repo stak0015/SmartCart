@@ -1,0 +1,373 @@
+{
+  "version": "4i.7.7-map-v1",
+  "thresholds": {
+    "minimum_items": 3,
+    "flag_difference_pct_points": 2,
+    "flag_relative_lift": 1.2
+  },
+  "festivals": {
+    "deepavali-2025": [
+      {
+        "specialty_id": "cooking-oil",
+        "name_en": "Cooking oil",
+        "name_zh": "食油",
+        "match_categories": [
+          "MINYAK DAN LEMAK"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "sugar",
+        "name_en": "Sugar",
+        "name_zh": "白糖",
+        "match_categories": [
+          "GULA"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "flour",
+        "name_en": "Flour",
+        "name_zh": "面粉",
+        "match_categories": [
+          "TEPUNG"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "ghee",
+        "name_en": "Ghee",
+        "name_zh": "酥油",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "GHI",
+          "GHEE",
+          "MINYAK SAPI"
+        ],
+        "item_codes": []
+      }
+    ],
+    "christmas-2025": [
+      {
+        "specialty_id": "turkey",
+        "name_en": "Turkey",
+        "name_zh": "火鸡",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "TURKEY",
+          "TURKI",
+          "AYAM BELANDA"
+        ],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "cake-beverages",
+        "name_en": "Cake and beverages",
+        "name_zh": "蛋糕与饮料",
+        "match_categories": [
+          "BISKUT",
+          "COKLAT",
+          "MINUMAN",
+          "TERSEDIA MINUM",
+          "BAHAN-BAHAN MINUMAN"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "thaipusam-2026": [
+      {
+        "specialty_id": "milk",
+        "name_en": "Milk",
+        "name_zh": "牛奶",
+        "match_categories": [
+          "KRIMER DAN SUSU TEPUNG"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "coconut",
+        "name_en": "Coconut",
+        "name_zh": "椰子",
+        "match_categories": [
+          "KELAPA"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "banana",
+        "name_en": "Banana",
+        "name_zh": "香蕉",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "PISANG"
+        ],
+        "item_codes": []
+      }
+    ],
+    "cny-2026": [
+      {
+        "specialty_id": "mandarin-oranges",
+        "name_en": "Mandarin oranges",
+        "name_zh": "柑橘",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "LIMAU",
+          "ORANGE",
+          "MANDARIN"
+        ],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "bak-kwa",
+        "name_en": "Bak kwa",
+        "name_zh": "肉干",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "BAK KWA",
+          "DENDENG",
+          "JERKY"
+        ],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "soft-drinks",
+        "name_en": "Soft drinks",
+        "name_zh": "汽水",
+        "match_categories": [
+          "MINUMAN",
+          "TERSEDIA MINUM",
+          "BAHAN-BAHAN MINUMAN"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "hari-raya-aidilfitri-2026": [
+      {
+        "specialty_id": "cooking-oil",
+        "name_en": "Cooking oil",
+        "name_zh": "食油",
+        "match_categories": [
+          "MINYAK DAN LEMAK"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "flour",
+        "name_en": "Flour",
+        "name_zh": "面粉",
+        "match_categories": [
+          "TEPUNG"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "milk",
+        "name_en": "Milk",
+        "name_zh": "牛奶",
+        "match_categories": [
+          "KRIMER DAN SUSU TEPUNG"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "beef",
+        "name_en": "Beef",
+        "name_zh": "牛肉",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "LEMBU",
+          "KERBAU",
+          "BEEF"
+        ],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "dates",
+        "name_en": "Dates",
+        "name_zh": "椰枣",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "KURMA",
+          "DATES"
+        ],
+        "item_codes": []
+      }
+    ],
+    "good-friday-2026": [
+      {
+        "specialty_id": "fish",
+        "name_en": "Fish",
+        "name_zh": "鱼",
+        "match_categories": [
+          "BAHAN LAUT",
+          "IKAN DALAM TIN",
+          "IKAN DARAT",
+          "HASIL LAUT KERING"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "bread",
+        "name_en": "Bread",
+        "name_zh": "面包",
+        "match_categories": [
+          "ROTI"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "hari-raya-haji-2026": [
+      {
+        "specialty_id": "beef",
+        "name_en": "Beef",
+        "name_zh": "牛肉",
+        "match_categories": [],
+        "match_groups": [],
+        "match_name_keywords": [
+          "LEMBU",
+          "KERBAU",
+          "BEEF"
+        ],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "milk",
+        "name_en": "Milk",
+        "name_zh": "牛奶",
+        "match_categories": [
+          "KRIMER DAN SUSU TEPUNG"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "kaamatan-2026": [
+      {
+        "specialty_id": "rice",
+        "name_en": "Rice",
+        "name_zh": "米",
+        "match_categories": [
+          "BERAS"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "traditional-foods",
+        "name_en": "Traditional foods",
+        "name_zh": "传统食品",
+        "match_categories": [
+          "LAUK",
+          "MAKANAN SEGERA",
+          "NASI"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "wesak-2026": [
+      {
+        "specialty_id": "vegetarian-food",
+        "name_en": "Vegetarian food",
+        "name_zh": "素食",
+        "match_categories": [
+          "SAYUR-SAYURAN",
+          "TAUHU DAN TEMPE"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "gawai-2026": [
+      {
+        "specialty_id": "rice",
+        "name_en": "Rice",
+        "name_zh": "米",
+        "match_categories": [
+          "BERAS"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      },
+      {
+        "specialty_id": "beverages",
+        "name_en": "Beverages",
+        "name_zh": "饮料",
+        "match_categories": [
+          "MINUMAN",
+          "TERSEDIA MINUM",
+          "BAHAN-BAHAN MINUMAN"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "merdeka-2026": [
+      {
+        "specialty_id": "beverages",
+        "name_en": "Beverages",
+        "name_zh": "饮料",
+        "match_categories": [
+          "MINUMAN",
+          "TERSEDIA MINUM",
+          "BAHAN-BAHAN MINUMAN"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ],
+    "malaysia-day-2026": [
+      {
+        "specialty_id": "beverages",
+        "name_en": "Beverages",
+        "name_zh": "饮料",
+        "match_categories": [
+          "MINUMAN",
+          "TERSEDIA MINUM",
+          "BAHAN-BAHAN MINUMAN"
+        ],
+        "match_groups": [],
+        "match_name_keywords": [],
+        "item_codes": []
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 {
   "dataset_id": "US4i.7",
-  "dataset_version": "4i.7-dataset-v1",
+  "dataset_version": "4i.7-dataset-v2",
   "effective_date": "2026-10-04",
   "single_source_rule": "US 4i.1-4i.6 must consume only the US 4i.7 output datasets listed in the manifest; direct raw CSV or third-party price sources are not permitted for displayed figures.",
   "source_datasets": [
@@ -23,6 +23,11 @@
       "name": "Festival register",
       "files": "data/festivals.json",
       "provider": "maintained project register"
+    },
+    {
+      "name": "Festival specialty mapping",
+      "files": "data/festival_specialty_map.json",
+      "provider": "maintained project mapping"
     }
   ],
   "methods": [
@@ -55,6 +60,12 @@
       "version": "4i.7.5-v1",
       "effective_date": "2026-10-04",
       "description": "Item historical average price with previous-year, prior-occurrence and current-window fallback quality markers."
+    },
+    {
+      "method_id": "festival_specialty_analysis",
+      "version": "4i.7.7-v1",
+      "effective_date": "2026-10-04",
+      "description": "Festival-specific key commodity matching and equal-weighted rise comparison against the festival average."
     }
   ]
 }

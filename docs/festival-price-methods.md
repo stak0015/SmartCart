@@ -3,7 +3,7 @@
 ## Dataset identity
 
 - Dataset ID: US4i.7
-- Dataset version: 4i.7-dataset-v1
+- Dataset version: 4i.7-dataset-v2
 - Effective date: 2026-10-04
 - Registry: data/festival_method_registry.json
 - Manifest: data/festival_dataset_manifest.json
@@ -20,6 +20,7 @@ The four output datasets are:
 - festival_price_stats.json
 - festival_rise_ratios.json
 - festival_historical_prices.json
+- festival_specialty_stats.json
 
 ## Source data
 
@@ -37,6 +38,7 @@ The four output datasets are:
 | item_price_stats | 4i.7.3-v1 | 2026-10-04 | Item baseline, peak, recovery prices and category summaries |
 | average_rise_ratio | 4i.7.4-v1 | 2026-10-04 | Equal-weighted festival average rise ratio |
 | historical_price_baseline | 4i.7.5-v1 | 2026-10-04 | Historical average price with fallback quality |
+| festival_specialty_analysis | 4i.7.7-v1 | 2026-10-04 | Festival-specific key commodity rise comparison and flag |
 
 ## Historical baseline quality
 

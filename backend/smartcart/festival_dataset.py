@@ -6,7 +6,7 @@ from datetime import date
 from typing import Mapping, Sequence
 
 DATASET_ID = "US4i.7"
-DATASET_VERSION = "4i.7-dataset-v1"
+DATASET_VERSION = "4i.7-dataset-v2"
 DATASET_EFFECTIVE_DATE = "2026-10-04"
 
 OUTPUT_CONTRACTS = {
@@ -29,6 +29,11 @@ OUTPUT_CONTRACTS = {
         "method_fields": ("historical_price_method_version", "window_method_version"),
         "row_count_field": "row_count",
         "producer": "database/compute_festival_historical_prices.py",
+    },
+    "festival_specialty_stats.json": {
+        "method_fields": ("specialty_analysis_method_version",),
+        "row_count_field": "row_count",
+        "producer": "database/compute_festival_specialty_stats.py",
     },
 }
 

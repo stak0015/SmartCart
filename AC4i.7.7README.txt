@@ -1,0 +1,102 @@
+AC 4i.7.7 README - Festival-specific key commodity analysis
+AC 4i.7.7 交付说明 - 节庆特有关键商品单独分析
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增节庆特有关键商品映射，覆盖全部 12 个节日的 28 个特有关键商品。
+- 支持按 explicit item_codes、item_group、item_category 和商品名称关键词
+  匹配；精确商品优先使用名称关键词，避免宽泛类别误匹配。
+- 对匹配商品单独计算涨幅：同一 item_code 跨州先去重聚合，再在唯一商品
+  之间等权平均。
+- 与全品类平均涨幅比较，满足以下条件才标记显著：
+  至少 3 个上涨商品；差值至少 2 个百分点；相对提升至少 20%。
+- 输出节日级和节日-州属级记录，字段包括 specialty 平均涨幅、全品类平均
+  涨幅、差值、相对提升、中位涨幅、匹配/观察/上涨商品数、观察数、剔除数
+  和 significant_above_average。
+- 无匹配、样本不足、无节日数据或无全品类比例时输出显式状态，不编造标记。
+- 数据集版本升级为 4i.7-dataset-v2；方法注册表新增 4i.7.7-v1；manifest
+  增加第五个输出 festival_specialty_stats.json。
+- 全量结果：28 行节日级、133 行节日-州属级、14 行显著标记。
+- 本提交只交付离线 JSON 与版本链更新，不修改 PostgreSQL schema，不实现
+  API 或前端页面。
+
+English:
+- Adds a festival-specific key-commodity map covering 28 specialties across
+  all 12 festivals.
+- Supports explicit item_codes, item_group, item_category, and item-name
+  keyword matching; precise commodities prefer name keywords to avoid broad
+  category overmatching.
+- Calculates specialty-specific rises by deduplicating each item_code across
+  states before equal weighting across unique items.
+- Compares against the all-category average and flags a specialty only when
+  there are at least 3 rising items, the difference is at least 2 percentage
+  points, and the relative lift is at least 20%.
+- Outputs festival-level and festival-state rows with specialty average rise,
+  all-category average rise, difference, relative lift, median rise, matched,
+  observed and rising item counts, observation counts, excluded counts, and
+  significant_above_average.
+- Returns explicit states for no matches, insufficient items, no festival data,
+  or no all-category ratio; it does not fabricate a flag.
+- Bumps the dataset to 4i.7-dataset-v2, adds method 4i.7.7-v1 to the registry,
+  and adds festival_specialty_stats.json as the fifth manifest output.
+- Full result: 28 festival rows, 133 festival-state rows, and 14 flagged rows.
+- This commit delivers offline JSON and version-chain updates only. It does not
+  change the PostgreSQL schema and does not implement an API or frontend page.
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 单元测试：在 backend 目录运行
+  python -m pytest tests/test_festival_specialty.py
+    tests/test_festival_dataset.py tests/test_festival_price_stats.py
+    tests/test_festival_analytics.py -q
+  预期 58 项通过。
+- 全量运行：
+  python database/compute_festival_specialty_stats.py
+    --price-stats <逐商品 JSON> --rise-ratios <平均比例 JSON>
+    --specialty-map data/festival_specialty_map.json
+    --lookup-item <数据目录>/lookup_item.csv
+    --out festival_specialty_stats.json
+- 预期结果：28 行节日级、133 行节日-州属级、14 行显著标记。
+- 重点检查：
+  wesak-2026 / vegetarian-food 应标记为 true；
+  cny-2026 / mandarin-oranges 应因上涨商品不足而 false；
+  bak-kwa 应返回 no_matches；
+  thaipusam-2026 应返回 no_festival_data；
+  manifest validation.status 应为 pass。
+
+English:
+- Unit tests: from the backend directory run
+  python -m pytest tests/test_festival_specialty.py
+    tests/test_festival_dataset.py tests/test_festival_price_stats.py
+    tests/test_festival_analytics.py -q
+  Expect 58 passing tests.
+- Full run:
+  python database/compute_festival_specialty_stats.py
+    --price-stats <price-stats.json> --rise-ratios <rise-ratios.json>
+    --specialty-map data/festival_specialty_map.json
+    --lookup-item <data-dir>/lookup_item.csv
+    --out festival_specialty_stats.json
+- Expected result: 28 festival rows, 133 festival-state rows, and 14 flagged
+  rows.
+- Key checks:
+  wesak-2026 / vegetarian-food must be flagged true;
+  cny-2026 / mandarin-oranges must be false because of insufficient rising
+  items;
+  bak-kwa must return no_matches;
+  thaipusam-2026 must return no_festival_data;
+  manifest validation.status must be pass.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- backend/smartcart/festival_dataset.py（修改 / modified）
+- backend/smartcart/festival_specialty.py（新增 / new）
+- backend/tests/test_festival_specialty.py（新增 / new）
+- data/festival_specialty_map.json（新增 / new）
+- data/festival_method_registry.json（修改 / modified）
+- data/festival_dataset_manifest.json（修改 / modified）
+- database/compute_festival_specialty_stats.py（新增 / new）
+- docs/festival-price-methods.md（修改 / modified）
+- AC4i.7.7README.txt（新增 / new）
