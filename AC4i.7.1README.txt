@@ -1,0 +1,52 @@
+AC 4i.7.1 README - Festival register and per-state significance
+AC 4i.7.1 交付说明 - 节日登记与分州显著性
+================================================================
+
+1. What this commit does / 本次提交内容
+----------------------------------------------------------------
+中文：
+- 新增节日登记 data/festivals.json：12 条马来西亚主要节庆，含日期区间、
+  适用范围（全国 / 州级）、适用州属列表、节庆特有关键商品与官方来源；
+  日期依据官方 2025 与 2026 公共假期表核实。
+- 新增分析模块 backend/smartcart/festival_analytics.py：登记校验、样本商品
+  选取（按观测数取前 50）、逐日等权价格指数（按商品取中位数、剔除超过 3 倍
+  标准差的极端值）、稳健基线（窗口前 14 天中位数）与显著性判定。
+- 新增离线批处理 database/compute_festival_stats.py：两遍流式扫描月度价格
+  CSV，按门店州属分组，输出分州显著性清单，不将原始数据载入内存。
+- 新增单元测试 backend/tests/test_festival_analytics.py（19 项）。
+
+English:
+- Adds data/festivals.json: 12 Malaysian festivals with date records, scope
+  (national or state-level), applicable states, festival key commodities and
+  the official source; dates verified against the official 2025 and 2026
+  public holiday lists.
+- Adds backend/smartcart/festival_analytics.py: register validation, sample
+  item selection (top 50 by observation count), a daily equal-weighted price
+  index (per-item median with observations beyond 3 standard deviations
+  removed), a robust baseline (median of the first 14 days of the window) and
+  the significance decision.
+- Adds database/compute_festival_stats.py, which streams the monthly price CSV
+  files in two passes, groups rows by the store state, and writes a per-state
+  significance list without loading the raw dataset into memory.
+- Adds backend/tests/test_festival_analytics.py (19 tests).
+
+2. How to verify / 验证方式
+----------------------------------------------------------------
+中文：
+- 单元测试：在 backend 目录运行 pytest tests/test_festival_analytics.py，预期 19 项通过。
+- 端到端：python database/compute_festival_stats.py --data-dir <数据目录> --register data/festivals.json --out <输出.json>；
+  预期覆盖 16 个州与联邦直辖区，输出节日与州组合的显著性清单。
+- 登记校验：登记条目缺少适用州属（州级节日）或缺少日期记录时脚本会拒绝运行。
+
+English:
+- Unit tests: run pytest tests/test_festival_analytics.py from backend; 19 tests expected to pass.
+- End to end: python database/compute_festival_stats.py --data-dir <data dir> --register data/festivals.json --out <output.json>;
+  expected to cover 16 states and federal territories and list significance per festival and state.
+- Register validation: the script refuses to run when a state-level festival has no states or an entry has no date record.
+
+3. Files changed / 变更文件清单
+----------------------------------------------------------------
+- data/festivals.json (new / 新增)
+- backend/smartcart/festival_analytics.py (new / 新增)
+- backend/tests/test_festival_analytics.py (new / 新增)
+- database/compute_festival_stats.py (new / 新增)

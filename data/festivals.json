@@ -1,0 +1,364 @@
+{
+  "register_version": "4i.7-register-v3",
+  "updated": "2026-10-04",
+  "verification": "Dates verified against the official 2025 and 2026 Malaysian public holiday lists (date, weekday and state applicability) supplied by the project owner on 2026-10-04. Only festivals falling inside the price data window (2025-09-01 to 2026-09-24) are included.",
+  "note": "Web scraping prohibited; this register is the only source of festival dates. scope=state requires states; observances may hold several records, including state-specific holiday days with their own states list. specialties lists festival key commodities tracked separately per AC 4i.7.7.",
+  "festivals": [
+    {
+      "id": "deepavali-2025",
+      "name_en": "Deepavali",
+      "name_zh": "屠妖节",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2025-10-20",
+          "end": "2025-10-20",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Cooking oil",
+          "name_zh": "食油"
+        },
+        {
+          "name_en": "Sugar",
+          "name_zh": "白糖"
+        },
+        {
+          "name_en": "Flour",
+          "name_zh": "面粉"
+        },
+        {
+          "name_en": "Ghee",
+          "name_zh": "酥油"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "christmas-2025",
+      "name_en": "Christmas Day",
+      "name_zh": "圣诞节",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2025-12-25",
+          "end": "2025-12-25",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Turkey",
+          "name_zh": "火鸡"
+        },
+        {
+          "name_en": "Cake and beverages",
+          "name_zh": "蛋糕与饮料"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "thaipusam-2026",
+      "name_en": "Thaipusam",
+      "name_zh": "大宝森节",
+      "scope": "state",
+      "states": [
+        "Johor",
+        "Kuala Lumpur",
+        "Negeri Sembilan",
+        "Penang",
+        "Perak",
+        "Putrajaya",
+        "Selangor"
+      ],
+      "observances": [
+        {
+          "start": "2026-02-01",
+          "end": "2026-02-01",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Milk",
+          "name_zh": "牛奶"
+        },
+        {
+          "name_en": "Coconut",
+          "name_zh": "椰子"
+        },
+        {
+          "name_en": "Banana",
+          "name_zh": "香蕉"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "cny-2026",
+      "name_en": "Chinese New Year",
+      "name_zh": "农历新年",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2026-02-17",
+          "end": "2026-02-18",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Mandarin oranges",
+          "name_zh": "柑橘"
+        },
+        {
+          "name_en": "Bak kwa",
+          "name_zh": "肉干"
+        },
+        {
+          "name_en": "Soft drinks",
+          "name_zh": "汽水"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "hari-raya-aidilfitri-2026",
+      "name_en": "Hari Raya Aidilfitri",
+      "name_zh": "开斋节",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2026-03-21",
+          "end": "2026-03-22",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Cooking oil",
+          "name_zh": "食油"
+        },
+        {
+          "name_en": "Flour",
+          "name_zh": "面粉"
+        },
+        {
+          "name_en": "Milk",
+          "name_zh": "牛奶"
+        },
+        {
+          "name_en": "Beef",
+          "name_zh": "牛肉"
+        },
+        {
+          "name_en": "Dates",
+          "name_zh": "椰枣"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "good-friday-2026",
+      "name_en": "Good Friday",
+      "name_zh": "耶稣受难日",
+      "scope": "state",
+      "states": [
+        "Sabah",
+        "Sarawak"
+      ],
+      "observances": [
+        {
+          "start": "2026-04-03",
+          "end": "2026-04-03",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Fish",
+          "name_zh": "鱼"
+        },
+        {
+          "name_en": "Bread",
+          "name_zh": "面包"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "hari-raya-haji-2026",
+      "name_en": "Hari Raya Haji",
+      "name_zh": "哈芝节",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2026-05-27",
+          "end": "2026-05-27",
+          "kind": "festival"
+        },
+        {
+          "start": "2026-05-28",
+          "end": "2026-05-28",
+          "kind": "holiday",
+          "states": [
+            "Kedah",
+            "Kelantan",
+            "Perlis",
+            "Terengganu"
+          ]
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Beef",
+          "name_zh": "牛肉"
+        },
+        {
+          "name_en": "Milk",
+          "name_zh": "牛奶"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "kaamatan-2026",
+      "name_en": "Kaamatan Harvest Festival",
+      "name_zh": "丰收节",
+      "scope": "state",
+      "states": [
+        "Sabah",
+        "Labuan"
+      ],
+      "observances": [
+        {
+          "start": "2026-05-30",
+          "end": "2026-05-31",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Rice",
+          "name_zh": "米"
+        },
+        {
+          "name_en": "Traditional foods",
+          "name_zh": "传统食品"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "wesak-2026",
+      "name_en": "Wesak Day",
+      "name_zh": "卫塞节",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2026-05-31",
+          "end": "2026-05-31",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Vegetarian food",
+          "name_zh": "素食"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "gawai-2026",
+      "name_en": "Gawai Dayak",
+      "name_zh": "达雅节",
+      "scope": "state",
+      "states": [
+        "Sarawak"
+      ],
+      "observances": [
+        {
+          "start": "2026-06-01",
+          "end": "2026-06-02",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Rice",
+          "name_zh": "米"
+        },
+        {
+          "name_en": "Beverages",
+          "name_zh": "饮料"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "merdeka-2026",
+      "name_en": "National Day (Merdeka)",
+      "name_zh": "国庆日",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2026-08-31",
+          "end": "2026-08-31",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Beverages",
+          "name_zh": "饮料"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    },
+    {
+      "id": "malaysia-day-2026",
+      "name_en": "Malaysia Day",
+      "name_zh": "马来西亚日",
+      "scope": "national",
+      "states": [],
+      "observances": [
+        {
+          "start": "2026-09-16",
+          "end": "2026-09-16",
+          "kind": "festival"
+        }
+      ],
+      "specialties": [
+        {
+          "name_en": "Beverages",
+          "name_zh": "饮料"
+        }
+      ],
+      "source_url": "https://www.malaysia.gov.my/",
+      "verified": true
+    }
+  ],
+  "source_note": "Official public holiday list, 2025 and 2026 (supplied by the project owner)."
+}
