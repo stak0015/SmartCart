@@ -7,6 +7,7 @@ from decimal import Decimal
 
 from smartcart.festival_price_stats import (
     compute_item_window_stats,
+    compute_rise_ratios,
     daily_item_medians,
     filter_window_observations,
     summarize_categories,
@@ -172,3 +173,42 @@ def test_summarize_categories_uses_percentage_values_only():
     assert summary["average_positive_rise_pct"] == Decimal("15")
     assert summary["median_rise_pct"] == Decimal("15")
     assert summary["average_recovery_pct"] == Decimal("-10")
+
+def _ratio_row(item_code, rise_pct, rise_status="rise", status="ok", observations=10, excluded=1):
+    return {
+        "festival_id": "f",
+        "state": "S",
+        "item_code": item_code,
+        "status": status,
+        "rise_status": rise_status,
+        "rise_pct": rise_pct,
+        "observation_count": observations,
+        "excluded_observation_count": excluded,
+        "sample_status": "full",
+    }
+
+
+def test_compute_rise_ratios_uses_positive_equal_weighted_items():
+    rows = [
+        _ratio_row("A", "10"),
+        _ratio_row("B", "20"),
+        _ratio_row("C", "-5", rise_status="flat_or_fall"),
+    ]
+    result = compute_rise_ratios(rows)
+    festival = result["festival_rise_ratios"][0]
+    assert festival["avg_rise_ratio"] == Decimal("15")
+    assert festival["median_rise_ratio"] == Decimal("15")
+    assert festival["rising_item_count"] == 2
+    assert festival["flat_or_fall_item_count"] == 1
+    assert festival["ratio_status"] == "insufficient_item_sample"
+    assert festival["excluded_observation_count"] == 3
+    assert festival["remaining_observation_count"] == 30
+
+
+def test_compute_rise_ratios_marks_sufficient_sample():
+    rows = [_ratio_row(str(index), "10") for index in range(30)]
+    result = compute_rise_ratios(rows)
+    festival = result["festival_rise_ratios"][0]
+    assert festival["ratio_status"] == "ok"
+    assert festival["avg_rise_ratio"] == Decimal("10")
+    assert festival["rising_item_count"] == 30
