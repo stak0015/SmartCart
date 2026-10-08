@@ -2,6 +2,7 @@ import type {
   CatalogueItemSummary,
   HealthierAlternative,
   HealthierAlternativesResult,
+  NutrientComparison,
 } from "./api";
 import { localizedPackageSize } from "./package-size";
 
@@ -84,4 +85,80 @@ export function formatNutrientValue(value: number | null, unit: string): string 
   if (value === null || value === undefined) return null;
   const rounded = Math.round(value * 100) / 100;
   return `${rounded} ${unit}`;
+}
+
+// ---------------------------------------------------------------------------
+// US 7.3 — "Why this alternative?" nutrient comparison.
+// ---------------------------------------------------------------------------
+
+export type NutrientPreference = "lower_is_better" | "higher_is_better" | "neutral";
+
+// Which direction counts as better for each tracked nutrient. Nutrients
+// without a defensible direction are marked neutral and never used to
+// claim an improvement (AC 7.3.6).
+const NUTRIENT_PREFERENCE: Record<string, NutrientPreference> = {
+  energy_kcal: "lower_is_better",
+  protein_g: "higher_is_better",
+  fat_g: "lower_is_better",
+  saturated_fat_g: "lower_is_better",
+  carbohydrate_g: "neutral",
+  fibre_g: "higher_is_better",
+  sodium_mg: "lower_is_better",
+  calcium_mg: "higher_is_better",
+};
+
+export type BetterSide = "original" | "alternative" | null;
+
+export interface InsightRow {
+  nutrient: string;
+  label: string;
+  unit: string;
+  status: NutrientComparison["status"];
+  originalText: string | null;
+  alternativeText: string | null;
+  better: BetterSide;
+}
+
+export function nutrientPreference(nutrient: string): NutrientPreference {
+  return NUTRIENT_PREFERENCE[nutrient] ?? "neutral";
+}
+
+/** Which side is better on this row, or null when it cannot be claimed. */
+export function betterSide(row: NutrientComparison): BetterSide {
+  if (row.status !== "comparable") return null;
+  if (row.original_value === null || row.alternative_value === null) return null;
+  const preference = nutrientPreference(row.nutrient);
+  if (preference === "neutral") return null;
+  if (row.original_value === row.alternative_value) return null;
+  const alternativeIsLower = row.alternative_value < row.original_value;
+  if (preference === "lower_is_better") {
+    return alternativeIsLower ? "alternative" : "original";
+  }
+  return alternativeIsLower ? "original" : "alternative";
+}
+
+/** Display rows for the inline comparison (AC 7.3.3/7.3.4/7.3.11). */
+export function insightRows(alternative: HealthierAlternative): InsightRow[] {
+  return alternative.nutrients.map((row) => ({
+    nutrient: row.nutrient,
+    label: row.label,
+    unit: row.unit,
+    status: row.status,
+    originalText: formatNutrientValue(row.original_value, row.unit),
+    alternativeText: formatNutrientValue(row.alternative_value, row.unit),
+    better: betterSide(row),
+  }));
+}
+
+/**
+ * Nutrients where the alternative is worse than the original (AC 7.3.6).
+ * The comparison must never imply the alternative improves everything.
+ */
+export function tradeOffRows(alternative: HealthierAlternative): InsightRow[] {
+  return insightRows(alternative).filter((row) => row.better === "original");
+}
+
+/** Rows the recommendation actually improves, for the supporting summary. */
+export function improvedRows(alternative: HealthierAlternative): InsightRow[] {
+  return insightRows(alternative).filter((row) => row.better === "alternative");
 }

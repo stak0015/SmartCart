@@ -890,7 +890,7 @@ function BasketScreen({
           {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
         </div>}
         quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
-        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/>}/>
+        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/>}/>
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">

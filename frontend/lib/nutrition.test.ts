@@ -3,6 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { HealthierAlternative, HealthierAlternativesResult } from "./api";
 import {
   alternativeCards,
+  betterSide,
+  improvedRows,
+  insightRows,
+  nutrientPreference,
+  tradeOffRows,
   alternativesStatus,
   comparisonReasonKind,
   formatNutrientValue,
@@ -113,5 +118,94 @@ describe("formatNutrientValue", () => {
 
   it("labels the unit and rounds to two decimals", () => {
     expect(formatNutrientValue(2.555, "mg")).toBe("2.56 mg");
+  });
+});
+
+
+function withNutrients(rows: HealthierAlternative["nutrients"]): HealthierAlternative {
+  return alternative({ nutrients: rows, comparison_nutrient: "fat_g" });
+}
+
+const ROW = (nutrient: string, label: string, unit: string, o: number | null, a: number | null, status: HealthierAlternative["nutrients"][number]["status"] = "comparable") =>
+  ({ nutrient, label, unit, original_value: o, alternative_value: a, status });
+
+describe("nutrientPreference", () => {
+  it("treats fat, saturated fat, sodium and energy as lower-is-better", () => {
+    for (const n of ["fat_g", "saturated_fat_g", "sodium_mg", "energy_kcal"]) {
+      expect(nutrientPreference(n)).toBe("lower_is_better");
+    }
+  });
+
+  it("treats fibre, protein and calcium as higher-is-better", () => {
+    for (const n of ["fibre_g", "protein_g", "calcium_mg"]) {
+      expect(nutrientPreference(n)).toBe("higher_is_better");
+    }
+  });
+
+  it("marks nutrients without a defensible direction as neutral", () => {
+    expect(nutrientPreference("carbohydrate_g")).toBe("neutral");
+    expect(nutrientPreference("unknown_nutrient")).toBe("neutral");
+  });
+});
+
+describe("betterSide", () => {
+  it("credits the alternative when a lower-is-better nutrient is lower", () => {
+    expect(betterSide(ROW("fat_g", "Total fat", "g", 8.9, 2.6))).toBe("alternative");
+  });
+
+  it("credits the original when the alternative is worse (AC 7.3.6)", () => {
+    expect(betterSide(ROW("fat_g", "Total fat", "g", 8.9, 12.4))).toBe("original");
+  });
+
+  it("credits the alternative when a higher-is-better nutrient is higher", () => {
+    expect(betterSide(ROW("fibre_g", "Dietary fibre", "g", 0.2, 0.4))).toBe("alternative");
+  });
+
+  it("makes no claim for neutral, unavailable, non-comparable or equal values", () => {
+    expect(betterSide(ROW("carbohydrate_g", "Carbohydrate", "g", 52, 57))).toBeNull();
+    expect(betterSide(ROW("fat_g", "Total fat", "g", null, 2.6, "unavailable"))).toBeNull();
+    expect(betterSide(ROW("fat_g", "Total fat", "g", 8.9, 2.6, "non_comparable"))).toBeNull();
+    expect(betterSide(ROW("fat_g", "Total fat", "g", 2.6, 2.6))).toBeNull();
+  });
+});
+
+describe("insightRows", () => {
+  it("exposes labelled values with units on the shared basis", () => {
+    const rows = insightRows(withNutrients([ROW("fat_g", "Total fat", "g", 8.9, 2.6)]));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].originalText).toBe("8.9 g");
+    expect(rows[0].alternativeText).toBe("2.6 g");
+    expect(rows[0].better).toBe("alternative");
+  });
+
+  it("keeps an unavailable value null instead of zero (AC 7.3.11)", () => {
+    const rows = insightRows(withNutrients([ROW("saturated_fat_g", "Saturated fat", "g", null, 13.4, "unavailable")]));
+    expect(rows[0].status).toBe("unavailable");
+    expect(rows[0].originalText).toBeNull();
+    expect(rows[0].originalText).not.toBe("0 g");
+  });
+
+  it("carries the non-comparable status through (AC 7.3.9)", () => {
+    const rows = insightRows(withNutrients([ROW("fat_g", "Total fat", "g", 1, 2, "non_comparable")]));
+    expect(rows[0].status).toBe("non_comparable");
+    expect(rows[0].better).toBeNull();
+  });
+});
+
+describe("tradeOffRows and improvedRows", () => {
+  const rows = [
+    ROW("fat_g", "Total fat", "g", 8.9, 2.6),
+    ROW("saturated_fat_g", "Saturated fat", "g", 1.0, 2.0),
+    ROW("carbohydrate_g", "Carbohydrate", "g", 50, 60),
+  ];
+
+  it("surfaces nutrients where the alternative is worse (AC 7.3.6)", () => {
+    const tradeOffs = tradeOffRows(withNutrients(rows));
+    expect(tradeOffs.map((r) => r.nutrient)).toEqual(["saturated_fat_g"]);
+  });
+
+  it("lists the nutrients the recommendation actually improves", () => {
+    const improved = improvedRows(withNutrients(rows));
+    expect(improved.map((r) => r.nutrient)).toEqual(["fat_g"]);
   });
 });

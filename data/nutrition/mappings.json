@@ -1,7 +1,7 @@
 {
   "dataset_version": "epic7-alternatives-v1",
   "generated_at": "2026-10-08",
-  "notes": "Approved catalogue-to-catalogue healthier-alternative mappings. Only items listed here are offered; every other catalogue item has no approved alternative (AC 7.1.4). A nutritional recommendation does not imply a lower price.",
+  "notes": "Approved catalogue-to-catalogue healthier-alternative mappings. Alternatives are chosen from each rule's candidate pool (the same product family, addable from the catalogue) by price availability, never by nutrition: a candidate is eligible only when it has at least 5 official price observations; the two eligible candidates with the lowest median observed price are approved; when no candidate in the pool carries a price the single previously approved unpriced alternative is kept as a fallback so the product family does not lose the feature. A nutritional recommendation does not imply a lower price.",
   "rules": [
     {
       "id": "H1",
@@ -62,7 +62,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111015",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -72,7 +73,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111015",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -82,7 +84,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111015",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -92,7 +95,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111015",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -102,7 +106,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111015",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -112,7 +117,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111008",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -122,7 +128,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111008",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -132,7 +139,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111008",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -142,7 +150,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111010",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -152,7 +161,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -162,7 +172,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -172,7 +183,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -182,7 +194,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -192,7 +205,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -202,7 +216,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H1",
@@ -212,7 +227,8 @@
       "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H2",
@@ -222,7 +238,8 @@
       "alternative_item_name": "SUSU MARIGOLD HL",
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H2",
@@ -232,7 +249,8 @@
       "alternative_item_name": "SUSU MARIGOLD HL",
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H2",
@@ -242,7 +260,8 @@
       "alternative_item_name": "SUSU MARIGOLD HL",
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H2",
@@ -252,7 +271,8 @@
       "alternative_item_name": "SUSU MARIGOLD HL",
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H2",
@@ -262,7 +282,8 @@
       "alternative_item_name": "SUSU MARIGOLD HL",
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H3",
@@ -272,7 +293,8 @@
       "alternative_item_name": "ROTI WHOLEMEAL (PELBAGAI JENAMA)",
       "original_food": "MFC-97-101051",
       "alternative_food": "MFC-97-101052",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H3",
@@ -282,7 +304,19 @@
       "alternative_item_name": "ROTI WHOLEMEAL (PELBAGAI JENAMA)",
       "original_food": "MFC-97-101051",
       "alternative_food": "MFC-97-101052",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "918",
+      "original_item_name": "MINYAK MASAK PAKET (PELBAGAI JENAMA)",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -292,7 +326,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1934",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP ADELA GOLD",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -302,7 +348,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1935",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP ADELA GOLD",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -312,7 +370,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1936",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP ADELA GOLD",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -322,7 +392,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "254",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP HELANG",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -332,7 +414,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1598",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP HELANG",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -342,7 +436,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1091",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP HELANG",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -352,7 +458,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1092",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP NEPTUNE",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -362,7 +480,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1599",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP NEPTUNE",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -372,7 +502,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "257",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP NEPTUNE",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -382,7 +524,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1600",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP PISAU",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -392,7 +546,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1093",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP PISAU",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -402,7 +568,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "260",
+      "original_item_name": "MINYAK MASAK SEBATIAN CAP PISAU",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "MFC-CUR-R112009",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -412,7 +590,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1942",
+      "original_item_name": "MINYAK MASAK TULEN CAP ALIF",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -422,7 +612,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1941",
+      "original_item_name": "MINYAK MASAK TULEN CAP ALIF",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -432,7 +634,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1940",
+      "original_item_name": "MINYAK MASAK TULEN CAP ALIF",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -442,7 +656,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "263",
+      "original_item_name": "MINYAK MASAK TULEN CAP BURUH",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -452,7 +678,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1094",
+      "original_item_name": "MINYAK MASAK TULEN CAP BURUH",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -462,7 +700,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1601",
+      "original_item_name": "MINYAK MASAK TULEN CAP BURUH",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -472,7 +722,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1938",
+      "original_item_name": "MINYAK MASAK TULEN CAP SAJI",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -482,7 +744,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1937",
+      "original_item_name": "MINYAK MASAK TULEN CAP SAJI",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -492,7 +766,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1939",
+      "original_item_name": "MINYAK MASAK TULEN CAP SAJI",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -502,7 +788,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1101",
+      "original_item_name": "MINYAK MASAK TULEN CAP SERI MURNI",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -512,7 +810,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1100",
+      "original_item_name": "MINYAK MASAK TULEN CAP SERI MURNI",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -522,7 +832,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "266",
+      "original_item_name": "MINYAK MASAK TULEN CAP SERI MURNI",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -532,7 +854,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1602",
+      "original_item_name": "MINYAK MASAK TULEN CAP VESAWIT",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -542,7 +876,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1095",
+      "original_item_name": "MINYAK MASAK TULEN CAP VESAWIT",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -552,7 +898,19 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "267",
+      "original_item_name": "MINYAK MASAK TULEN CAP VESAWIT",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
+      "original_food": "FDC-171015",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
@@ -562,367 +920,807 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
       "original_item_code": "271",
       "original_item_name": "MINYAK SAPI CAP QBB",
-      "alternative_item_code": "246",
-      "alternative_item_name": "MINYAK JAGUNG CAP MAZOLA",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
       "original_food": "FDC-171314",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "271",
+      "original_item_name": "MINYAK SAPI CAP QBB",
+      "alternative_item_code": "1086",
+      "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
+      "original_food": "FDC-171314",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H4",
       "original_item_code": "1603",
       "original_item_name": "MINYAK SAPI CAP WINDMILL GHEEBLEND",
-      "alternative_item_code": "246",
-      "alternative_item_name": "MINYAK JAGUNG CAP MAZOLA",
+      "alternative_item_code": "1090",
+      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
       "original_food": "FDC-171314",
       "alternative_food": "FDC-171029",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H4",
+      "original_item_code": "1603",
+      "original_item_name": "MINYAK SAPI CAP WINDMILL GHEEBLEND",
+      "alternative_item_code": "1086",
+      "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
+      "original_food": "FDC-171314",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H5",
       "original_item_code": "1371",
       "original_item_name": "DAGING LEMBU IMPORT (BLADE)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1371",
+      "original_item_name": "DAGING LEMBU IMPORT (BLADE)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1913",
       "original_item_name": "DAGING LEMBU IMPORT (BLOCK)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1913",
+      "original_item_name": "DAGING LEMBU IMPORT (BLOCK)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1372",
       "original_item_name": "DAGING LEMBU IMPORT (CHUCKTENDER)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1372",
+      "original_item_name": "DAGING LEMBU IMPORT (CHUCKTENDER)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1373",
       "original_item_name": "DAGING LEMBU IMPORT (KNUCKLE)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1373",
+      "original_item_name": "DAGING LEMBU IMPORT (KNUCKLE)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1370",
       "original_item_name": "DAGING LEMBU IMPORT (TOPSIDE)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1370",
+      "original_item_name": "DAGING LEMBU IMPORT (TOPSIDE)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1431",
       "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 1 DAGING PAHA (KECUALI BATANG PINANG - TENDERLOIN)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1431",
+      "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 1 DAGING PAHA (KECUALI BATANG PINANG - TENDERLOIN)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1432",
       "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 2 DAGING PEJAL (KECUALI BATANG PINANG - TENDERLOIN)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1432",
+      "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 2 DAGING PEJAL (KECUALI BATANG PINANG - TENDERLOIN)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1914",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) (BLOCK)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1914",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) (BLOCK)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1377",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (BLADE)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1377",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (BLADE)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1378",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (CHUCK)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1378",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (CHUCK)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1376",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (RUMP)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1376",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (RUMP)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1375",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (SILVERSIDE)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1375",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (SILVERSIDE)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "14",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (TOP SIDE)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "14",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (TOP SIDE)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1374",
       "original_item_name": "DAGING KERBAU TEMPATAN",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1374",
+      "original_item_name": "DAGING KERBAU TEMPATAN",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1907",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (AUSTRALIA - KOTAK) (1KG)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1907",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (AUSTRALIA - KOTAK) (1KG)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1908",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (NEW ZEALAND - KOTAK)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1908",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (NEW ZEALAND - KOTAK)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "9",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (AUSTRALIA - KOTAK)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "9",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (AUSTRALIA - KOTAK)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "10",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (NEW ZEALAND - KOTAK)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "10",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (NEW ZEALAND - KOTAK)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1909",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - AUSTRALIA)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1909",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - AUSTRALIA)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1910",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1910",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "11",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - AUSTRALIA)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "11",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - AUSTRALIA)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "12",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "12",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1369",
       "original_item_name": "DAGING KAMBING TEMPATAN BERTULANG",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-174307",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1369",
+      "original_item_name": "DAGING KAMBING TEMPATAN BERTULANG",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1384",
       "original_item_name": "BABI HIDUP (±100KG / SEEKOR)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-168219",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1384",
+      "original_item_name": "BABI HIDUP (±100KG / SEEKOR)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1380",
       "original_item_name": "DAGING BABI (DAGING & LEMAK / LEAN & FAT)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-168219",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1380",
+      "original_item_name": "DAGING BABI (DAGING & LEMAK / LEAN & FAT)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1381",
       "original_item_name": "DAGING BABI (ISI DAGING / PURE LEAN)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-168219",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1381",
+      "original_item_name": "DAGING BABI (ISI DAGING / PURE LEAN)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1379",
       "original_item_name": "DAGING BABI (PERUT / BELLY)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-168219",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1379",
+      "original_item_name": "DAGING BABI (PERUT / BELLY)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H5",
       "original_item_code": "1383",
       "original_item_name": "DAGING BABI (RUSUK DENGAN DAGING/ RIBS WITH MEAT)",
-      "alternative_item_code": "1551",
-      "alternative_item_name": "DADA AYAM (CHICKEN KEEL) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-168219",
       "alternative_food": "FDC-171077",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1383",
+      "original_item_name": "DAGING BABI (RUSUK DENGAN DAGING/ RIBS WITH MEAT)",
+      "alternative_item_code": "2",
+      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H6",
       "original_item_code": "148",
       "original_item_name": "IKAN BILIS GRED B (KOPEK)",
-      "alternative_item_code": "1476",
-      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "alternative_item_code": "88",
+      "alternative_item_name": "IKAN KELI (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM)",
       "original_food": "MFC-97-110032",
       "alternative_food": "MFC-97-110053",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H6",
+      "original_item_code": "148",
+      "original_item_name": "IKAN BILIS GRED B (KOPEK)",
+      "alternative_item_code": "47",
+      "alternative_item_name": "IKAN CENCARU (ANTARA 4 HINGGA 6 EKOR SEKILOGRAM)",
+      "original_food": "MFC-97-110032",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H6",
       "original_item_code": "1563",
       "original_item_name": "SOTONG KERING (SAIZ SERDAHANA)",
-      "alternative_item_code": "1476",
-      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "alternative_item_code": "88",
+      "alternative_item_name": "IKAN KELI (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM)",
       "original_food": "MFC-97-110032",
       "alternative_food": "MFC-97-110053",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H6",
+      "original_item_code": "1563",
+      "original_item_name": "SOTONG KERING (SAIZ SERDAHANA)",
+      "alternative_item_code": "47",
+      "alternative_item_name": "IKAN CENCARU (ANTARA 4 HINGGA 6 EKOR SEKILOGRAM)",
+      "original_food": "MFC-97-110032",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H6",
       "original_item_code": "1562",
       "original_item_name": "UDANG KERING",
-      "alternative_item_code": "1476",
-      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "alternative_item_code": "88",
+      "alternative_item_name": "IKAN KELI (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM)",
       "original_food": "MFC-97-110067",
       "alternative_food": "MFC-97-110053",
-      "approved": true
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H6",
+      "original_item_code": "1562",
+      "original_item_name": "UDANG KERING",
+      "alternative_item_code": "47",
+      "alternative_item_name": "IKAN CENCARU (ANTARA 4 HINGGA 6 EKOR SEKILOGRAM)",
+      "original_food": "MFC-97-110067",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true
     },
     {
       "rule": "H7",
       "original_item_code": "1237",
       "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "1109",
-      "alternative_item_name": "TELUR AYAM GRED A",
+      "alternative_item_code": "120",
+      "alternative_item_name": "TELUR AYAM GRED C (BERAT 55.0 GM HINGGA 59.9 GM SEBIJI)",
       "original_food": "MFC-97-109004",
       "alternative_food": "MFC-97-109006",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H7",
+      "original_item_code": "1237",
+      "original_item_name": "TELUR MASIN",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
+      "original_food": "MFC-97-109004",
+      "alternative_food": "MFC-97-109006",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H7",
       "original_item_code": "1820",
       "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "1109",
-      "alternative_item_name": "TELUR AYAM GRED A",
+      "alternative_item_code": "120",
+      "alternative_item_name": "TELUR AYAM GRED C (BERAT 55.0 GM HINGGA 59.9 GM SEBIJI)",
       "original_food": "MFC-97-109004",
       "alternative_food": "MFC-97-109006",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H7",
+      "original_item_code": "1820",
+      "original_item_name": "TELUR MASIN",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
+      "original_food": "MFC-97-109004",
+      "alternative_food": "MFC-97-109006",
+      "approved": true,
+      "generic_mapping": false
     },
     {
       "rule": "H7",
       "original_item_code": "1821",
       "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "1109",
-      "alternative_item_name": "TELUR AYAM GRED A",
+      "alternative_item_code": "120",
+      "alternative_item_name": "TELUR AYAM GRED C (BERAT 55.0 GM HINGGA 59.9 GM SEBIJI)",
       "original_food": "MFC-97-109004",
       "alternative_food": "MFC-97-109006",
-      "approved": true
+      "approved": true,
+      "generic_mapping": false
+    },
+    {
+      "rule": "H7",
+      "original_item_code": "1821",
+      "original_item_name": "TELUR MASIN",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
+      "original_food": "MFC-97-109004",
+      "alternative_food": "MFC-97-109006",
+      "approved": true,
+      "generic_mapping": false
     }
-  ]
+  ],
+  "selection_rule": {
+    "basis": "catalogue items in the same product family that are addable",
+    "eligibility": "at least 5 official price observations (current_status rows with current_price > 0)",
+    "ranking": "median observed official price, ascending",
+    "approved_per_rule": "the two lowest-ranked eligible candidates",
+    "fallback": "when the pool has no eligible candidate, keep the single previously approved unpriced alternative"
+  }
 }

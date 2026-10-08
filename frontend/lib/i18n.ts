@@ -361,6 +361,21 @@ export const COPY = {
     healthierReasonLowerSodium: "Lower sodium per 100 g",
     // US 7.2: verbatim "Back to [previous item]" pattern with the item name.
     backToItem: (name: string) => `Back to ${name}`,
+    // US 7.3 — "Why this alternative?" inline comparison. The action labels
+    // are the AC wording and must not be reworded.
+    whyThisAlternative: "Why this alternative?",
+    closeInsights: "Close insights",
+    insightOriginalLabel: "Original item",
+    insightAlternativeLabel: "Alternative",
+    insightBasisPer100g: "per 100 g",
+    insightBasisPer100ml: "per 100 mL",
+    insightBasis: (basis: string) => `Comparison basis: ${basis}`,
+    insightNonComparable: "Non-comparable",
+    insightUnavailable: "Unavailable",
+    insightSources: "Nutrition source",
+    insightNoComparableValues: "No comparable nutrient values for this pair.",
+    insightTradeOff: (nutrients: string) => `Trade-off: this option is not better on ${nutrients}.`,
+    insightGenericMapping: "Generic food mapping — the nutrition entry describes a generic food, not this exact product.",
   },
   ms: {
     nearbyStores: "Kedai berdekatan",
@@ -713,6 +728,20 @@ export const COPY = {
     healthierReasonLowerSaturatedFat: "Lemak tepu lebih rendah setiap 100 g",
     healthierReasonLowerSodium: "Natrium lebih rendah setiap 100 g",
     backToItem: (name: string) => `Kembali ke ${name}`,
+    // US 7.3 — perbandingan pemakanan dalam baris "Mengapa alternatif ini?".
+    whyThisAlternative: "Mengapa alternatif ini?",
+    closeInsights: "Tutup pandangan",
+    insightOriginalLabel: "Item asal",
+    insightAlternativeLabel: "Alternatif",
+    insightBasisPer100g: "setiap 100 g",
+    insightBasisPer100ml: "setiap 100 mL",
+    insightBasis: (basis: string) => `Asas perbandingan: ${basis}`,
+    insightNonComparable: "Tidak sebanding",
+    insightUnavailable: "Tidak tersedia",
+    insightSources: "Sumber pemakanan",
+    insightNoComparableValues: "Tiada nilai pemakanan yang sebanding untuk pasangan ini.",
+    insightTradeOff: (nutrients: string) => `Tukar ganti: pilihan ini tidak lebih baik untuk ${nutrients}.`,
+    insightGenericMapping: "Pemetaan makanan generik — entri pemakanan ini menerangkan makanan generik, bukan produk ini.",
   },
 } as const;
 

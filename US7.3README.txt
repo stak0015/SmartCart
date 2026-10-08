@@ -1,0 +1,108 @@
+============================================================
+US 7.3 README — Understand why an alternative is recommended
+                理解替代项的推荐理由（营养对比）
+============================================================
+
+1. What this commit does / 本次提交内容
+------------------------------------------------------------
+[zh]
+为每张 "Healthier alternatives" 卡片增加独立的 "Why this alternative?" 动作
+（与"打开该替代项"的主区域分离），并按下述方式展开内联营养对比：
+- 在替代区下方内联展开，不打开其他物品、不改当前数量、不改购物篮；
+- 标识被替换的原物品与所选替代项；
+- 两侧数值统一在同一比较基准（per 100 g / per 100 mL）并标明单位；
+- 标明两侧的营养数据集与映射条目（数据集名 + 记录号 + 条目描述）；
+- 当另一项受跟踪营养素对替代项不利时，显式给出 trade-off，不暗示"样样更好"；
+- 缺失或不可比的值分别标为 "Unavailable" / "Non-comparable"，绝不当作 0；
+- 若该映射使用的是通用食物条目，明确披露 "Generic food mapping ..."；
+- "Close insights" 可收起对比，当前物品、数量与购物篮保持不变；
+- 点击另一条建议的 "Why this alternative?" 时，对比切换为与该新建议的比较。
+
+同时更新已审核的替代项数据：按"有价优先（至少 5 家店报价）→ 中位观测价由低到高取前 2"
+为每个产品族给出替代项，产品族内无任何有价候选时保留原无价替代作为兜底。这样同一物品
+可以有两条替代建议，切换对比才有可比较的对象。
+
+[en]
+Adds a separate "Why this alternative?" action to each "Healthier alternatives"
+card (independent of the card area that opens the item) and expands an inline
+nutrition comparison:
+- it expands below the alternatives section without opening another item, and
+  without changing the current quantity selection or the basket;
+- it identifies the original item and the selected alternative;
+- both sides are shown on one shared basis (per 100 g / per 100 mL) with units;
+- it names the nutrition dataset and mapped entry for both sides (dataset name,
+  record code and entry description);
+- when another tracked nutrient is worse for the alternative, the trade-off is
+  shown rather than implying the alternative improves everything;
+- missing or incompatible values are labelled "Unavailable" / "Non-comparable"
+  and are never treated as zero;
+- a generic food mapping is disclosed explicitly;
+- "Close insights" collapses the comparison and leaves the current item,
+  quantity selection and basket unchanged;
+- selecting "Why this alternative?" on another suggestion switches the
+  comparison to that suggestion.
+
+It also updates the reviewed alternative data: for each product family the
+alternatives are the two lowest median-priced candidates that carry at least
+5 official price observations (priced-first), keeping the previous unpriced
+alternative as a fallback when a family has no priced candidate. This is what
+gives one item two suggestions to switch between.
+
+2. How to verify / 验证方式
+------------------------------------------------------------
+[zh]
+1) 打开 Shop 页，搜索 "SEBATIAN"，打开 "BLENDED COOKING OIL BRAND HELANG"。
+   预期：出现两张替代卡片；点第一张的 "Why this alternative?"，面板显示
+   "BLENDED COOKING OIL BRAND HELANG → VECORN CORN OIL"；再点第二张的
+   同一按钮，面板切换为 "→ DAISY CORN OIL"。
+2) 搜索 "krimer"，打开 "SWEETENED CREAMER BERVITAMIN BRAND F&N"，点
+   "Why this alternative?"。
+   预期：显示 "Comparison basis: per 100 g"、带单位的营养表、两侧
+   "Nutrition source"，以及 "Saturated fat: Unavailable"（不是 0）。
+3) 点 "Close insights"。
+   预期：面板收起，物品、数量与购物篮不变。
+4) 搜索 "LEMBU"，打开任一本牛肉，点 "Why this alternative?"。
+   预期：显示 "Generic food mapping — the nutrition entry describes a generic
+   food, not this exact product."。
+5) 后端测试：cd backend && .venv/Scripts/python -m pytest
+   前端测试：cd frontend && npx pnpm test
+
+[en]
+1) Open the Shop page, search "SEBATIAN" and open
+   "BLENDED COOKING OIL BRAND HELANG".
+   Expected: two alternative cards; select "Why this alternative?" on the first
+   and the panel reads
+   "BLENDED COOKING OIL BRAND HELANG → VECORN CORN OIL"; select the same action
+   on the second and the panel switches to "→ DAISY CORN OIL".
+2) Search "krimer", open "SWEETENED CREAMER BERVITAMIN BRAND F&N" and select
+   "Why this alternative?".
+   Expected: "Comparison basis: per 100 g", a nutrient table with units,
+   "Nutrition source" for both sides, and "Saturated fat: Unavailable" (not 0).
+3) Select "Close insights".
+   Expected: the panel collapses; the item, quantity and basket are unchanged.
+4) Search "LEMBU", open any beef item and select "Why this alternative?".
+   Expected: "Generic food mapping — the nutrition entry describes a generic
+   food, not this exact product.".
+5) Backend tests: cd backend && .venv/Scripts/python -m pytest
+   Frontend tests: cd frontend && npx pnpm test
+
+3. Files changed / 变更文件清单
+------------------------------------------------------------
+前端 Frontend
+  frontend/lib/nutrition.ts                               (modified)
+  frontend/lib/nutrition.test.ts                          (modified)
+  frontend/components/healthier-alternatives.tsx          (modified)
+  frontend/components/smartcart-app.tsx                   (modified)
+  frontend/lib/i18n.ts                                    (modified)
+  frontend/app/ui-layout.css                              (modified)
+后端 Backend
+  backend/smartcart/nutrition.py                          (modified)
+  backend/tests/test_nutrition.py                         (modified)
+数据 Data
+  data/nutrition/mappings.json                            (modified)
+  data/nutrition/README.md                                (modified)
+证据 Evidence
+  docs/evidence/epic7.3screenshot-Zhihao/ac7.3.2-7.3.6-insight-expanded.png
+  docs/evidence/epic7.3screenshot-Zhihao/ac7.3.7-switch-between-suggestions.png
+  docs/evidence/epic7.3screenshot-Zhihao/ac7.3.8-close-insights-collapsed.png
+  docs/evidence/epic7.3screenshot-Zhihao/ac7.3.10-generic-mapping-disclosed.png

@@ -185,7 +185,7 @@ def healthier_alternatives(
                 alternative_source=_source_ref(alternative_food, dataset["sources"]),
                 # A generic entry stands in for the exact product when the
                 # source dataset has no product-specific record (AC 7.3.10).
-                generic_mapping=mapping["rule"] in {"H4", "H5"},
+                generic_mapping=bool(mapping.get("generic_mapping", False)),
                 nutrients=_comparisons(original_food, alternative_food),
             )
         )

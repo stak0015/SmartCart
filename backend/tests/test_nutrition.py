@@ -117,12 +117,35 @@ def test_alternative_is_a_real_catalogue_item():
         assert mapping["approved"] is True, mapping
 
 
-def test_no_duplicate_original_items():
-    seen: dict[str, str] = {}
+def test_no_duplicate_original_alternative_pairs():
+    """One item may offer several alternatives, but never the same one twice."""
+    seen: set[tuple[str, str]] = set()
     for mapping in MAPPINGS["mappings"]:
-        code = mapping["original_item_code"]
-        assert code not in seen, f"{code} mapped more than once"
-        seen[code] = mapping["rule"]
+        pair = (mapping["original_item_code"], mapping["alternative_item_code"])
+        assert pair not in seen, f"{pair} mapped more than once"
+        seen.add(pair)
+
+
+def test_each_original_item_has_at_least_one_alternative():
+    by_original: dict[str, set[str]] = {}
+    for mapping in MAPPINGS["mappings"]:
+        by_original.setdefault(mapping["original_item_code"], set()).add(
+            mapping["rule"]
+        )
+    assert by_original, "no mappings"
+    for code, rules in by_original.items():
+        assert len(rules) == 1, f"{code} spans rules {rules}"
+
+
+def test_generic_mapping_is_declared_per_mapping():
+    """AC 7.3.10: the client must be able to disclose a generic entry."""
+    for mapping in MAPPINGS["mappings"]:
+        assert isinstance(mapping["generic_mapping"], bool), mapping
+
+
+def test_selection_rule_is_documented():
+    rule = MAPPINGS["selection_rule"]
+    assert rule["eligibility"] and rule["ranking"] and rule["fallback"]
 
 
 def test_mapping_rules_are_known_product_families():
