@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { DropdownChevron, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
+import { ItemPriceHistory } from "./price-history";
 import { StoreChainLogo } from "./store-chain-logo";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
@@ -831,7 +832,8 @@ function BasketScreen({
           {basketPanel}
         </aside>
       )}
-      <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
+      <CatalogueItemDialog key={selectedItem?.item_code ?? 'closed'} open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
+        trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose}/> : undefined}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
           <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>

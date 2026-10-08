@@ -505,3 +505,52 @@
 @media (prefers-reduced-motion: reduce) {
   .inbox-message-button,.category-pie { transition:none; }
 }
+
+.catalogue-item-dialog { border: 0; background: transparent; box-shadow: none; }
+.catalogue-dialog-layout { display: grid; gap: 16px; align-items: start; }
+.catalogue-item-card, .catalogue-trends-card { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: white; box-shadow: 0 16px 48px #10231d24; overflow: hidden; }
+.catalogue-trends-card { padding: 20px; }
+.price-trends-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 36px; padding: 8px 12px; margin-top: 16px; border: 1px solid #dce7e0; border-radius: 9px; background: #f5f9f6; color: #166534; font-size: 13px; font-weight: 600; }
+.price-trends-trigger:hover { background: #eaf3ed; }
+.item-price-history { margin: 0; color: #334155; }
+.item-price-history p { margin: 8px 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.price-trends-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.price-trends-header h3 { font-size: 17px; font-weight: 700; color: #14271e; }
+.price-trends-header .icon-button { width: 32px; min-height: 32px; height: 32px; color: #64748b; }
+.item-price-history .price-trends-meta { color: #64748b; font-size: 11px; margin: 0 0 14px; }
+.price-control-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.price-control-row > span { width: 58px; font-size: 11px; color: #64748b; }
+.price-control-row > .price-annual-badge { width: auto; padding: 6px 9px; border-radius: 7px; background: #f5f0ff; color: #75549b; }
+.price-period-controls { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: #f1f5f3; }
+.price-period-controls button { min-height: 30px; min-width: 40px; padding: 4px 9px; border: 0; border-radius: 6px; color: #64748b; font-size: 12px; line-height: 1; }
+.price-period-controls button[aria-pressed="true"] { background: white; color: #166534; font-weight: 600; box-shadow: 0 1px 4px #10231d15; }
+.price-period-controls button:disabled { opacity: .45; cursor: not-allowed; }
+.price-forecast-signal { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 12px; border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; color: #9a3412; }
+.price-forecast-signal-fall { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.price-forecast-signal-arrow { flex-shrink: 0; font-size: 24px; line-height: 1; }
+.price-forecast-signal strong { display: block; font-size: 13px; }
+.item-price-history .price-forecast-signal p { margin: 4px 0; font-size: 11px; }
+.price-forecast-signal small { display: block; font-size: 10px; }
+.item-price-history .price-trends-note { font-size: 11px; color: #64748b; margin-top: 12px; }
+.price-data-details { margin-top: 8px; font-size: 11px; color: #64748b; }
+.price-data-details summary { cursor: pointer; min-height: 28px; padding-block: 5px; }
+.price-history-only { color: #64748b; }
+.price-retry { font-size: 12px; color: #166534; text-decoration: underline; padding: 6px; }
+@media (min-width: 900px) {
+  .catalogue-item-dialog-with-trends { width: min(1080px, calc(100% - 48px)); }
+  .catalogue-item-dialog-with-trends .catalogue-dialog-layout { grid-template-columns: 360px minmax(0,1fr); }
+  .catalogue-item-card, .catalogue-trends-card { max-height: calc(100dvh - 48px); overflow-y: auto; }
+}
+@media (max-width: 899px) {
+  .catalogue-dialog-layout { gap: 10px; }
+  .catalogue-trends-card { padding: 16px; }
+}
+.price-chart-card { padding: 14px 6px 10px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fbfdfc; min-width: 0; }
+.price-chart-legend { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding-inline: 8px; font-size: 12px; }
+.price-chart-legend span { display: inline-flex; gap: 5px; align-items: center; }
+.price-chart-legend small { color: #64748b; margin-left: auto; }
+.price-chart-legend i { width: 18px; border-top: 3px solid #15803d; }
+.price-chart-legend .projected-swatch { border-color: #7c3aed; border-top-style: dashed; }
+.price-chart-plot { width: 100%; min-width: 0; }
+.price-chart-range { display: flex; justify-content: space-between; padding-inline: 8px; color: #64748b; font-size: 10px; }
+.price-chart-placeholder { height: 300px; border-radius: 14px; background: #f1f5f9; }
