@@ -11,8 +11,13 @@ export function cataloguePrice(item: Item, locale: "en" | "ms") {
   return range.min_rm === range.max_rm ? formatRm(range.min_rm) : `${formatRm(range.min_rm)} – ${formatRm(range.max_rm)}`;
 }
 
-export function CatalogueItemDialog({ open, title, details, quantity, onClose, onAdd, canAdd, locale }: {
+export function CatalogueItemDialog({ open, title, details, quantity, back, alternatives, onClose, onAdd, canAdd, locale }: {
   open: boolean; title: string; details: ReactNode; quantity: ReactNode;
+  // Epic 7 (US 7.2): "Back to [previous item]" control, shown only when the
+  // shopper has walked into an alternative.
+  back?: ReactNode;
+  // Epic 7 (AC 7.1.1): rendered below the item details, inside the dialog.
+  alternatives?: ReactNode;
   onClose: () => void; onAdd: () => void; canAdd: boolean; locale: "en" | "ms";
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -38,7 +43,9 @@ export function CatalogueItemDialog({ open, title, details, quantity, onClose, o
     } }}>
     <div className="catalogue-dialog-content">
       <header><h2 id="catalogue-item-title">{title}</h2><button autoFocus type="button" className="icon-button" onClick={onClose} aria-label={locale === "en" ? "Close item details" : "Tutup butiran item"}><UIIcon name="close"/></button></header>
+      {back}
       {details}
+      {alternatives}
       <div className="catalogue-dialog-quantity"><h3>{locale === "en" ? "Quantity" : "Kuantiti"}</h3>{quantity}</div>
     </div>
     <footer><button type="button" className="primary-button" disabled={!canAdd} onClick={onAdd}><UIIcon name="basket"/>{locale === "en" ? "Add to basket" : "Tambah ke bakul"}</button></footer>

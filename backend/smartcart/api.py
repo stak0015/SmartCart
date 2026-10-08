@@ -40,6 +40,7 @@ from .alternatives import (
 )
 from .maps import get_maps_provider
 from .models import (
+    HealthierAlternativesResponse,
     LocationResolveRequest,
     ReverseLocationRequest,
     ReverseLocationResponse,
@@ -57,6 +58,7 @@ from .models import (
     AlternativePriceItem,
     PackSizeOption,
 )
+from .nutrition import healthier_alternatives
 from .pack_ratios import get_pack_options
 from .premises import find_nearest_premises, get_premise_location_coverage
 from .pricing import get_basket_pricing
@@ -232,6 +234,28 @@ def search_items(
         "price_context": "ready" if snapshot else "unavailable",
         "price_store_count": len(stores),
     }
+
+
+@router.get(
+    "/items/{item_code}/healthier-alternatives",
+    response_model=HealthierAlternativesResponse,
+    # The payload carries catalogue item fields and must match the /items/search
+    # row shape, which uses field names rather than camelCase aliases.
+    response_model_by_alias=False,
+)
+def healthier_alternatives_endpoint(
+    item_code: str = Path(min_length=1, max_length=64),
+    candidate_cache_id: str | None = None,
+) -> HealthierAlternativesResponse:
+    # AC 7.1.5: a failing lookup is reported by the client as an unavailable
+    # section; the endpoint itself only ever returns approved mappings.
+    _prune_candidate_cache(monotonic())
+    snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
+    stores = (
+        sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
+        if snapshot else []
+    )
+    return healthier_alternatives(item_code, [store.premise_id for store in stores])
 
 
 @router.get("/items/categories")

@@ -315,3 +315,92 @@ class RecommendationResponse(CamelModel):
     # True when no store matched the shopper's travel limit and the nearest
     # stores were returned anyway (iteration1 feedback: always show something).
     expanded_search: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Epic 7 — Healthier alternatives and nutrition insights (US 7.1-7.3)
+# ---------------------------------------------------------------------------
+
+NutritionBasis = Literal["per_100g", "per_100ml"]
+NutrientStatus = Literal["comparable", "non_comparable", "unavailable"]
+
+
+class CataloguePriceRange(CamelModel):
+    min_rm: float
+    max_rm: float
+    store_count: int
+    oldest_observed_date: date | None = None
+
+
+class CatalogueItemSummary(CamelModel):
+    """The catalogue fields an alternative card and its detail view need.
+
+    Mirrors the /items/search row shape so the client can open an
+    alternative with the same controls as any other catalogue item.
+    """
+
+    item_id: int
+    item_code: str
+    item_name: str
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
+    unit: str | None
+    item_category: str | None
+    package_size: str | None
+    image_url: str | None = None
+    sara_eligible: bool | None = None
+    sara_category_candidate: bool = False
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
+    # Same nearby-store range the search row carries, so opening an
+    # alternative shows the same price context as any catalogue item.
+    price_range: CataloguePriceRange | None = None
+
+
+class NutritionSourceRef(CamelModel):
+    """Identifies the nutrition dataset and record behind one item."""
+
+    dataset: str
+    dataset_name: str
+    record_code: str
+    description: str
+    basis: NutritionBasis
+
+
+class NutrientComparison(CamelModel):
+    """One nutrient on the shared comparison basis (AC 7.3.4/7.3.11).
+
+    A null value with status "unavailable" means the dataset has no value;
+    it is never rendered as zero. "non_comparable" marks a pair whose
+    measurement bases are not compatible (AC 7.3.9).
+    """
+
+    nutrient: str
+    label: str
+    unit: str
+    original_value: float | None
+    alternative_value: float | None
+    status: NutrientStatus
+
+
+class HealthierAlternative(CamelModel):
+    """One approved alternative with its supporting nutrition comparison."""
+
+    item: CatalogueItemSummary
+    rule: str
+    # Short, supported comparison reason shown on the card (AC 7.1.2).
+    headline: str
+    comparison_nutrient: str
+    comparison_direction: Literal["lower_is_better", "higher_is_better"]
+    original_source: NutritionSourceRef
+    alternative_source: NutritionSourceRef
+    # True when the entry is a generic food rather than the exact product
+    # (AC 7.3.10); the client must disclose it.
+    generic_mapping: bool = False
+    nutrients: list[NutrientComparison] = Field(default_factory=list)
+
+
+class HealthierAlternativesResponse(CamelModel):
+    item_code: str
+    count: int
+    alternatives: list[HealthierAlternative] = Field(default_factory=list)

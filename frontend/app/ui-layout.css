@@ -505,3 +505,41 @@
 @media (prefers-reduced-motion: reduce) {
   .inbox-message-button,.category-pie { transition:none; }
 }
+
+/* Epic 7 (US 7.1) — Healthier alternatives section inside the item dialog. */
+.healthier-alternatives { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.healthier-alternatives h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #10152e; }
+.healthier-alternatives p { margin: 0; font-size: 13px; color: #526078; }
+.healthier-alternatives-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.healthier-alternative-main { display: flex; width: 100%; gap: 10px; align-items: center; text-align: start; padding: 10px; border: 1px solid #dfe7e2; border-radius: 12px; background: #f7fbf9; cursor: pointer; }
+.healthier-alternative-main:hover { border-color: #007d38; }
+.healthier-alternative-visual { position: relative; flex: 0 0 auto; width: 40px; height: 40px; }
+.healthier-alternative-text { display: grid; gap: 2px; min-width: 0; }
+.healthier-alternative-text strong { font-size: 13px; font-weight: 800; color: #10152e; overflow-wrap: anywhere; }
+.healthier-alternative-text small { font-size: 12px; color: #718078; }
+.healthier-alternative-text em { font-size: 12px; font-style: normal; font-weight: 700; color: #007d38; }
+
+/* Epic 7 (US 7.2) — "Back to [previous item]" control inside the dialog. */
+.catalogue-dialog-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; padding: 8px 12px; min-height: 40px; border: 1px solid #cbd8d1; border-radius: 10px; background: #fff; color: #007d38; font-size: 13px; font-weight: 800; cursor: pointer; overflow-wrap: anywhere; text-align: start; }
+.catalogue-dialog-back:hover { border-color: #007d38; background: #edf7f2; }
+
+/* Epic 7 (US 7.3) — inline "Why this alternative?" comparison. */
+.healthier-alternative-card { display: grid; gap: 4px; }
+.healthier-insight-toggle { justify-self: start; min-height: 36px; padding: 6px 10px; border: 1px solid #007d38; border-radius: 8px; background: #fff; color: #007d38; font-size: 12px; font-weight: 800; cursor: pointer; }
+.healthier-insight-toggle:hover { background: #edf7f2; }
+.healthier-insight-wrap { margin-top: 10px; padding: 12px; border: 1px solid #dfe7e2; border-radius: 12px; background: #fff; }
+.healthier-insight-pair { margin: 0 0 4px; font-size: 13px; color: #10152e; }
+.healthier-insight-basis { margin: 0 0 8px; font-size: 12px; color: #718078; }
+.healthier-insight-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.healthier-insight-table th, .healthier-insight-table td { padding: 4px 6px; text-align: start; vertical-align: top; border-bottom: 1px solid #eef3f0; }
+.healthier-insight-table thead th { color: #718078; font-weight: 700; }
+.healthier-insight-table tbody th { font-weight: 600; color: #10152e; }
+.healthier-insight-table tr[data-status="unavailable"] td { color: #718078; }
+.healthier-insight-table tr[data-status="non_comparable"] td { color: #8a6d1f; }
+.healthier-insight-tradeoff { margin: 8px 0 0; font-size: 12px; font-weight: 700; color: #8a6d1f; }
+.healthier-insight-sources { margin: 8px 0 0; font-size: 12px; color: #526078; }
+.healthier-insight-sources dt { font-weight: 800; }
+.healthier-insight-sources dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.healthier-insight-generic { margin: 8px 0 0; font-size: 12px; color: #526078; }
+.healthier-insight-close { margin-top: 10px; min-height: 36px; padding: 6px 12px; border: 1px solid #cbd8d1; border-radius: 8px; background: #fff; color: #007d38; font-size: 12px; font-weight: 800; cursor: pointer; }
+.healthier-insight-close:hover { border-color: #007d38; background: #edf7f2; }

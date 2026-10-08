@@ -1,0 +1,79 @@
+============================================================
+US 7.1 README — Healthier alternatives in item details
+                物品详情中的更健康替代项
+============================================================
+
+1. What this commit does / 本次提交内容
+------------------------------------------------------------
+[zh]
+在目录物品详情弹窗中加入 "Healthier alternatives" 区：
+- 替代项来自经审核的营养映射（87 条映射，覆盖 7 组产品族），依据版本库内的
+  静态营养参考数据（MyFCD / USDA FoodData Central）；运行时联网不取数。
+- 每张卡片显示替代项的目录名称、包装规格与一句基于营养差异的对比理由。
+- 物品没有已审核替代项时，该区显示固定提示，物品自身的数量输入与加入按钮不受影响。
+- 替代项查询失败时，该区显示不可用提示，物品自身控件同样不受影响。
+- 新增后端接口 GET /api/items/{item_code}/healthier-alternatives。
+
+[en]
+Adds a "Healthier alternatives" section to the catalogue item details dialog:
+- Alternatives come from reviewed nutrition mappings (87 mappings across 7 product
+  families) backed by static reference data kept in the repository (MyFCD /
+  USDA FoodData Central). Nothing is fetched from the network at runtime.
+- Each card shows the alternative's catalogue name, package size and one
+  nutrition-based comparison reason.
+- When an item has no approved alternative the section shows a fixed message and the
+  item's own quantity input and Add control stay usable.
+- When the lookup fails the section shows an unavailable message and the item's own
+  controls stay usable.
+- Adds the backend endpoint GET /api/items/{item_code}/healthier-alternatives.
+
+2. How to verify / 验证方式
+------------------------------------------------------------
+[zh]
+1) 启动后端与前端，打开 Shop 页。
+2) 搜索 "krimer"，点开 "SWEETENED CREAMER BERVITAMIN BRAND F&N"（点击 +）。
+   预期：物品详情下方出现 "Healthier alternatives" 区，列出
+   "LOW-FAT MILK POWDER (OMEGA PLUS)"、600 g 与 "Lower total fat per 100 g"。
+3) 搜索 "beras"，点开任一米类商品。
+   预期：该区显示 "No healthier alternatives available for this item"，
+   且数量输入与 "Add to basket" 仍可使用。
+4) 后端测试：cd backend && .venv/Scripts/python -m pytest
+   前端测试：cd frontend && npx pnpm test
+
+[en]
+1) Start the backend and frontend, then open the Shop page.
+2) Search "krimer" and open "SWEETENED CREAMER BERVITAMIN BRAND F&N" (press +).
+   Expected: a "Healthier alternatives" section appears below the item details,
+   listing "LOW-FAT MILK POWDER (OMEGA PLUS)", 600 g and
+   "Lower total fat per 100 g".
+3) Search "beras" and open any rice item.
+   Expected: the section shows "No healthier alternatives available for this item",
+   and the quantity input and "Add to basket" remain usable.
+4) Backend tests: cd backend && .venv/Scripts/python -m pytest
+   Frontend tests: cd frontend && npx pnpm test
+
+3. Files changed / 变更文件清单
+------------------------------------------------------------
+后端 Backend
+  backend/smartcart/nutrition.py                          (new)
+  backend/smartcart/api.py                                (modified)
+  backend/smartcart/models.py                             (modified)
+  backend/tests/test_nutrition.py                         (new)
+  backend/tests/test_healthier_alternatives.py            (new)
+数据 Data
+  data/nutrition/README.md                                (new)
+  data/nutrition/foods.json                               (new)
+  data/nutrition/mappings.json                            (new)
+前端 Frontend
+  frontend/lib/nutrition.ts                               (new)
+  frontend/lib/nutrition.test.ts                          (new)
+  frontend/components/healthier-alternatives.tsx          (new)
+  frontend/components/catalogue-item-dialog.tsx           (modified)
+  frontend/components/smartcart-app.tsx                   (modified)
+  frontend/lib/api.ts                                     (modified)
+  frontend/lib/i18n.ts                                    (modified)
+  frontend/app/ui-layout.css                              (modified)
+证据 Evidence
+  docs/evidence/epic7.1screenshot-Zhihao/ac7.1.1-7.1.2-healthier-alternatives-card.png
+  docs/evidence/epic7.1screenshot-Zhihao/ac7.1.4-no-healthier-alternatives-empty-state.png
+  docs/evidence/epic7.1screenshot-Zhihao/ac7.1.5-alternatives-unavailable-state.png
