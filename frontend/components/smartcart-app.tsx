@@ -33,6 +33,13 @@ import type {
 } from "@/lib/contracts";
 import { toAlternativeLineRequests, toBasketLineRequests } from "@/lib/basket-lines";
 import {
+  DEFAULT_MULTI_STORE_CONFIG,
+  DISTANCE_LIMITS,
+  TIME_LIMITS,
+  type MultiStoreConfig,
+} from "@/lib/multi-store";
+import { MultiStorePanel } from "./multi-store-panel";
+import {
   applyBasketReplacement,
   currentReplacementImpactRm,
   lowerCostReplacementChoice,
@@ -915,9 +922,6 @@ function createLocationSessionToken(): string {
   return "smartcart-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 }
 
-const DISTANCE_LIMITS = [2, 5, 10, 15] as const;
-const TIME_LIMITS = [10, 20, 30, 45] as const;
-
 function LocationScreen({
   preferences,
   onCompare,
@@ -1780,6 +1784,8 @@ function CompareScreen({
   preferences,
   candidateCacheId,
   onChangeTravel,
+  multiStore,
+  onMultiStoreChange,
   copy,
 }: {
   basket: BasketItem[];
@@ -1791,6 +1797,8 @@ function CompareScreen({
   preferences: TravelPreferences;
   candidateCacheId: string | null;
   onChangeTravel: () => void;
+  multiStore: MultiStoreConfig;
+  onMultiStoreChange: (next: MultiStoreConfig) => void;
   copy: AppCopy;
 }) {
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -1805,8 +1813,23 @@ function CompareScreen({
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
   const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
   const [requestCandidateCacheId] = useState(candidateCacheId);
+  // AC 6.1.9: the limit actually bound to the current request. Kept in a
+  // snapshot (like requestBasketLines) so editing presets without pressing Apply
+  // does not trigger a re-request; only an applied limit does.
+  const [requestSecondStoreLimit, setRequestSecondStoreLimit] = useState(() => multiStore.applied);
   const hasBasket = requestBasketLines.length > 0;
   const previousSelectedStore = useRef(selectedStore);
+  const previousAppliedLimit = useRef(multiStore.applied);
+
+  useEffect(() => {
+    // Only a change in the applied limit re-requests; toggling presets alone
+    // must not. Reference identity is stable until Apply produces a new object.
+    if (previousAppliedLimit.current !== multiStore.applied) {
+      previousAppliedLimit.current = multiStore.applied;
+      setLoading(true);
+      setRequestSecondStoreLimit(multiStore.applied);
+    }
+  }, [multiStore.applied]);
 
   useEffect(() => {
     if (previousSelectedStore.current && !selectedStore) {
@@ -1839,6 +1862,7 @@ function CompareScreen({
     getRecommendations({
       ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
       ...(requestCandidateCacheId ? { candidateCacheId: requestCandidateCacheId } : {}),
+      ...(requestSecondStoreLimit ? { secondStoreLimit: requestSecondStoreLimit } : {}),
       travel: recommendationTravelRequest(preferences),
     }, controller.signal)
       .then(response => {
@@ -1855,7 +1879,7 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [requestBasketLines, requestCandidateCacheId, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [requestBasketLines, requestCandidateCacheId, requestSecondStoreLimit, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
   const recommendations = result?.recommendations ?? [];
   const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
@@ -1912,6 +1936,12 @@ function CompareScreen({
             { icon: <IcoStore/>, label: copy === COPY.ms ? "Kedai" : "Stores", value: loading ? "—" : recommendations.length },
           ]}/>
         </div>
+
+        {/* US 6.1: the opt-in multi-store toggle and second-store travel limits. */}
+        <div className="preference-bar">
+          <MultiStorePanel config={multiStore} onChange={onMultiStoreChange} copy={copy} />
+        </div>
+
         {loading && (
           <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-6 text-center shadow-sm">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[#cce3d9] border-t-[#007d38]" />
@@ -2027,6 +2057,10 @@ export default function App() {
     timeMinutes: 20,
     saraFilter: "any",
   });
+  // AC 6.1.1: a new recommendation session starts with multi-store plans off.
+  // Held at app level so the configuration outlives the compare screen and can
+  // be restored when the shopper returns to the recommendations (AC 6.4.4).
+  const [multiStore, setMultiStore] = useState<MultiStoreConfig>(DEFAULT_MULTI_STORE_CONFIG);
 
   const runReportGeneration = useCallback(async (period: ReportPeriod) => {
     if (activeReportControllerRef.current) return;
@@ -2685,6 +2719,8 @@ export default function App() {
             preferences={preferences}
             candidateCacheId={candidateCacheId}
             onChangeTravel={() => navigateTo("location")}
+            multiStore={multiStore}
+            onMultiStoreChange={setMultiStore}
             copy={copy}
           />
         ) : null}

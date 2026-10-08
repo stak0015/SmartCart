@@ -111,6 +111,11 @@ export interface RecommendationRequest {
   basket?: BasketLineRequest[];
   travel: TravelPreferencesRequest;
   candidateCacheId?: string;
+  // US 6.1: the limit applied to the first-store → second-store leg. US 6.1 only
+  // configures and forwards it; the two-store plan calculation that consumes it
+  // is US 6.2/6.3. The backend ignores unknown fields, so sending this before
+  // that work lands is safe and keeps the wiring testable now.
+  secondStoreLimit?: TravelLimit;
 }
 
 export interface CandidatePreparationResponse {
