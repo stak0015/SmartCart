@@ -349,6 +349,16 @@ export const COPY = {
       motorcycle: "Motorcycle cost is estimated from route distance and a fuel-cost rate.",
       car: "Car cost is estimated from route distance and a fuel-cost rate.",
     },
+    // Epic 7 — healthier alternatives (US 7.1). The English section title
+    // and empty-state sentence are the AC wording and must not be reworded.
+    healthierAlternativesTitle: "Healthier alternatives",
+    healthierAlternativesLoading: "Loading healthier alternatives…",
+    healthierAlternativesEmpty: "No healthier alternatives available for this item",
+    healthierAlternativesUnavailable: "Healthier alternatives are unavailable right now.",
+    healthierReasonLowerFat: "Lower total fat per 100 g",
+    healthierReasonHigherFibre: "Higher dietary fibre per 100 g",
+    healthierReasonLowerSaturatedFat: "Lower saturated fat per 100 g",
+    healthierReasonLowerSodium: "Lower sodium per 100 g",
   },
   ms: {
     nearbyStores: "Kedai berdekatan",
@@ -691,6 +701,15 @@ export const COPY = {
       motorcycle: "Kos motosikal dianggarkan daripada jarak laluan dan kadar kos bahan api.",
       car: "Kos kereta dianggarkan daripada jarak laluan dan kadar kos bahan api.",
     },
+    // Epic 7 — healthier alternatives (US 7.1), Malay copy.
+    healthierAlternativesTitle: "Alternatif lebih sihat",
+    healthierAlternativesLoading: "Memuatkan alternatif lebih sihat…",
+    healthierAlternativesEmpty: "Tiada alternatif lebih sihat untuk item ini",
+    healthierAlternativesUnavailable: "Alternatif lebih sihat tidak tersedia buat masa ini.",
+    healthierReasonLowerFat: "Lemak total lebih rendah setiap 100 g",
+    healthierReasonHigherFibre: "Serat diet lebih tinggi setiap 100 g",
+    healthierReasonLowerSaturatedFat: "Lemak tepu lebih rendah setiap 100 g",
+    healthierReasonLowerSodium: "Natrium lebih rendah setiap 100 g",
   },
 } as const;
 

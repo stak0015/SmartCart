@@ -77,3 +77,84 @@ export async function listCategories(signal?: AbortSignal): Promise<CategoriesRe
   }
   return res.json();
 }
+
+// ---------------------------------------------------------------------------
+// Epic 7 — Healthier alternatives and nutrition insights (US 7.1-7.3)
+// ---------------------------------------------------------------------------
+
+export type NutritionBasis = "per_100g" | "per_100ml";
+export type NutrientStatus = "comparable" | "non_comparable" | "unavailable";
+
+// Mirrors the /items/search row so an alternative opens with the same controls.
+export interface CatalogueItemSummary {
+  item_id: number;
+  item_code: string;
+  item_name: string;
+  item_name_en?: string | null;
+  item_name_ms?: string | null;
+  unit: string | null;
+  item_category: string | null;
+  package_size: string | null;
+  image_url?: string | null;
+  sara_eligible: boolean | null;
+  sara_category_candidate: boolean;
+  category: ItemCategory | null;
+  source_category?: SourceCategory | null;
+  // Same nearby-store range the search row carries.
+  price_range?: { min_rm: number; max_rm: number; store_count: number; oldest_observed_date: string | null } | null;
+}
+
+export interface NutritionSourceRef {
+  dataset: string;
+  dataset_name: string;
+  record_code: string;
+  description: string;
+  basis: NutritionBasis;
+}
+
+export interface NutrientComparison {
+  nutrient: string;
+  label: string;
+  unit: string;
+  original_value: number | null;
+  alternative_value: number | null;
+  // "unavailable" means no value in the dataset — never rendered as zero.
+  status: NutrientStatus;
+}
+
+export interface HealthierAlternative {
+  item: CatalogueItemSummary;
+  rule: string;
+  headline: string;
+  comparison_nutrient: string;
+  comparison_direction: "lower_is_better" | "higher_is_better";
+  original_source: NutritionSourceRef;
+  alternative_source: NutritionSourceRef;
+  generic_mapping: boolean;
+  nutrients: NutrientComparison[];
+}
+
+export interface HealthierAlternativesResult {
+  item_code: string;
+  count: number;
+  alternatives: HealthierAlternative[];
+}
+
+/**
+ * Approved healthier alternatives for one catalogue item (Epic 7).
+ */
+export async function fetchHealthierAlternatives(
+  itemCode: string,
+  candidateCacheId?: string | null,
+  signal?: AbortSignal,
+): Promise<HealthierAlternativesResult> {
+  const params = new URLSearchParams();
+  if (candidateCacheId) params.set("candidate_cache_id", candidateCacheId);
+  const query = params.toString();
+  const url = `${API_BASE_URL}/items/${encodeURIComponent(itemCode)}/healthier-alternatives${query ? `?${query}` : ""}`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    throw new Error(`Healthier alternatives failed: HTTP ${res.status}`);
+  }
+  return res.json();
+}

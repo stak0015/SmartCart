@@ -5,9 +5,10 @@ import { DropdownChevron, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { StoreChainLogo } from "./store-chain-logo";
+import { HealthierAlternativesSection } from "./healthier-alternatives";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { listCategories, searchItems, type Item } from "@/lib/api";
+import { fetchHealthierAlternatives, listCategories, searchItems, type Item, type HealthierAlternativesResult } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import {
@@ -466,6 +467,10 @@ function BasketScreen({
   const [apiError, setApiError] = useState(false);
   const [qtyById, setQtyById] = useState<Record<number, string>>({});
   const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
+  // Epic 7 (US 7.1): alternatives for the item currently open in the dialog.
+  const [alternatives, setAlternatives] = useState<HealthierAlternativesResult | null>(null);
+  const [alternativesLoading, setAlternativesLoading] = useState(false);
+  const [alternativesError, setAlternativesError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -529,6 +534,36 @@ function BasketScreen({
       controller.abort();
     };
   }, [activeCategories, page, search, view, candidateCacheId]);
+
+  // Epic 7 (US 7.1): load approved healthier alternatives for the item
+  // currently open in the dialog. A failure only affects this section
+  // (AC 7.1.5) — the item stays usable.
+  useEffect(() => {
+    const itemCode = selectedItem?.item_code;
+    if (!itemCode) {
+      setAlternatives(null);
+      setAlternativesError(false);
+      setAlternativesLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setAlternatives(null);
+    setAlternativesError(false);
+    setAlternativesLoading(true);
+    fetchHealthierAlternatives(itemCode, candidateCacheId, controller.signal)
+      .then(data => {
+        if (!controller.signal.aborted) setAlternatives(data);
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setAlternatives(null);
+        setAlternativesError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAlternativesLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedItem?.item_code, candidateCacheId]);
 
   const toggleCategory = (category: string) => {
     setPage(1);
@@ -841,7 +876,8 @@ function BasketScreen({
           {selectedItem.price_range && <p>{locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
           {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
         </div>}
-        quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}/>
+        quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
+        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy}/>}/>
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
