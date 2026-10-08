@@ -511,10 +511,14 @@
 .healthier-alternatives h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #10152e; }
 .healthier-alternatives p { margin: 0; font-size: 13px; color: #526078; }
 .healthier-alternatives-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.healthier-alternative-main { display: flex; gap: 10px; align-items: center; padding: 10px; border: 1px solid #dfe7e2; border-radius: 12px; background: #f7fbf9; }
+.healthier-alternative-main { display: flex; width: 100%; gap: 10px; align-items: center; text-align: start; padding: 10px; border: 1px solid #dfe7e2; border-radius: 12px; background: #f7fbf9; cursor: pointer; }
+.healthier-alternative-main:hover { border-color: #007d38; }
 .healthier-alternative-visual { position: relative; flex: 0 0 auto; width: 40px; height: 40px; }
 .healthier-alternative-text { display: grid; gap: 2px; min-width: 0; }
 .healthier-alternative-text strong { font-size: 13px; font-weight: 800; color: #10152e; overflow-wrap: anywhere; }
 .healthier-alternative-text small { font-size: 12px; color: #718078; }
 .healthier-alternative-text em { font-size: 12px; font-style: normal; font-weight: 700; color: #007d38; }
 
+/* Epic 7 (US 7.2) — "Back to [previous item]" control inside the dialog. */
+.catalogue-dialog-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; padding: 8px 12px; min-height: 40px; border: 1px solid #cbd8d1; border-radius: 10px; background: #fff; color: #007d38; font-size: 13px; font-weight: 800; cursor: pointer; overflow-wrap: anywhere; text-align: start; }
+.catalogue-dialog-back:hover { border-color: #007d38; background: #edf7f2; }

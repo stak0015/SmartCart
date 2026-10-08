@@ -359,6 +359,8 @@ export const COPY = {
     healthierReasonHigherFibre: "Higher dietary fibre per 100 g",
     healthierReasonLowerSaturatedFat: "Lower saturated fat per 100 g",
     healthierReasonLowerSodium: "Lower sodium per 100 g",
+    // US 7.2: verbatim "Back to [previous item]" pattern with the item name.
+    backToItem: (name: string) => `Back to ${name}`,
   },
   ms: {
     nearbyStores: "Kedai berdekatan",
@@ -710,6 +712,7 @@ export const COPY = {
     healthierReasonHigherFibre: "Serat diet lebih tinggi setiap 100 g",
     healthierReasonLowerSaturatedFat: "Lemak tepu lebih rendah setiap 100 g",
     healthierReasonLowerSodium: "Natrium lebih rendah setiap 100 g",
+    backToItem: (name: string) => `Kembali ke ${name}`,
   },
 } as const;
 

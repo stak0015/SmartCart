@@ -1,6 +1,6 @@
 "use client";
 
-import type { HealthierAlternativesResult } from "@/lib/api";
+import type { CatalogueItemSummary, HealthierAlternativesResult } from "@/lib/api";
 import type { AppCopy } from "@/lib/i18n";
 import {
   alternativeCards,
@@ -35,12 +35,14 @@ export function HealthierAlternativesSection({
   error,
   locale,
   copy,
+  onOpenItem,
 }: {
   loading: boolean;
   result: HealthierAlternativesResult | null;
   error: unknown;
   locale: "en" | "ms";
   copy: AppCopy;
+  onOpenItem?: (item: CatalogueItemSummary) => void;
 }) {
   const status = alternativesStatus(loading, result, error);
   const cards = result ? alternativeCards(result, locale) : [];
@@ -57,7 +59,11 @@ export function HealthierAlternativesSection({
         <ul className="healthier-alternatives-list">
           {cards.map((card) => (
             <li key={card.itemCode} className="healthier-alternative-card">
-              <div className="healthier-alternative-main">
+              <button
+                type="button"
+                className="healthier-alternative-main"
+                onClick={() => onOpenItem?.(card.alternative.item)}
+              >
                 <span className="healthier-alternative-visual" aria-hidden="true">
                   <CatalogueItemImage imageUrl={card.alternative.item.image_url} fallbackSize={32} />
                 </span>
@@ -66,7 +72,7 @@ export function HealthierAlternativesSection({
                   {card.packageSize && <small>{card.packageSize}</small>}
                   <em>{reasonText(card, copy)}</em>
                 </span>
-              </div>
+              </button>
             </li>
           ))}
         </ul>

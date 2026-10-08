@@ -6,6 +6,7 @@ import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { StoreChainLogo } from "./store-chain-logo";
 import { HealthierAlternativesSection } from "./healthier-alternatives";
+import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { fetchHealthierAlternatives, listCategories, searchItems, type Item, type HealthierAlternativesResult } from "@/lib/api";
@@ -446,7 +447,13 @@ function BasketScreen({
   locale: Locale;
 }) {
   const [search, setSearch] = useState("");
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  // Epic 7 (US 7.2): the item dialog walks a stack of visited items so an
+  // alternative can be opened, explored further, and stepped back one level
+  // at a time. Quantities stay per item id, so returning restores the
+  // shopper's unsubmitted quantity (AC 7.2.2).
+  const [selectedStack, setSelectedStack] = useState<Item[]>([]);
+  const selectedItem = topItem(selectedStack);
+  const previousItem = previousInStack(selectedStack);
   const [priceContext, setPriceContext] = useState<"ready" | "unavailable">("unavailable");
   const [priceStoreCount, setPriceStoreCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -511,7 +518,12 @@ function BasketScreen({
         .then(data => {
           if (controller.signal.aborted) return;
           setApiResults(data.items);
-          setSelectedItem(current => current ? data.items.find(item => item.item_id === current.item_id) ?? current : null);
+          setSelectedStack(current => {
+            const top = topItem(current);
+            if (!top) return current;
+            const refreshed = data.items.find(item => item.item_id === top.item_id);
+            return refreshed ? replaceTop(current, refreshed) : current;
+          });
           setPriceContext(data.price_context ?? "unavailable");
           setPriceStoreCount(data.price_store_count ?? 0);
           setApiTotal(data.total);
@@ -806,7 +818,7 @@ function BasketScreen({
                 </div>
                 <div className="product-card-footer">
                   <strong className={item.price_range ? "product-price" : "product-price is-unavailable"}>{cataloguePrice(item, locale)}</strong>
-                  <button type="button" className="product-add icon-button" aria-haspopup="dialog" aria-label={`${copy.addToBasket}: ${fields.name}`} onClick={() => { setQtyById(current => ({ ...current, [item.item_id]: "1" })); setSelectedItem(item); }}><UIIcon name="plus"/></button>
+                  <button type="button" className="product-add icon-button" aria-haspopup="dialog" aria-label={`${copy.addToBasket}: ${fields.name}`} onClick={() => { setQtyById(current => ({ ...current, [item.item_id]: "1" })); setSelectedStack(resetStack(item)); }}><UIIcon name="plus"/></button>
                 </div>
               </article>
               );
@@ -866,8 +878,9 @@ function BasketScreen({
           {basketPanel}
         </aside>
       )}
-      <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
-        onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
+      <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedStack(clearStack<Item>())} canAdd={selectedQty !== null}
+        back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
+        onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
           <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
@@ -877,7 +890,7 @@ function BasketScreen({
           {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
         </div>}
         quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
-        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy}/>}/>
+        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/>}/>
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
