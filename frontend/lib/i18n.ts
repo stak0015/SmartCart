@@ -116,6 +116,18 @@ export const COPY = {
     secondStoreTimeRequired: "Select a travel time limit before applying.",
     secondStoreLimitsApplied: (limit: string) => `Recalculating with second-store limits of ${limit}.`,
     multiStoreNotAvailableForMode: "Multi-store plans are not available for this transport mode.",
+    // AC 6.2.8: when no two-store plan qualifies, say why and offer a way back
+    // to the limits instead of leaving an empty area. Each reason is reported
+    // separately because "outside your limit" and "no route data" need
+    // different shopper responses.
+    multiStoreNoMatchingPlans: "No multi-store plans match your second-store travel limits.",
+    multiStoreNoInterStoreRoutes: "No route data was available between the recommended stores, so no two-store plan could be priced.",
+    multiStoreInsufficientStores: "At least two reachable stores are needed to compare a split basket.",
+    multiStoreUnsupportedFallback: "Multi-store plans need real route data, which is unavailable without Google Routes configured.",
+    editLimits: "Edit limits",
+    // Transparency for AC 6.2.7/6.2.8: how many store pairs were actually
+    // routed before the empty result, so the shopper sees work was done.
+    multiStoreEvaluatedCount: (count: number) => `${count} store pair${count === 1 ? "" : "s"} checked against your limits.`,
     optional: "optional",
     saraPlanning: "SARA store filter",
     saraCandidatesOnly: "Show SARA stores and possible matches",
@@ -475,6 +487,16 @@ export const COPY = {
     secondStoreTimeRequired: "Pilih had masa perjalanan sebelum guna.",
     secondStoreLimitsApplied: (limit: string) => `Mengira semula dengan had kedai kedua ${limit}.`,
     multiStoreNotAvailableForMode: "Pelan pelbagai kedai tidak tersedia untuk mod pengangkutan ini.",
+    // AC 6.2.8: keadaan kosong diterangkan mengikut sebab supaya pengguna tahu
+    // sama ada perlu melonggarkan had atau menunggu data laluan.
+    multiStoreNoMatchingPlans: "Tiada pelan pelbagai kedai yang sepadan dengan had perjalanan kedai kedua anda.",
+    multiStoreNoInterStoreRoutes: "Tiada data laluan antara kedai yang disyorkan, jadi tiada pelan dua kedai dapat dikira.",
+    multiStoreInsufficientStores: "Sekurang-kurangnya dua kedai boleh dicapai diperlukan untuk membandingkan bakul berpisah.",
+    multiStoreUnsupportedFallback: "Pelan pelbagai kedai memerlukan data laluan sebenar, yang tidak tersedia tanpa Google Routes.",
+    editLimits: "Sunting had",
+    // Ketelusan bagi AC 6.2.7/6.2.8: bilangan pasangan kedai yang benar-benar
+    // dikira laluan sebelum keputusan kosong.
+    multiStoreEvaluatedCount: (count: number) => `${count} pasangan kedai disemak terhadap had anda.`,
     optional: "pilihan",
     saraPlanning: "Perancangan SARA",
     saraCandidatesOnly: "Papar kedai SARA dan padanan berpotensi",

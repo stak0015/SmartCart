@@ -21,6 +21,7 @@ import {
 import type {
   BasketItemPrice,
   LocationSuggestion,
+  MultiStoreEmptyReason,
   RecommendationResponse,
   SaraFilter,
   SelectedLocation,
@@ -913,6 +914,31 @@ function transportLabel(copy: AppCopy, mode: TransportMode): string {
     motorcycle: copy.motorcycle,
     car: copy.car,
   }[mode];
+}
+
+/**
+ * AC 6.2.8: map the backend's empty-state reason to shopper-facing copy.
+ *
+ * The reasons are kept distinct rather than collapsed into one message because
+ * they need different shopper responses: "no_pairs_within_limit" means the
+ * limits are too tight (edit them), while "no_inter_store_route_data" means the
+ * provider had no route (a data condition the shopper cannot fix by editing).
+ */
+function multiStoreEmptyMessage(
+  copy: AppCopy,
+  reason: MultiStoreEmptyReason,
+): string {
+  switch (reason) {
+    case "no_inter_store_route_data":
+      return copy.multiStoreNoInterStoreRoutes;
+    case "insufficient_reachable_stores":
+      return copy.multiStoreInsufficientStores;
+    case "straight_line_fallback_unsupported":
+      return copy.multiStoreUnsupportedFallback;
+    case "no_pairs_within_limit":
+    default:
+      return copy.multiStoreNoMatchingPlans;
+  }
 }
 
 function createLocationSessionToken(): string {
@@ -1963,6 +1989,33 @@ function CompareScreen({
             {result.expandedSearch && (
               <div role="status" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a4d00]">
                 {copy.expandedSearchNotice}
+              </div>
+            )}
+
+            {/* AC 6.2.8: when the shopper applied second-store limits and no
+                two-store plan qualified, explain why and offer a way back to
+                the limits. The single-store list below is untouched, so this
+                never empties the recommendation page. Plan rendering itself is
+                US 6.3/6.4; US 6.2 only reports the outcome. */}
+            {result.multiStore && result.multiStore.plans.length === 0 && result.multiStore.emptyReason && (
+              <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-4">
+                <p className="text-sm font-semibold leading-5 text-[#10152e]">
+                  {multiStoreEmptyMessage(copy, result.multiStore.emptyReason)}
+                </p>
+                {result.multiStore.evaluatedPairCount > 0 && (
+                  <p className="mt-1 text-xs text-[#718078]">
+                    {copy.multiStoreEvaluatedCount(result.multiStore.evaluatedPairCount)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  // Re-expands the limits menu (idempotent: it is already
+                  // enabled once a limit was applied) and keeps the selection.
+                  onClick={() => onMultiStoreChange({ ...multiStore, enabled: true })}
+                  className="mt-3 min-h-11 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38]"
+                >
+                  {copy.editLimits}
+                </button>
               </div>
             )}
             <div className="flex items-end justify-between gap-3">

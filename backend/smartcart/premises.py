@@ -128,3 +128,47 @@ def get_premise_location_coverage(maximum_coordinate_age_days: int) -> tuple[int
         )
         row = cursor.fetchone()
     return (int(row[0]), int(row[1])) if row else (0, 0)
+
+
+def get_premise_coordinates(premise_ids: list[str]) -> dict[str, tuple[float, float]]:
+    """Return fresh Google coordinates for the given premises, keyed by ID.
+
+    Added for US 6.2. The inter-store leg needs each store's coordinates so
+    candidate pairs can be pre-filtered by straight-line distance before any
+    Routes API call. Straight-line distance is always shorter than or equal to
+    the real route distance, so a pair whose straight-line gap already exceeds
+    the largest possible second-store limit cannot satisfy that limit and is
+    excluded without spending API quota. This is the same reasoning as the
+    ``maximum_straight_line_km`` pre-filter in ``find_nearest_premises``.
+
+    This is a separate query rather than extra columns on
+    ``find_nearest_premises`` so that query's column order, and the tests that
+    assert on it, stay untouched.
+    """
+    if not premise_ids:
+        return {}
+    # premise.premise_id is BIGINT, so pass integers rather than the string form
+    # PremiseCandidate exposes. Non-numeric IDs cannot exist in this table; they
+    # are skipped instead of raising, so one bad caller value cannot break the
+    # whole recommendation request.
+    numeric_ids: list[int] = []
+    for premise_id in premise_ids:
+        try:
+            numeric_ids.append(int(premise_id))
+        except (TypeError, ValueError):
+            continue
+    if not numeric_ids:
+        return {}
+    with database_cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT premise_id, latitude, longitude
+            FROM premise
+            WHERE premise_id = ANY(%s)
+              AND latitude IS NOT NULL
+              AND longitude IS NOT NULL
+            """,
+            (numeric_ids,),
+        )
+        rows = cursor.fetchall()
+    return {str(row[0]): (float(row[1]), float(row[2])) for row in rows}

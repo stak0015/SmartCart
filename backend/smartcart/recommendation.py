@@ -88,6 +88,28 @@ def estimate_round_trip_cost_rm(
     return _round(value, 2)
 
 
+def estimate_one_way_leg_cost_rm(
+    distance_meters: float,
+    rate: TravelCostRate,
+    *,
+    transit_fare_rm: float | None = None,
+) -> float:
+    """Cost of a single journey leg, for multi-leg (two-store) totals.
+
+    Added for US 6.2: a two-store plan is home -> first -> second -> home, so
+    its total is a sum of one-way legs rather than one doubled leg. Uses the
+    same cost model and the same rounding as ``estimate_round_trip_cost_rm``,
+    which stays untouched for single-store callers.
+    """
+    if transit_fare_rm is not None:
+        return _round(max(0, transit_fare_rm), 2)
+    distance_km = max(0, distance_meters) / 1000
+    return _round(
+        rate.base_fare_per_leg_rm + distance_km * rate.per_kilometre_rm,
+        2,
+    )
+
+
 def straight_line_route_results(
     candidates: list[PremiseCandidate], mode: TransportMode
 ) -> list[RouteMatrixResult]:

@@ -86,6 +86,11 @@ class RecommendationRequest(CamelModel):
     # Opaque, short-lived token returned by candidate preparation. The server
     # validates that it belongs to the same travel settings before reuse.
     candidate_cache_id: str | None = Field(default=None, min_length=16, max_length=128)
+    # US 6.1/6.2: limits for the first-store -> second-store leg only. Reuses
+    # TravelLimit so the same 0.5-100 km / 5-180 min validation applies. None
+    # keeps the response single-store, which is what every pre-Epic-6 client
+    # sends, so omitting it cannot change existing behaviour.
+    second_store_limit: TravelLimit | None = None
 
 
 class CandidatePreparationRequest(CamelModel):
@@ -303,6 +308,70 @@ class StoreRecommendation(CamelModel):
     exceeds_limit: bool = False
 
 
+class RouteLeg(CamelModel):
+    """One segment of a two-store journey (AC 6.2.6).
+
+    ``role`` names the segment so the client can explain the journey in order.
+    ``cost_rm`` is that segment's own transport cost using the same cost model
+    as single-store recommendations; the plan total is their sum.
+    """
+
+    role: Literal["origin_to_first", "first_to_second", "second_to_origin"]
+    from_name: str
+    to_name: str
+    distance_km: float
+    travel_minutes: int
+    cost_rm: float
+
+
+class MultiStorePlan(CamelModel):
+    """One eligible two-store journey in visit order (US 6.2).
+
+    The store fields are ordered by the visit sequence chosen under AC 6.2.5,
+    so ``first_store_*`` is always visited first. ``inter_store_*`` describes
+    only the leg governed by the second-store limits (AC 6.1.4/6.2.1); the
+    home legs remain governed by the original travel limit.
+    """
+
+    first_store_premise_id: str
+    second_store_premise_id: str
+    first_store_name: str
+    second_store_name: str
+    # The first-to-second leg, i.e. what the second-store limits constrain.
+    inter_store_distance_km: float
+    inter_store_travel_minutes: int
+    # Whole loop: home -> first -> second -> home (AC 6.2.6).
+    total_route_distance_km: float
+    total_travel_minutes: int
+    total_travel_cost_rm: float
+    legs: list[RouteLeg]
+    # AC 6.2.5: cost of the rejected reverse order, kept for transparency so
+    # the UI can explain why this order was chosen. None when the reverse
+    # order was unrouteable.
+    reverse_order_cost_rm: float | None = None
+    route_provider: Literal["google", "straight_line"] = "google"
+
+
+class MultiStorePlans(CamelModel):
+    """Two-store planning result for one recommendation request (US 6.2)."""
+
+    plans: list[MultiStorePlan] = Field(default_factory=list)
+    second_store_limit: TravelLimit | None = None
+    # Ordered store pairs whose inter-store leg was checked against the limits.
+    evaluated_pair_count: int = 0
+    # AC 6.2.7: pairs dropped because the provider returned no route for the
+    # inter-store leg. These are excluded rather than given an invented cost.
+    unrouteable_pair_count: int = 0
+    # AC 6.2.8: why the plan list is empty, so the client can show the right
+    # empty state and an "edit limits" affordance instead of a blank panel.
+    empty_reason: Literal[
+        "no_pairs_within_limit",
+        "no_inter_store_route_data",
+        "insufficient_reachable_stores",
+        "straight_line_fallback_unsupported",
+    ] | None = None
+
+
 class RecommendationResponse(CamelModel):
     recommendations: list[StoreRecommendation]
     total_candidates_evaluated: int
@@ -315,3 +384,6 @@ class RecommendationResponse(CamelModel):
     # True when no store matched the shopper's travel limit and the nearest
     # stores were returned anyway (iteration1 feedback: always show something).
     expanded_search: bool = False
+    # US 6.2: two-store plans. Stays None unless the client sent a second-store
+    # limit, so existing clients see an unchanged response shape.
+    multi_store: MultiStorePlans | None = None

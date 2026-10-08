@@ -316,6 +316,65 @@ export interface RecommendationResponse {
   // True when no store matched the shopper's travel limit and the nearest
   // stores were returned anyway (iteration1 feedback).
   expandedSearch: boolean;
+  // US 6.2: two-store plans. Absent unless a secondStoreLimit was sent, so
+  // single-store clients see an unchanged response shape.
+  multiStore?: MultiStorePlans | null;
+}
+
+/** One segment of a two-store journey (AC 6.2.6). Role values arrive in
+ * snake_case because they are payload values, not field names. */
+export type RouteLegRole =
+  | "origin_to_first"
+  | "first_to_second"
+  | "second_to_origin";
+
+export interface RouteLeg {
+  role: RouteLegRole;
+  fromName: string;
+  toName: string;
+  distanceKm: number;
+  travelMinutes: number;
+  costRm: number;
+}
+
+/** One eligible two-store journey in visit order. `firstStore*` is always the
+ * store visited first under AC 6.2.5; `interStore*` is only the leg governed by
+ * the second-store limits (AC 6.1.4/6.2.1). */
+export interface MultiStorePlan {
+  firstStorePremiseId: string;
+  secondStorePremiseId: string;
+  firstStoreName: string;
+  secondStoreName: string;
+  interStoreDistanceKm: number;
+  interStoreTravelMinutes: number;
+  // Whole loop: home -> first -> second -> home (AC 6.2.6).
+  totalRouteDistanceKm: number;
+  totalTravelMinutes: number;
+  totalTravelCostRm: number;
+  legs: RouteLeg[];
+  // Cost of the rejected reverse order, kept so the UI can explain the choice.
+  // Null when the reverse order was unrouteable.
+  reverseOrderCostRm: number | null;
+  routeProvider: "google" | "straight_line";
+}
+
+/** Why the plan list is empty, so the client can show an accurate empty state
+ * with an "edit limits" affordance (AC 6.2.8) instead of a blank panel. */
+export type MultiStoreEmptyReason =
+  | "no_pairs_within_limit"
+  | "no_inter_store_route_data"
+  | "insufficient_reachable_stores"
+  | "straight_line_fallback_unsupported";
+
+export interface MultiStorePlans {
+  plans: MultiStorePlan[];
+  secondStoreLimit: TravelLimit | null;
+  // Ordered store pairs whose inter-store leg was actually routed.
+  evaluatedPairCount: number;
+  // AC 6.2.7: pairs dropped because no route existed. These are excluded rather
+  // than given an invented cost.
+  unrouteablePairCount: number;
+  emptyReason: MultiStoreEmptyReason | null;
 }
 
 export interface ApiErrorBody {
