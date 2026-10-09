@@ -31,6 +31,8 @@ from .models import (
     NutritionSourceRef,
 )
 from .translations import catalogue_translation_joins, translation_select_columns
+from .item_nutrition import get_item_nutrition
+from .nutrition_comparison import compare_category
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nutrition"
 FOODS_PATH = DATA_DIR / "foods.json"
@@ -43,6 +45,7 @@ NUTRIENT_DISPLAY: tuple[tuple[str, str, str], ...] = (
     ("fat_g", "Total fat", "g"),
     ("saturated_fat_g", "Saturated fat", "g"),
     ("carbohydrate_g", "Carbohydrate", "g"),
+    ("sugars_g", "Total sugars", "g"),
     ("fibre_g", "Dietary fibre", "g"),
     ("sodium_mg", "Sodium", "mg"),
     ("calcium_mg", "Calcium", "mg"),
@@ -58,17 +61,14 @@ _ITEM_COLUMNS = (
 def nutrition_dataset() -> dict[str, Any]:
     """Load the reference foods and approved mappings once per process."""
 
-    foods_doc = json.loads(FOODS_PATH.read_text(encoding="utf-8"))
     mappings_doc = json.loads(MAPPINGS_PATH.read_text(encoding="utf-8"))
-    foods = {food["id"]: food for food in foods_doc["foods"]}
-    sources = {source["id"]: source for source in foods_doc["sources"]}
     rules = {rule["id"]: rule for rule in mappings_doc["rules"]}
     by_item: dict[str, list[dict[str, Any]]] = {}
     for mapping in mappings_doc["mappings"]:
         if not mapping.get("approved"):
             continue
         by_item.setdefault(mapping["original_item_code"], []).append(mapping)
-    return {"foods": foods, "sources": sources, "rules": rules, "by_item": by_item}
+    return {"rules": rules, "by_item": by_item}
 
 
 def _source_ref(food: dict[str, Any], sources: dict[str, dict[str, Any]]) -> NutritionSourceRef:
@@ -151,6 +151,10 @@ def healthier_alternatives(
     if not mappings:
         return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])
 
+    original_reference = get_item_nutrition(item_code)
+    if not original_reference['available']:
+        return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])
+
     rows = _catalogue_rows(sorted({m["alternative_item_code"] for m in mappings}))
     # Match search rows: nearby observed ranges, then cached median estimates,
     # only when the caller supplied nearby-store context.
@@ -169,24 +173,37 @@ def healthier_alternatives(
             # The alternative is no longer an active catalogue item; skip it
             # rather than suggesting something that cannot be opened.
             continue
-        original_food = dataset["foods"].get(mapping["original_food"])
-        alternative_food = dataset["foods"].get(mapping["alternative_food"])
+        alternative_reference = get_item_nutrition(mapping['alternative_item_code'], basis=original_reference['food']['basis'])
         rule = dataset["rules"].get(mapping["rule"])
-        if original_food is None or alternative_food is None or rule is None:
+        if not alternative_reference['available'] or rule is None:
             continue
+        original_food = {**original_reference['food'], 'source': original_reference['source']['id']}
+        alternative_food = {**alternative_reference['food'], 'source': alternative_reference['source']['id']}
+        comparisons = _comparisons(original_food, alternative_food)
+        decision, _ = compare_category(mapping['rule'], original_food, alternative_food)
+        if decision is None:
+            continue
+        sources = {r['source']['id']: r['source'] for r in (original_reference, alternative_reference)}
         alternatives.append(
             HealthierAlternative(
                 item=_summary(row, price_ranges.get(row["item_code"])),
                 rule=mapping["rule"],
-                headline=rule["reason"],
-                comparison_nutrient=rule["comparison"],
-                comparison_direction=rule["direction"],
-                original_source=_source_ref(original_food, dataset["sources"]),
-                alternative_source=_source_ref(alternative_food, dataset["sources"]),
+                headline=f"{'Higher' if decision['direction'] == 'higher_is_better' else 'Lower'} {next(label for nutrient, label, _ in NUTRIENT_DISPLAY if nutrient == decision['nutrient']).lower()}",
+                intention=rule["intention"],
+                usage_note=({
+                    'en': 'Use chicken as the main protein and adjust cooking time. Values refer to the whole chicken with meat and skin; the chosen cut and preparation can differ.',
+                    'ms': 'Gunakan ayam sebagai protein utama dan sesuaikan masa memasak. Nilai merujuk kepada ayam seekor dengan daging dan kulit; bahagian dan penyediaan pilihan mungkin berbeza.',
+                } if mapping['rule'] == 'H5' else rule["usage_note"]),
+                comparison_nutrient=decision['nutrient'],
+                comparison_direction=decision['direction'],
+                comparison_category=decision['category'],
+                missing_guard_nutrients=decision['missing_guard_nutrients'],
+                original_source=_source_ref(original_food, sources),
+                alternative_source=_source_ref(alternative_food, sources),
                 # A generic entry stands in for the exact product when the
                 # source dataset has no product-specific record (AC 7.3.10).
-                generic_mapping=bool(mapping.get("generic_mapping", False)),
-                nutrients=_comparisons(original_food, alternative_food),
+                generic_mapping=any(r['match_type'] == 'generic' for r in (original_reference, alternative_reference)),
+                nutrients=comparisons,
             )
         )
     return HealthierAlternativesResponse(item_code=item_code, count=len(alternatives), alternatives=alternatives)

@@ -8,7 +8,7 @@ describe("combined catalogue item dialog", () => {
     const markup = renderToStaticMarkup(createElement(CatalogueItemDialog, {
       open: true, title: "Chicken", locale: "en", canAdd: true,
       onClose: () => {}, onAdd: () => {},
-      details: createElement("p", null, "Item details"),
+      details: (trigger) => createElement("div", { className: "product-visual" }, "Item details", trigger),
       back: createElement("button", null, "Back to original item"),
       alternatives: createElement("section", null, "Healthier alternatives"),
       quantity: createElement("input", { "aria-label": "Quantity", value: "2", readOnly: true }),
@@ -19,6 +19,8 @@ describe("combined catalogue item dialog", () => {
     }
     expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain('aria-controls="catalogue-price-trends"');
+    expect(markup).toContain('aria-label="See price trends"');
+    expect(markup).not.toContain(">See price trends<");
   });
 
   it("preserves estimated median price labels after the merge", () => {
@@ -26,4 +28,17 @@ describe("combined catalogue item dialog", () => {
       min_rm: 3.2, max_rm: 3.2, store_count: 0, oldest_observed_date: null, price_source: "median",
     } }, "en")).toBe("RM3.20 (estimated)");
   });
+});
+
+
+it("places complete nutrition immediately after alternatives and keeps it closed", () => {
+  const markup = renderToStaticMarkup(createElement(CatalogueItemDialog, {
+    open: true, title: "Chicken", locale: "en", canAdd: true, onClose: () => {}, onAdd: () => {},
+    details: "Details", alternatives: "Alternative cards", quantity: "Quantity", nutrition: createElement("div", null, "All nutrition values"),
+  }));
+  expect(markup.indexOf("Alternative cards")).toBeLessThan(markup.indexOf("catalogue-nutrition-disclosure"));
+  expect(markup.indexOf("catalogue-nutrition-disclosure")).toBeLessThan(markup.indexOf("catalogue-dialog-quantity"));
+  expect(markup).toContain('<details class="catalogue-nutrition-disclosure">');
+  expect(markup).toContain("All nutrition values");
+  expect(markup).not.toContain("<details open");
 });

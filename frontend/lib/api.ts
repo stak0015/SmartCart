@@ -134,7 +134,11 @@ export interface HealthierAlternative {
   item: CatalogueItemSummary;
   rule: string;
   headline: string;
+  intention: { en: string; ms: string };
+  usage_note: { en: string; ms: string };
   comparison_nutrient: string;
+  comparison_category?: string | null;
+  missing_guard_nutrients?: string[];
   comparison_direction: "lower_is_better" | "higher_is_better";
   original_source: NutritionSourceRef;
   alternative_source: NutritionSourceRef;
@@ -163,6 +167,55 @@ export async function fetchHealthierAlternatives(
   const res = await fetch(url, { signal });
   if (!res.ok) {
     throw new Error(`Healthier alternatives failed: HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ---------------------------------------------------------------------------
+// Item nutrition (independent of healthier-alternative recommendations)
+// ---------------------------------------------------------------------------
+
+export type ItemNutritionMatchType = "generic" | "product";
+
+export interface NutritionSourceMetadata {
+  id: string;
+  name: string;
+  url: string;
+  license: string;
+  carbohydrate_definition?: string | null;
+  energy_conversion?: string | null;
+}
+
+export interface ItemNutritionFood {
+  id: string;
+  source_code: string;
+  description: string;
+  basis: NutritionBasis | string;
+  url?: string | null;
+  nutrients: Record<string, number | null>;
+  carbohydrate_definition?: string | null;
+  energy_conversion?: string | null;
+  source_edition?: string | null;
+}
+
+export interface ItemNutritionResult {
+  item_code: string;
+  available: boolean;
+  match_type: ItemNutritionMatchType | null;
+  rationale: string | null;
+  source: NutritionSourceMetadata | null;
+  food: ItemNutritionFood | null;
+}
+
+/** Reviewed nutrition data for a catalogue item, when an approved mapping exists. */
+export async function fetchItemNutrition(
+  itemCode: string,
+  signal?: AbortSignal,
+): Promise<ItemNutritionResult> {
+  const url = `${API_BASE_URL}/items/${encodeURIComponent(itemCode)}/nutrition`;
+  const res = await fetch(url, { signal });
+  if (!res.ok) {
+    throw new Error(`Item nutrition failed: HTTP ${res.status}`);
   }
   return res.json();
 }

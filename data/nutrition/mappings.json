@@ -1,171 +1,530 @@
 {
-  "dataset_version": "epic7-alternatives-v1",
-  "generated_at": "2026-10-08",
-  "notes": "Approved catalogue-to-catalogue healthier-alternative mappings. Alternatives are chosen from each rule's candidate pool (the same product family, addable from the catalogue) by price availability, never by nutrition: a candidate is eligible only when it has at least 5 official price observations; the two eligible candidates with the lowest median observed price are approved; when no candidate in the pool carries a price the single previously approved unpriced alternative is kept as a fallback so the product family does not lose the feature. A nutritional recommendation does not imply a lower price.",
+  "dataset_version": "epic7-intention-alternatives-v3",
+  "generated_at": "2026-10-09",
+  "notes": "Reviewed alternatives for inferred buying intentions, which are displayed conditionally. Products may cross food families when they serve the same meal or use. Each rule has a nutrient-supported reason, bilingual use guidance and preparation limitations. Price does not determine suitability. All nutrition associations use generic reference foods, not verified product labels. Priority expansion covers snacks, sweetened drinks, instant noodles, pastries, fried meals and condiments. Specific nutrient comparisons are not overall health classifications. See priority-review.md for exclusions.",
   "rules": [
     {
       "id": "H1",
-      "title": "Full-cream / sweetened milk → low-fat milk powder",
+      "title": "Condensed / evaporated milk -> low-fat liquid milk",
       "comparison": "fat_g",
       "direction": "lower_is_better",
-      "reason": "Lower total fat per 100 g"
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "adding milk to tea or coffee",
+        "ms": "menambah susu ke dalam teh atau kopi"
+      },
+      "usage_note": {
+        "en": "Use as the milk component. It will be less sweet or rich; it is not a direct replacement for condensed milk in baking.",
+        "ms": "Gunakan sebagai komponen susu. Rasanya kurang manis atau pekat; bukan pengganti terus susu pekat dalam penaikkan."
+      }
     },
     {
       "id": "H2",
-      "title": "Full-cream fresh milk → low-fat fresh milk",
+      "title": "Full-cream liquid milk -> low-fat liquid milk",
       "comparison": "fat_g",
       "direction": "lower_is_better",
-      "reason": "Lower total fat per 100 g"
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a milk drink or milk with breakfast",
+        "ms": "minuman susu atau susu untuk sarapan"
+      },
+      "usage_note": {
+        "en": "Use as drinking milk or with cereal. Generic milk values may differ from this brand.",
+        "ms": "Gunakan sebagai minuman susu atau bersama bijirin. Nilai susu generik mungkin berbeza daripada jenama ini."
+      }
     },
     {
       "id": "H3",
-      "title": "White / wheatgerm bread → wholemeal bread",
+      "title": "White / wheatgerm bread -> wholemeal bread",
       "comparison": "fibre_g",
       "direction": "higher_is_better",
-      "reason": "Higher dietary fibre per 100 g"
+      "reason": "Higher dietary fibre per 100 g",
+      "intention": {
+        "en": "toast or sandwiches",
+        "ms": "roti bakar atau sandwic"
+      },
+      "usage_note": {
+        "en": "Use for the same toast or sandwich; texture and flavour will differ.",
+        "ms": "Gunakan untuk roti bakar atau sandwic yang sama; tekstur dan rasa berbeza."
+      }
     },
     {
       "id": "H4",
-      "title": "Palm / blended cooking oil, ghee → corn oil",
+      "title": "Palm / blended oil / ghee -> corn oil",
       "comparison": "saturated_fat_g",
       "direction": "lower_is_better",
-      "reason": "Lower saturated fat per 100 g"
+      "reason": "Lower saturated fat per 100 g",
+      "intention": {
+        "en": "an everyday cooking fat",
+        "ms": "lemak untuk memasak harian"
+      },
+      "usage_note": {
+        "en": "Use where liquid cooking oil suits the recipe. It will not reproduce the flavour or texture of ghee.",
+        "ms": "Gunakan apabila minyak masak cecair sesuai untuk resipi. Rasa atau teksturnya tidak sama dengan minyak sapi."
+      }
     },
     {
       "id": "H5",
-      "title": "Red meat (beef, buffalo, mutton, pork) → chicken breast",
+      "title": "Red meat -> chicken prepared as skinless breast",
       "comparison": "saturated_fat_g",
       "direction": "lower_is_better",
-      "reason": "Lower saturated fat per 100 g"
+      "reason": "Lower saturated fat per 100 g",
+      "intention": {
+        "en": "the main protein in a cooked meal",
+        "ms": "protein utama dalam hidangan yang dimasak"
+      },
+      "usage_note": {
+        "en": "The catalogue item is a whole chicken. This comparison applies only to its skinless breast meat; use that cut and adjust cooking time.",
+        "ms": "Item katalog ialah ayam seekor. Perbandingan ini hanya untuk daging dada tanpa kulit; gunakan bahagian itu dan sesuaikan masa memasak."
+      }
     },
     {
       "id": "H6",
-      "title": "Dried / salted seafood → fresh fish",
+      "title": "Dried / salted seafood -> fresh Indian mackerel",
       "comparison": "sodium_mg",
       "direction": "lower_is_better",
-      "reason": "Lower sodium per 100 g"
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "a protein side dish with rice",
+        "ms": "lauk berprotein bersama nasi"
+      },
+      "usage_note": {
+        "en": "Cook fresh fish as the side dish. It does not replace dried seafood used as a seasoning; added salt or sauce changes sodium.",
+        "ms": "Masak ikan segar sebagai lauk. Ia tidak menggantikan makanan laut kering sebagai perasa; garam atau sos tambahan mengubah natrium."
+      }
     },
     {
       "id": "H7",
-      "title": "Salted egg → fresh hen egg",
+      "title": "Salted egg -> fresh hen egg",
       "comparison": "sodium_mg",
       "direction": "lower_is_better",
-      "reason": "Lower sodium per 100 g"
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "an egg side dish with rice",
+        "ms": "lauk telur bersama nasi"
+      },
+      "usage_note": {
+        "en": "Boil or cook the fresh egg. It will not reproduce salted yolk flavour for sauces or baking.",
+        "ms": "Rebus atau masak telur segar. Rasanya tidak sama dengan kuning telur masin untuk sos atau penaikkan."
+      }
+    },
+    {
+      "id": "H8",
+      "title": "Red meat -> fresh Indian mackerel",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "the main protein in a cooked meal",
+        "ms": "protein utama dalam hidangan yang dimasak"
+      },
+      "usage_note": {
+        "en": "Cook fish instead of the meat course; adjust the recipe and cooking time. This is a different meal option, not an identical ingredient.",
+        "ms": "Masak ikan sebagai ganti lauk daging; sesuaikan resipi dan masa memasak. Ini pilihan hidangan berbeza, bukan bahan yang sama."
+      }
+    },
+    {
+      "id": "H9",
+      "title": "Dried / salted seafood -> fresh hen egg",
+      "comparison": "sodium_mg",
+      "direction": "lower_is_better",
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "a protein side dish with rice",
+        "ms": "lauk berprotein bersama nasi"
+      },
+      "usage_note": {
+        "en": "Choose a cooked egg as a different side dish. It does not supply dried seafood seasoning; added salt or sauce changes sodium.",
+        "ms": "Pilih telur yang dimasak sebagai lauk lain. Ia tidak memberikan perasa makanan laut kering; garam atau sos tambahan mengubah natrium."
+      }
+    },
+    {
+      "id": "H10",
+      "title": "Salted egg -> fresh Indian mackerel",
+      "comparison": "sodium_mg",
+      "direction": "lower_is_better",
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "a protein side dish with rice",
+        "ms": "lauk berprotein bersama nasi"
+      },
+      "usage_note": {
+        "en": "Choose cooked fresh fish as a different side dish. It is not a replacement for salted egg sauces; added salt or sauce changes sodium.",
+        "ms": "Pilih ikan segar yang dimasak sebagai lauk lain. Ia bukan pengganti sos telur masin; garam atau sos tambahan mengubah natrium."
+      }
+    },
+    {
+      "id": "H11",
+      "title": "Full-cream milk powder -> low-fat milk powder",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "preparing a milk drink",
+        "ms": "menyediakan minuman susu"
+      },
+      "usage_note": {
+        "en": "Follow the pack dilution instructions. The comparison is for dry reference powders, not prepared drinks; low-fat filled powder is not identical to skim milk powder.",
+        "ms": "Ikut arahan pencairan pada pek. Perbandingan ialah untuk serbuk rujukan kering, bukan minuman siap; serbuk susu isian rendah lemak tidak sama dengan serbuk susu skim."
+      }
+    },
+    {
+      "id": "P1",
+      "title": "Salty packaged snacks -> fresh fruit",
+      "comparison": "sodium_mg",
+      "direction": "lower_is_better",
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "a snack between meals",
+        "ms": "snek antara waktu makan"
+      },
+      "usage_note": {
+        "en": "Choose fresh fruit as the snack. An apple offers crunch, but neither fruit recreates a salty crisp flavour. Values represent generic snack types; flavours and portions differ.",
+        "ms": "Pilih buah segar sebagai snek. Epal memberikan tekstur rangup, tetapi buah tidak memberikan rasa kerepek masin. Nilai mewakili jenis snek generik; perisa dan saiz hidangan berbeza."
+      }
+    },
+    {
+      "id": "P2",
+      "title": "Biscuits / chocolate / cakes -> fresh fruit",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a snack or sweet bite between meals",
+        "ms": "snek atau kudapan manis antara waktu makan"
+      },
+      "usage_note": {
+        "en": "Choose fruit for a snack or sweet bite. It changes the flavour and texture and does not replace biscuits or chocolate as a recipe ingredient. Reference foods and regional labels may differ from the pack.",
+        "ms": "Pilih buah sebagai snek atau kudapan manis. Rasa dan tekstur berbeza; ia bukan pengganti biskut atau coklat sebagai bahan resipi. Makanan rujukan dan label serantau mungkin berbeza daripada pek."
+      }
+    },
+    {
+      "id": "P3",
+      "title": "Sweetened ready-to-drink beverages -> plain water",
+      "comparison": "sugars_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total sugars per 100 g",
+      "intention": {
+        "en": "a drink for thirst or with a meal",
+        "ms": "minuman untuk menghilangkan dahaga atau bersama hidangan"
+      },
+      "usage_note": {
+        "en": "Choose plain water without syrup or sugar. This changes the flavour and does not replace an energy drink for sports fuelling or a soya drink for its protein. Generic drink values may differ from the brand.",
+        "ms": "Pilih air kosong tanpa sirap atau gula. Rasanya berbeza dan tidak menggantikan minuman tenaga untuk bekalan tenaga sukan atau minuman soya untuk proteinnya. Nilai minuman generik mungkin berbeza mengikut jenama."
+      }
+    },
+    {
+      "id": "P4",
+      "title": "Regular orange soda -> plain water",
+      "comparison": "energy_kcal",
+      "direction": "lower_is_better",
+      "reason": "Lower energy per 100 g",
+      "intention": {
+        "en": "a drink for thirst or with a meal",
+        "ms": "minuman untuk menghilangkan dahaga atau bersama hidangan"
+      },
+      "usage_note": {
+        "en": "Choose plain water without syrup or sugar. The reference is regular orange soda; sugar-free variants are outside this mapping. Total sugar is unavailable in this record, so the reason uses energy.",
+        "ms": "Pilih air kosong tanpa sirap atau gula. Rujukan ialah soda oren biasa; varian tanpa gula tidak termasuk dalam pemetaan ini. Jumlah gula tiada dalam rekod ini, maka alasan menggunakan tenaga."
+      }
+    },
+    {
+      "id": "P5",
+      "title": "Energy drinks -> tea brewed without sugar",
+      "comparison": "energy_kcal",
+      "direction": "lower_is_better",
+      "reason": "Lower energy per 100 g",
+      "intention": {
+        "en": "a caffeinated drink",
+        "ms": "minuman berkafein"
+      },
+      "usage_note": {
+        "en": "Brew the tea bags in water without sugar, syrup or milk. The nutrition comparison is for brewed black tea, not dry tea leaves. Caffeine strength and effects are not compared.",
+        "ms": "Bancuh uncang teh dalam air tanpa gula, sirap atau susu. Perbandingan pemakanan ialah untuk teh hitam yang dibancuh, bukan daun teh kering. Kekuatan dan kesan kafein tidak dibandingkan."
+      }
+    },
+    {
+      "id": "P6",
+      "title": "Sweetened milk drinks -> plain low-fat milk",
+      "comparison": "sugars_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total sugars per 100 g",
+      "intention": {
+        "en": "a milk drink with breakfast or a snack",
+        "ms": "minuman susu bersama sarapan atau snek"
+      },
+      "usage_note": {
+        "en": "Choose plain low-fat liquid milk. It changes sweetness and flavour and does not reproduce cultured-drink or probiotic properties. Check the pack; lactose-free or other dietary requirements are not inferred.",
+        "ms": "Pilih susu cecair rendah lemak tanpa perisa. Kemanisan dan rasa berubah; ia tidak mengekalkan sifat minuman kultur atau probiotik. Semak pek; keperluan diet seperti bebas laktosa tidak diandaikan."
+      }
+    },
+    {
+      "id": "P7",
+      "title": "Instant noodles -> plain oats",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a quick hot meal at home",
+        "ms": "hidangan panas yang cepat disediakan di rumah"
+      },
+      "usage_note": {
+        "en": "Prepare plain oats with water as porridge, with suitable savoury toppings if desired. This comparison uses dry ingredients; dilution and toppings are extra. The generic noodle entry does not establish the seasoning sachet composition.",
+        "ms": "Sediakan oat kosong dengan air sebagai bubur, dengan bahan tambahan berperisa yang sesuai jika mahu. Perbandingan menggunakan bahan kering; pencairan dan bahan tambahan tidak termasuk. Entri mi generik tidak menetapkan komposisi paket perasa."
+      }
+    },
+    {
+      "id": "P8",
+      "title": "Kuih / sweet buns / candy -> fresh fruit",
+      "comparison": "energy_kcal",
+      "direction": "lower_is_better",
+      "reason": "Lower energy per 100 g",
+      "intention": {
+        "en": "a sweet snack or dessert",
+        "ms": "snek manis atau pencuci mulut"
+      },
+      "usage_note": {
+        "en": "Choose fresh fruit for a sweet snack. It changes flavour, texture and serving size and does not reproduce a kuih, filled bun or candy. Reference recipes and regional product labels may differ; compare the portion you actually plan to eat.",
+        "ms": "Pilih buah segar sebagai snek manis. Rasa, tekstur dan saiz hidangan berbeza dan tidak sama dengan kuih, pau berinti atau gula-gula. Resipi rujukan dan label produk serantau mungkin berbeza; bandingkan saiz hidangan yang anda ingin makan."
+      }
+    },
+    {
+      "id": "P9",
+      "title": "Fried savoury snacks -> steamed chicken bun",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a ready-to-eat savoury snack",
+        "ms": "snek berperisa yang sedia dimakan"
+      },
+      "usage_note": {
+        "en": "Choose a steamed chicken bun as a different savoury snack. The filling changes and contains chicken; it does not preserve a vegetarian vadai recipe. Recipes and portions vary.",
+        "ms": "Pilih pau ayam kukus sebagai snek berperisa yang berbeza. Intinya berubah dan mengandungi ayam; ia tidak mengekalkan resipi vadai vegetarian. Resipi dan saiz hidangan berbeza."
+      }
+    },
+    {
+      "id": "P10",
+      "title": "Fried rice / noodles / murtabak -> noodle soup",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a prepared main meal",
+        "ms": "hidangan utama yang siap dimasak"
+      },
+      "usage_note": {
+        "en": "Choose noodle soup as a different main meal. Generic recipe averages are compared; toppings, oil, broth and portion size vary. A lower-fat reference does not guarantee a low-sodium meal.",
+        "ms": "Pilih mi sup sebagai hidangan utama yang berbeza. Purata resipi generik dibandingkan; bahan tambahan, minyak, kuah dan saiz hidangan berbeza. Rujukan rendah lemak tidak menjamin hidangan rendah natrium."
+      }
+    },
+    {
+      "id": "P11",
+      "title": "Fried chicken -> boiled egg",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a ready-to-eat protein side dish",
+        "ms": "lauk berprotein yang sedia dimakan"
+      },
+      "usage_note": {
+        "en": "Choose a boiled egg as a different protein side dish. It changes the protein source and flavour; compare actual portions and accompaniments rather than treating one egg as a whole chicken serving.",
+        "ms": "Pilih telur rebus sebagai lauk berprotein yang berbeza. Sumber protein dan rasa berubah; bandingkan saiz hidangan dan lauk tambahan, bukan menganggap sebiji telur sama dengan satu hidangan ayam."
+      }
+    },
+    {
+      "id": "P12",
+      "title": "Fried fish -> boiled egg",
+      "comparison": "energy_kcal",
+      "direction": "lower_is_better",
+      "reason": "Lower energy per 100 g",
+      "intention": {
+        "en": "a ready-to-eat protein side dish",
+        "ms": "lauk berprotein yang sedia dimakan"
+      },
+      "usage_note": {
+        "en": "Choose a boiled egg as a different side dish. It does not provide the same fish taste or nutrient profile. Reference values compare cooked foods; actual portions and sauces vary.",
+        "ms": "Pilih telur rebus sebagai lauk yang berbeza. Rasa ikan dan profil nutrien tidak sama. Nilai rujukan membandingkan makanan yang dimasak; saiz hidangan dan sos berbeza."
+      }
+    },
+    {
+      "id": "P13",
+      "title": "Roti canai -> wholemeal toast",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a bread-based breakfast",
+        "ms": "sarapan berasaskan roti"
+      },
+      "usage_note": {
+        "en": "Choose wholemeal bread for toast. It changes the texture and flavour; butter, jam, kaya and other toppings are not included in the comparison.",
+        "ms": "Pilih roti mil penuh untuk roti bakar. Tekstur dan rasanya berbeza; mentega, jem, kaya dan bahan tambahan lain tidak termasuk dalam perbandingan."
+      }
+    },
+    {
+      "id": "P14",
+      "title": "Salty sauces -> fresh lime",
+      "comparison": "sodium_mg",
+      "direction": "lower_is_better",
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "adding flavour to a savoury dish",
+        "ms": "menambah rasa pada hidangan berperisa"
+      },
+      "usage_note": {
+        "en": "Use a small squeeze of fresh lime for tang instead of relying on salty sauce. It does not reproduce soy or oyster umami, sweetness, colour or sauce consistency; this is not a one-for-one recipe substitution.",
+        "ms": "Gunakan sedikit perahan limau nipis untuk rasa masam dan kurangkan pergantungan pada sos masin. Ia tidak menghasilkan umami soya atau tiram, kemanisan, warna atau kepekatan sos; bukan pengganti resipi satu dengan satu."
+      }
+    },
+    {
+      "id": "P15",
+      "title": "Sweet spreads -> mashed banana",
+      "comparison": "energy_kcal",
+      "direction": "lower_is_better",
+      "reason": "Lower energy per 100 g",
+      "intention": {
+        "en": "a sweet topping for toast",
+        "ms": "sapuan manis untuk roti bakar"
+      },
+      "usage_note": {
+        "en": "Mash ripe banana for a naturally sweet toast topping. It changes flavour and texture and needs fresh preparation. Fruit still contains natural sugars; no lower-sugar claim is made because fruit sugar data is unavailable.",
+        "ms": "Lenyek pisang masak untuk sapuan roti bakar yang manis secara semula jadi. Rasa dan tekstur berubah dan perlu disediakan segar. Buah masih mengandungi gula semula jadi; tiada dakwaan gula lebih rendah kerana data gula buah tidak tersedia."
+      }
+    },
+    {
+      "id": "P16",
+      "title": "Mayonnaise -> mashed boiled egg",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "a sandwich filling or topping",
+        "ms": "inti atau sapuan sandwic"
+      },
+      "usage_note": {
+        "en": "Mash or slice a plain boiled egg as a different sandwich filling. It does not recreate a creamy mayonnaise dressing; added mayonnaise or sauces are not included.",
+        "ms": "Lenyek atau hiris telur rebus kosong sebagai inti sandwic yang berbeza. Ia tidak sama dengan sos mayonis berkrim; mayonis atau sos tambahan tidak termasuk."
+      }
+    },
+    {
+      "id": "P17",
+      "title": "Orange cordial concentrate -> plain water",
+      "comparison": "sugars_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total sugars per 100 g",
+      "intention": {
+        "en": "preparing a drink for thirst",
+        "ms": "menyediakan minuman untuk menghilangkan dahaga"
+      },
+      "usage_note": {
+        "en": "Choose plain water rather than preparing a sweetened cordial. The original reference is undiluted concentrate, not a finished drink. The table is not a sugar reduction estimate for your diluted serving.",
+        "ms": "Pilih air kosong daripada menyediakan kordial manis. Rujukan asal ialah pati tanpa pencairan, bukan minuman siap. Jadual bukan anggaran pengurangan gula untuk hidangan yang dicairkan."
+      }
+    },
+    {
+      "id": "P18",
+      "title": "Rose syrup concentrate -> plain water",
+      "comparison": "energy_kcal",
+      "direction": "lower_is_better",
+      "reason": "Lower energy per 100 g",
+      "intention": {
+        "en": "preparing a drink for thirst",
+        "ms": "menyediakan minuman untuk menghilangkan dahaga"
+      },
+      "usage_note": {
+        "en": "Choose plain water rather than preparing rose syrup. The original reference is undiluted syrup, not a finished drink. Dilution changes values; the table is not an estimate for a prepared glass.",
+        "ms": "Pilih air kosong daripada menyediakan sirap ros. Rujukan asal ialah sirap tanpa pencairan, bukan minuman siap. Pencairan mengubah nilai; jadual bukan anggaran untuk segelas minuman siap."
+      }
+    },
+    {
+      "id": "P19",
+      "title": "Salted butter -> corn oil for cooking",
+      "comparison": "saturated_fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower saturated fat per 100 g",
+      "intention": {
+        "en": "a cooking fat",
+        "ms": "lemak untuk memasak"
+      },
+      "usage_note": {
+        "en": "Use corn oil where liquid cooking oil fits the recipe. It does not reproduce butter flavour, a solid spread or baking structure; adjust quantities.",
+        "ms": "Gunakan minyak jagung apabila minyak masak cecair sesuai untuk resipi. Ia tidak memberikan rasa mentega, sapuan pepejal atau struktur penaikkan; sesuaikan kuantiti."
+      }
+    },
+    {
+      "id": "P20",
+      "title": "Coconut milk -> low-fat dairy milk for a lighter creamy dish",
+      "comparison": "fat_g",
+      "direction": "lower_is_better",
+      "reason": "Lower total fat per 100 g",
+      "intention": {
+        "en": "adding a creamy element to a curry or soup",
+        "ms": "menambah unsur berkrim pada kari atau sup"
+      },
+      "usage_note": {
+        "en": "Consider plain low-fat dairy milk for a lighter, thinner version and adapt the recipe. It will not reproduce coconut flavour or richness and introduces dairy; it is not a direct recipe replacement.",
+        "ms": "Pertimbangkan susu tenusu rendah lemak tanpa perisa untuk versi lebih ringan dan cair serta sesuaikan resipi. Ia tidak menghasilkan rasa kelapa atau kepekatan yang sama dan mengandungi tenusu; bukan pengganti terus dalam resipi."
+      }
+    },
+    {
+      "id": "N1",
+      "title": "Salty snacks -> plain peanuts",
+      "comparison": "sodium_mg",
+      "direction": "lower_is_better",
+      "reason": "Lower sodium per 100 g",
+      "intention": {
+        "en": "a snack between meals",
+        "ms": "snek antara waktu makan"
+      },
+      "usage_note": {
+        "en": "Choose plain peanuts dry-roasted without salt or sugar. If supplied raw, prepare them that way; this reference does not describe salted or coated nuts. Peanuts can be higher in fat and energy than the original snack, so compare actual portions.",
+        "ms": "Pilih kacang tanah yang dipanggang kering tanpa garam atau gula. Jika dibekalkan mentah, sediakan dengan cara itu; rujukan ini bukan untuk kacang masin atau bersalut. Kacang tanah boleh lebih tinggi lemak dan tenaga daripada snek asal, maka bandingkan saiz hidangan sebenar."
+      }
+    },
+    {
+      "id": "N2",
+      "title": "Biscuits / confectionery / snack foods -> plain peanuts",
+      "comparison": "protein_g",
+      "direction": "higher_is_better",
+      "reason": "Higher protein per 100 g",
+      "intention": {
+        "en": "a snack between meals",
+        "ms": "snek antara waktu makan"
+      },
+      "usage_note": {
+        "en": "Choose plain peanuts dry-roasted without salt or sugar. If supplied raw, prepare them that way; this reference does not describe salted or coated nuts. Peanuts can be higher in fat and energy than the original snack, so compare actual portions.",
+        "ms": "Pilih kacang tanah yang dipanggang kering tanpa garam atau gula. Jika dibekalkan mentah, sediakan dengan cara itu; rujukan ini bukan untuk kacang masin atau bersalut. Kacang tanah boleh lebih tinggi lemak dan tenaga daripada snek asal, maka bandingkan saiz hidangan sebenar."
+      }
     }
   ],
   "mappings": [
     {
       "rule": "H1",
-      "original_item_code": "883",
-      "original_item_name": "KRIMER MANIS BERVITAMIN CAP F&N",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111015",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "884",
-      "original_item_name": "KRIMER MANIS CAP GOLD COIN",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111015",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "388",
-      "original_item_name": "KRIMER MANIS CAP JUNJUNG",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111015",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "1873",
-      "original_item_name": "KRIMER MANIS CAP TEAPOT",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111015",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "1953",
-      "original_item_name": "KRIMER MANIS PEKAT CAP SAJI",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111015",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "1871",
-      "original_item_name": "KRIMER SEJAT CAIR SAJI",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111008",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "1952",
-      "original_item_name": "KRIMER SEJAT CAP F&N",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111008",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
-      "original_item_code": "1463",
-      "original_item_name": "KRIMER SEJAT CARNATION",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111008",
-      "alternative_food": "MFC-97-111013",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H1",
       "original_item_code": "1618",
       "original_item_name": "SUSU ISIAN PEKAT MANIS CAP F & N",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
       "original_food": "MFC-97-111010",
-      "alternative_food": "MFC-97-111013",
+      "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true,
+      "priority_category": "sweetened_milk_ingredients"
     },
     {
       "rule": "H1",
       "original_item_code": "320",
       "original_item_name": "SUSU SEJAT PENUH KRIM CAP IDEAL",
-      "alternative_item_code": "345",
-      "alternative_item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
-      "original_food": "MFC-97-111012",
-      "alternative_food": "MFC-97-111013",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-111008",
+      "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
-      "rule": "H1",
+      "rule": "H11",
       "original_item_code": "919",
       "original_item_name": "SUSU TEPUNG PENUH KRIM DUTCHLADY",
       "alternative_item_code": "345",
@@ -173,10 +532,10 @@
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
-      "rule": "H1",
+      "rule": "H11",
       "original_item_code": "2008",
       "original_item_name": "SUSU TEPUNG PENUH KRIM SEGERA NESPRAY",
       "alternative_item_code": "345",
@@ -184,10 +543,10 @@
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
-      "rule": "H1",
+      "rule": "H11",
       "original_item_code": "1619",
       "original_item_name": "SUSU TEPUNG SEGERA DUTCHLADY (BIASA )",
       "alternative_item_code": "345",
@@ -195,10 +554,10 @@
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
-      "rule": "H1",
+      "rule": "H11",
       "original_item_code": "344",
       "original_item_name": "SUSU TEPUNG SEGERA EVERYDAY",
       "alternative_item_code": "345",
@@ -206,10 +565,10 @@
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
-      "rule": "H1",
+      "rule": "H11",
       "original_item_code": "1954",
       "original_item_name": "SUSU TEPUNG SEGERA EVERYDAY",
       "alternative_item_code": "345",
@@ -217,10 +576,10 @@
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
-      "rule": "H1",
+      "rule": "H11",
       "original_item_code": "332",
       "original_item_name": "SUSU TEPUNG SEGERA FERNLEAF (INSTANT)",
       "alternative_item_code": "345",
@@ -228,7 +587,7 @@
       "original_food": "MFC-97-111012",
       "alternative_food": "MFC-97-111013",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H2",
@@ -239,7 +598,7 @@
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H2",
@@ -250,7 +609,7 @@
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H2",
@@ -261,7 +620,7 @@
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H2",
@@ -272,7 +631,7 @@
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H2",
@@ -283,7 +642,7 @@
       "original_food": "MFC-97-111007",
       "alternative_food": "MFC-97-111018",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H3",
@@ -294,7 +653,7 @@
       "original_food": "MFC-97-101051",
       "alternative_food": "MFC-97-101052",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H3",
@@ -305,18 +664,7 @@
       "original_food": "MFC-97-101051",
       "alternative_food": "MFC-97-101052",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "918",
-      "original_item_name": "MINYAK MASAK PAKET (PELBAGAI JENAMA)",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -327,18 +675,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1934",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP ADELA GOLD",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -349,18 +686,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1935",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP ADELA GOLD",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -371,18 +697,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1936",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP ADELA GOLD",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -393,18 +708,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "254",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP HELANG",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -415,18 +719,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1598",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP HELANG",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -437,18 +730,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1091",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP HELANG",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -459,18 +741,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1092",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP NEPTUNE",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -481,18 +752,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1599",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP NEPTUNE",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -503,18 +763,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "257",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP NEPTUNE",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -525,18 +774,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1600",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP PISAU",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -547,18 +785,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1093",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP PISAU",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -569,18 +796,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "260",
-      "original_item_name": "MINYAK MASAK SEBATIAN CAP PISAU",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "MFC-CUR-R112009",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -591,18 +807,7 @@
       "original_food": "MFC-CUR-R112009",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1942",
-      "original_item_name": "MINYAK MASAK TULEN CAP ALIF",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -613,18 +818,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1941",
-      "original_item_name": "MINYAK MASAK TULEN CAP ALIF",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -635,18 +829,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1940",
-      "original_item_name": "MINYAK MASAK TULEN CAP ALIF",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -657,18 +840,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "263",
-      "original_item_name": "MINYAK MASAK TULEN CAP BURUH",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -679,18 +851,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1094",
-      "original_item_name": "MINYAK MASAK TULEN CAP BURUH",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -701,18 +862,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1601",
-      "original_item_name": "MINYAK MASAK TULEN CAP BURUH",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -723,18 +873,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1938",
-      "original_item_name": "MINYAK MASAK TULEN CAP SAJI",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -745,18 +884,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1937",
-      "original_item_name": "MINYAK MASAK TULEN CAP SAJI",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -767,18 +895,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1939",
-      "original_item_name": "MINYAK MASAK TULEN CAP SAJI",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -789,18 +906,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1101",
-      "original_item_name": "MINYAK MASAK TULEN CAP SERI MURNI",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -811,18 +917,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1100",
-      "original_item_name": "MINYAK MASAK TULEN CAP SERI MURNI",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -833,18 +928,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "266",
-      "original_item_name": "MINYAK MASAK TULEN CAP SERI MURNI",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -855,18 +939,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1602",
-      "original_item_name": "MINYAK MASAK TULEN CAP VESAWIT",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -877,18 +950,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1095",
-      "original_item_name": "MINYAK MASAK TULEN CAP VESAWIT",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -899,18 +961,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "267",
-      "original_item_name": "MINYAK MASAK TULEN CAP VESAWIT",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171015",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -921,18 +972,7 @@
       "original_food": "FDC-171015",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "271",
-      "original_item_name": "MINYAK SAPI CAP QBB",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171314",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -943,18 +983,7 @@
       "original_food": "FDC-171314",
       "alternative_food": "FDC-171029",
       "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H4",
-      "original_item_code": "1603",
-      "original_item_name": "MINYAK SAPI CAP WINDMILL GHEEBLEND",
-      "alternative_item_code": "1090",
-      "alternative_item_name": "MINYAK JAGUNG CAP VECORN",
-      "original_food": "FDC-171314",
-      "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true
     },
     {
       "rule": "H4",
@@ -964,17 +993,6 @@
       "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
       "original_food": "FDC-171314",
       "alternative_food": "FDC-171029",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H5",
-      "original_item_code": "1371",
-      "original_item_name": "DAGING LEMBU IMPORT (BLADE)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
       "approved": true,
       "generic_mapping": true
     },
@@ -982,8 +1000,8 @@
       "rule": "H5",
       "original_item_code": "1371",
       "original_item_name": "DAGING LEMBU IMPORT (BLADE)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
       "original_food": "FDC-171776",
       "alternative_food": "FDC-171077",
       "approved": true,
@@ -1002,725 +1020,2524 @@
     },
     {
       "rule": "H5",
+      "original_item_code": "1372",
+      "original_item_name": "DAGING LEMBU IMPORT (CHUCKTENDER)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1373",
+      "original_item_name": "DAGING LEMBU IMPORT (KNUCKLE)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1370",
+      "original_item_name": "DAGING LEMBU IMPORT (TOPSIDE)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1431",
+      "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 1 DAGING PAHA (KECUALI BATANG PINANG - TENDERLOIN)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1432",
+      "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 2 DAGING PEJAL (KECUALI BATANG PINANG - TENDERLOIN)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1914",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) (BLOCK)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1377",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (BLADE)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1378",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (CHUCK)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1376",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (RUMP)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1375",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (SILVERSIDE)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "14",
+      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (TOP SIDE)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1374",
+      "original_item_name": "DAGING KERBAU TEMPATAN",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-171776",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1907",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (AUSTRALIA - KOTAK) (1KG)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1908",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (NEW ZEALAND - KOTAK)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "9",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (AUSTRALIA - KOTAK)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "10",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (NEW ZEALAND - KOTAK)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1909",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - AUSTRALIA)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1910",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "11",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - AUSTRALIA)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "12",
+      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1369",
+      "original_item_name": "DAGING KAMBING TEMPATAN BERTULANG",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-174307",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1384",
+      "original_item_name": "BABI HIDUP (±100KG / SEEKOR)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1380",
+      "original_item_name": "DAGING BABI (DAGING & LEMAK / LEAN & FAT)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1381",
+      "original_item_name": "DAGING BABI (ISI DAGING / PURE LEAN)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1379",
+      "original_item_name": "DAGING BABI (PERUT / BELLY)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H5",
+      "original_item_code": "1383",
+      "original_item_name": "DAGING BABI (RUSUK DENGAN DAGING/ RIBS WITH MEAT)",
+      "alternative_item_code": "1",
+      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "original_food": "FDC-168219",
+      "alternative_food": "FDC-171077",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H6",
+      "original_item_code": "148",
+      "original_item_name": "IKAN BILIS GRED B (KOPEK)",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "original_food": "MFC-97-110032",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
+    },
+    {
+      "rule": "H6",
+      "original_item_code": "1563",
+      "original_item_name": "SOTONG KERING (SAIZ SERDAHANA)",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "original_food": "MFC-97-110032",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
+    },
+    {
+      "rule": "H6",
+      "original_item_code": "1562",
+      "original_item_name": "UDANG KERING",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "original_food": "MFC-97-110067",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
+    },
+    {
+      "rule": "H7",
+      "original_item_code": "1237",
+      "original_item_name": "TELUR MASIN",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
+      "original_food": "MFC-97-109004",
+      "alternative_food": "MFC-97-109006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
+    },
+    {
+      "rule": "H7",
+      "original_item_code": "1820",
+      "original_item_name": "TELUR MASIN",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
+      "original_food": "MFC-97-109004",
+      "alternative_food": "MFC-97-109006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
+    },
+    {
+      "rule": "H7",
+      "original_item_code": "1821",
+      "original_item_name": "TELUR MASIN",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
+      "original_food": "MFC-97-109004",
+      "alternative_food": "MFC-97-109006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
+    },
+    {
+      "rule": "H8",
+      "original_item_code": "1371",
+      "original_item_name": "DAGING LEMBU IMPORT (BLADE)",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
+      "original_food": "FDC-171776",
+      "alternative_food": "MFC-97-110053",
+      "approved": true,
+      "generic_mapping": true
+    },
+    {
+      "rule": "H8",
       "original_item_code": "1913",
       "original_item_name": "DAGING LEMBU IMPORT (BLOCK)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1372",
       "original_item_name": "DAGING LEMBU IMPORT (CHUCKTENDER)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1372",
-      "original_item_name": "DAGING LEMBU IMPORT (CHUCKTENDER)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1373",
       "original_item_name": "DAGING LEMBU IMPORT (KNUCKLE)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1373",
-      "original_item_name": "DAGING LEMBU IMPORT (KNUCKLE)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1370",
       "original_item_name": "DAGING LEMBU IMPORT (TOPSIDE)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1370",
-      "original_item_name": "DAGING LEMBU IMPORT (TOPSIDE)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1431",
       "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 1 DAGING PAHA (KECUALI BATANG PINANG - TENDERLOIN)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1431",
-      "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 1 DAGING PAHA (KECUALI BATANG PINANG - TENDERLOIN)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1432",
       "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 2 DAGING PEJAL (KECUALI BATANG PINANG - TENDERLOIN)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1432",
-      "original_item_name": "DAGING LEMBU TEMPATAN (BAHAGIAN 2 DAGING PEJAL (KECUALI BATANG PINANG - TENDERLOIN)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1914",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) (BLOCK)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1914",
-      "original_item_name": "DAGING KERBAU IMPORT (INDIA) (BLOCK)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1377",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (BLADE)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1377",
-      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (BLADE)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1378",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (CHUCK)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1378",
-      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (CHUCK)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1376",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (RUMP)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1376",
-      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (RUMP)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1375",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (SILVERSIDE)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1375",
-      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (SILVERSIDE)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "14",
       "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (TOP SIDE)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "14",
-      "original_item_name": "DAGING KERBAU IMPORT (INDIA) * (TOP SIDE)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1374",
       "original_item_name": "DAGING KERBAU TEMPATAN",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1374",
-      "original_item_name": "DAGING KERBAU TEMPATAN",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-171776",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1907",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (AUSTRALIA - KOTAK) (1KG)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1907",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (AUSTRALIA - KOTAK) (1KG)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1908",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (NEW ZEALAND - KOTAK)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1908",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (LAMB) (NEW ZEALAND - KOTAK)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "9",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (AUSTRALIA - KOTAK)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "9",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (AUSTRALIA - KOTAK)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "10",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (NEW ZEALAND - KOTAK)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "10",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT BERTULANG (MUTTON) (NEW ZEALAND - KOTAK)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1909",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - AUSTRALIA)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1909",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - AUSTRALIA)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1910",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1910",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (LAMB) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "11",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - AUSTRALIA)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "11",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - AUSTRALIA)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "12",
       "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "12",
-      "original_item_name": "DAGING KAMBING BEBIRI IMPORT TANPA TULANG (MUTTON) (TIDAK TERMASUK PAHA - NEW ZEALAND)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1369",
       "original_item_name": "DAGING KAMBING TEMPATAN BERTULANG",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1369",
-      "original_item_name": "DAGING KAMBING TEMPATAN BERTULANG",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-174307",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1384",
       "original_item_name": "BABI HIDUP (±100KG / SEEKOR)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1384",
-      "original_item_name": "BABI HIDUP (±100KG / SEEKOR)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1380",
       "original_item_name": "DAGING BABI (DAGING & LEMAK / LEAN & FAT)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1380",
-      "original_item_name": "DAGING BABI (DAGING & LEMAK / LEAN & FAT)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1381",
       "original_item_name": "DAGING BABI (ISI DAGING / PURE LEAN)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1381",
-      "original_item_name": "DAGING BABI (ISI DAGING / PURE LEAN)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1379",
       "original_item_name": "DAGING BABI (PERUT / BELLY)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1379",
-      "original_item_name": "DAGING BABI (PERUT / BELLY)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H5",
+      "rule": "H8",
       "original_item_code": "1383",
       "original_item_name": "DAGING BABI (RUSUK DENGAN DAGING/ RIBS WITH MEAT)",
-      "alternative_item_code": "1",
-      "alternative_item_name": "AYAM BERSIH - STANDARD",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
       "generic_mapping": true
     },
     {
-      "rule": "H5",
-      "original_item_code": "1383",
-      "original_item_name": "DAGING BABI (RUSUK DENGAN DAGING/ RIBS WITH MEAT)",
-      "alternative_item_code": "2",
-      "alternative_item_name": "AYAM BERSIH - SUPER",
-      "original_food": "FDC-168219",
-      "alternative_food": "FDC-171077",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H6",
+      "rule": "H9",
       "original_item_code": "148",
       "original_item_name": "IKAN BILIS GRED B (KOPEK)",
-      "alternative_item_code": "88",
-      "alternative_item_name": "IKAN KELI (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM)",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
       "original_food": "MFC-97-110032",
-      "alternative_food": "MFC-97-110053",
+      "alternative_food": "MFC-97-109006",
       "approved": true,
-      "generic_mapping": true
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
     },
     {
-      "rule": "H6",
-      "original_item_code": "148",
-      "original_item_name": "IKAN BILIS GRED B (KOPEK)",
-      "alternative_item_code": "47",
-      "alternative_item_name": "IKAN CENCARU (ANTARA 4 HINGGA 6 EKOR SEKILOGRAM)",
-      "original_food": "MFC-97-110032",
-      "alternative_food": "MFC-97-110053",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H6",
+      "rule": "H9",
       "original_item_code": "1563",
       "original_item_name": "SOTONG KERING (SAIZ SERDAHANA)",
-      "alternative_item_code": "88",
-      "alternative_item_name": "IKAN KELI (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM)",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
       "original_food": "MFC-97-110032",
-      "alternative_food": "MFC-97-110053",
+      "alternative_food": "MFC-97-109006",
       "approved": true,
-      "generic_mapping": true
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
     },
     {
-      "rule": "H6",
-      "original_item_code": "1563",
-      "original_item_name": "SOTONG KERING (SAIZ SERDAHANA)",
-      "alternative_item_code": "47",
-      "alternative_item_name": "IKAN CENCARU (ANTARA 4 HINGGA 6 EKOR SEKILOGRAM)",
-      "original_food": "MFC-97-110032",
-      "alternative_food": "MFC-97-110053",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H6",
+      "rule": "H9",
       "original_item_code": "1562",
       "original_item_name": "UDANG KERING",
-      "alternative_item_code": "88",
-      "alternative_item_name": "IKAN KELI (ANTARA 2 HINGGA 5 EKOR SEKILOGRAM)",
+      "alternative_item_code": "119",
+      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
       "original_food": "MFC-97-110067",
-      "alternative_food": "MFC-97-110053",
+      "alternative_food": "MFC-97-109006",
       "approved": true,
-      "generic_mapping": true
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
     },
     {
-      "rule": "H6",
-      "original_item_code": "1562",
-      "original_item_name": "UDANG KERING",
-      "alternative_item_code": "47",
-      "alternative_item_name": "IKAN CENCARU (ANTARA 4 HINGGA 6 EKOR SEKILOGRAM)",
-      "original_food": "MFC-97-110067",
-      "alternative_food": "MFC-97-110053",
-      "approved": true,
-      "generic_mapping": true
-    },
-    {
-      "rule": "H7",
+      "rule": "H10",
       "original_item_code": "1237",
       "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "120",
-      "alternative_item_name": "TELUR AYAM GRED C (BERAT 55.0 GM HINGGA 59.9 GM SEBIJI)",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "MFC-97-109004",
-      "alternative_food": "MFC-97-109006",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
     },
     {
-      "rule": "H7",
-      "original_item_code": "1237",
-      "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "119",
-      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
-      "original_food": "MFC-97-109004",
-      "alternative_food": "MFC-97-109006",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H7",
+      "rule": "H10",
       "original_item_code": "1820",
       "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "120",
-      "alternative_item_name": "TELUR AYAM GRED C (BERAT 55.0 GM HINGGA 59.9 GM SEBIJI)",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "MFC-97-109004",
-      "alternative_food": "MFC-97-109006",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
     },
     {
-      "rule": "H7",
-      "original_item_code": "1820",
-      "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "119",
-      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
-      "original_food": "MFC-97-109004",
-      "alternative_food": "MFC-97-109006",
-      "approved": true,
-      "generic_mapping": false
-    },
-    {
-      "rule": "H7",
+      "rule": "H10",
       "original_item_code": "1821",
       "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "120",
-      "alternative_item_name": "TELUR AYAM GRED C (BERAT 55.0 GM HINGGA 59.9 GM SEBIJI)",
+      "alternative_item_code": "1476",
+      "alternative_item_name": "IKAN KEMBUNG (ANTARA 8 HINGGA 12 EKOR SEKILOGRAM)",
       "original_food": "MFC-97-109004",
-      "alternative_food": "MFC-97-109006",
+      "alternative_food": "MFC-97-110053",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true,
+      "priority_category": "salted_preserved_foods"
     },
     {
-      "rule": "H7",
-      "original_item_code": "1821",
-      "original_item_name": "TELUR MASIN",
-      "alternative_item_code": "119",
-      "alternative_item_name": "TELUR AYAM GRED B (BERAT 60.0 GM HINGGA 64.9 GM)",
-      "original_food": "MFC-97-109004",
-      "alternative_food": "MFC-97-109006",
+      "rule": "P1",
+      "original_item_code": "1683",
+      "original_item_name": "MISTER POTATO CRISPS (PELBAGAI PERISA) - BOTOL",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "MFC-97-106001",
       "approved": true,
-      "generic_mapping": false
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1683",
+      "original_item_name": "MISTER POTATO CRISPS (PELBAGAI PERISA) - BOTOL",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1684",
+      "original_item_name": "PRINGLES POTATO CRISPS (PELBAGAI PERISA) - BOTOL",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1684",
+      "original_item_name": "PRINGLES POTATO CRISPS (PELBAGAI PERISA) - BOTOL",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1685",
+      "original_item_name": "MISTER POTATO CHIPS (PELBAGAI PERISA) - PAKET",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1685",
+      "original_item_name": "MISTER POTATO CHIPS (PELBAGAI PERISA) - PAKET",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1891",
+      "original_item_name": "SUPER RING SNACKS CHEESE",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-101004",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P1",
+      "original_item_code": "1891",
+      "original_item_name": "SUPER RING SNACKS CHEESE",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-101004",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1691",
+      "original_item_name": "OREO BISKUT SANDWICH COKLAT JENAMA KRAFT (PELBAGAI PERISA)",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-CUR-R101121",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1691",
+      "original_item_name": "OREO BISKUT SANDWICH COKLAT JENAMA KRAFT (PELBAGAI PERISA)",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-CUR-R101121",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1692",
+      "original_item_name": "CREAM O BISKUT SANDWICH JENAMA JACK N JILL (PELBAGAI PERISA)",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-CUR-R101121",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1692",
+      "original_item_name": "CREAM O BISKUT SANDWICH JENAMA JACK N JILL (PELBAGAI PERISA)",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-CUR-R101121",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1693",
+      "original_item_name": "CHIPSMORE ORIGINAL",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "FDC-172715",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1693",
+      "original_item_name": "CHIPSMORE ORIGINAL",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "FDC-172715",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1696",
+      "original_item_name": "CHIPSMORE MINI HAZELNUTS",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "FDC-172715",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1696",
+      "original_item_name": "CHIPSMORE MINI HAZELNUTS",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "FDC-172715",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1697",
+      "original_item_name": "TIGER BISKUAT SUSU",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-CUR-R101071",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1697",
+      "original_item_name": "TIGER BISKUAT SUSU",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-CUR-R101071",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1699",
+      "original_item_name": "CADBURY DAIRY MILK HAZELNUT",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-CUR-R114015",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1699",
+      "original_item_name": "CADBURY DAIRY MILK HAZELNUT",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-CUR-R114015",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1701",
+      "original_item_name": "TOBLERONE (MILK CHOCOLATE)",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-114002",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1701",
+      "original_item_name": "TOBLERONE (MILK CHOCOLATE)",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-114002",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1704",
+      "original_item_name": "NIPS CHOCOLATE COATED ROASTED PEANUT",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "FDC-168001",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1704",
+      "original_item_name": "NIPS CHOCOLATE COATED ROASTED PEANUT",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "FDC-168001",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1893",
+      "original_item_name": "MUNCHY'S MUZIC WAFER VANILLA CUBE",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "FDC-174973",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1893",
+      "original_item_name": "MUNCHY'S MUZIC WAFER VANILLA CUBE",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "FDC-174973",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1063",
+      "original_item_name": "KINDER BUENO - MILK & HAZELNUT",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "KINDER-SG-BUENO",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1063",
+      "original_item_name": "KINDER BUENO - MILK & HAZELNUT",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "KINDER-SG-BUENO",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1700",
+      "original_item_name": "KINDER JOY FOR BOYS/FOR GIRLS",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "KINDER-SG-JOY",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1700",
+      "original_item_name": "KINDER JOY FOR BOYS/FOR GIRLS",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "KINDER-SG-JOY",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1291",
+      "original_item_name": "ROTI PISANG",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-CUR-R212005",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P2",
+      "original_item_code": "1291",
+      "original_item_name": "ROTI PISANG",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-CUR-R212005",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1507",
+      "original_item_name": "COCA COLA (TIN)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113061",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1547",
+      "original_item_name": "PEPSI COLA (TIN)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113061",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "228",
+      "original_item_name": "COCA COLA (BOTOL)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113061",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1719",
+      "original_item_name": "SEVEN UP LEMON & LIME",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "FDC-173205",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1879",
+      "original_item_name": "SEVEN UP LEMON & LIME (TIN)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "FDC-173205",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1355",
+      "original_item_name": "100 PLUS (ORIGINAL)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113024",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "239",
+      "original_item_name": "RED BULL (BOTOL)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113020",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "240",
+      "original_item_name": "LIVITA WITH HONEY (BOTOL)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113020",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1718",
+      "original_item_name": "LIVITA WITH HONEY (TIN)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113020",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1651",
+      "original_item_name": "YEO'S SOYA (KOTAK)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113058",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "221",
+      "original_item_name": "DRINHO SOYA (KOTAK)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R113058",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P3",
+      "original_item_code": "1869",
+      "original_item_name": "SIRAP BANDUNG AIS",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R111062",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P4",
+      "original_item_code": "229",
+      "original_item_name": "F&N OREN (TIN)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "FDC-174854",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P4",
+      "original_item_code": "230",
+      "original_item_name": "F&N OREN (BOTOL)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "FDC-174854",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P4",
+      "original_item_code": "232",
+      "original_item_name": "MIRINDA OREN (BOTOL)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "FDC-174854",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P5",
+      "original_item_code": "239",
+      "original_item_name": "RED BULL (BOTOL)",
+      "alternative_item_code": "180",
+      "alternative_item_name": "TEH BOH (UNCANG)",
+      "original_food": "MFC-CUR-R113020",
+      "alternative_food": "FDC-174155",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P5",
+      "original_item_code": "240",
+      "original_item_name": "LIVITA WITH HONEY (BOTOL)",
+      "alternative_item_code": "180",
+      "alternative_item_name": "TEH BOH (UNCANG)",
+      "original_food": "MFC-CUR-R113020",
+      "alternative_food": "FDC-174155",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P5",
+      "original_item_code": "1718",
+      "original_item_name": "LIVITA WITH HONEY (TIN)",
+      "alternative_item_code": "180",
+      "alternative_item_name": "TEH BOH (UNCANG)",
+      "original_food": "MFC-CUR-R113020",
+      "alternative_food": "FDC-174155",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_drinks"
+    },
+    {
+      "rule": "P6",
+      "original_item_code": "1505",
+      "original_item_name": "DUTCH LADY UHT COKLAT (KOTAK)",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-CUR-R111045",
+      "alternative_food": "MFC-CUR-R111048",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_milk_drinks"
+    },
+    {
+      "rule": "P6",
+      "original_item_code": "1894",
+      "original_item_name": "CALPIS (PELBAGAI PERISA)",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-CUR-R111029",
+      "alternative_food": "MFC-CUR-R111048",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_milk_drinks"
+    },
+    {
+      "rule": "P6",
+      "original_item_code": "1319",
+      "original_item_name": "MILO PANAS",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-CUR-R113057",
+      "alternative_food": "MFC-CUR-R111048",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_milk_drinks"
+    },
+    {
+      "rule": "P6",
+      "original_item_code": "1865",
+      "original_item_name": "MILO AIS",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-CUR-R113057",
+      "alternative_food": "MFC-CUR-R111048",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweetened_milk_drinks"
+    },
+    {
+      "rule": "P7",
+      "original_item_code": "1050",
+      "original_item_name": "MAGGI MEE CURRY",
+      "alternative_item_code": "1964",
+      "alternative_item_name": "QUAKER OATS INSTANT OATMEALS",
+      "original_food": "MFC-97-101061",
+      "alternative_food": "MFC-97-101011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "instant_noodles"
+    },
+    {
+      "rule": "P7",
+      "original_item_code": "1710",
+      "original_item_name": "MAGGI HOT CUP (CURRY)",
+      "alternative_item_code": "1964",
+      "alternative_item_name": "QUAKER OATS INSTANT OATMEALS",
+      "original_food": "MFC-97-101061",
+      "alternative_food": "MFC-97-101011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "instant_noodles"
+    },
+    {
+      "rule": "P7",
+      "original_item_code": "1905",
+      "original_item_name": "MAGGI 2 MINUTE NOODLE CURRY FLAVOUR (5X79G)",
+      "alternative_item_code": "1964",
+      "alternative_item_name": "QUAKER OATS INSTANT OATMEALS",
+      "original_food": "MFC-97-101061",
+      "alternative_food": "MFC-97-101011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "instant_noodles"
+    },
+    {
+      "rule": "P7",
+      "original_item_code": "1976",
+      "original_item_name": "MAGGI MI SEGERA PERISA KARI",
+      "alternative_item_code": "1964",
+      "alternative_item_name": "QUAKER OATS INSTANT OATMEALS",
+      "original_food": "MFC-97-101061",
+      "alternative_food": "MFC-97-101011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "instant_noodles"
+    },
+    {
+      "rule": "P7",
+      "original_item_code": "1977",
+      "original_item_name": "CINTAN MI SEGERA PERISA AYAM",
+      "alternative_item_code": "1964",
+      "alternative_item_name": "QUAKER OATS INSTANT OATMEALS",
+      "original_food": "MFC-97-101061",
+      "alternative_food": "MFC-97-101011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "instant_noodles"
+    },
+    {
+      "rule": "P7",
+      "original_item_code": "1978",
+      "original_item_name": "MI SEDAP MI GORENG PERISA ASLI",
+      "alternative_item_code": "1964",
+      "alternative_item_name": "QUAKER OATS INSTANT OATMEALS",
+      "original_food": "MFC-97-101061",
+      "alternative_food": "MFC-97-101011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "instant_noodles"
+    },
+    {
+      "rule": "P8",
+      "original_item_code": "1252",
+      "original_item_name": "KUIH LAPIS",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-211014",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P8",
+      "original_item_code": "1252",
+      "original_item_name": "KUIH LAPIS",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-211014",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P8",
+      "original_item_code": "1254",
+      "original_item_name": "PAU KACANG MERAH",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "MFC-97-212010",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P8",
+      "original_item_code": "1254",
+      "original_item_name": "PAU KACANG MERAH",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-212010",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P9",
+      "original_item_code": "1784",
+      "original_item_name": "KUIH KARIPAP (KENTANG)",
+      "alternative_item_code": "1255",
+      "alternative_item_name": "PAU AYAM",
+      "original_food": "MFC-97-212006",
+      "alternative_food": "MFC-97-212009",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_snacks"
+    },
+    {
+      "rule": "P9",
+      "original_item_code": "1785",
+      "original_item_name": "VADAI MASALA",
+      "alternative_item_code": "1255",
+      "alternative_item_name": "PAU AYAM",
+      "original_food": "MFC-97-213026",
+      "alternative_food": "MFC-97-212009",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_snacks"
+    },
+    {
+      "rule": "P9",
+      "original_item_code": "1786",
+      "original_item_name": "VADAI ULUNDHU",
+      "alternative_item_code": "1255",
+      "alternative_item_name": "PAU AYAM",
+      "original_food": "MFC-97-213027",
+      "alternative_food": "MFC-97-212009",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_snacks"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1167",
+      "original_item_name": "NASI GORENG KAMPUNG",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1168",
+      "original_item_name": "NASI GORENG PAPRIK",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1169",
+      "original_item_name": "NASI GORENG CINA",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1170",
+      "original_item_name": "NASI GORENG PATAYA",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1172",
+      "original_item_name": "NASI GORENG CILI PADI",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1173",
+      "original_item_name": "NASI GORENG DAGING MERAH",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1174",
+      "original_item_name": "NASI GORENG USA",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1175",
+      "original_item_name": "NASI GORENG AYAM",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1728",
+      "original_item_name": "NASI GORENG BIASA",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1729",
+      "original_item_name": "NASI GORENG SEAFOOD",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221021",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1183",
+      "original_item_name": "BIHUN GORENG",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221013",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1247",
+      "original_item_name": "MAGGI GORENG",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221010",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1730",
+      "original_item_name": "MI GORENG BIASA",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221010",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1731",
+      "original_item_name": "MI GORENG MAMAK",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221010",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1739",
+      "original_item_name": "KUETIAU GORENG BIASA",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221007",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1746",
+      "original_item_name": "CHAR KUETIAU",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-221007",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1299",
+      "original_item_name": "MURTABAK AYAM",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-237003",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1300",
+      "original_item_name": "MURTABAK DAGING",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-237003",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P10",
+      "original_item_code": "1301",
+      "original_item_name": "MURTABAK KAMBING",
+      "alternative_item_code": "1733",
+      "alternative_item_name": "MI SUP (AYAM/DAGING)",
+      "original_food": "MFC-97-237003",
+      "alternative_food": "MFC-97-221011",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_main_meals"
+    },
+    {
+      "rule": "P11",
+      "original_item_code": "1198",
+      "original_item_name": "AYAM GORENG",
+      "alternative_item_code": "1236",
+      "alternative_item_name": "TELUR REBUS",
+      "original_food": "MFC-97-222012",
+      "alternative_food": "FDC-173424",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_protein_dishes"
+    },
+    {
+      "rule": "P12",
+      "original_item_code": "1765",
+      "original_item_name": "IKAN BAWAL HITAM GORENG (SAIZ SEDERHANA)",
+      "alternative_item_code": "1236",
+      "alternative_item_name": "TELUR REBUS",
+      "original_food": "MFC-97-223004",
+      "alternative_food": "FDC-173424",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_protein_dishes"
+    },
+    {
+      "rule": "P12",
+      "original_item_code": "1772",
+      "original_item_name": "IKAN KEMBUNG GORENG (SAIZ SEDERHANA)",
+      "alternative_item_code": "1236",
+      "alternative_item_name": "TELUR REBUS",
+      "original_food": "MFC-97-223011",
+      "alternative_food": "FDC-173424",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_protein_dishes"
+    },
+    {
+      "rule": "P12",
+      "original_item_code": "1775",
+      "original_item_name": "IKAN TENGGIRI GORENG",
+      "alternative_item_code": "1236",
+      "alternative_item_name": "TELUR REBUS",
+      "original_food": "MFC-97-223019",
+      "alternative_food": "FDC-173424",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_protein_dishes"
+    },
+    {
+      "rule": "P13",
+      "original_item_code": "1783",
+      "original_item_name": "ROTI CANAI BIASA",
+      "alternative_item_code": "1949",
+      "alternative_item_name": "ROTI WHOLEMEAL (PELBAGAI JENAMA)",
+      "original_food": "MFC-97-221023",
+      "alternative_food": "MFC-97-101052",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_breakfast"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1135",
+      "original_item_name": "KICAP MANIS ADABI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1828",
+      "original_item_name": "KICAP SOYA PEKAT MANIS CAP AYAM",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "214",
+      "original_item_name": "KICAP LEMAK MANIS CAP KIPAS UDANG",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "215",
+      "original_item_name": "KICAP LEMAK MANIS CAP JALEN",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1115",
+      "original_item_name": "KICAP LEMAK MASIN CAP KIPAS UDANG",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1136",
+      "original_item_name": "KICAP MASIN ADABI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1837",
+      "original_item_name": "KICAP TONG NAM (DARK SOY SAUCE)",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "2012",
+      "original_item_name": "KICAP TAMIN (DARK SOY SAUCE)",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "212",
+      "original_item_name": "KICAP TAMIN (DARK SOY SAUCE)",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-103028",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1070",
+      "original_item_name": "SOS CILI MAGGI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-105027",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1097",
+      "original_item_name": "SOS CILI MAGGI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-105027",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1137",
+      "original_item_name": "SOS CILI THAI LIFE",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-105027",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1139",
+      "original_item_name": "SOS TOMATO LIFE",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "FDC-168556",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "217",
+      "original_item_name": "SOS TOMATO MAGGI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "FDC-168556",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "218",
+      "original_item_name": "SOS CILI LIFE",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-105027",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "957",
+      "original_item_name": "SOS CILI KIMBALL",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-105027",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1114",
+      "original_item_name": "SOS TIRAM KIMBALL",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-110057",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1116",
+      "original_item_name": "SOS TIRAM NONA",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-110057",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1117",
+      "original_item_name": "SOS TIRAM ADABI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-110057",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P14",
+      "original_item_code": "1138",
+      "original_item_name": "SOS TIRAM MAGGI",
+      "alternative_item_code": "1132",
+      "alternative_item_name": "LIMAU NIPIS",
+      "original_food": "MFC-97-110057",
+      "alternative_food": "MFC-97-106044",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_condiments"
+    },
+    {
+      "rule": "P15",
+      "original_item_code": "201",
+      "original_item_name": "JEM STRAWBERI LADY'S CHOICE",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-CUR-R107029",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_spreads"
+    },
+    {
+      "rule": "P15",
+      "original_item_code": "202",
+      "original_item_name": "SERI KAYA YEO'S",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "MFC-97-107003",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_spreads"
+    },
+    {
+      "rule": "P16",
+      "original_item_code": "1872",
+      "original_item_name": "MAYONIS SEBENAR LADY'S CHOICE",
+      "alternative_item_code": "1236",
+      "alternative_item_name": "TELUR REBUS",
+      "original_food": "MFC-CUR-R112005",
+      "alternative_food": "FDC-173424",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_condiments"
+    },
+    {
+      "rule": "P17",
+      "original_item_code": "171",
+      "original_item_name": "KORDIAL SUNQUICK (OREN)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-CUR-R107012",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "cordial_concentrates"
+    },
+    {
+      "rule": "P18",
+      "original_item_code": "910",
+      "original_item_name": "KORDIAL F&N (SIRAP ROS)",
+      "alternative_item_code": "1322",
+      "alternative_item_name": "AIR KOSONG",
+      "original_food": "MFC-97-107021",
+      "alternative_food": "FDC-174158",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "cordial_concentrates"
+    },
+    {
+      "rule": "P8",
+      "original_item_code": "1808",
+      "original_item_name": "MENTOS (PELBAGAI PERISA)",
+      "alternative_item_code": "1485",
+      "alternative_item_name": "EPAL HIJAU GRANNY SMITH (SAIZ M)",
+      "original_food": "FDC-1950836",
+      "alternative_food": "MFC-97-106001",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P8",
+      "original_item_code": "1808",
+      "original_item_name": "MENTOS (PELBAGAI PERISA)",
+      "alternative_item_code": "18",
+      "alternative_item_name": "PISANG BERANGAN",
+      "original_food": "FDC-1950836",
+      "alternative_food": "MFC-97-106006",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "P19",
+      "original_item_code": "1609",
+      "original_item_name": "MENTEGA SCS (SALTED)",
+      "alternative_item_code": "1086",
+      "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
+      "original_food": "FDC-173410",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P19",
+      "original_item_code": "1615",
+      "original_item_name": "MENTEGA ANCHOR (SALTED)",
+      "alternative_item_code": "1086",
+      "alternative_item_name": "MINYAK JAGUNG CAP DAISY",
+      "original_food": "FDC-173410",
+      "alternative_food": "FDC-171029",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P20",
+      "original_item_code": "103",
+      "original_item_name": "SANTAN KELAPA SEGAR (BIASA)",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-104011",
+      "alternative_food": "MFC-97-111018",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P20",
+      "original_item_code": "1929",
+      "original_item_name": "SANTAN KELAPA SEGAR (PEKAT)",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-104011",
+      "alternative_food": "MFC-97-111018",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P20",
+      "original_item_code": "1151",
+      "original_item_name": "SANTAN KELAPA JENAMA AYAM BRAND",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-104011",
+      "alternative_food": "MFC-97-111018",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P20",
+      "original_item_code": "1610",
+      "original_item_name": "SANTAN KELAPA JENAMA M&S",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-104011",
+      "alternative_food": "MFC-97-111018",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P20",
+      "original_item_code": "1611",
+      "original_item_name": "SANTAN KELAPA JENAMA KARA",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-104011",
+      "alternative_food": "MFC-97-111018",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "P20",
+      "original_item_code": "1612",
+      "original_item_name": "SANTAN KELAPA JENAMA HARMUNI",
+      "alternative_item_code": "225",
+      "alternative_item_name": "SUSU MARIGOLD HL",
+      "original_food": "MFC-97-104011",
+      "alternative_food": "MFC-97-111018",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "rich_cooking_ingredients"
+    },
+    {
+      "rule": "N1",
+      "original_item_code": "1683",
+      "original_item_name": "MISTER POTATO CRISPS (PELBAGAI PERISA) - BOTOL",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "N1",
+      "original_item_code": "1684",
+      "original_item_name": "PRINGLES POTATO CRISPS (PELBAGAI PERISA) - BOTOL",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "N1",
+      "original_item_code": "1685",
+      "original_item_name": "MISTER POTATO CHIPS (PELBAGAI PERISA) - PAKET",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-102004",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "N1",
+      "original_item_code": "1891",
+      "original_item_name": "SUPER RING SNACKS CHEESE",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-101004",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "salty_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1691",
+      "original_item_name": "OREO BISKUT SANDWICH COKLAT JENAMA KRAFT (PELBAGAI PERISA)",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-CUR-R101121",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1692",
+      "original_item_name": "CREAM O BISKUT SANDWICH JENAMA JACK N JILL (PELBAGAI PERISA)",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-CUR-R101121",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1693",
+      "original_item_name": "CHIPSMORE ORIGINAL",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "FDC-172715",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1696",
+      "original_item_name": "CHIPSMORE MINI HAZELNUTS",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "FDC-172715",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1697",
+      "original_item_name": "TIGER BISKUAT SUSU",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-CUR-R101071",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1699",
+      "original_item_name": "CADBURY DAIRY MILK HAZELNUT",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-CUR-R114015",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1701",
+      "original_item_name": "TOBLERONE (MILK CHOCOLATE)",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-114002",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1704",
+      "original_item_name": "NIPS CHOCOLATE COATED ROASTED PEANUT",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "FDC-168001",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1893",
+      "original_item_name": "MUNCHY'S MUZIC WAFER VANILLA CUBE",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "FDC-174973",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1063",
+      "original_item_name": "KINDER BUENO - MILK & HAZELNUT",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "KINDER-SG-BUENO",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1700",
+      "original_item_name": "KINDER JOY FOR BOYS/FOR GIRLS",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "KINDER-SG-JOY",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1291",
+      "original_item_name": "ROTI PISANG",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-CUR-R212005",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1252",
+      "original_item_name": "KUIH LAPIS",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-211014",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1254",
+      "original_item_name": "PAU KACANG MERAH",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-212010",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1784",
+      "original_item_name": "KUIH KARIPAP (KENTANG)",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-212006",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1785",
+      "original_item_name": "VADAI MASALA",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-213026",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1786",
+      "original_item_name": "VADAI ULUNDHU",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "MFC-97-213027",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "fried_snacks"
+    },
+    {
+      "rule": "N2",
+      "original_item_code": "1808",
+      "original_item_name": "MENTOS (PELBAGAI PERISA)",
+      "alternative_item_code": "368",
+      "alternative_item_name": "KACANG TANAH (IMPORT)",
+      "original_food": "FDC-1950836",
+      "alternative_food": "FDC-173806",
+      "approved": true,
+      "generic_mapping": true,
+      "priority_category": "sweet_snacks"
     }
   ],
   "selection_rule": {
-    "basis": "catalogue items in the same product family that are addable",
-    "eligibility": "at least 5 official price observations (current_status rows with current_price > 0)",
-    "ranking": "median observed official price, ascending",
-    "approved_per_rule": "the two lowest-ranked eligible candidates",
-    "fallback": "when the pool has no eligible candidate, keep the single previously approved unpriced alternative"
+    "basis": "reviewed buying intention and practical use, allowing different food families",
+    "eligibility": "a catalogue item with traceable nutrition evidence for the stated use and a supported nutrient improvement",
+    "ranking": "curated intention fit and preparation suitability; price is informational, not a selection criterion",
+    "approved_per_rule": "reviewed catalogue choices, not a price-based quota",
+    "fallback": "no suggestion when use fit or nutrition evidence is unsupported"
   }
 }

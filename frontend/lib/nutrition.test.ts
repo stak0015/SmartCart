@@ -33,6 +33,8 @@ function alternative(overrides: Partial<HealthierAlternative> = {}): HealthierAl
     },
     rule: "H1",
     headline: "Lower total fat per 100 g",
+    intention: { en: "a milk drink", ms: "minuman susu" },
+    usage_note: { en: "Prepare according to the pack instructions.", ms: "Sediakan mengikut arahan pada pek." },
     comparison_nutrient: "fat_g",
     comparison_direction: "lower_is_better",
     original_source: { dataset: "MyFCD-1997", dataset_name: "MyFCD 1997", record_code: "111015", description: "Condensed milk", basis: "per_100g" },
@@ -70,8 +72,11 @@ describe("comparisonReasonKind", () => {
   it("maps the headline comparison to a localisable reason", () => {
     expect(comparisonReasonKind(alternative())).toBe("lower_fat");
     expect(comparisonReasonKind(alternative({ comparison_nutrient: "fibre_g", comparison_direction: "higher_is_better" }))).toBe("higher_fibre");
+    expect(comparisonReasonKind(alternative({ comparison_nutrient: "protein_g", comparison_direction: "higher_is_better" }))).toBe("higher_protein");
     expect(comparisonReasonKind(alternative({ comparison_nutrient: "saturated_fat_g" }))).toBe("lower_saturated_fat");
     expect(comparisonReasonKind(alternative({ comparison_nutrient: "sodium_mg" }))).toBe("lower_sodium");
+    expect(comparisonReasonKind(alternative({ comparison_nutrient: "sugars_g" }))).toBe("lower_sugar");
+    expect(comparisonReasonKind(alternative({ comparison_nutrient: "energy_kcal" }))).toBe("lower_energy");
   });
 
   it("falls back to other for an unmapped nutrient", () => {
@@ -130,6 +135,12 @@ const ROW = (nutrient: string, label: string, unit: string, o: number | null, a:
   ({ nutrient, label, unit, original_value: o, alternative_value: a, status });
 
 describe("nutrientPreference", () => {
+  it("compares total sugars as lower-is-better while carbohydrate stays neutral", () => {
+    expect(nutrientPreference("sugars_g")).toBe("lower_is_better");
+    expect(nutrientPreference("carbohydrate_g")).toBe("neutral");
+    expect(betterSide(ROW("sugars_g", "Total sugars", "g", 4.54, 0))).toBe("alternative");
+    expect(betterSide(ROW("sugars_g", "Total sugars", "g", 4.54, null, "unavailable"))).toBeNull();
+  });
   it("treats fat, saturated fat, sodium and energy as lower-is-better", () => {
     for (const n of ["fat_g", "saturated_fat_g", "sodium_mg", "energy_kcal"]) {
       expect(nutrientPreference(n)).toBe("lower_is_better");

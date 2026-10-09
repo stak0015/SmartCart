@@ -6,11 +6,14 @@ import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { ItemPriceHistory } from "./price-history";
 import { StoreChainLogo } from "./store-chain-logo";
+import { ShoppingStepNav } from "./shopping-step-nav";
 import { HealthierAlternativesSection } from "./healthier-alternatives";
+import { ItemNutritionSection } from "./item-nutrition";
+import { SHOPPING_SESSION_STORAGE_KEY, parseShoppingSession, serializeShoppingSession, type TravelPreferences } from "@/lib/shopping-session";
 import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { fetchHealthierAlternatives, listCategories, searchItems, type Item, type HealthierAlternativesResult } from "@/lib/api";
+import { fetchHealthierAlternatives, fetchItemNutrition, listCategories, searchItems, type Item, type HealthierAlternativesResult, type ItemNutritionResult } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import { NearbyPriceStatus, type CandidatePreparationState } from "./nearby-price-status";
@@ -132,16 +135,6 @@ const SCREEN_ROUTES: Record<Screen, string> = {
 function screenForPath(pathname: string): Screen {
   if (pathname.startsWith("/store/")) return "compare";
   return (Object.entries(SCREEN_ROUTES).find(([, route]) => route === pathname)?.[0] as Screen | undefined) ?? "home";
-}
-
-interface TravelPreferences {
-  origin: SelectedLocation | null;
-  transportMode: TransportMode;
-  limitType: TravelLimitType;
-  limitValue: number;
-  distanceKm: number;
-  timeMinutes: number;
-  saraFilter: SaraFilter;
 }
 
 function recommendationTravelRequest(preferences: TravelPreferences): TravelPreferencesRequest {
@@ -486,6 +479,9 @@ function BasketScreen({
   const [alternatives, setAlternatives] = useState<HealthierAlternativesResult | null>(null);
   const [alternativesLoading, setAlternativesLoading] = useState(false);
   const [alternativesError, setAlternativesError] = useState(false);
+  const [itemNutrition, setItemNutrition] = useState<ItemNutritionResult | null>(null);
+  const [itemNutritionLoading, setItemNutritionLoading] = useState(false);
+  const [itemNutritionError, setItemNutritionError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -584,6 +580,35 @@ function BasketScreen({
       });
     return () => controller.abort();
   }, [selectedItem?.item_code, candidateCacheId]);
+
+  // Nutrition lookup is intentionally independent from healthier alternatives:
+  // a generic or product match remains useful without a recommendation.
+  useEffect(() => {
+    const itemCode = selectedItem?.item_code;
+    if (!itemCode) {
+      setItemNutrition(null);
+      setItemNutritionError(false);
+      setItemNutritionLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setItemNutrition(null);
+    setItemNutritionError(false);
+    setItemNutritionLoading(true);
+    fetchItemNutrition(itemCode, controller.signal)
+      .then(data => {
+        if (!controller.signal.aborted) setItemNutrition(data);
+      })
+      .catch(error => {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        setItemNutrition(null);
+        setItemNutritionError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setItemNutritionLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedItem?.item_code]);
 
   const toggleCategory = (category: string) => {
     setPage(1);
@@ -895,18 +920,18 @@ function BasketScreen({
         trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose}/> : undefined}
         back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
-        details={selectedItem && <div className="catalogue-dialog-details">
-          <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
+        details={selectedItem ? priceTrendsButton => <div className="catalogue-dialog-details">
+          <div className="product-visual"><span aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></span>{priceTrendsButton}</div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
           {selectedItem.price_range && <p>{selectedItem.price_range.price_source === "median"
             ? (locale === "en" ? "Estimated from the item's median price. Per unit; final price depends on your store." : "Anggaran daripada harga median item. Seunit; harga akhir bergantung pada kedai.")
             : locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
-          {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
-        </div>}
+        </div> : null}
         quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
-        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/>}/>
+        nutrition={selectedItem && <ItemNutritionSection loading={itemNutritionLoading} result={itemNutrition} error={itemNutritionError} locale={locale}/>}
+        alternatives={selectedItem ? onOpenInsights => <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenInsights={onOpenInsights} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/> : undefined}/>
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
@@ -1447,7 +1472,7 @@ function StoreCard({
           {pricesExpanded && <div id={priceListId} className="store-price-popover" onKeyDown={event => { if (event.key === "Escape") onTogglePrices(); }}>
             <div className="store-price-popover-heading"><strong>{copy.basketItems}</strong><button type="button" onClick={onTogglePrices} aria-label={copy.dismiss}>×</button></div>
             <div className="store-price-table-head"><span>{copy === COPY.ms ? "Item" : "Item"}</span><span>{copy === COPY.ms ? "Saiz" : "Pack"}</span><span>{copy === COPY.ms ? "Kuantiti" : "Qty"}</span><span>{copy === COPY.ms ? "Harga" : "Unit"}</span><span>{copy === COPY.ms ? "Jumlah" : "Total"}</span></div>
-            <ul>{store.basketPrices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{localizedName(copy, price.itemName, price)}<small>{categoryLabel(locale, price.category)}</small>{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{packageSizeForCopy(copy, price.packageSize) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
+            <ul>{store.basketPrices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{localizedName(copy, price.itemName, price)}{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{packageSizeForCopy(copy, price.packageSize) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
             {store.missingItems.length > 0 && <p className="store-price-missing">{copy.missingItemPrices(store.missingItems.map(name => localizedName(copy, name, store.basketPrices.find(price => price.itemName === name))).join(", "))}</p>}
           </div>}
         </div>}
@@ -1812,7 +1837,6 @@ function RecommendationOverview({
           <aside className="store-detail-sidebar">
             <section className="store-detail-summary">
               <h2><UIIcon name="basket" size={22}/>{locale === "en" ? "Basket summary" : "Ringkasan bakul"}</h2>
-              <dl className="summary-counts"><div><dt>{locale === "en" ? "Items" : "Item"}</dt><dd>{displayedLineCount}</dd></div><div><dt>{locale === "en" ? "Store prices" : "Harga kedai"}</dt><dd>{displayedStorePriceCount}</dd></div><div><dt>{locale === "en" ? "Median estimates" : "Anggaran median"}</dt><dd>{displayedMedianPriceCount}</dd></div><div><dt>{locale === "en" ? "Missing prices" : "Tiada harga"}</dt><dd>{Math.max(0, displayedLineCount - displayedPricedCount)}</dd></div></dl>
               <dl className="store-summary-money"><div><dt>{hasIncompleteBasket ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal) : hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal}</dt><dd>{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</dd></div>{displayedCredit != null && displayedCash != null && <><div><dt>{copy.saraCreditLabel}</dt><dd>{formatRm(displayedCredit)}</dd></div><div><dt>{copy.cashNeededLabel}</dt><dd>{formatRm(displayedCash)}</dd></div></>}</dl>
               {displayedCredit != null && <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>}
               <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3><div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div><div><span>{totalLabel}</span><strong>{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</strong></div></div>
@@ -2059,6 +2083,8 @@ export default function App() {
     router.push(SCREEN_ROUTES[next]);
   };
   const [resumeStep, setResumeStep] = useState<TripJourneyStep>("location");
+  const [sessionStorageReady, setSessionStorageReady] = useState(false);
+  const restoredSessionRef = useRef(false);
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
@@ -2162,8 +2188,9 @@ export default function App() {
     if (pendingPathRef.current === pathname) pendingPathRef.current = null;
     // Saving a plan clears the selected store before the home route commits.
     // Do not let the direct-link fallback override that navigation.
-    if (isStoreRoute && !selectedStore && !pendingPathRef.current) router.replace(SCREEN_ROUTES.compare);
-  }, [isStoreRoute, pathname, router, selectedStore]);
+    if (sessionStorageReady && isStoreRoute && !pendingPathRef.current
+      && (!selectedStore || pathname !== `/store/${encodeURIComponent(selectedStore.premiseId)}`)) router.replace(SCREEN_ROUTES.compare);
+  }, [isStoreRoute, pathname, router, selectedStore, sessionStorageReady]);
 
   useEffect(() => () => candidatePreparationController.current?.abort(), []);
 
@@ -2353,9 +2380,9 @@ export default function App() {
   }, [consentDialogMode, inbox.messages, inboxStorageReady, reportConsent, reportConsentLoaded, runReportGeneration, tripHistory, tripHistoryStorageReady]);
 
   useEffect(() => {
-    const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
-    if (!savedPreferences) return;
     try {
+      const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
+      if (!savedPreferences) return;
       const saved = JSON.parse(savedPreferences) as Record<string, unknown>;
       const transportMode = ["walk", "public_transport", "motorcycle", "car"].includes(String(saved.transportMode))
         ? saved.transportMode as TransportMode
@@ -2374,9 +2401,45 @@ export default function App() {
         distanceKm: Number.isFinite(distanceKm) && distanceKm >= 0.5 && distanceKm <= 100 ? distanceKm : 5,
         timeMinutes: Number.isFinite(timeMinutes) && timeMinutes >= 5 && timeMinutes <= 180 ? timeMinutes : 20, saraFilter });
     } catch {
-      window.localStorage.removeItem("smartcart-travel-preferences");
+      // Keep the default preferences if device storage is unavailable.
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const serialized = window.localStorage.getItem(SHOPPING_SESSION_STORAGE_KEY);
+      const session = parseShoppingSession(serialized);
+      if (session) {
+        setBasket(session.basket);
+        setPreferences(session.preferences);
+        setResumeStep(session.resumeStep);
+        setSelectedStore(session.selectedStore);
+        setSavedItemsToUse(session.savedItemsToUse);
+        restoredSessionRef.current = true;
+      } else if (serialized) {
+        window.localStorage.removeItem(SHOPPING_SESSION_STORAGE_KEY);
+      }
+    } catch {
+      // Shopping remains usable when device storage is unavailable.
+    } finally {
+      setSessionStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sessionStorageReady) return;
+    try {
+      if (!preferences.origin && basket.length === 0) {
+        window.localStorage.removeItem(SHOPPING_SESSION_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(SHOPPING_SESSION_STORAGE_KEY, serializeShoppingSession({
+          basket, preferences, resumeStep, selectedStore, savedItemsToUse,
+        }));
+      }
+    } catch {
+      // The current trip remains usable in memory if saving fails.
+    }
+  }, [sessionStorageReady, basket, preferences, resumeStep, selectedStore, savedItemsToUse]);
 
   const basketCount = basket.reduce((count, item) => count + item.qty, 0);
   const copy = COPY[locale];
@@ -2494,6 +2557,11 @@ export default function App() {
         });
       });
   }, [locale]);
+  useEffect(() => {
+    if (!sessionStorageReady || !restoredSessionRef.current) return;
+    restoredSessionRef.current = false;
+    if (preferences.origin) prepareCandidates(preferences);
+  }, [sessionStorageReady, preferences, prepareCandidates]);
   const navigateTrip = (next: TripJourneyStep) => {
     setResumeStep(next);
     navigateTo(next);
@@ -2617,6 +2685,7 @@ export default function App() {
     setTripHistory(current => addTripRecord(current, record));
     navigateTo("history");
   };
+  if (!sessionStorageReady) return <div className="smartcart-app" aria-busy="true" />;
   return (
     <div className="smartcart-app">
       <Header
@@ -2633,6 +2702,20 @@ export default function App() {
       />
 
       <main className={"app-main screen-" + screen}>
+        {(["location", "shop", "basket", "compare"].includes(screen) || (screen === "checklist" && checklist)) && <ShoppingStepNav
+          current={screen === "compare" && isStoreRoute ? "store" : screen as "location" | "shop" | "basket" | "compare" | "checklist"}
+          locale={locale}
+          available={[
+            "location",
+            ...(preferences.origin ? ["shop" as const, "basket" as const] : []),
+            ...(preferences.origin && basket.length > 0 ? ["compare" as const] : []),
+            ...(screen === "compare" && selectedStore && preferences.origin && basket.length > 0 ? ["store" as const] : []),
+          ]}
+          onNavigate={step => {
+            if (step === "store" && selectedStore) router.push(`/store/${encodeURIComponent(selectedStore.premiseId)}`);
+            else if (step !== "store" && step !== "checklist") navigateTrip(step);
+          }}
+        />}
         {screen === "home" ? (
           <>
           <SmartCartHomeScreen

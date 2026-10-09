@@ -6,6 +6,14 @@
   --grid-gap: 20px;
 }
 .smartcart-app { line-height: 1.5; }
+.shopping-step-nav { margin: 16px var(--page-gutter) 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.shopping-step-nav ol { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
+.shopping-step-nav button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
+.shopping-step-nav button:not(:disabled):hover { background: #eaf5ee; color: var(--green); }
+.shopping-step-nav button[aria-current="step"] { background: #eaf5ee; color: var(--green); }
+.shopping-step-nav button:disabled { opacity: .45; }
+.shopping-step-nav button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.shopping-step-number { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; }
 .smartcart-app :where(button, input, select, textarea) { min-width: 0; }
 .smartcart-app :where(button, a) > svg { flex-shrink: 0; }
 .smartcart-app :where(h1, h2, h3, p, strong, small) { overflow-wrap: anywhere; }
@@ -106,14 +114,19 @@
 .store-detail-header, .store-detail-items-heading { gap: 16px; }
 .store-detail-items-heading > div { min-width: 0; }
 .store-detail-route, .edit-basket-link { min-height: 44px; }
-.store-item-columns, .store-item-row { grid-template-columns: 44px minmax(0, 2fr) minmax(0, 1fr) 64px 132px 75px 80px 32px; gap: 8px; }
+.store-item-columns, .store-item-row { grid-template-columns: 44px minmax(0, 2fr) minmax(0, .65fr) 80px 124px 75px 80px 32px; gap: 8px; }
+.store-item-columns span:first-child { grid-column: 2; }
 .store-item-row > * { min-width: 0; }
+.store-item-sara .sara-item-status { padding: 2px 5px; }
+.store-item-package, .store-item-columns > span:nth-child(3) { padding-right: 16px; }
+.store-item-quantity { padding-right: 16px; }
+.store-item-quantity .quantity-selector > div { grid-template-columns: repeat(3, 36px); }
 .store-item-quantity .quantity-selector button,
-.store-item-quantity .quantity-selector input { width: 44px; height: 44px; min-height: 44px; }
+.store-item-quantity .quantity-selector input { width: 36px; height: 36px; min-height: 36px; font-size: 14px; }
 .store-item-columns, .store-item-row { padding-inline: 12px; }
-.store-item-row:not(:has(.store-item-toggle)) { padding-right: 16px; }
+.store-item-row:not(:has(.store-item-toggle)) { padding-right: 12px; }
 .store-item-toggle { min-height: 44px; }
-.store-item-list { max-height: none; overflow: visible; }
+.store-item-list { max-height: none; overflow: visible; scrollbar-gutter: auto; }
 .store-item-name strong { font-size: 13px; line-height: 1.5; }
 .store-item-total, .store-item-unit-price { font-variant-numeric: tabular-nums; }
 .store-item-mobile-quantity { display: none; }
@@ -125,6 +138,7 @@
 .checklist-metrics { position: static; width: 100%; max-width: none; margin-top: 20px; }
 .checklist-columns, .checklist-row { grid-template-columns: 30px minmax(0, 2fr) 72px 40px 84px 90px minmax(0, 1fr) 176px; gap: 12px; }
 .checklist-row > * { min-width: 0; }
+.checklist-columns > span:nth-child(2) { padding-left: 52px; }
 .checklist-row-actions button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
 .checklist-row-actions > div { gap: 0; }
 .checklist-filters button { min-height: 44px; padding: 8px 16px; }
@@ -199,7 +213,7 @@
   .checklist-row-actions { display: none; grid-column: 2 / 5; grid-row: 2; }
   .actions-open .checklist-row-actions { display: block; }
   .checklist-row .row-disclosure { display: grid; place-items: center; grid-column: 4; grid-row: 1; min-height: 44px; }
-  .checklist-row .mobile-item-status { display: block; width: fit-content; margin: 4px 0 0 auto; }
+  .checklist-row .mobile-item-status { display: block; width: fit-content; margin: 4px 0 0; }
   .statistics-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
@@ -508,7 +522,7 @@
 
 .catalogue-item-dialog { border: 0; background: transparent; box-shadow: none; }
 .catalogue-dialog-layout { display: grid; gap: 16px; align-items: start; }
-.catalogue-item-card, .catalogue-trends-card { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: white; box-shadow: 0 16px 48px #10231d24; overflow: hidden; }
+.catalogue-item-card, .catalogue-trends-card { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: white; box-shadow: none; overflow: hidden; }
 .catalogue-trends-card { padding: 20px; }
 .price-trends-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 36px; padding: 8px 12px; margin-top: 16px; border: 1px solid #dce7e0; border-radius: 9px; background: #f5f9f6; color: #166534; font-size: 13px; font-weight: 600; }
 .price-trends-trigger:hover { background: #eaf3ed; }
@@ -555,6 +569,23 @@
 .price-chart-range { display: flex; justify-content: space-between; padding-inline: 8px; color: #64748b; font-size: 10px; }
 .price-chart-placeholder { height: 300px; border-radius: 14px; background: #f1f5f9; }
 /* Epic 7 (US 7.1) — Healthier alternatives section inside the item dialog. */
+.item-nutrition { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.item-nutrition h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #10152e; }
+.item-nutrition p { margin: 0; font-size: 13px; color: #526078; }
+.item-nutrition-basis { font-weight: 700; color: #10152e !important; }
+.item-nutrition-disclosure { margin-top: 6px !important; }
+.item-nutrition-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; margin: 10px 0 0; }
+.item-nutrition-values div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #eef3f0; padding-bottom: 5px; font-size: 12px; }
+.item-nutrition-values dt { color: #526078; }
+.item-nutrition-values dd { margin: 0; color: #10152e; font-weight: 700; font-variant-numeric: tabular-nums; text-align: end; }
+.item-nutrition-rationale { margin-top: 9px !important; }
+.item-nutrition-source { margin: 10px 0 0; font-size: 12px; color: #526078; }
+.item-nutrition-source dt { font-weight: 800; }
+.item-nutrition-source dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.item-nutrition-source a { color: #007d38; font-weight: 700; }
+.item-nutrition-definition { margin: 8px 0 0; font-size: 11px; color: #718078; }
+.item-nutrition-definition dt { font-weight: 800; }
+.item-nutrition-definition dd { margin: 2px 0 0; overflow-wrap: anywhere; }
 .healthier-alternatives { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
 .healthier-alternatives h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #10152e; }
 .healthier-alternatives p { margin: 0; font-size: 13px; color: #526078; }
@@ -591,3 +622,34 @@
 .healthier-insight-generic { margin: 8px 0 0; font-size: 12px; color: #526078; }
 .healthier-insight-close { margin-top: 10px; min-height: 36px; padding: 6px 12px; border: 1px solid #cbd8d1; border-radius: 8px; background: #fff; color: #007d38; font-size: 12px; font-weight: 800; cursor: pointer; }
 .healthier-insight-close:hover { border-color: #007d38; background: #edf7f2; }
+
+/* Compact horizontal alternatives and optional detail panels. */
+.healthier-alternatives-list { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 10px; scroll-snap-type: x proximity; }
+.healthier-alternative-card { position: relative; flex: 0 0 155px; scroll-snap-align: start; }
+.healthier-alternative-main { flex-direction: column; align-items: stretch; height: 100%; padding: 14px 10px 12px; }
+.healthier-alternative-visual { width: 84px; height: 84px; margin: 6px auto 10px; }
+.healthier-alternative-text { gap: 7px; }
+.healthier-alternative-text strong { font-size: 12px; }
+.healthier-alternative-text em { font-size: 11px; }
+.healthier-insight-toggle { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px #10231d15; }
+.healthier-insight-toggle:focus-visible, .catalogue-nutrition-disclosure summary:focus-visible { outline: 2px solid #007d38; outline-offset: 2px; }
+.catalogue-nutrition-disclosure { padding: 16px 20px; border-top: 1px solid var(--line); }
+.catalogue-nutrition-disclosure > summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; font-size: 14px; font-weight: 750; color: #334155; }
+.catalogue-nutrition-disclosure > summary::-webkit-details-marker { display: none; }
+.catalogue-nutrition-disclosure[open] > summary svg { transform: rotate(180deg); }
+.catalogue-nutrition-disclosure .item-nutrition { border-top: 0; padding-top: 12px; margin-top: 0; }
+.catalogue-insights-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.catalogue-insights-header h3 { margin: 0; font-size: 16px; }
+.healthier-insight-reason { margin: 12px 0 6px; color: #007d38; font-weight: 750; }
+.healthier-insight-table { margin-top: 16px; font-size: 14px; }
+.healthier-insight-table th, .healthier-insight-table td { padding: 12px 6px; }
+.healthier-insight-more { margin-top: 16px; color: #526078; font-size: 12px; }
+.healthier-insight-more summary { cursor: pointer; font-weight: 700; }
+.healthier-insight-more p { font-size: 12px; line-height: 1.5; }
+
+.catalogue-dialog-content > .catalogue-nutrition-disclosure { padding: 16px 0; margin-top: 16px; }
+
+.catalogue-dialog-details .product-visual { position: relative; }
+.catalogue-dialog-details .product-visual > span { display: grid; place-items: center; width: 100%; height: 100%; }
+.catalogue-dialog-details .price-trends-trigger { position: absolute; top: 8px; right: 8px; display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; min-height: 40px; padding: 0; margin: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px #10231d18; }
+.price-trends-trigger:focus-visible { outline: 2px solid #007d38; outline-offset: 2px; }

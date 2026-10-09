@@ -384,6 +384,13 @@ class NutrientComparison(CamelModel):
     status: NutrientStatus
 
 
+class AlternativeUse(CamelModel):
+    """Reviewed, inferred buying purpose and practical substitution guidance."""
+
+    en: str
+    ms: str
+
+
 class HealthierAlternative(CamelModel):
     """One approved alternative with its supporting nutrition comparison."""
 
@@ -391,8 +398,13 @@ class HealthierAlternative(CamelModel):
     rule: str
     # Short, supported comparison reason shown on the card (AC 7.1.2).
     headline: str
+    # Conditional use, not a claim to know the shopper's actual intention.
+    intention: AlternativeUse
+    usage_note: AlternativeUse
     comparison_nutrient: str
     comparison_direction: Literal["lower_is_better", "higher_is_better"]
+    comparison_category: str | None = None
+    missing_guard_nutrients: list[str] = Field(default_factory=list)
     original_source: NutritionSourceRef
     alternative_source: NutritionSourceRef
     # True when the entry is a generic food rather than the exact product

@@ -15,8 +15,11 @@ export type AlternativesStatus = "loading" | "ready" | "empty" | "unavailable";
 export type ComparisonReasonKind =
   | "lower_fat"
   | "higher_fibre"
+  | "higher_protein"
   | "lower_saturated_fat"
   | "lower_sodium"
+  | "lower_sugar"
+  | "lower_energy"
   | "other";
 
 export interface AlternativeCard {
@@ -44,10 +47,16 @@ export function comparisonReasonKind(
   if (nutrient === "fat_g" && direction === "lower_is_better") return "lower_fat";
   if (nutrient === "fibre_g" && direction === "higher_is_better")
     return "higher_fibre";
+  if (nutrient === "protein_g" && direction === "higher_is_better")
+    return "higher_protein";
   if (nutrient === "saturated_fat_g" && direction === "lower_is_better")
     return "lower_saturated_fat";
   if (nutrient === "sodium_mg" && direction === "lower_is_better")
     return "lower_sodium";
+  if (nutrient === "sugars_g" && direction === "lower_is_better")
+    return "lower_sugar";
+  if (nutrient === "energy_kcal" && direction === "lower_is_better")
+    return "lower_energy";
   return "other";
 }
 
@@ -102,6 +111,7 @@ const NUTRIENT_PREFERENCE: Record<string, NutrientPreference> = {
   fat_g: "lower_is_better",
   saturated_fat_g: "lower_is_better",
   carbohydrate_g: "neutral",
+  sugars_g: "lower_is_better",
   fibre_g: "higher_is_better",
   sodium_mg: "lower_is_better",
   calcium_mg: "higher_is_better",

@@ -59,6 +59,7 @@ from .models import (
     PackSizeOption,
 )
 from .nutrition import healthier_alternatives
+from .item_nutrition import get_item_nutrition
 from .pack_ratios import get_pack_options
 from .premises import find_nearest_premises, get_premise_location_coverage
 from .pricing import get_basket_pricing
@@ -264,6 +265,21 @@ def healthier_alternatives_endpoint(
         if snapshot else []
     )
     return healthier_alternatives(item_code, [store.premise_id for store in stores])
+
+
+@router.get("/items/{item_code}/nutrition")
+def item_nutrition_endpoint(
+    item_code: str = Path(min_length=1, max_length=64),
+    basis: str | None = None,
+) -> dict[str, object]:
+    """Return independently reviewed nutrition data for one catalogue item.
+
+    The lookup is intentionally independent of healthier-alternative rules:
+    an item can have nutrition data even when it has no recommendation, and
+    an item with no match receives a normal ``available: false`` response.
+    """
+
+    return get_item_nutrition(item_code, basis=basis)
 
 
 @router.get("/items/categories")

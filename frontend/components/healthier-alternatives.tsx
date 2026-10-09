@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import type { ReactNode } from "react";
+import { UIIcon } from "./ui-icon";
 
 import type {
   CatalogueItemSummary,
@@ -23,11 +24,14 @@ import { CatalogueItemImage } from "./catalogue-item-image";
 // dialog, plus the inline "Why this alternative?" comparison. It sits below
 // the item details and never blocks the item's own quantity or Add controls.
 
-const REASON_COPY: Record<ComparisonReasonKind, "healthierReasonLowerFat" | "healthierReasonHigherFibre" | "healthierReasonLowerSaturatedFat" | "healthierReasonLowerSodium" | null> = {
+const REASON_COPY: Record<ComparisonReasonKind, "healthierReasonLowerFat" | "healthierReasonHigherFibre" | "healthierReasonHigherProtein" | "healthierReasonLowerSaturatedFat" | "healthierReasonLowerSodium" | "healthierReasonLowerSugar" | "healthierReasonLowerEnergy" | null> = {
   lower_fat: "healthierReasonLowerFat",
   higher_fibre: "healthierReasonHigherFibre",
+  higher_protein: "healthierReasonHigherProtein",
   lower_saturated_fat: "healthierReasonLowerSaturatedFat",
   lower_sodium: "healthierReasonLowerSodium",
+  lower_sugar: "healthierReasonLowerSugar",
+  lower_energy: "healthierReasonLowerEnergy",
   other: null,
 };
 
@@ -56,20 +60,26 @@ function valueText(row: InsightRow, value: string | null, copy: AppCopy): string
   return value ?? statusText(row, copy) ?? copy.insightUnavailable;
 }
 
-function InsightPanel({
+export function HealthierInsightPanel({
   alternative,
   originalName,
   alternativeName,
+  locale,
   copy,
+  reason,
 }: {
+  reason: string;
   alternative: HealthierAlternative;
   originalName: string;
   alternativeName: string;
+  locale: "en" | "ms";
   copy: AppCopy;
 }) {
-  const rows = insightRows(alternative);
+  const allRows = insightRows(alternative);
+  const rows = allRows.filter(row => row.nutrient === alternative.comparison_nutrient);
   // AC 7.3.6: another tracked nutrient may be worse for the alternative.
-  const tradeOffs = tradeOffRows(alternative);
+  const tradeOffs = tradeOffRows(alternative).slice(0, 2);
+  rows.push(...tradeOffs.filter(row => !rows.some(primary => primary.nutrient === row.nutrient)));
   const hasComparable = rows.some((row) => row.status === "comparable");
 
   return (
@@ -77,7 +87,9 @@ function InsightPanel({
       <p className="healthier-insight-pair">
         <strong>{originalName}</strong> → <strong>{alternativeName}</strong>
       </p>
+      <p className="healthier-insight-reason">{reason}</p>
       <p className="healthier-insight-basis">{basisText(alternative, copy)}</p>
+
       {!hasComparable && <p>{copy.insightNoComparableValues}</p>}
       {hasComparable && (
         <table className="healthier-insight-table">
@@ -104,6 +116,12 @@ function InsightPanel({
           {copy.insightTradeOff(tradeOffs.map((row) => row.label).join(", "))}
         </p>
       )}
+      {alternative.generic_mapping && <p className="healthier-insight-generic">{locale === "en" ? "Generic references; actual products may differ." : "Rujukan generik; produk sebenar mungkin berbeza."}</p>}
+      <details className="healthier-insight-more"><summary>{locale === "en" ? "Usage & sources" : "Penggunaan & sumber"}</summary>
+      {!!alternative.missing_guard_nutrients?.length && <p>{locale === 'en' ? 'Some secondary nutrient comparisons are unavailable.' : 'Sesetengah perbandingan nutrien sekunder tidak tersedia.'}</p>}
+      <p>{copy.healthierIntention(alternative.intention[locale])}</p>
+      <p>{alternative.usage_note[locale]}</p>
+      <p>{copy.insightReferenceComparison}</p>
       <dl className="healthier-insight-sources">
         <dt>{copy.insightSources}</dt>
         <dd>
@@ -117,9 +135,7 @@ function InsightPanel({
           {alternative.alternative_source.description}
         </dd>
       </dl>
-      {alternative.generic_mapping && (
-        <p className="healthier-insight-generic">{copy.insightGenericMapping}</p>
-      )}
+      </details>
     </div>
   );
 }
@@ -132,6 +148,7 @@ export function HealthierAlternativesSection({
   copy,
   originalName,
   onOpenItem,
+  onOpenInsights,
 }: {
   loading: boolean;
   result: HealthierAlternativesResult | null;
@@ -141,21 +158,15 @@ export function HealthierAlternativesSection({
   // Name of the item currently open, used to identify both sides (AC 7.3.3).
   originalName: string;
   onOpenItem?: (item: CatalogueItemSummary) => void;
+  onOpenInsights?: (panel: ReactNode) => void;
 }) {
   const status = alternativesStatus(loading, result, error);
   const cards = result ? alternativeCards(result, locale) : [];
-  // AC 7.3.1/7.3.7: which alternative's insight is open, if any.
-  const [openInsight, setOpenInsight] = useState<string | null>(null);
-  const openCard = cards.find((card) => card.itemCode === openInsight) ?? null;
+  if (status !== 'ready' || cards.length === 0) return null;
 
   return (
     <section className="healthier-alternatives" aria-labelledby="healthier-alternatives-title">
       <h3 id="healthier-alternatives-title">{copy.healthierAlternativesTitle}</h3>
-      {status === "loading" && <p role="status">{copy.healthierAlternativesLoading}</p>}
-      {status === "empty" && <p>{copy.healthierAlternativesEmpty}</p>}
-      {status === "unavailable" && (
-        <p role="alert">{copy.healthierAlternativesUnavailable}</p>
-      )}
       {status === "ready" && (
         <>
           <ul className="healthier-alternatives-list">
@@ -171,42 +182,24 @@ export function HealthierAlternativesSection({
                   </span>
                   <span className="healthier-alternative-text">
                     <strong>{card.name}</strong>
-                    {card.packageSize && <small>{card.packageSize}</small>}
                     <em>{reasonText(card, copy)}</em>
                   </span>
                 </button>
                 <button
                   type="button"
                   className="healthier-insight-toggle"
-                  aria-expanded={openInsight === card.itemCode}
-                  onClick={() =>
-                    setOpenInsight((current) =>
-                      current === card.itemCode ? null : card.itemCode,
-                    )
-                  }
+                  aria-label={`${copy.whyThisAlternative}: ${card.name}`}
+                  title={copy.whyThisAlternative}
+                  aria-controls="catalogue-alternative-insights"
+                  onClick={() => onOpenInsights?.(<HealthierInsightPanel alternative={card.alternative} originalName={originalName} alternativeName={card.name} locale={locale} copy={copy} reason={reasonText(card, copy)}/>)}
                 >
-                  {copy.whyThisAlternative}
+                  <UIIcon name="lightbulb" size={20}/>
+
                 </button>
               </li>
             ))}
           </ul>
-          {openCard && (
-            <div className="healthier-insight-wrap">
-              <InsightPanel
-                alternative={openCard.alternative}
-                originalName={originalName}
-                alternativeName={openCard.name}
-                copy={copy}
-              />
-              <button
-                type="button"
-                className="healthier-insight-close"
-                onClick={() => setOpenInsight(null)}
-              >
-                {copy.closeInsights}
-              </button>
-            </div>
-          )}
+
         </>
       )}
     </section>
