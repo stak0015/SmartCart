@@ -1,4 +1,9 @@
-import type { TravelLimit, TravelLimitType } from "./contracts";
+import type {
+  PlanStoreAssignment,
+  PricedPlan,
+  TravelLimit,
+  TravelLimitType,
+} from "./contracts";
 
 // AC 6.1.3 / AC 6.1.7: the second-store menu must offer "the same configured
 // options as initial location selection". Both menus import these arrays from
@@ -156,4 +161,54 @@ export function savingState(savingRm: number | null): SavingState {
  */
 export function isPlanComplete(plan: { isComplete: boolean }): boolean {
   return plan.isComplete;
+}
+
+// ── US 6.4: inspecting one two-store plan ─────────────────────────────────────
+
+/** One store's share of a two-store plan, with every line assigned to it. */
+export interface PlanStoreGroup {
+  storePremiseId: string;
+  storeName: string;
+  lines: PlanStoreAssignment[];
+  // Sum of this store's assigned line totals.
+  subtotalRm: number;
+}
+
+/**
+ * AC 6.4.2: group a plan's assigned lines by the store that buys them, in the
+ * visit order the plan uses (storePremiseIds[0] is visited first).
+ *
+ * Grouping by store — rather than rendering one flat list — is what lets AC
+ * 6.4.3 keep each store's own labels beside its own lines. A line can only ever
+ * appear under the store it was assigned to, so a store's freshness/source
+ * labels cannot be applied to another store's items by construction.
+ *
+ * A store with no assigned lines is still included (empty), so the detail view
+ * can say so honestly instead of silently dropping it.
+ */
+export function groupAssignmentsByStore(plan: PricedPlan): PlanStoreGroup[] {
+  return plan.storePremiseIds.map((storePremiseId, index) => {
+    const lines = plan.assignments.filter(line => line.storePremiseId === storePremiseId);
+    const subtotalRm = lines.reduce((total, line) => total + line.lineTotalRm, 0);
+    return {
+      storePremiseId,
+      storeName: plan.storeNames[index] ?? plan.storeNames[0] ?? storePremiseId,
+      lines,
+      // Round to cents to avoid float drift from summing line totals.
+      subtotalRm: Math.round((subtotalRm + Number.EPSILON) * 100) / 100,
+    };
+  });
+}
+
+/**
+ * AC 6.4.1: the human label for one journey leg. The leg's own `role` names the
+ * segment, so the detail view explains the trip in order and can flag which leg
+ * the second-store limits govern (the first-to-second leg only).
+ */
+export function legRoleKey(
+  role: "origin_to_first" | "first_to_second" | "second_to_origin",
+): "legOriginToFirst" | "legFirstToSecond" | "legSecondToOrigin" {
+  if (role === "origin_to_first") return "legOriginToFirst";
+  if (role === "first_to_second") return "legFirstToSecond";
+  return "legSecondToOrigin";
 }

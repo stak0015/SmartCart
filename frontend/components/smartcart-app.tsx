@@ -41,6 +41,8 @@ import {
 } from "@/lib/multi-store";
 import { MultiStorePanel } from "./multi-store-panel";
 import { PlanComparisonSection } from "./plan-comparison";
+import { PlanDetailView } from "./plan-detail";
+import { SaraStoreTag } from "./store-tags";
 import {
   applyBasketReplacement,
   currentReplacementImpactRm,
@@ -289,16 +291,6 @@ function SaraEligibilityFlag({
 }) {
   if (status !== true && !candidate) return null;
   return <span className="sara-item-status">{copy.saraCategory}</span>;
-}
-
-function SaraStoreTag({ status, copy }: { status: StoreRecommendation["saraStatus"]; copy: AppCopy }) {
-  if (status === "verified") {
-    return <span className="inline-flex self-start rounded-md bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>;
-  }
-  if (status === "candidate") {
-    return <span className="inline-flex self-start rounded-md bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>;
-  }
-  return <span className="inline-flex self-start rounded-md bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>;
 }
 
 function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
@@ -1834,6 +1826,11 @@ function CompareScreen({
   const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
   // One price disclosure is expanded at a time.
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
+  // US 6.4: the two-store plan whose detail view is open, if any. Held here
+  // (not in a URL route) so opening the detail never unmounts CompareScreen —
+  // the basket, travel preferences and multi-store configuration therefore
+  // survive the round trip unchanged (AC 6.4.4 / 6.4.6).
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
@@ -1885,6 +1882,7 @@ function CompareScreen({
     // AC 2.3.2: a fresh recommendation list starts again at the first six.
     setVisibleCount(VISIBLE_STEP);
     setExpandedStoreId(null);
+    setSelectedPlanId(null);
 
     getRecommendations({
       ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
@@ -1896,6 +1894,7 @@ function CompareScreen({
         setResult(response);
             setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
+        setSelectedPlanId(null);
       })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -1938,6 +1937,33 @@ function CompareScreen({
         locale={copy === COPY.ms ? "ms" : "en"}
       />
     );
+  }
+
+  // AC 6.4.1: opening a two-store plan replaces the list with its detail view.
+  // Because this is an in-place swap (not a route), returning clears
+  // selectedPlanId and the list reappears exactly as it was; the basket,
+  // travel preferences and multi-store configuration are untouched throughout
+  // (AC 6.4.4 / 6.4.6).
+  if (selectedPlanId) {
+    const comparison = result?.multiStore?.comparison;
+    const selectedPlan = comparison
+      ? [...comparison.completePlans, ...comparison.incompletePlans]
+          .find(plan => plan.planId === selectedPlanId)
+      : undefined;
+    // A stale id (e.g. the list refreshed and the plan is gone) falls through to
+    // the normal list rather than showing an empty detail view.
+    if (selectedPlan) {
+      return (
+        <PlanDetailView
+          plan={selectedPlan}
+          stores={recommendations}
+          secondStoreLimit={result?.multiStore?.secondStoreLimit ?? null}
+          copy={copy}
+          locale={copy === COPY.ms ? "ms" : "en"}
+          onBack={() => setSelectedPlanId(null)}
+        />
+      );
+    }
   }
 
   return (
@@ -2024,7 +2050,11 @@ function CompareScreen({
                 store list. Absent unless a basket was sent and a two-store plan
                 qualified, so single-store-only shoppers see an unchanged page. */}
             {result.multiStore?.comparison && (
-              <PlanComparisonSection comparison={result.multiStore.comparison} copy={copy} />
+              <PlanComparisonSection
+                comparison={result.multiStore.comparison}
+                copy={copy}
+                onSelectPlan={setSelectedPlanId}
+              />
             )}
 
             <div className="flex items-end justify-between gap-3">

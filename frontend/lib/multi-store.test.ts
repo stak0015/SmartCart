@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { PricedPlan } from "./contracts";
 import {
   DEFAULT_MULTI_STORE_CONFIG,
   DISTANCE_LIMITS,
@@ -7,8 +8,10 @@ import {
   activeLimitGroups,
   changeSecondStoreLimitType,
   disableMultiStore,
+  groupAssignmentsByStore,
   isSupportedDistancePreset,
   isSupportedTimePreset,
+  legRoleKey,
   savingState,
   secondStoreLimitLabel,
   validateSecondStoreLimits,
@@ -216,5 +219,75 @@ describe("saving state (US 6.3 display)", () => {
 
   it("treats a tiny negative saving as costing more", () => {
     expect(savingState(-0.01)).toBe("more");
+  });
+});
+
+// A minimal two-store plan whose assignments span both stores, for grouping tests.
+function twoStorePlan(): PricedPlan {
+  return {
+    planId: "two:1:2",
+    storeCount: 2,
+    storePremiseIds: ["1", "2"],
+    storeNames: ["Kedai A", "Kedai B"],
+    basketSubtotalRm: 30,
+    transportCostRm: 5,
+    combinedTotalRm: 35,
+    isComplete: true,
+    pricedLineCount: 3,
+    basketLineCount: 3,
+    missingItems: [],
+    totalTravelMinutes: 30,
+    totalRouteDistanceKm: 12,
+    assignments: [
+      { itemId: "a", itemName: "Rice", quantity: 2, unitPriceRm: 10, lineTotalRm: 20, storePremiseId: "1", storeName: "Kedai A", unit: "1 kg", observedDate: "2026-08-20" },
+      { itemId: "b", itemName: "Oil", quantity: 1, unitPriceRm: 6, lineTotalRm: 6, storePremiseId: "2", storeName: "Kedai B", unit: "1 L", observedDate: null },
+      { itemId: "c", itemName: "Sugar", quantity: 1, unitPriceRm: 4, lineTotalRm: 4, storePremiseId: "1", storeName: "Kedai A", unit: null, observedDate: "2026-08-18" },
+    ],
+    interStoreDistanceKm: 4,
+    interStoreTravelMinutes: 8,
+    legs: [],
+    reverseOrderCostRm: null,
+    savingVsSingleRm: null,
+  };
+}
+
+describe("group assignments by store (AC 6.4.2 / 6.4.3)", () => {
+  it("groups every line under the store assigned to it, in visit order", () => {
+    const groups = groupAssignmentsByStore(twoStorePlan());
+    expect(groups.map(group => group.storePremiseId)).toEqual(["1", "2"]);
+    // Kedai A gets the two lines assigned to it; Kedai B gets its one line.
+    expect(groups[0].lines.map(line => line.itemId)).toEqual(["a", "c"]);
+    expect(groups[1].lines.map(line => line.itemId)).toEqual(["b"]);
+  });
+
+  it("computes each store's own subtotal from its own lines only", () => {
+    const groups = groupAssignmentsByStore(twoStorePlan());
+    // 20 + 4 = 24 for store 1, 6 for store 2 — never mixed across stores.
+    expect(groups[0].subtotalRm).toBe(24);
+    expect(groups[1].subtotalRm).toBe(6);
+  });
+
+  it("keeps a store with no assigned lines as an empty group", () => {
+    const plan = twoStorePlan();
+    plan.assignments = plan.assignments.filter(line => line.storePremiseId === "1");
+    const groups = groupAssignmentsByStore(plan);
+    // Store 2 is still present and honest about being empty rather than dropped.
+    expect(groups).toHaveLength(2);
+    expect(groups[1].lines).toEqual([]);
+    expect(groups[1].subtotalRm).toBe(0);
+  });
+
+  it("sums store subtotals to the plan basket subtotal", () => {
+    const groups = groupAssignmentsByStore(twoStorePlan());
+    const summed = groups.reduce((total, group) => total + group.subtotalRm, 0);
+    expect(summed).toBe(30);
+  });
+});
+
+describe("leg role label (AC 6.4.1)", () => {
+  it("maps each journey segment to its own copy key", () => {
+    expect(legRoleKey("origin_to_first")).toBe("legOriginToFirst");
+    expect(legRoleKey("first_to_second")).toBe("legFirstToSecond");
+    expect(legRoleKey("second_to_origin")).toBe("legSecondToOrigin");
   });
 });

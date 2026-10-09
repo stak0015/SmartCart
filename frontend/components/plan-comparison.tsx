@@ -25,9 +25,11 @@ import { savingState } from "@/lib/multi-store";
 export function PlanComparisonSection({
   comparison,
   copy,
+  onSelectPlan,
 }: {
   comparison: PlanComparison;
   copy: AppCopy;
+  onSelectPlan: (planId: string) => void;
 }) {
   const { completePlans, incompletePlans } = comparison;
   if (completePlans.length === 0 && incompletePlans.length === 0) return null;
@@ -50,6 +52,7 @@ export function PlanComparisonSection({
           plan={plan}
           copy={copy}
           baselineName={comparison.singleStoreBaselineName}
+          onSelectPlan={onSelectPlan}
         />
       ))}
 
@@ -68,6 +71,7 @@ export function PlanComparisonSection({
               plan={plan}
               copy={copy}
               baselineName={comparison.singleStoreBaselineName}
+              onSelectPlan={onSelectPlan}
             />
           ))}
         </div>
@@ -80,10 +84,12 @@ function PlanCard({
   plan,
   copy,
   baselineName,
+  onSelectPlan,
 }: {
   plan: PricedPlan;
   copy: AppCopy;
   baselineName: string | null;
+  onSelectPlan: (planId: string) => void;
 }) {
   const isTwoStore = plan.storeCount === 2;
   const label = isTwoStore ? copy.twoStorePlanLabel : copy.singleStorePlanLabel;
@@ -157,6 +163,19 @@ function PlanCard({
         <p className="mt-3 text-sm leading-5 text-[#526078]">
           {copy.planNoSingleStoreBaseline}
         </p>
+      )}
+
+      {/* US 6.4: only two-store plans get a detail view — the visit order and
+          per-store shopping list. A single-store plan already has the store
+          overview route, so it is not offered here. */}
+      {isTwoStore && (
+        <button
+          type="button"
+          onClick={() => onSelectPlan(plan.planId)}
+          className="mt-3 min-h-11 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38]"
+        >
+          {copy.planDetailViewButton} <span aria-hidden="true">→</span>
+        </button>
       )}
     </article>
   );

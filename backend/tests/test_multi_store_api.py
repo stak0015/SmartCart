@@ -436,6 +436,10 @@ def test_comparison_flows_through_api_with_camel_case_fields(monkeypatch) -> Non
         "totalRouteDistanceKm",
         "assignments",
         "interStoreDistanceKm",
+        # AC 6.4.1: the journey breakdown echoed so the detail view is complete.
+        "interStoreTravelMinutes",
+        "legs",
+        "reverseOrderCostRm",
         "savingVsSingleRm",
     }
     # Plans are ordered cheapest-first by combined cost.

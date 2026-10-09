@@ -367,6 +367,10 @@ class PlanStoreAssignment(CamelModel):
     line_total_rm: float
     store_premise_id: str
     store_name: str
+    # AC 6.4.2: the pack spec (e.g. "500 g", "1 L") shown per assigned line.
+    # Required (no default) so it cannot be silently omitted; may be None for
+    # items the catalogue has no parsed pack size for.
+    unit: str | None
     observed_date: str | None = None
 
 
@@ -402,6 +406,15 @@ class PricedPlan(CamelModel):
     assignments: list[PlanStoreAssignment] = Field(default_factory=list)
     # Two-store leg detail, echoed for the comparison view (US 6.4 renders it).
     inter_store_distance_km: float | None = None
+    # AC 6.4.1: inter-store travel time, the full ordered legs and the rejected
+    # reverse-order cost, echoed from the route plan so the detail view is
+    # self-contained. A detail screen that had to re-join the route plan by
+    # premise ID could silently lose the journey breakdown; carrying it here
+    # makes that impossible. Empty/None for single-store plans.
+    inter_store_travel_minutes: int | None = None
+    legs: list[RouteLeg] = Field(default_factory=list)
+    # AC 6.2.5 transparency: what the rejected reverse visit order would cost.
+    reverse_order_cost_rm: float | None = None
     # AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
     # Two-store plans only; None when there is no eligible single-store baseline
     # (never fabricated as 0). Negative means the split costs more.

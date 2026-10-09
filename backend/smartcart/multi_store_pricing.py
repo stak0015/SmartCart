@@ -141,6 +141,7 @@ def allocate_basket(
                 line_total_rm=_round2(line_total),
                 store_premise_id=best_store_id,
                 store_name=store_names.get(best_store_id, best_store_id),
+                unit=best_line.unit,
                 observed_date=best_line.observed_date,
             )
         )
@@ -227,6 +228,11 @@ def _two_store_plan(
         total_route_distance_km=plan.total_route_distance_km,
         assignments=assignments,
         inter_store_distance_km=plan.inter_store_distance_km,
+        # AC 6.4.1: echo the journey breakdown so the detail view is complete
+        # without re-joining the route plan.
+        inter_store_travel_minutes=plan.inter_store_travel_minutes,
+        legs=plan.legs,
+        reverse_order_cost_rm=plan.reverse_order_cost_rm,
     )
 
 

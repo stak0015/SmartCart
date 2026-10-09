@@ -378,6 +378,8 @@ export interface PlanStoreAssignment {
   lineTotalRm: number;
   storePremiseId: string;
   storeName: string;
+  // AC 6.4.2: pack spec for the assigned line (e.g. "500 g"), null if unknown.
+  unit: string | null;
   observedDate: string | null;
 }
 
@@ -405,6 +407,12 @@ export interface PricedPlan {
   // Two-store plans only (AC 6.3.1).
   assignments: PlanStoreAssignment[];
   interStoreDistanceKm: number | null;
+  // AC 6.4.1: the journey breakdown, echoed so the detail view is complete.
+  // Null/empty for single-store plans.
+  interStoreTravelMinutes: number | null;
+  legs: RouteLeg[];
+  // AC 6.2.5 transparency: what the rejected reverse visit order would cost.
+  reverseOrderCostRm: number | null;
   // AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
   // Null whenever no such baseline exists — never fabricated as 0. Negative
   // means splitting costs more than the best single store.
