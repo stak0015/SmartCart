@@ -70,6 +70,14 @@ from .recommendation import (
 )
 
 router = APIRouter(prefix="/api")
+
+
+@router.get('/items/{item_code}/price-history')
+def price_history(item_code: str = Path(pattern=r'^\d{1,10}$'), region: str | None = Query(default=None, max_length=150)):
+    from .price_history import item_history
+    return item_history(item_code, region)
+
+
 logger = logging.getLogger(__name__)
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
