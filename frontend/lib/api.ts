@@ -2,6 +2,14 @@
 import { API_BASE_URL } from "./api-base";
 import type { ItemCategory, SourceCategory } from "./contracts";
 
+export interface CataloguePriceRange {
+  min_rm: number;
+  max_rm: number;
+  store_count: number;
+  oldest_observed_date: string | null;
+  price_source?: "store" | "median";
+}
+
 // Shape of an item (matches backend response, Step 7 v2)
 export interface Item {
   item_id: number;
@@ -17,7 +25,7 @@ export interface Item {
   image_url?: string | null;
   sara_eligible: boolean | null; // null means eligibility has not been verified
   sara_category_candidate: boolean; // broad category match; still requires label/barcode verification
-  price_range?: { min_rm: number; max_rm: number; store_count: number; oldest_observed_date: string | null } | null;
+  price_range?: CataloguePriceRange | null;
 }
 
 // Shape of the search endpoint response
@@ -101,7 +109,7 @@ export interface CatalogueItemSummary {
   category: ItemCategory | null;
   source_category?: SourceCategory | null;
   // Same nearby-store range the search row carries.
-  price_range?: { min_rm: number; max_rm: number; store_count: number; oldest_observed_date: string | null } | null;
+  price_range?: CataloguePriceRange | null;
 }
 
 export interface NutritionSourceRef {

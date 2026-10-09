@@ -152,8 +152,8 @@ def healthier_alternatives(
         return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])
 
     rows = _catalogue_rows(sorted({m["alternative_item_code"] for m in mappings}))
-    # Price context matches the search row: observed prices at the cached
-    # nearby stores only, and only when the caller supplied that context.
+    # Match search rows: nearby observed ranges, then cached median estimates,
+    # only when the caller supplied nearby-store context.
     ranges = catalogue_price_ranges(
         [int(row["item_id"]) for row in rows.values()], list(premise_ids or [])
     )

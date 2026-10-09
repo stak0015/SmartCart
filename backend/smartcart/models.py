@@ -330,6 +330,7 @@ class CataloguePriceRange(CamelModel):
     max_rm: float
     store_count: int
     oldest_observed_date: date | None = None
+    price_source: Literal["store", "median"] = "store"
 
 
 class CatalogueItemSummary(CamelModel):

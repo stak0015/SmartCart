@@ -156,7 +156,7 @@ def _priced_ranking_method(route_provider: str, expanded_search: bool) -> str:
             "Nearest 25 premises by straight-line distance; stores are ranked by exact "
             "store-price coverage, then effective coverage including cached median "
             "estimates, then estimated combined cost using rough travel estimates. "
-            "Google Routes is not configured, so travel limits and route feasibility "
+            "Google Routes is unavailable, so travel limits and route feasibility "
             "are not verified."
         )
     return (
@@ -373,6 +373,19 @@ async def prepare_recommendation_candidates(
 
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
+    try:
+        return await _recommend_stores(payload)
+    except AppError as error:
+        if error.code not in {"MAPS_NOT_CONFIGURED", "MAPS_UNAVAILABLE"}:
+            raise
+        # Retry with an unrestricted nearest-25 query, including failures from
+        # the expanded route search. Do not reuse the routed candidate limit.
+        return await _recommend_stores(payload, routes_unavailable=True)
+
+
+async def _recommend_stores(
+    payload: RecommendationRequest, *, routes_unavailable: bool = False,
+) -> RecommendationResponse:
     settings = get_settings()
     travel = payload.travel
     cached = _get_candidate_snapshot(payload.candidate_cache_id, travel)
@@ -392,7 +405,8 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
                 cached.expanded_search,
             ),
         })
-    use_straight_line_fallback = not settings.google_routes_api_key
+    use_straight_line_fallback = routes_unavailable or not settings.google_routes_api_key
+    routes_status = "unavailable" if routes_unavailable else "not configured"
     maximum_straight_line_km = (
         travel.limit.value
         if travel.limit.type == "distance"
@@ -403,7 +417,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     if use_straight_line_fallback:
         # Without Routes there is no reliable way to apply a distance/time
         # route limit. Keep the fallback intentionally simple and bounded:
-        # return the nearest 25 fresh premises and explain the approximation
+        # return the nearest 25 located premises and explain the approximation
         # in the response warning.
         maximum_straight_line_km = None
     candidates = await run_in_threadpool(
@@ -413,7 +427,6 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         sara_filter=travel.sara_filter,
         maximum_straight_line_km=maximum_straight_line_km,
         limit=(FALLBACK_NEAREST_LIMIT if use_straight_line_fallback else settings.route_matrix_candidate_limit),
-        maximum_coordinate_age_days=settings.premise_location_max_age_days,
     )
 
     if use_straight_line_fallback:
@@ -423,11 +436,8 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         candidates = candidates[:FALLBACK_NEAREST_LIMIT]
 
     if not candidates:
-        routable, fresh = await run_in_threadpool(
-            get_premise_location_coverage,
-            settings.premise_location_max_age_days,
-        )
-        if routable > 0 and fresh == 0:
+        routable, located = await run_in_threadpool(get_premise_location_coverage)
+        if routable > 0 and located == 0:
             raise AppError(
                 "PREMISE_LOCATIONS_NOT_READY",
                 "Store locations need to be prepared before recommendations can run.",
@@ -461,7 +471,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     )
     ranking_method = (
         "Nearest premises by straight-line distance; travel times and costs "
-        "are rough planning estimates because Google Routes is not configured."
+        f"are rough planning estimates because Google Routes is {routes_status}."
         if use_straight_line_fallback
         else "Lowest estimated return transport cost, then shortest travel time "
         "and route distance."
@@ -477,7 +487,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             "Nearest 25 premises by straight-line distance; stores are ranked by "
             "exact store-price coverage, then effective coverage including cached "
             "median estimates, then estimated combined cost using rough travel estimates. "
-            "Google Routes is not configured, so travel limits and route feasibility "
+            f"Google Routes is {routes_status}, so travel limits and route feasibility "
             "are not verified."
             if use_straight_line_fallback
             else "Stores ranked by exact store-price coverage, then effective "
@@ -501,7 +511,6 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             sara_filter=travel.sara_filter,
             maximum_straight_line_km=None,
             limit=settings.route_matrix_candidate_limit,
-            maximum_coordinate_age_days=settings.premise_location_max_age_days,
         )
         if expanded_candidates:
             expanded_route_results = await get_maps_provider().compute_route_matrix(
@@ -548,7 +557,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             )
     if use_straight_line_fallback:
         route_warning_parts.append(
-            "Google Routes is not configured. Showing the 25 nearest stores by "
+            f"Google Routes is {routes_status}. Showing the 25 nearest stores by "
             "straight-line distance with approximate travel times; the selected "
             "travel limit and route feasibility are not verified."
         )

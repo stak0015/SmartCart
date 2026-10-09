@@ -1,15 +1,9 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import type { Item } from "@/lib/api";
-import { formatRm } from "@/lib/format-rm";
 import { UIIcon } from "./ui-icon";
 
-export function cataloguePrice(item: Item, locale: "en" | "ms") {
-  const range = item.price_range;
-  if (!range) return locale === "en" ? "Price unavailable" : "Harga tidak tersedia";
-  return range.min_rm === range.max_rm ? formatRm(range.min_rm) : `${formatRm(range.min_rm)} – ${formatRm(range.max_rm)}`;
-}
+export { cataloguePrice } from "../lib/catalogue-price";
 
 export function CatalogueItemDialog({ open, title, details, quantity, back, alternatives, onClose, onAdd, canAdd, locale }: {
   open: boolean; title: string; details: ReactNode; quantity: ReactNode;

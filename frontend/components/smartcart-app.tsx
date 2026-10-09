@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type 
 import { fetchHealthierAlternatives, listCategories, searchItems, type Item, type HealthierAlternativesResult } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
+import { NearbyPriceStatus, type CandidatePreparationState } from "./nearby-price-status";
 import {
   getRecommendations,
   getBasketAlternatives,
@@ -429,6 +430,9 @@ function QuantitySelector({
 // ── Screen 1: Build Your Basket ───────────────────────────────────────────────
 function BasketScreen({
   candidateCacheId = null,
+  hasLocation = false,
+  candidatePreparation = { status: "idle" },
+  onRetryNearbyPrices,
   view,
   basket,
   setBasket,
@@ -438,6 +442,9 @@ function BasketScreen({
   locale,
 }: {
   candidateCacheId?: string | null;
+  hasLocation?: boolean;
+  candidatePreparation?: CandidatePreparationState;
+  onRetryNearbyPrices?: () => void;
   view: "shop" | "basket";
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
@@ -774,9 +781,14 @@ function BasketScreen({
             {apiLoading ? copy.searching : copy.itemCount(apiTotal)}
           </span>
         </div>
-        {!apiLoading && <p className="catalogue-price-context">{priceContext === "ready"
-          ? (locale === "en" ? `Recorded prices across ${priceStoreCount} nearby stores. Prices may vary in store.` : `Harga direkodkan daripada ${priceStoreCount} kedai berdekatan. Harga di kedai mungkin berbeza.`)
-          : (locale === "en" ? "Nearby prices unavailable. Set your location in Travel to load nearby stores." : "Harga berdekatan tidak tersedia. Tetapkan lokasi dalam Perjalanan untuk memuatkan kedai berdekatan.")}</p>}
+        {(!apiLoading || candidatePreparation.status === "loading") && <NearbyPriceStatus
+          hasLocation={hasLocation}
+          preparation={candidatePreparation}
+          ready={priceContext === "ready"}
+          storeCount={priceStoreCount}
+          locale={locale}
+          onRetry={onRetryNearbyPrices}
+        />}
 
         {/* Not searched yet */}
         {!apiSearched && (
@@ -886,7 +898,9 @@ function BasketScreen({
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
-          {selectedItem.price_range && <p>{locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
+          {selectedItem.price_range && <p>{selectedItem.price_range.price_source === "median"
+            ? (locale === "en" ? "Estimated from the item's median price. Per unit; final price depends on your store." : "Anggaran daripada harga median item. Seunit; harga akhir bergantung pada kedai.")
+            : locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
           {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
         </div>}
         quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
@@ -2046,6 +2060,7 @@ export default function App() {
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
+  const [candidatePreparation, setCandidatePreparation] = useState<CandidatePreparationState>({ status: "idle" });
   const candidatePreparationController = useRef<AbortController | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
@@ -2451,6 +2466,7 @@ export default function App() {
   const updatePreferencesDraft = useCallback((next: TravelPreferences) => {
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "idle" });
     setPreferences(next);
   }, []);
   const prepareCandidates = useCallback((next: TravelPreferences) => {
@@ -2459,16 +2475,23 @@ export default function App() {
     const controller = new AbortController();
     candidatePreparationController.current = controller;
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "loading" });
     prepareRecommendationCandidates(recommendationTravelRequest(next), controller.signal)
       .then(response => {
-        if (!controller.signal.aborted) setCandidateCacheId(response.candidateCacheId);
+        if (!controller.signal.aborted) {
+          setCandidateCacheId(response.candidateCacheId);
+          setCandidatePreparation({ status: "ready" });
+        }
       })
       .catch(error => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        // Candidate preparation is an optimization. The explicit Search stores
-        // action remains the user-visible retry and fetches fresh prices.
+        if (controller.signal.aborted) return;
+        setCandidatePreparation({ status: "failed", message:
+          error instanceof Error && error.name === "SmartCartApiError"
+            ? error.message
+            : (locale === "en" ? "Could not connect to the store service. Please try again." : "Tidak dapat menyambung kepada perkhidmatan kedai. Sila cuba lagi."),
+        });
       });
-  }, []);
+  }, [locale]);
   const navigateTrip = (next: TripJourneyStep) => {
     setResumeStep(next);
     navigateTo(next);
@@ -2476,6 +2499,7 @@ export default function App() {
   const resetTrip = () => {
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "idle" });
     setBasket([]);
     setSelectedStore(null);
     setPreferences(current => ({ ...current, origin: null }));
@@ -2675,6 +2699,9 @@ export default function App() {
           <BasketScreen
             view="shop"
             candidateCacheId={candidateCacheId}
+            hasLocation={preferences.origin != null}
+            candidatePreparation={candidatePreparation}
+            onRetryNearbyPrices={() => prepareCandidates(preferences)}
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => navigateTrip("basket")}
