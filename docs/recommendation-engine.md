@@ -10,7 +10,7 @@ Geocoding for best-effort device-location labels, and Google Routes API
 `computeRouteMatrix` for routes.
 
 For environments without a Google Routes key, the API has a deliberate local
-fallback: it returns the 25 nearest premises with fresh coordinates, uses
+fallback: it returns the 25 nearest premises with stored coordinates, uses
 straight-line distance for the displayed distance and transport-cost estimate,
 and marks travel time, travel limits, and route feasibility as unverified. This
 keeps the recommendation flow usable without silently presenting approximate
@@ -57,7 +57,7 @@ Provider pricing and terms can change. Recheck these sources before deployment.
 3. `POST /api/recommendations` validates the basket item IDs and quantities,
    origin, transport mode, travel limit, and SARA filter.
 4. PostgreSQL first excludes every premise whose last imported Google business
-   state is not exactly `open`, then computes Haversine distance over fresh
+   state is not exactly `open`, then computes Haversine distance over stored
    premise coordinates and selects the nearest candidates. `unknown`, missing,
    temporarily closed, and permanently closed states are all excluded. This is
    an operational business state from the maintained snapshot, not a live
@@ -67,8 +67,9 @@ Provider pricing and terms can change. Recheck these sources before deployment.
 5. When `GOOGLE_ROUTES_API_KEY` is configured, one Google route-matrix request
    calculates one-way route distance and time from the origin to at most 25
    candidate Place IDs. The cap is configurable from 5 to 49. Transit stays
-   below Google's 100-element request limit. When the key is absent, SmartCart
-   skips Google Routes and keeps the 25 nearest fresh premises using
+   below Google's 100-element request limit. When the key is absent or a Routes
+   request fails (including an invalid key), SmartCart
+   skips Google Routes and keeps the 25 nearest located premises using
    straight-line distance plus mode-based planning speeds; the user's route
    limit is not treated as verified reachability.
 6. SmartCart applies the user's limit to routed distance or exact route time
@@ -167,8 +168,8 @@ not verified, never as false or ineligible.
   `place_match_decision` is neither `rejected` nor `needs_review`; both
   decisions have their Place ID, open/closed state, coordinates, and refresh
   metadata removed. The migration uses the cache's own generation time for
-  expiry. The app excludes
-  coordinates older than 29 days. Schedule
+  expiry. Recommendation queries accept existing coordinates regardless of
+  their refresh date. Schedule
   `pnpm cleanup:premise-locations` daily to delete values older than 30 days,
   and refresh coordinates with `pnpm sync:premise-locations`. The refresh query
   selects only premises whose imported business state is `open`, avoiding quota
@@ -206,8 +207,8 @@ not verified, never as false or ineligible.
 
 - Time-limit searches evaluate only the nearest configured candidate count by
   straight-line distance, so they are bounded rather than exhaustive.
-- When Google Routes is not configured, recommendations are the 25 nearest
-  fresh premises by straight-line distance. The fallback estimates travel time
+- When Google Routes is not configured or a Routes request fails, recommendations are the 25 nearest
+  located premises by straight-line distance. The fallback estimates travel time
   and cost using mode speeds, does not verify the selected travel limit, and
   does not establish that a route or store is reachable.
 - Public transit depends on Google's available schedule coverage at request

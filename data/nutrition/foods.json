@@ -1,0 +1,451 @@
+{
+  "dataset_version": "epic7-nutrition-v1",
+  "generated_at": "2026-10-08",
+  "basis": "per_100g",
+  "sources": [
+    {
+      "id": "MyFCD-1997",
+      "name": "Malaysian Food Composition Database (1997 edition)",
+      "publisher": "Ministry of Health Malaysia / Institute for Medical Research",
+      "url": "https://myfcd.moh.gov.my/",
+      "license": "Published on a Government of Malaysia public website; no explicit open licence stated. Used for academic, attributed reference only.",
+      "retrieved_at": "2026-10-08"
+    },
+    {
+      "id": "MyFCD-current",
+      "name": "Malaysian Food Composition Database (current edition)",
+      "publisher": "Ministry of Health Malaysia / Institute for Medical Research",
+      "url": "https://myfcd.moh.gov.my/",
+      "license": "Published on a Government of Malaysia public website; no explicit open licence stated. Used for academic, attributed reference only.",
+      "retrieved_at": "2026-10-08"
+    },
+    {
+      "id": "USDA-FDC",
+      "name": "USDA FoodData Central",
+      "publisher": "U.S. Department of Agriculture, Agricultural Research Service",
+      "url": "https://fdc.nal.usda.gov/",
+      "license": "Public domain (CC0 1.0 Universal)",
+      "retrieved_at": "2026-10-08"
+    }
+  ],
+  "foods": [
+    {
+      "id": "MFC-97-101051",
+      "source": "MyFCD-1997",
+      "source_code": "101051",
+      "description": "Bread, white (Roti putih)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 256,
+        "protein_g": 9.7,
+        "fat_g": 1,
+        "carbohydrate_g": 52,
+        "fibre_g": 0.2,
+        "sodium_mg": 340,
+        "calcium_mg": 40,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-101052",
+      "source": "MyFCD-1997",
+      "source_code": "101052",
+      "description": "Bread, wholemeal (Roti mil penuh)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 241,
+        "protein_g": 8.5,
+        "fat_g": 0.6,
+        "carbohydrate_g": 50.5,
+        "fibre_g": 0.4,
+        "sodium_mg": 311,
+        "calcium_mg": 41,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-109004",
+      "source": "MyFCD-1997",
+      "source_code": "109004",
+      "description": "Duck egg, salted, whole (Telur asin, sebiji)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 197,
+        "protein_g": 14.4,
+        "fat_g": 14.6,
+        "carbohydrate_g": 2.1,
+        "fibre_g": 0,
+        "sodium_mg": 526,
+        "calcium_mg": 74,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-109006",
+      "source": "MyFCD-1997",
+      "source_code": "109006",
+      "description": "Hen egg, whole (Telur ayam, sebiji)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 155,
+        "protein_g": 12.9,
+        "fat_g": 11.1,
+        "carbohydrate_g": 0.9,
+        "fibre_g": 0,
+        "sodium_mg": 122,
+        "calcium_mg": 57,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-110032",
+      "source": "MyFCD-1997",
+      "source_code": "110032",
+      "description": "Fish, unspecified, dried, salted (Ikan asin)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 183,
+        "protein_g": 42,
+        "fat_g": 1.5,
+        "carbohydrate_g": 0.4,
+        "fibre_g": 0,
+        "sodium_mg": 1730,
+        "calcium_mg": 174,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-110053",
+      "source": "MyFCD-1997",
+      "source_code": "110053",
+      "description": "Mackerel, Indian (Kembong) ; Rastrelliger kanagurta",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 122,
+        "protein_g": 20.9,
+        "fat_g": 3.9,
+        "carbohydrate_g": 0.7,
+        "fibre_g": 0,
+        "sodium_mg": 59,
+        "calcium_mg": 48,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-110067",
+      "source": "MyFCD-1997",
+      "source_code": "110067",
+      "description": "Prawn, salted, dried (Udang kering)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 229,
+        "protein_g": 51.7,
+        "fat_g": 1.8,
+        "carbohydrate_g": 1.4,
+        "fibre_g": 0,
+        "sodium_mg": 2554,
+        "calcium_mg": 205,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111007",
+      "source": "MyFCD-1997",
+      "source_code": "111007",
+      "description": "Milk, cow, fresh (Susu lembu segar)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 65,
+        "protein_g": 3.2,
+        "fat_g": 4.3,
+        "carbohydrate_g": 3.4,
+        "fibre_g": 0,
+        "sodium_mg": 12,
+        "calcium_mg": 106,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111008",
+      "source": "MyFCD-1997",
+      "source_code": "111008",
+      "description": "Milk, evaporated (Susu sejat)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 149,
+        "protein_g": 7.7,
+        "fat_g": 8.5,
+        "carbohydrate_g": 10.4,
+        "fibre_g": 0,
+        "sodium_mg": 136,
+        "calcium_mg": 268,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111010",
+      "source": "MyFCD-1997",
+      "source_code": "111010",
+      "description": "Milk, filled, sweetened condensed (Susu isian pekat manis)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 343,
+        "protein_g": 8.5,
+        "fat_g": 11.9,
+        "carbohydrate_g": 50.4,
+        "fibre_g": 0,
+        "sodium_mg": 106,
+        "calcium_mg": 275,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111012",
+      "source": "MyFCD-1997",
+      "source_code": "111012",
+      "description": "Milk, powder, instant, full cream (Susu tepung penuh krim)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 493,
+        "protein_g": 27.2,
+        "fat_g": 26.6,
+        "carbohydrate_g": 36.3,
+        "fibre_g": 0,
+        "sodium_mg": 301,
+        "calcium_mg": 632,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111013",
+      "source": "MyFCD-1997",
+      "source_code": "111013",
+      "description": "Milk, powder, skim (Susu tepung skim)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 352,
+        "protein_g": 25.1,
+        "fat_g": 2.6,
+        "carbohydrate_g": 57,
+        "fibre_g": 0,
+        "sodium_mg": 477,
+        "calcium_mg": 1169,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111015",
+      "source": "MyFCD-1997",
+      "source_code": "111015",
+      "description": "Milk, sweetened, condensed (Susu pekat manis)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 335,
+        "protein_g": 8.8,
+        "fat_g": 8.9,
+        "carbohydrate_g": 54.9,
+        "fibre_g": 0,
+        "sodium_mg": 125,
+        "calcium_mg": 330,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-97-111018",
+      "source": "MyFCD-1997",
+      "source_code": "111018",
+      "description": "Milk, UHT, low-fat, recombined (Susu UHT, rendah lemak)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 51,
+        "protein_g": 4.1,
+        "fat_g": 1.7,
+        "carbohydrate_g": 4.7,
+        "fibre_g": 0,
+        "sodium_mg": 36,
+        "calcium_mg": 132,
+        "saturated_fat_g": null,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": null
+      }
+    },
+    {
+      "id": "MFC-CUR-R112009",
+      "source": "MyFCD-current",
+      "source_code": "R112009",
+      "description": "Oil, blend (Minyak campuran)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 896.14,
+        "protein_g": 0,
+        "fat_g": 99.37,
+        "carbohydrate_g": 0.46,
+        "fibre_g": null,
+        "sodium_mg": null,
+        "calcium_mg": null,
+        "saturated_fat_g": 35.78,
+        "monounsaturated_fat_g": 38.715,
+        "polyunsaturated_fat_g": 25.233
+      }
+    },
+    {
+      "id": "FDC-171015",
+      "source": "USDA-FDC",
+      "source_code": "171015",
+      "description": "Oil, palm",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 884,
+        "protein_g": 0,
+        "fat_g": 100,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 0,
+        "calcium_mg": 0,
+        "saturated_fat_g": 49.3,
+        "monounsaturated_fat_g": 37,
+        "polyunsaturated_fat_g": 9.3
+      }
+    },
+    {
+      "id": "FDC-171314",
+      "source": "USDA-FDC",
+      "source_code": "171314",
+      "description": "Butter, Clarified butter (ghee)",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 3770,
+        "protein_g": 0,
+        "fat_g": 100,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 0,
+        "calcium_mg": 0,
+        "saturated_fat_g": 60,
+        "monounsaturated_fat_g": null,
+        "polyunsaturated_fat_g": 4
+      }
+    },
+    {
+      "id": "FDC-171029",
+      "source": "USDA-FDC",
+      "source_code": "171029",
+      "description": "Oil, corn, industrial and retail, all purpose salad or cooking",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 900,
+        "protein_g": 0,
+        "fat_g": 100,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 0,
+        "calcium_mg": 0,
+        "saturated_fat_g": 12.9,
+        "monounsaturated_fat_g": 27.6,
+        "polyunsaturated_fat_g": 54.7
+      }
+    },
+    {
+      "id": "FDC-171776",
+      "source": "USDA-FDC",
+      "source_code": "171776",
+      "description": "Beef, composite of trimmed retail cuts, separable lean only, trimmed to 0\" fat, select, raw",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 557,
+        "protein_g": 22,
+        "fat_g": 4.99,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 63,
+        "calcium_mg": 12,
+        "saturated_fat_g": 1.97,
+        "monounsaturated_fat_g": 2.64,
+        "polyunsaturated_fat_g": 0.337
+      }
+    },
+    {
+      "id": "FDC-174307",
+      "source": "USDA-FDC",
+      "source_code": "174307",
+      "description": "Lamb, composite of trimmed retail cuts, separable lean only, trimmed to 1/4\" fat, choice, raw",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 561,
+        "protein_g": 20.3,
+        "fat_g": 5.25,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 66,
+        "calcium_mg": 10,
+        "saturated_fat_g": 1.88,
+        "monounsaturated_fat_g": 2.11,
+        "polyunsaturated_fat_g": 0.48
+      }
+    },
+    {
+      "id": "FDC-168219",
+      "source": "USDA-FDC",
+      "source_code": "168219",
+      "description": "Pork, fresh, carcass, separable lean and fat, raw",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 1570,
+        "protein_g": 13.9,
+        "fat_g": 35.1,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 42,
+        "calcium_mg": 19,
+        "saturated_fat_g": 12.4,
+        "monounsaturated_fat_g": 15.9,
+        "polyunsaturated_fat_g": 3.8
+      }
+    },
+    {
+      "id": "FDC-171077",
+      "source": "USDA-FDC",
+      "source_code": "171077",
+      "description": "Chicken, broiler or fryers, breast, skinless, boneless, meat only, raw",
+      "basis": "per_100g",
+      "nutrients": {
+        "energy_kcal": 120,
+        "protein_g": 22.5,
+        "fat_g": 2.62,
+        "carbohydrate_g": 0,
+        "fibre_g": 0,
+        "sodium_mg": 45,
+        "calcium_mg": 5,
+        "saturated_fat_g": 0.563,
+        "monounsaturated_fat_g": 0.689,
+        "polyunsaturated_fat_g": 0.424
+      }
+    }
+  ]
+}

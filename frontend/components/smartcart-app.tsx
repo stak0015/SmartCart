@@ -6,11 +6,14 @@ import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { ItemPriceHistory } from "./price-history";
 import { StoreChainLogo } from "./store-chain-logo";
+import { HealthierAlternativesSection } from "./healthier-alternatives";
+import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { listCategories, searchItems, type Item } from "@/lib/api";
+import { fetchHealthierAlternatives, listCategories, searchItems, type Item, type HealthierAlternativesResult } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
+import { NearbyPriceStatus, type CandidatePreparationState } from "./nearby-price-status";
 import {
   getRecommendations,
   getBasketAlternatives,
@@ -428,6 +431,9 @@ function QuantitySelector({
 // ── Screen 1: Build Your Basket ───────────────────────────────────────────────
 function BasketScreen({
   candidateCacheId = null,
+  hasLocation = false,
+  candidatePreparation = { status: "idle" },
+  onRetryNearbyPrices,
   view,
   basket,
   setBasket,
@@ -437,6 +443,9 @@ function BasketScreen({
   locale,
 }: {
   candidateCacheId?: string | null;
+  hasLocation?: boolean;
+  candidatePreparation?: CandidatePreparationState;
+  onRetryNearbyPrices?: () => void;
   view: "shop" | "basket";
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
@@ -446,7 +455,13 @@ function BasketScreen({
   locale: Locale;
 }) {
   const [search, setSearch] = useState("");
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  // Epic 7 (US 7.2): the item dialog walks a stack of visited items so an
+  // alternative can be opened, explored further, and stepped back one level
+  // at a time. Quantities stay per item id, so returning restores the
+  // shopper's unsubmitted quantity (AC 7.2.2).
+  const [selectedStack, setSelectedStack] = useState<Item[]>([]);
+  const selectedItem = topItem(selectedStack);
+  const previousItem = previousInStack(selectedStack);
   const [priceContext, setPriceContext] = useState<"ready" | "unavailable">("unavailable");
   const [priceStoreCount, setPriceStoreCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -467,6 +482,10 @@ function BasketScreen({
   const [apiError, setApiError] = useState(false);
   const [qtyById, setQtyById] = useState<Record<number, string>>({});
   const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
+  // Epic 7 (US 7.1): alternatives for the item currently open in the dialog.
+  const [alternatives, setAlternatives] = useState<HealthierAlternativesResult | null>(null);
+  const [alternativesLoading, setAlternativesLoading] = useState(false);
+  const [alternativesError, setAlternativesError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -507,7 +526,12 @@ function BasketScreen({
         .then(data => {
           if (controller.signal.aborted) return;
           setApiResults(data.items);
-          setSelectedItem(current => current ? data.items.find(item => item.item_id === current.item_id) ?? current : null);
+          setSelectedStack(current => {
+            const top = topItem(current);
+            if (!top) return current;
+            const refreshed = data.items.find(item => item.item_id === top.item_id);
+            return refreshed ? replaceTop(current, refreshed) : current;
+          });
           setPriceContext(data.price_context ?? "unavailable");
           setPriceStoreCount(data.price_store_count ?? 0);
           setApiTotal(data.total);
@@ -530,6 +554,36 @@ function BasketScreen({
       controller.abort();
     };
   }, [activeCategories, page, search, view, candidateCacheId]);
+
+  // Epic 7 (US 7.1): load approved healthier alternatives for the item
+  // currently open in the dialog. A failure only affects this section
+  // (AC 7.1.5) — the item stays usable.
+  useEffect(() => {
+    const itemCode = selectedItem?.item_code;
+    if (!itemCode) {
+      setAlternatives(null);
+      setAlternativesError(false);
+      setAlternativesLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setAlternatives(null);
+    setAlternativesError(false);
+    setAlternativesLoading(true);
+    fetchHealthierAlternatives(itemCode, candidateCacheId, controller.signal)
+      .then(data => {
+        if (!controller.signal.aborted) setAlternatives(data);
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setAlternatives(null);
+        setAlternativesError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAlternativesLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedItem?.item_code, candidateCacheId]);
 
   const toggleCategory = (category: string) => {
     setPage(1);
@@ -728,9 +782,14 @@ function BasketScreen({
             {apiLoading ? copy.searching : copy.itemCount(apiTotal)}
           </span>
         </div>
-        {!apiLoading && <p className="catalogue-price-context">{priceContext === "ready"
-          ? (locale === "en" ? `Recorded prices across ${priceStoreCount} nearby stores. Prices may vary in store.` : `Harga direkodkan daripada ${priceStoreCount} kedai berdekatan. Harga di kedai mungkin berbeza.`)
-          : (locale === "en" ? "Nearby prices unavailable. Set your location in Travel to load nearby stores." : "Harga berdekatan tidak tersedia. Tetapkan lokasi dalam Perjalanan untuk memuatkan kedai berdekatan.")}</p>}
+        {(!apiLoading || candidatePreparation.status === "loading") && <NearbyPriceStatus
+          hasLocation={hasLocation}
+          preparation={candidatePreparation}
+          ready={priceContext === "ready"}
+          storeCount={priceStoreCount}
+          locale={locale}
+          onRetry={onRetryNearbyPrices}
+        />}
 
         {/* Not searched yet */}
         {!apiSearched && (
@@ -772,7 +831,7 @@ function BasketScreen({
                 </div>
                 <div className="product-card-footer">
                   <strong className={item.price_range ? "product-price" : "product-price is-unavailable"}>{cataloguePrice(item, locale)}</strong>
-                  <button type="button" className="product-add icon-button" aria-haspopup="dialog" aria-label={`${copy.addToBasket}: ${fields.name}`} onClick={() => { setQtyById(current => ({ ...current, [item.item_id]: "1" })); setSelectedItem(item); }}><UIIcon name="plus"/></button>
+                  <button type="button" className="product-add icon-button" aria-haspopup="dialog" aria-label={`${copy.addToBasket}: ${fields.name}`} onClick={() => { setQtyById(current => ({ ...current, [item.item_id]: "1" })); setSelectedStack(resetStack(item)); }}><UIIcon name="plus"/></button>
                 </div>
               </article>
               );
@@ -832,18 +891,22 @@ function BasketScreen({
           {basketPanel}
         </aside>
       )}
-      <CatalogueItemDialog key={selectedItem?.item_code ?? 'closed'} open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
+      <CatalogueItemDialog key={selectedItem?.item_code ?? 'closed'} open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedStack(clearStack<Item>())} canAdd={selectedQty !== null}
         trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose}/> : undefined}
-        onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
+        back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
+        onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
         details={selectedItem && <div className="catalogue-dialog-details">
           <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
-          {selectedItem.price_range && <p>{locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
+          {selectedItem.price_range && <p>{selectedItem.price_range.price_source === "median"
+            ? (locale === "en" ? "Estimated from the item's median price. Per unit; final price depends on your store." : "Anggaran daripada harga median item. Seunit; harga akhir bergantung pada kedai.")
+            : locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
           {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
         </div>}
-        quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}/>
+        quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
+        alternatives={selectedItem && <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/>}/>
       {view === "basket" && (
         <>
       <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
@@ -1999,6 +2062,7 @@ export default function App() {
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
+  const [candidatePreparation, setCandidatePreparation] = useState<CandidatePreparationState>({ status: "idle" });
   const candidatePreparationController = useRef<AbortController | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
@@ -2404,6 +2468,7 @@ export default function App() {
   const updatePreferencesDraft = useCallback((next: TravelPreferences) => {
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "idle" });
     setPreferences(next);
   }, []);
   const prepareCandidates = useCallback((next: TravelPreferences) => {
@@ -2412,16 +2477,23 @@ export default function App() {
     const controller = new AbortController();
     candidatePreparationController.current = controller;
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "loading" });
     prepareRecommendationCandidates(recommendationTravelRequest(next), controller.signal)
       .then(response => {
-        if (!controller.signal.aborted) setCandidateCacheId(response.candidateCacheId);
+        if (!controller.signal.aborted) {
+          setCandidateCacheId(response.candidateCacheId);
+          setCandidatePreparation({ status: "ready" });
+        }
       })
       .catch(error => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        // Candidate preparation is an optimization. The explicit Search stores
-        // action remains the user-visible retry and fetches fresh prices.
+        if (controller.signal.aborted) return;
+        setCandidatePreparation({ status: "failed", message:
+          error instanceof Error && error.name === "SmartCartApiError"
+            ? error.message
+            : (locale === "en" ? "Could not connect to the store service. Please try again." : "Tidak dapat menyambung kepada perkhidmatan kedai. Sila cuba lagi."),
+        });
       });
-  }, []);
+  }, [locale]);
   const navigateTrip = (next: TripJourneyStep) => {
     setResumeStep(next);
     navigateTo(next);
@@ -2429,6 +2501,7 @@ export default function App() {
   const resetTrip = () => {
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "idle" });
     setBasket([]);
     setSelectedStore(null);
     setPreferences(current => ({ ...current, origin: null }));
@@ -2628,6 +2701,9 @@ export default function App() {
           <BasketScreen
             view="shop"
             candidateCacheId={candidateCacheId}
+            hasLocation={preferences.origin != null}
+            candidatePreparation={candidatePreparation}
+            onRetryNearbyPrices={() => prepareCandidates(preferences)}
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => navigateTrip("basket")}
