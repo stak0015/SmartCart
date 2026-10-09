@@ -128,6 +128,29 @@ export const COPY = {
     // Transparency for AC 6.2.7/6.2.8: how many store pairs were actually
     // routed before the empty result, so the shopper sees work was done.
     multiStoreEvaluatedCount: (count: number) => `${count} store pair${count === 1 ? "" : "s"} checked against your limits.`,
+    // US 6.3: combined-cost comparison. The basis note is localised here rather
+    // than shown from the backend's English string, because this UI is bilingual
+    // (the backend field stays as the machine-readable disclosure).
+    planComparisonTitle: "Compare plans",
+    multiStorePriceBasis: "Prices are compared using official store prices only; median estimates are excluded so single-store and two-store totals match. Transport is the estimated complete return route.",
+    singleStorePlanLabel: "One store",
+    twoStorePlanLabel: "Two stores",
+    planBasketSubtotal: "Basket subtotal",
+    planTransportCost: "Transport (return route)",
+    planCombinedTotal: "Estimated total",
+    // AC 6.3.5: saving against the cheapest complete single-store plan.
+    planSavingVsSingle: (amount: string, baseline: string) => `Saves ${amount} versus the cheapest single-store plan (${baseline}).`,
+    // Negative saving: shown explicitly rather than hidden, so splitting is not
+    // presented as a win when it costs more.
+    planCostsMoreThanSingle: (amount: string) => `Costs ${amount} more than the cheapest single-store plan.`,
+    // AC 6.3.6: no eligible baseline exists, so no number is claimed at all.
+    planNoSingleStoreBaseline: "No complete single-store plan to compare against, so no saving is shown.",
+    // AC 6.3.4: incomplete plans are labelled and grouped apart.
+    incompletePlansTitle: "Incomplete baskets",
+    incompletePlansNote: "These plans are missing an official price for at least one item, so they are not ranked against complete plans.",
+    planPriceCoverage: (priced: number, total: number) => `${priced} of ${total} items priced`,
+    planPartialTotal: "Partial total",
+    planMissingItems: (items: string) => `No official price: ${items}`,
     optional: "optional",
     saraPlanning: "SARA store filter",
     saraCandidatesOnly: "Show SARA stores and possible matches",
@@ -497,6 +520,28 @@ export const COPY = {
     // Ketelusan bagi AC 6.2.7/6.2.8: bilangan pasangan kedai yang benar-benar
     // dikira laluan sebelum keputusan kosong.
     multiStoreEvaluatedCount: (count: number) => `${count} pasangan kedai disemak terhadap had anda.`,
+    // US 6.3: perbandingan kos gabungan. Nota asas harga dilokalkan di sini dan
+    // bukan dipaparkan daripada rentetan Inggeris backend, kerana UI ini dwibahasa.
+    planComparisonTitle: "Bandingkan pelan",
+    multiStorePriceBasis: "Harga dibandingkan menggunakan harga rasmi kedai sahaja; anggaran median dikecualikan supaya jumlah satu kedai dan dua kedai sepadan. Pengangkutan ialah anggaran laluan pulang lengkap.",
+    singleStorePlanLabel: "Satu kedai",
+    twoStorePlanLabel: "Dua kedai",
+    planBasketSubtotal: "Jumlah bakul",
+    planTransportCost: "Pengangkutan (laluan pulang)",
+    planCombinedTotal: "Anggaran jumlah",
+    // AC 6.3.5: penjimatan berbanding pelan satu kedai lengkap yang termurah.
+    planSavingVsSingle: (amount: string, baseline: string) => `Jimat ${amount} berbanding pelan satu kedai termurah (${baseline}).`,
+    // Penjimatan negatif: dipaparkan secara terang dan bukan disembunyikan, supaya
+    // pemisahan tidak kelihatan menguntungkan sedangkan kosnya lebih tinggi.
+    planCostsMoreThanSingle: (amount: string) => `Kos ${amount} lebih tinggi daripada pelan satu kedai termurah.`,
+    // AC 6.3.6: tiada asas yang layak, jadi tiada angka penjimatan dituntut.
+    planNoSingleStoreBaseline: "Tiada pelan satu kedai lengkap untuk dibandingkan, jadi tiada penjimatan dipaparkan.",
+    // AC 6.3.4: pelan tidak lengkap dilabel dan dikumpulkan berasingan.
+    incompletePlansTitle: "Bakul tidak lengkap",
+    incompletePlansNote: "Pelan ini tiada harga rasmi untuk sekurang-kurangnya satu item, jadi ia tidak disenaraikan bersama pelan lengkap.",
+    planPriceCoverage: (priced: number, total: number) => `${priced} daripada ${total} item berharga`,
+    planPartialTotal: "Jumlah separa",
+    planMissingItems: (items: string) => `Tiada harga rasmi: ${items}`,
     optional: "pilihan",
     saraPlanning: "Perancangan SARA",
     saraCandidatesOnly: "Papar kedai SARA dan padanan berpotensi",

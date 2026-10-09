@@ -352,6 +352,79 @@ class MultiStorePlan(CamelModel):
     route_provider: Literal["google", "straight_line"] = "google"
 
 
+class PlanStoreAssignment(CamelModel):
+    """One basket line assigned to a store within a two-store plan (AC 6.3.1).
+
+    A line's full quantity always goes to a single store; it is never split.
+    ``unit_price_rm`` is an official store observation (price_source "store"),
+    never a median estimate, because AC 6.3.1 allocates on official prices.
+    """
+
+    item_id: str
+    item_name: str | None
+    quantity: int
+    unit_price_rm: float
+    line_total_rm: float
+    store_premise_id: str
+    store_name: str
+    observed_date: str | None = None
+
+
+class PricedPlan(CamelModel):
+    """A single-store or two-store plan priced for comparison (US 6.3).
+
+    Every money figure here uses the SAME basis: official store prices only
+    (median estimates are excluded), so single-store and two-store plans are
+    directly comparable and the saving in AC 6.3.5 subtracts like from like.
+    This is deliberately separate from the single-store card's displayed
+    ``combined_total_rm``, which mixes store and median prices.
+    """
+
+    plan_id: str
+    store_count: Literal[1, 2]
+    store_premise_ids: list[str]
+    store_names: list[str]
+    # AC 6.3.2: basket subtotal is the sum of assigned unit prices x quantities.
+    basket_subtotal_rm: float
+    # Complete-route transport: round trip for one store, the full loop for two.
+    transport_cost_rm: float
+    # AC 6.3.2: combined total = basket subtotal + transport.
+    combined_total_rm: float
+    # AC 6.3.4: complete means every requested basket line has an official price
+    # at its assigned store(s); an incomplete plan is never ranked as cheapest.
+    is_complete: bool
+    priced_line_count: int
+    basket_line_count: int
+    missing_items: list[str] = Field(default_factory=list)
+    total_travel_minutes: int
+    total_route_distance_km: float
+    # Two-store plans only: which store each line was assigned to (AC 6.3.1).
+    assignments: list[PlanStoreAssignment] = Field(default_factory=list)
+    # Two-store leg detail, echoed for the comparison view (US 6.4 renders it).
+    inter_store_distance_km: float | None = None
+    # AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
+    # Two-store plans only; None when there is no eligible single-store baseline
+    # (never fabricated as 0). Negative means the split costs more.
+    saving_vs_single_rm: float | None = None
+
+
+class PlanComparison(CamelModel):
+    """AC 6.3: single-store and two-store plans compared by combined cost."""
+
+    # AC 6.3.3: complete plans, cheapest combined total first.
+    complete_plans: list[PricedPlan] = Field(default_factory=list)
+    # AC 6.3.4: plans with at least one unpriced basket line, kept separate so
+    # they are never presented as the cheapest complete option.
+    incomplete_plans: list[PricedPlan] = Field(default_factory=list)
+    # AC 6.3.5: the cheapest complete single-store combined total, used as the
+    # savings baseline. None when no complete single-store plan exists, in which
+    # case no saving is shown for any two-store plan (AC 6.3.6).
+    single_store_baseline_rm: float | None = None
+    single_store_baseline_name: str | None = None
+    # Transparency: states that the comparison uses official store prices only.
+    price_basis_note: str
+
+
 class MultiStorePlans(CamelModel):
     """Two-store planning result for one recommendation request (US 6.2)."""
 
@@ -370,6 +443,10 @@ class MultiStorePlans(CamelModel):
         "insufficient_reachable_stores",
         "straight_line_fallback_unsupported",
     ] | None = None
+    # US 6.3: priced comparison of single-store and two-store plans. Present
+    # only when a basket was sent and at least one two-store plan exists; the
+    # route-level ``plans`` above remain the US 6.2 output.
+    comparison: PlanComparison | None = None
 
 
 class RecommendationResponse(CamelModel):

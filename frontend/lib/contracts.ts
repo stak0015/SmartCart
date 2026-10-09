@@ -366,6 +366,64 @@ export type MultiStoreEmptyReason =
   | "insufficient_reachable_stores"
   | "straight_line_fallback_unsupported";
 
+/** One basket line assigned to a store inside a two-store plan (AC 6.3.1).
+ * The full quantity always lands on a single store — never split. Prices here
+ * are official store observations only; cached medians are excluded so that
+ * single-store and two-store totals share one basis. */
+export interface PlanStoreAssignment {
+  itemId: string;
+  itemName: string | null;
+  quantity: number;
+  unitPriceRm: number;
+  lineTotalRm: number;
+  storePremiseId: string;
+  storeName: string;
+  observedDate: string | null;
+}
+
+/** A single-store or two-store plan priced for combined-cost comparison
+ * (US 6.3). `storeCount` discriminates the two shapes. */
+export interface PricedPlan {
+  planId: string;
+  storeCount: 1 | 2;
+  storePremiseIds: string[];
+  storeNames: string[];
+  // AC 6.3.2: sum of assigned unit prices x quantities.
+  basketSubtotalRm: number;
+  // Complete-route transport: round trip for one store, full loop for two.
+  transportCostRm: number;
+  // AC 6.3.2: subtotal + transport.
+  combinedTotalRm: number;
+  // AC 6.3.4: false when any requested line lacks an official price at the
+  // assigned store(s); such a plan is never presented as the cheapest.
+  isComplete: boolean;
+  pricedLineCount: number;
+  basketLineCount: number;
+  missingItems: string[];
+  totalTravelMinutes: number;
+  totalRouteDistanceKm: number;
+  // Two-store plans only (AC 6.3.1).
+  assignments: PlanStoreAssignment[];
+  interStoreDistanceKm: number | null;
+  // AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
+  // Null whenever no such baseline exists — never fabricated as 0. Negative
+  // means splitting costs more than the best single store.
+  savingVsSingleRm: number | null;
+}
+
+/** AC 6.3: single-store and two-store plans compared by combined cost. */
+export interface PlanComparison {
+  // AC 6.3.3: complete plans, cheapest combined total first.
+  completePlans: PricedPlan[];
+  // AC 6.3.4: kept separate so they cannot be mistaken for the cheapest option.
+  incompletePlans: PricedPlan[];
+  // AC 6.3.5 baseline; null means no saving is shown at all (AC 6.3.6).
+  singleStoreBaselineRm: number | null;
+  singleStoreBaselineName: string | null;
+  // Discloses that the comparison uses official store prices only.
+  priceBasisNote: string;
+}
+
 export interface MultiStorePlans {
   plans: MultiStorePlan[];
   secondStoreLimit: TravelLimit | null;
@@ -375,6 +433,9 @@ export interface MultiStorePlans {
   // than given an invented cost.
   unrouteablePairCount: number;
   emptyReason: MultiStoreEmptyReason | null;
+  // US 6.3: present only when a basket was sent and at least one two-store plan
+  // exists. The route-level `plans` above remain the US 6.2 output.
+  comparison: PlanComparison | null;
 }
 
 export interface ApiErrorBody {

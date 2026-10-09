@@ -9,6 +9,7 @@ import {
   disableMultiStore,
   isSupportedDistancePreset,
   isSupportedTimePreset,
+  savingState,
   secondStoreLimitLabel,
   validateSecondStoreLimits,
   type MultiStoreConfig,
@@ -182,5 +183,38 @@ describe("limit label", () => {
     expect(secondStoreLimitLabel({ type: "time", value: 20 }, "min")).toBe("20 min");
     expect(secondStoreLimitLabel({ type: "both", distanceKm: 5, timeMinutes: 20 }, "min"))
       .toBe("5 km · 20 min");
+  });
+});
+
+describe("saving state (US 6.3 display)", () => {
+  it("AC 6.3.5: a positive saving is shown as a saving", () => {
+    expect(savingState(12.5)).toBe("save");
+  });
+
+  it("AC 6.3.5: a negative saving is shown as costing more, not hidden", () => {
+    // A split that costs more must never be implied to be a win, so the sign is
+    // preserved and mapped to its own state.
+    expect(savingState(-4.2)).toBe("more");
+  });
+
+  it("AC 6.3.6: a null saving (no eligible baseline) shows no number", () => {
+    // The critical invariant: null must not become a "RM0 saving".
+    expect(savingState(null)).toBe("none");
+  });
+
+  it("AC 6.3.6: an undefined saving also shows no number", () => {
+    expect(savingState(undefined as unknown as null)).toBe("none");
+  });
+
+  it("a zero saving makes no money claim", () => {
+    expect(savingState(0)).toBe("equal");
+  });
+
+  it("treats a tiny positive saving as a real saving", () => {
+    expect(savingState(0.01)).toBe("save");
+  });
+
+  it("treats a tiny negative saving as costing more", () => {
+    expect(savingState(-0.01)).toBe("more");
   });
 });

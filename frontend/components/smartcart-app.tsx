@@ -40,6 +40,7 @@ import {
   type MultiStoreConfig,
 } from "@/lib/multi-store";
 import { MultiStorePanel } from "./multi-store-panel";
+import { PlanComparisonSection } from "./plan-comparison";
 import {
   applyBasketReplacement,
   currentReplacementImpactRm,
@@ -2018,6 +2019,14 @@ function CompareScreen({
                 </button>
               </div>
             )}
+            {/* US 6.3: when the backend priced the plans against single-store
+                alternatives, show the combined-cost comparison above the single
+                store list. Absent unless a basket was sent and a two-store plan
+                qualified, so single-store-only shoppers see an unchanged page. */}
+            {result.multiStore?.comparison && (
+              <PlanComparisonSection comparison={result.multiStore.comparison} copy={copy} />
+            )}
+
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>

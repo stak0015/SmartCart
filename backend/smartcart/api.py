@@ -68,6 +68,7 @@ from .premises import (
 )
 from .pricing import get_basket_pricing
 from .multi_store import plan_multi_store_trips, select_pairs_for_routing
+from .multi_store_pricing import build_plan_comparison
 from .recommendation import (
     TravelCostRate,
     apply_basket_pricing,
@@ -457,7 +458,7 @@ async def _build_multi_store_plans(
                 )
             ] = route
 
-    return plan_multi_store_trips(
+    plans = plan_multi_store_trips(
         candidates=candidates,
         reachable_first_store_ids=reachable_first_store_ids,
         pairs=pairs,
@@ -467,6 +468,31 @@ async def _build_multi_store_plans(
         cost_rate=cost_rate,
         home_name=travel.origin.label,
     )
+
+    # US 6.3: price the plans against single-store alternatives. Needs per-store
+    # pricing for every store that could take part — single-store baselines come
+    # from ``recommendations`` and two-store legs reference ``candidates`` — so
+    # fetch the union rather than reuse the endpoint's recommendations-only
+    # pricing, which would leave a second store's lines unpriced. This is a local
+    # database read; it spends no additional Google quota.
+    if payload.basket and plans.plans:
+        participating_ids = {store.premise_id for store in recommendations}
+        for plan in plans.plans:
+            participating_ids.add(plan.first_store_premise_id)
+            participating_ids.add(plan.second_store_premise_id)
+        comparison_pricing = await run_in_threadpool(
+            get_basket_pricing,
+            sorted(participating_ids),
+            payload.basket,
+        )
+        plans.comparison = build_plan_comparison(
+            recommendations=recommendations,
+            two_store_plans=plans.plans,
+            pricing=comparison_pricing,
+            basket=payload.basket,
+        )
+
+    return plans
 
 
 @router.post("/recommendations", response_model=RecommendationResponse)

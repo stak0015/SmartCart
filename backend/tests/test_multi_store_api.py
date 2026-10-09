@@ -12,6 +12,7 @@ test can prove:
 
 from dataclasses import replace
 
+import pytest
 from fastapi.testclient import TestClient
 
 from main import create_app
@@ -350,3 +351,156 @@ def test_request_without_limit_still_uses_the_candidate_cache(monkeypatch) -> No
     assert response.json().get("multiStore") is None
     # No multi-store routing happened on the cached path either.
     assert provider.multi_origin_calls == baseline_calls
+
+
+# ------------------------------------------------------ US 6.3 comparison E2E
+
+
+def official_line(item_id: str, unit_price: float) -> "object":
+    from smartcart.pricing import BasketLinePrice
+
+    return BasketLinePrice(
+        item_id=item_id,
+        item_name=f"Item {item_id}",
+        unit=None,
+        quantity=1,
+        unit_price_rm=unit_price,
+        line_total_rm=unit_price,
+        observed_date="2026-08-01",
+        sara_eligible=None,
+        sara_category_candidate=False,
+        price_source="store",
+    )
+
+
+def install_with_official_prices(monkeypatch, provider, price_by_store) -> None:
+    """Like install(), but each store prices item "12" at a given official rate."""
+    install(monkeypatch, provider)
+    monkeypatch.setattr(
+        "smartcart.api.get_basket_pricing",
+        lambda premise_ids, _basket: {
+            premise_id: StoreBasketSummary(
+                subtotal_rm=None,
+                priced_count=1,
+                basket_line_count=1,
+                lines=(official_line("12", price_by_store[premise_id]),),
+            )
+            for premise_id in premise_ids
+            if premise_id in price_by_store
+        },
+    )
+
+
+def test_comparison_flows_through_api_with_camel_case_fields(monkeypatch) -> None:
+    """US 6.3: the priced comparison reaches the client with correct field names."""
+    provider = TwoStoreMapsProvider(
+        inter_store={
+            "place-a": [inter_leg(0, 4_000, 480)],
+            "place-b": [inter_leg(1, 4_000, 480)],
+        }
+    )
+    # A prices item 12 at 4.00, B at 3.00. Basket is item 12 x2.
+    install_with_official_prices(monkeypatch, provider, {"1": 4.00, "2": 3.00})
+
+    response = TestClient(create_app()).post(
+        "/api/recommendations",
+        json=request_body({"type": "distance", "value": 5}),
+    )
+
+    assert response.status_code == 200
+    comparison = response.json()["multiStore"]["comparison"]
+    assert comparison is not None
+    # Exactly the camelCase keys the frontend contract will declare.
+    assert set(comparison) == {
+        "completePlans",
+        "incompletePlans",
+        "singleStoreBaselineRm",
+        "singleStoreBaselineName",
+        "priceBasisNote",
+    }
+    assert comparison["completePlans"], "a complete plan should exist"
+    cheapest = comparison["completePlans"][0]
+    assert set(cheapest) == {
+        "planId",
+        "storeCount",
+        "storePremiseIds",
+        "storeNames",
+        "basketSubtotalRm",
+        "transportCostRm",
+        "combinedTotalRm",
+        "isComplete",
+        "pricedLineCount",
+        "basketLineCount",
+        "missingItems",
+        "totalTravelMinutes",
+        "totalRouteDistanceKm",
+        "assignments",
+        "interStoreDistanceKm",
+        "savingVsSingleRm",
+    }
+    # Plans are ordered cheapest-first by combined cost.
+    totals = [plan["combinedTotalRm"] for plan in comparison["completePlans"]]
+    assert totals == sorted(totals)
+    # AC 6.3.2: combined total reconciles with subtotal + transport.
+    assert cheapest["combinedTotalRm"] == pytest.approx(
+        cheapest["basketSubtotalRm"] + cheapest["transportCostRm"]
+    )
+    assert "official store prices" in comparison["priceBasisNote"]
+
+
+def test_saving_baseline_survives_the_full_request_path(monkeypatch) -> None:
+    """AC 6.3.5 wiring: the baseline and saving reach the client consistently.
+
+    This asserts the *relationship*, not hand-computed money, because the exact
+    combined totals depend on the real transport cost model. The economic rules
+    (cheapest complete single store anchors the saving; a split can only win when
+    different stores are cheapest for different lines) are covered exhaustively
+    by the pure-logic tests in test_multi_store_pricing.py. Here we only prove
+    the values survive the request path and stay mutually consistent.
+    """
+    provider = TwoStoreMapsProvider(
+        inter_store={
+            "place-a": [inter_leg(0, 4_000, 480)],
+            "place-b": [inter_leg(1, 4_000, 480)],
+        }
+    )
+    install_with_official_prices(monkeypatch, provider, {"1": 3.00, "2": 2.50})
+
+    response = TestClient(create_app()).post(
+        "/api/recommendations",
+        json=request_body({"type": "distance", "value": 5}),
+    )
+
+    comparison = response.json()["multiStore"]["comparison"]
+    complete = comparison["completePlans"]
+    single_totals = [p["combinedTotalRm"] for p in complete if p["storeCount"] == 1]
+    two_store = next(p for p in complete if p["storeCount"] == 2)
+
+    # A complete single-store baseline exists and is the cheapest single store.
+    assert single_totals, "expected at least one complete single-store plan"
+    assert comparison["singleStoreBaselineRm"] == pytest.approx(min(single_totals))
+    # AC 6.3.5: saving = baseline - two-store combined, same official basis.
+    assert two_store["savingVsSingleRm"] == pytest.approx(
+        comparison["singleStoreBaselineRm"] - two_store["combinedTotalRm"]
+    )
+
+
+def test_no_basket_means_no_comparison(monkeypatch) -> None:
+    """Without a basket there is nothing to price, so comparison stays None."""
+    provider = TwoStoreMapsProvider(
+        inter_store={
+            "place-a": [inter_leg(0, 4_000, 480)],
+            "place-b": [inter_leg(1, 4_000, 480)],
+        }
+    )
+    install_with_official_prices(monkeypatch, provider, {"1": 4.00, "2": 3.00})
+
+    body = request_body({"type": "distance", "value": 5})
+    body.pop("basket")  # transport-first request, no items
+    response = TestClient(create_app()).post("/api/recommendations", json=body)
+
+    assert response.status_code == 200
+    multi = response.json()["multiStore"]
+    # Route-level plans still exist (US 6.2), but no priced comparison (US 6.3).
+    assert multi["plans"]
+    assert multi["comparison"] is None

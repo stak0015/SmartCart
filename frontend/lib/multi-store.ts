@@ -123,3 +123,37 @@ export function changeSecondStoreLimitType(
   // applied limit no longer describes the active groups.
   return { ...config, limitType, applied: null };
 }
+
+// ── US 6.3: combined-cost comparison view state ───────────────────────────────
+
+/**
+ * How a two-store plan's saving against single-store plans should be shown.
+ *
+ * This is a pure decision so the AC 6.3.5 / 6.3.6 rules are unit-testable and
+ * the render layer cannot accidentally invent a number:
+ * - "none"  (AC 6.3.6): no baseline existed; show no numeric saving at all.
+ * - "save": strictly positive saving; show how much it saves.
+ * - "more": negative saving; splitting costs more — shown explicitly rather
+ *           than hidden, so a more expensive split is never implied to be a win.
+ * - "equal": zero saving; neither better nor worse, so no money claim is made.
+ */
+export type SavingState = "none" | "save" | "more" | "equal";
+
+/** AC 6.3.5/6.3.6: classify a two-store plan's saving for display. `savingRm`
+ * is the backend's `savingVsSingleRm`, which is null when there was no eligible
+ * complete single-store baseline. A null is never rendered as RM0. */
+export function savingState(savingRm: number | null): SavingState {
+  if (savingRm === null || savingRm === undefined) return "none";
+  if (savingRm > 0) return "save";
+  if (savingRm < 0) return "more";
+  return "equal";
+}
+
+/**
+ * AC 6.3.4: a plan is "incomplete" when the backend says so. The incomplete set
+ * is rendered separately and never ranked among complete plans, so this is kept
+ * as a single predicate rather than re-deriving it in the JSX.
+ */
+export function isPlanComplete(plan: { isComplete: boolean }): boolean {
+  return plan.isComplete;
+}
