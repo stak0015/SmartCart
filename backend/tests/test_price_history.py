@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from smartcart.api import router
 from smartcart.errors import register_error_handlers
 from smartcart.errors import AppError
-from smartcart.forecast_rules import eligibility
+from smartcart.forecast_rules import DEFAULT_RULES, eligibility
 from smartcart import price_history
 
 def request(url):
@@ -28,7 +28,7 @@ def test_eligibility_states_and_configurable_rules():
     assert eligibility(c,None,date(2026,10,7))[0]=='no_history'
     assert eligibility({**c,'history_weeks':20},'2026-09-27',date(2026,10,7))[0]=='insufficient'
     assert eligibility(c,'2026-09-27',date(2026,10,7))[0]=='available'
-    for field,value in [('recent_coverage',.2),('recent_stores',1),('test_relative_mae',.101),('definition_consistent',False),('test_paths',1),('test_complete_paths',2),('test_baseline_mae_ratio',1.01),('composition_shift_rm',2)]:
+    for field,value in [('recent_coverage',.2),('recent_stores',1),('test_relative_mae',.151),('definition_consistent',False),('test_paths',1),('test_complete_paths',2),('test_baseline_mae_ratio',1.36),('composition_shift_rm',2)]:
         assert eligibility({**c,field:value},'2026-09-27',date(2026,10,7))[0]=='rejected'
     assert eligibility(c,'2026-01-01',date(2026,10,7))[0]=='rejected'
     assert eligibility(c,'2026-09-27',date(2026,10,7),{'max_age_days':1})[0]=='rejected'
@@ -49,8 +49,8 @@ def test_shared_annual_policy_requires_both_price_and_shape_evidence(monkeypatch
     c.update(test_annual_paths=1,test_annual_relative_mae=.04,
         test_annual_baseline_mae_ratio=.9,test_annual_shape_pass=True)
     assert price_history.item_history('1')['status']=='available'
-    for field,value in [('test_annual_paths',0),('test_annual_relative_mae',.101),
-        ('test_annual_relative_mae',float('nan')),('test_annual_baseline_mae_ratio',1.01),
+    for field,value in [('test_annual_paths',0),('test_annual_relative_mae',.151),
+        ('test_annual_relative_mae',float('nan')),('test_annual_baseline_mae_ratio',1.36),
         ('test_annual_baseline_mae_ratio',float('inf')),('test_annual_shape_pass',False)]:
         original=c[field];c[field]=value
         result=price_history.item_history('1')
@@ -141,11 +141,34 @@ def test_promoted_shared_snapshot_gates_year_display_on_short_evidence(monkeypat
         if result['status']=='available':
             qualified.append(record['item_code'])
             c=result['coverage']
-            assert c['test_complete_paths']==3 and c['test_relative_mae']<=.1 and c['test_baseline_mae_ratio']<=1
+            assert c['test_complete_paths']==3 and c['test_relative_mae']<=DEFAULT_RULES['max_relative_mae'] and c['test_baseline_mae_ratio']<=DEFAULT_RULES['max_baseline_mae_ratio']
             assert not c['require_annual_validation'] and not c['require_current_shape']
             assert len(result['forecast'])==52
             assert result['annual_forecast_experimental'] is True
             assert all(p['price']>0 and p['week']>source['data_cutoff'] for p in result['forecast'])
         else:
             assert result['forecast']==[]
-    assert len(qualified)==80
+    assert len(qualified)==sum(r['status']=='available' for r in source['records'])
+    assert '27' in qualified  # Red grapes qualify under the relaxed short-window policy.
+
+
+def test_relaxed_policy_boundaries_and_configured_history_message():
+    c = {**coverage(), 'history_weeks':52, 'recent_coverage':.8, 'recent_stores':3,
+         'test_relative_mae':.15, 'test_baseline_mae_ratio':1.35, 'composition_shift_rm':.75}
+    assert eligibility(c,'2026-09-11',date(2026,10,9)) == ('available',[])
+    assert eligibility({**c,'history_weeks':51},'2026-09-11',date(2026,10,9)) == (
+        'insufficient',['At least 52 observed weeks are required.'])
+    for field,value in [('recent_coverage',.799),('recent_stores',2),('test_relative_mae',.1501),
+                        ('test_baseline_mae_ratio',1.351),('composition_shift_rm',.751)]:
+        assert eligibility({**c,field:value},'2026-09-11',date(2026,10,9))[0]=='rejected'
+    assert eligibility(c,'2026-09-10',date(2026,10,9))[0]=='rejected'
+    assert eligibility(c,'2026-09-11',date(2026,10,9),{'min_weeks':60}) == (
+        'insufficient',['At least 60 observed weeks are required.'])
+
+
+def test_runtime_honors_snapshot_numeric_policy(monkeypatch):
+    source = snapshot()
+    source['quality_policy'] = {'rules':{'max_relative_mae':.03}}
+    monkeypatch.setattr(price_history,'load_snapshot',lambda:source)
+    result = price_history.item_history('1')
+    assert result['status']=='rejected' and not result['forecast']

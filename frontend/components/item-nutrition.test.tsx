@@ -40,7 +40,8 @@ describe("item nutrition display", () => {
     expect(markup).toContain("Per 100 g");
     expect(markup).toContain("Generic food reference");
     expect(markup).toContain("130 kcal");
-    expect(markup).toContain("Unavailable");
+    expect(markup).toContain("<dd>-</dd>");
+    expect(markup).not.toContain("Unavailable");
     expect(markup).toContain("FoodData Central");
     expect(markup).toContain("https://fdc.nal.usda.gov/");
     expect(markup).toContain("Generic rice, cooked");
@@ -64,6 +65,8 @@ describe("item nutrition display", () => {
   it("supports gram and millilitre bases without treating absent values as zero", () => {
     expect(nutritionBasisLabel("per_100ml", "en")).toBe("Per 100 mL");
     expect(nutritionBasisLabel("per_100g", "ms")).toBe("Setiap 100 g");
-    expect(nutritionValueLabel(null, "g", "en")).toBe("Unavailable");
+    expect(nutritionValueLabel(null, "g")).toBe("-");
+    expect(nutritionValueLabel(undefined, "g")).toBe("-");
+    expect(nutritionValueLabel(0, "g")).toBe("0 g");
   });
 });

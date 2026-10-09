@@ -23,7 +23,7 @@ export default function PriceSeriesChart({ history, forecast, unit, locale }: {
           <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 4"/>
           <XAxis dataKey="time" type="number" scale="time" domain={['dataMin','dataMax']} tickCount={4} minTickGap={24} tickFormatter={value=>dates.format(new Date(value))} tick={{fontSize:11,fill:'#64748b'}} axisLine={false} tickLine={false}/>
           <YAxis width={45} domain={[Math.max(0,minimum-padding),maximum+padding]} tickCount={4} tickFormatter={value=>Number(value).toFixed(2)} tick={{fontSize:11,fill:'#64748b'}} axisLine={false} tickLine={false}/>
-          {forecast.length>0 && <><ReferenceArea x1={Date.parse(forecast[0].week)} x2={Date.parse(forecast[forecast.length-1].week)} fill="#f3e8ff" fillOpacity={.6}/><ReferenceLine x={Date.parse(forecast[0].week)} stroke="#a78bfa" strokeDasharray="4 4" label={{value:locale==='en' ? 'Forecast begins' : 'Mula unjuran',position:'insideTopRight',fill:'#7c3aed',fontSize:10}}/></>}
+          {forecast.length>0 && <><ReferenceArea x1={Date.parse(forecast[0].week)} x2={Date.parse(forecast[forecast.length-1].week)} fill="#f3e8ff" fillOpacity={.6}/><ReferenceLine x={Date.parse(forecast[0].week)} stroke="#a78bfa" strokeDasharray="4 4"/></>}
           <Tooltip labelFormatter={value=>`${locale==='en' ? 'Week beginning' : 'Minggu bermula'} ${new Date(Number(value)).toISOString().slice(0,10)}`}
             formatter={(value,name)=>[`RM ${Number(value).toFixed(2)}`,name]}
             contentStyle={{border:'1px solid #e2e8f0',borderRadius:12,fontSize:12,boxShadow:'0 4px 16px #0f172a15'}}

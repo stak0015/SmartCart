@@ -27,8 +27,8 @@ export function nutritionBasisLabel(basis: string | null | undefined, locale: "e
   return locale === "en" ? "Per 100 g" : "Setiap 100 g";
 }
 
-export function nutritionValueLabel(value: number | null | undefined, unit: string, locale: "en" | "ms"): string {
-  if (value === null || value === undefined) return locale === "en" ? "Unavailable" : "Tidak tersedia";
+export function nutritionValueLabel(value: number | null | undefined, unit: string): string {
+  if (value === null || value === undefined) return "-";
   const rounded = Math.round(value * 100) / 100;
   return `${rounded} ${unit}`;
 }
@@ -75,7 +75,7 @@ export function ItemNutritionSection({
               return (
                 <div key={key}>
                   <dt>{label}</dt>
-                  <dd>{nutritionValueLabel(result.food!.nutrients[key], unit, locale)}</dd>
+                  <dd>{nutritionValueLabel(result.food!.nutrients[key], unit)}</dd>
                 </div>
               );
             })}

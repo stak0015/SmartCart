@@ -20,11 +20,11 @@ const fs=require('node:fs');const path=require('node:path');
     assert.equal(d.coverage.require_annual_validation,false);assert.equal(d.coverage.require_current_shape,false);
     if(d.status==='available'){
      qualified++;assert.equal(d.forecast.length,52);assert.equal(d.annual_forecast_experimental,true);assert(d.forecast.every(p=>p.price>0&&Number.isFinite(p.price)&&p.week>d.data_cutoff));
-     assert(d.coverage.test_relative_mae<=.1&&d.coverage.test_baseline_mae_ratio<=1);assert.equal(d.coverage.test_complete_paths,3);
+     assert(d.coverage.test_relative_mae<=snapshot.quality_policy.rules.max_relative_mae&&d.coverage.test_baseline_mae_ratio<=snapshot.quality_policy.rules.max_baseline_mae_ratio);assert.equal(d.coverage.test_complete_paths,3);
     }else assert.equal(d.forecast.length,0);
    }));
   }
-  assert.equal(qualified,80);
+  assert.equal(qualified,snapshot.records.filter(r=>r.status==='available').length);
   const names=[['263','Buruh cooking oil'],['1','Whole chicken'],['70','Selar fish'],['47','Cencaru fish'],['1378','Imported buffalo chuck']];
   const fixtures=names.map(([code,name])=>{const r=snapshot.records.find(r=>r.item_code===code);return {item_id:Number(code),item_code:code,item_name:r.item,item_name_en:name,unit:r.unit,package_size:r.unit,item_category:'FOOD',category:null,sara_eligible:null,sara_category_candidate:true};});
   let failure=false;let requests=0;

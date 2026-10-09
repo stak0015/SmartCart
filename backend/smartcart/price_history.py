@@ -30,10 +30,8 @@ def item_history(item_code, region=None):
         raise AppError('INVALID_PRICE_REGION', 'Choose one of the available price regions.', 400)
     result = deepcopy(record)
     if result['status'] == 'available':
-        require_annual=snapshot.get('quality_policy',{}).get('rules',{}).get('require_annual_validation',False)
-        require_current=snapshot.get('quality_policy',{}).get('rules',{}).get('require_current_shape',False)
         status, reasons = eligibility(result['coverage'],result['latest_observation'],datetime.now(ZoneInfo('Asia/Kuala_Lumpur')).date(),
-            {'require_annual_validation':require_annual,'require_current_shape':require_current})
+            snapshot.get('quality_policy',{}).get('rules',{}))
         if status != 'available':
             result.update(status=status,reasons=reasons,forecast=[])
     return dict(**base, **result)
