@@ -24,4 +24,5 @@ AGENTS.md
 design-reference/
 /raw/
 .tmp/
-research/
+# Local research, experimental outputs and development evidence
+/research/
