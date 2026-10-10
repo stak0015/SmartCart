@@ -17,12 +17,16 @@ def test_catalogue_ranges_use_nearest_25_cached_stores(monkeypatch):
     def ranges(items, premises):
         assert items == [1, 2]
         assert premises == [str(i) for i in range(1, 26)]
-        return {1: {"min_rm": 2.5, "max_rm": 4.0, "store_count": 3, "oldest_observed_date": None}}
+        return {
+            1: {"min_rm": 2.5, "max_rm": 4.0, "store_count": 3, "oldest_observed_date": None, "price_source": "store"},
+            2: {"min_rm": 3.0, "max_rm": 3.0, "store_count": 0, "oldest_observed_date": None, "price_source": "median"},
+        }
     monkeypatch.setattr(api, "catalogue_price_ranges", ranges)
     response = TestClient(create_app()).get("/api/items/search?candidate_cache_id=token").json()
     assert response["price_store_count"] == 25
     assert response["items"][0]["price_range"]["min_rm"] == 2.5
-    assert response["items"][1]["price_range"] is None
+    assert response["items"][1]["price_range"]["price_source"] == "median"
+    assert response["items"][1]["price_range"]["min_rm"] == 3.0
 
 
 def test_expired_price_context_does_not_query_prices(monkeypatch):
@@ -129,14 +133,19 @@ def test_price_aggregation_preserves_observation_date_and_money(monkeypatch):
     class Cursor:
         def execute(self, sql, params):
             assert "current_price > 0" in sql
-            assert "median_price" not in sql
-            assert params == ([1], [12, 13])
+            assert "COALESCE(p.min_rm, i.median_price_rm)" in sql
+            assert "COALESCE(p.min_rm, i.median_price_rm) > 0" in sql
+            assert params == ([1, 2, 3], [12, 13], [1, 2, 3])
         def fetchall(self):
-            return [(1, Decimal("2.50"), Decimal("4.10"), 2, date(2026, 9, 19))]
+            return [
+                (1, Decimal("2.50"), Decimal("4.10"), 2, date(2026, 9, 19), "store"),
+                (2, Decimal("3.20"), Decimal("3.20"), 0, None, "median"),
+            ]
     @contextmanager
     def cursor():
         yield Cursor()
     monkeypatch.setattr(catalogue, "database_cursor", cursor)
-    assert catalogue.catalogue_price_ranges([1], ["12", "13"]) == {
-        1: {"min_rm": 2.5, "max_rm": 4.1, "store_count": 2, "oldest_observed_date": "2026-09-19"}
+    assert catalogue.catalogue_price_ranges([1, 2, 3], ["12", "13"]) == {
+        1: {"min_rm": 2.5, "max_rm": 4.1, "store_count": 2, "oldest_observed_date": "2026-09-19", "price_source": "store"},
+        2: {"min_rm": 3.2, "max_rm": 3.2, "store_count": 0, "oldest_observed_date": None, "price_source": "median"},
     }

@@ -6,6 +6,14 @@
   --grid-gap: 20px;
 }
 .smartcart-app { line-height: 1.5; }
+.shopping-step-nav { margin: 16px var(--page-gutter) 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.shopping-step-nav ol { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
+.shopping-step-nav button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
+.shopping-step-nav button:not(:disabled):hover { background: #eaf5ee; color: var(--green); }
+.shopping-step-nav button[aria-current="step"] { background: #eaf5ee; color: var(--green); }
+.shopping-step-nav button:disabled { opacity: .45; }
+.shopping-step-nav button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.shopping-step-number { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; }
 .smartcart-app :where(button, input, select, textarea) { min-width: 0; }
 .smartcart-app :where(button, a) > svg { flex-shrink: 0; }
 .smartcart-app :where(h1, h2, h3, p, strong, small) { overflow-wrap: anywhere; }
@@ -106,14 +114,19 @@
 .store-detail-header, .store-detail-items-heading { gap: 16px; }
 .store-detail-items-heading > div { min-width: 0; }
 .store-detail-route, .edit-basket-link { min-height: 44px; }
-.store-item-columns, .store-item-row { grid-template-columns: 44px minmax(0, 2fr) minmax(0, 1fr) 64px 132px 75px 80px 32px; gap: 8px; }
+.store-item-columns, .store-item-row { grid-template-columns: 44px minmax(0, 2fr) minmax(0, .65fr) 80px 124px 75px 80px 32px; gap: 8px; }
+.store-item-columns span:first-child { grid-column: 2; }
 .store-item-row > * { min-width: 0; }
+.store-item-sara .sara-item-status { padding: 2px 5px; }
+.store-item-package, .store-item-columns > span:nth-child(3) { padding-right: 16px; }
+.store-item-quantity { padding-right: 16px; }
+.store-item-quantity .quantity-selector > div { grid-template-columns: repeat(3, 36px); }
 .store-item-quantity .quantity-selector button,
-.store-item-quantity .quantity-selector input { width: 44px; height: 44px; min-height: 44px; }
+.store-item-quantity .quantity-selector input { width: 36px; height: 36px; min-height: 36px; font-size: 14px; }
 .store-item-columns, .store-item-row { padding-inline: 12px; }
-.store-item-row:not(:has(.store-item-toggle)) { padding-right: 16px; }
+.store-item-row:not(:has(.store-item-toggle)) { padding-right: 12px; }
 .store-item-toggle { min-height: 44px; }
-.store-item-list { max-height: none; overflow: visible; }
+.store-item-list { max-height: none; overflow: visible; scrollbar-gutter: auto; }
 .store-item-name strong { font-size: 13px; line-height: 1.5; }
 .store-item-total, .store-item-unit-price { font-variant-numeric: tabular-nums; }
 .store-item-mobile-quantity { display: none; }
@@ -125,6 +138,7 @@
 .checklist-metrics { position: static; width: 100%; max-width: none; margin-top: 20px; }
 .checklist-columns, .checklist-row { grid-template-columns: 30px minmax(0, 2fr) 72px 40px 84px 90px minmax(0, 1fr) 176px; gap: 12px; }
 .checklist-row > * { min-width: 0; }
+.checklist-columns > span:nth-child(2) { padding-left: 52px; }
 .checklist-row-actions button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
 .checklist-row-actions > div { gap: 0; }
 .checklist-filters button { min-height: 44px; padding: 8px 16px; }
@@ -199,7 +213,7 @@
   .checklist-row-actions { display: none; grid-column: 2 / 5; grid-row: 2; }
   .actions-open .checklist-row-actions { display: block; }
   .checklist-row .row-disclosure { display: grid; place-items: center; grid-column: 4; grid-row: 1; min-height: 44px; }
-  .checklist-row .mobile-item-status { display: block; width: fit-content; margin: 4px 0 0 auto; }
+  .checklist-row .mobile-item-status { display: block; width: fit-content; margin: 4px 0 0; }
   .statistics-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
@@ -505,3 +519,137 @@
 @media (prefers-reduced-motion: reduce) {
   .inbox-message-button,.category-pie { transition:none; }
 }
+
+.catalogue-item-dialog { border: 0; background: transparent; box-shadow: none; }
+.catalogue-dialog-layout { display: grid; gap: 16px; align-items: start; }
+.catalogue-item-card, .catalogue-trends-card { min-width: 0; border: 1px solid var(--line); border-radius: 16px; background: white; box-shadow: none; overflow: hidden; }
+.catalogue-trends-card { padding: 20px; }
+.price-trends-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 36px; padding: 8px 12px; margin-top: 16px; border: 1px solid #dce7e0; border-radius: 9px; background: #f5f9f6; color: #166534; font-size: 13px; font-weight: 600; }
+.price-trends-trigger:hover { background: #eaf3ed; }
+.item-price-history { margin: 0; color: #334155; }
+.item-price-history p { margin: 8px 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.price-trends-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.price-trends-header h3 { font-size: 17px; font-weight: 700; color: #14271e; }
+.price-trends-header .icon-button { width: 32px; min-height: 32px; height: 32px; color: #64748b; }
+.item-price-history .price-trends-meta { color: #64748b; font-size: 11px; margin: 0 0 14px; }
+.price-control-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.price-control-row > span { width: 58px; font-size: 11px; color: #64748b; }
+.price-control-row > .price-annual-badge { width: auto; padding: 6px 9px; border-radius: 7px; background: #f5f0ff; color: #75549b; }
+.price-period-controls { display: inline-flex; gap: 2px; padding: 3px; border-radius: 8px; background: #f1f5f3; }
+.price-period-controls button { min-height: 30px; min-width: 40px; padding: 4px 9px; border: 0; border-radius: 6px; color: #64748b; font-size: 12px; line-height: 1; }
+.price-period-controls button[aria-pressed="true"] { background: white; color: #166534; font-weight: 600; box-shadow: 0 1px 4px #10231d15; }
+.price-period-controls button:disabled { opacity: .45; cursor: not-allowed; }
+.price-forecast-signal { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 14px; padding: 12px; border: 1px solid #fed7aa; border-radius: 10px; background: #fff7ed; color: #9a3412; }
+.price-forecast-signal-fall { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+.price-forecast-signal-arrow { flex-shrink: 0; font-size: 24px; line-height: 1; }
+.price-forecast-signal strong { display: block; font-size: 13px; }
+.item-price-history .price-forecast-signal p { margin: 4px 0; font-size: 11px; }
+.price-forecast-signal small { display: block; font-size: 10px; }
+.item-price-history .price-trends-note { font-size: 11px; color: #64748b; margin-top: 12px; }
+.price-data-details { margin-top: 8px; font-size: 11px; color: #64748b; }
+.price-data-details summary { cursor: pointer; min-height: 28px; padding-block: 5px; }
+.price-history-only { color: #64748b; }
+.price-retry { font-size: 12px; color: #166534; text-decoration: underline; padding: 6px; }
+@media (min-width: 900px) {
+  .catalogue-item-dialog-with-trends { width: min(1080px, calc(100% - 48px)); }
+  .catalogue-item-dialog-with-trends .catalogue-dialog-layout { grid-template-columns: 360px minmax(0,1fr); }
+  .catalogue-item-card, .catalogue-trends-card { max-height: calc(100dvh - 48px); overflow-y: auto; }
+}
+@media (max-width: 899px) {
+  .catalogue-dialog-layout { gap: 10px; }
+  .catalogue-trends-card { padding: 16px; }
+}
+.price-chart-card { padding: 14px 6px 10px; border: 1px solid #e2e8f0; border-radius: 14px; background: #fbfdfc; min-width: 0; }
+.price-chart-legend { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding-inline: 8px; font-size: 12px; }
+.price-chart-legend span { display: inline-flex; gap: 5px; align-items: center; }
+.price-chart-legend small { color: #64748b; margin-left: auto; }
+.price-chart-legend i { width: 18px; border-top: 3px solid #15803d; }
+.price-chart-legend .projected-swatch { border-color: #7c3aed; border-top-style: dashed; }
+.price-chart-plot { width: 100%; min-width: 0; }
+.price-chart-range { display: flex; justify-content: space-between; padding-inline: 8px; color: #64748b; font-size: 10px; }
+.price-chart-placeholder { height: 300px; border-radius: 14px; background: #f1f5f9; }
+/* Epic 7 (US 7.1) — Healthier alternatives section inside the item dialog. */
+.item-nutrition { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.item-nutrition h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #10152e; }
+.item-nutrition p { margin: 0; font-size: 13px; color: #526078; }
+.item-nutrition-basis { font-weight: 700; color: #10152e !important; }
+.item-nutrition-disclosure { margin-top: 6px !important; }
+.item-nutrition-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; margin: 10px 0 0; }
+.item-nutrition-values div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #eef3f0; padding-bottom: 5px; font-size: 12px; }
+.item-nutrition-values dt { color: #526078; }
+.item-nutrition-values dd { margin: 0; color: #10152e; font-weight: 700; font-variant-numeric: tabular-nums; text-align: end; }
+.item-nutrition-rationale { margin-top: 9px !important; }
+.item-nutrition-source { margin: 10px 0 0; font-size: 12px; color: #526078; }
+.item-nutrition-source dt { font-weight: 800; }
+.item-nutrition-source dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.item-nutrition-source a { color: #007d38; font-weight: 700; }
+.item-nutrition-definition { margin: 8px 0 0; font-size: 11px; color: #718078; }
+.item-nutrition-definition dt { font-weight: 800; }
+.item-nutrition-definition dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.healthier-alternatives { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+.healthier-alternatives h3 { margin: 0 0 8px; font-size: 15px; font-weight: 800; color: #10152e; }
+.healthier-alternatives p { margin: 0; font-size: 13px; color: #526078; }
+.healthier-alternatives-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.healthier-alternative-main { display: flex; width: 100%; gap: 10px; align-items: center; text-align: start; padding: 10px; border: 1px solid #dfe7e2; border-radius: 12px; background: #f7fbf9; cursor: pointer; }
+.healthier-alternative-main:hover { border-color: #007d38; }
+.healthier-alternative-visual { position: relative; flex: 0 0 auto; width: 40px; height: 40px; }
+.healthier-alternative-text { display: grid; gap: 2px; min-width: 0; }
+.healthier-alternative-text strong { font-size: 13px; font-weight: 800; color: #10152e; overflow-wrap: anywhere; }
+.healthier-alternative-text small { font-size: 12px; color: #718078; }
+.healthier-alternative-text em { font-size: 12px; font-style: normal; font-weight: 700; color: #007d38; }
+
+/* Epic 7 (US 7.2) — "Back to [previous item]" control inside the dialog. */
+.catalogue-dialog-back { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; padding: 8px 12px; min-height: 40px; border: 1px solid #cbd8d1; border-radius: 10px; background: #fff; color: #007d38; font-size: 13px; font-weight: 800; cursor: pointer; overflow-wrap: anywhere; text-align: start; }
+.catalogue-dialog-back:hover { border-color: #007d38; background: #edf7f2; }
+
+/* Epic 7 (US 7.3) — inline "Why this alternative?" comparison. */
+.healthier-alternative-card { display: grid; gap: 4px; }
+.healthier-insight-toggle { justify-self: start; min-height: 36px; padding: 6px 10px; border: 1px solid #007d38; border-radius: 8px; background: #fff; color: #007d38; font-size: 12px; font-weight: 800; cursor: pointer; }
+.healthier-insight-toggle:hover { background: #edf7f2; }
+.healthier-insight-wrap { margin-top: 10px; padding: 12px; border: 1px solid #dfe7e2; border-radius: 12px; background: #fff; }
+.healthier-insight-pair { margin: 0 0 4px; font-size: 13px; color: #10152e; }
+.healthier-insight-basis { margin: 0 0 8px; font-size: 12px; color: #718078; }
+.healthier-insight-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.healthier-insight-table th, .healthier-insight-table td { padding: 4px 6px; text-align: start; vertical-align: top; border-bottom: 1px solid #eef3f0; }
+.healthier-insight-table thead th { color: #718078; font-weight: 700; }
+.healthier-insight-table tbody th { font-weight: 600; color: #10152e; }
+.healthier-insight-table tr[data-status="unavailable"] td { color: #718078; }
+.healthier-insight-table tr[data-status="non_comparable"] td { color: #8a6d1f; }
+.healthier-insight-tradeoff { margin: 8px 0 0; font-size: 12px; font-weight: 700; color: #8a6d1f; }
+.healthier-insight-sources { margin: 8px 0 0; font-size: 12px; color: #526078; }
+.healthier-insight-sources dt { font-weight: 800; }
+.healthier-insight-sources dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+.healthier-insight-generic { margin: 8px 0 0; font-size: 12px; color: #526078; }
+.healthier-insight-close { margin-top: 10px; min-height: 36px; padding: 6px 12px; border: 1px solid #cbd8d1; border-radius: 8px; background: #fff; color: #007d38; font-size: 12px; font-weight: 800; cursor: pointer; }
+.healthier-insight-close:hover { border-color: #007d38; background: #edf7f2; }
+
+/* Compact horizontal alternatives and optional detail panels. */
+.healthier-alternatives-list { display: flex; gap: 10px; overflow-x: auto; padding: 2px 2px 10px; scroll-snap-type: x proximity; }
+.healthier-alternative-card { position: relative; flex: 0 0 155px; scroll-snap-align: start; }
+.healthier-alternative-main { flex-direction: column; align-items: stretch; height: 100%; padding: 14px 10px 12px; }
+.healthier-alternative-visual { width: 84px; height: 84px; margin: 6px auto 10px; }
+.healthier-alternative-text { gap: 7px; }
+.healthier-alternative-text strong { font-size: 12px; }
+.healthier-alternative-text em { font-size: 11px; }
+.healthier-insight-toggle { position: absolute; top: 5px; right: 5px; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: #fff; box-shadow: 0 1px 5px #10231d15; }
+.healthier-insight-toggle:focus-visible, .catalogue-nutrition-disclosure summary:focus-visible { outline: 2px solid #007d38; outline-offset: 2px; }
+.catalogue-nutrition-disclosure { padding: 16px 20px; border-top: 1px solid var(--line); }
+.catalogue-nutrition-disclosure > summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; font-size: 14px; font-weight: 750; color: #334155; }
+.catalogue-nutrition-disclosure > summary::-webkit-details-marker { display: none; }
+.catalogue-nutrition-disclosure[open] > summary svg { transform: rotate(180deg); }
+.catalogue-nutrition-disclosure .item-nutrition { border-top: 0; padding-top: 12px; margin-top: 0; }
+.catalogue-insights-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.catalogue-insights-header h3 { margin: 0; font-size: 16px; }
+.healthier-insight-reason { margin: 12px 0 6px; color: #007d38; font-weight: 750; }
+.healthier-insight-table { margin-top: 16px; font-size: 14px; }
+.healthier-insight-table th, .healthier-insight-table td { padding: 12px 6px; }
+.healthier-insight-more { margin-top: 16px; color: #526078; font-size: 12px; }
+.healthier-insight-more summary { cursor: pointer; font-weight: 700; }
+.healthier-insight-more p { font-size: 12px; line-height: 1.5; }
+
+.catalogue-dialog-content > .catalogue-nutrition-disclosure { padding: 16px 0; margin-top: 16px; }
+
+.catalogue-dialog-details .product-visual { position: relative; }
+.catalogue-dialog-details .product-visual > span { display: grid; place-items: center; width: 100%; height: 100%; }
+.catalogue-dialog-details .price-trends-trigger { position: absolute; top: 8px; right: 8px; display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; min-height: 40px; padding: 0; margin: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px #10231d18; }
+.price-trends-trigger:focus-visible { outline: 2px solid #007d38; outline-offset: 2px; }

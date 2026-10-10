@@ -18,7 +18,8 @@ Set `DATABASE_URL` in `.env`. Google keys are optional for local development:
 `GOOGLE_PLACES_API_KEY` enables location autocomplete and
 `GOOGLE_ROUTES_API_KEY` enables routed recommendations (a single
 `GOOGLE_MAPS_API_KEY` works as a fallback for both). If the Routes key is
-missing, recommendations automatically use the 25 nearest fresh premises with
+missing or a Routes request fails (including an invalid key), recommendations
+automatically use the 25 nearest located premises with
 straight-line distance and clearly marked approximate travel estimates. Then
 start the API. Report narratives use Cerebras when the server-only
 `CEREBRAS_API_KEY` is set; otherwise reports use deterministic localized
@@ -45,7 +46,7 @@ routes are:
 With Google Routes configured, the recommendation response ranks reachable
 premises by exact store-price coverage, then effective coverage, effective
 basket-plus-return-transport cost, travel time, and distance. Without a Routes
-key, it skips the provider and returns the 25 nearest fresh premises by
+key, or after a Routes request fails, it returns the 25 nearest located premises by
 straight-line distance; route limits and reachability are not verified in that
 fallback. Both paths include quantity-aware unit and line prices for each
 basket item. A missing store observation uses the cached cross-store item

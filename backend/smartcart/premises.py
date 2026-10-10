@@ -26,7 +26,6 @@ def find_nearest_premises(
     sara_filter: SaraFilter,
     maximum_straight_line_km: float | None,
     limit: int,
-    maximum_coordinate_age_days: int,
 ) -> list[PremiseCandidate]:
     with database_cursor() as cursor:
         cursor.execute(
@@ -52,8 +51,6 @@ def find_nearest_premises(
                   AND open_closed_status = 'open'
                   AND latitude IS NOT NULL
                   AND longitude IS NOT NULL
-                  AND location_refreshed_at >=
-                      CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')
                   AND (
                     %s = 'any'
                     OR (%s = 'verified' AND sara_partner IS TRUE)
@@ -73,7 +70,6 @@ def find_nearest_premises(
                 latitude,
                 latitude,
                 longitude,
-                maximum_coordinate_age_days,
                 sara_filter,
                 sara_filter,
                 sara_filter,
@@ -105,7 +101,7 @@ def find_nearest_premises(
     return candidates
 
 
-def get_premise_location_coverage(maximum_coordinate_age_days: int) -> tuple[int, int]:
+def get_premise_location_coverage() -> tuple[int, int]:
     with database_cursor() as cursor:
         cursor.execute(
             """
@@ -119,12 +115,10 @@ def get_premise_location_coverage(maximum_coordinate_age_days: int) -> tuple[int
                       AND open_closed_status = 'open'
                       AND latitude IS NOT NULL
                       AND longitude IS NOT NULL
-                      AND location_refreshed_at >=
-                          CURRENT_TIMESTAMP - (%s * INTERVAL '1 day')
                 )
             FROM premise
             """,
-            (maximum_coordinate_age_days,),
+            (),
         )
         row = cursor.fetchone()
     return (int(row[0]), int(row[1])) if row else (0, 0)

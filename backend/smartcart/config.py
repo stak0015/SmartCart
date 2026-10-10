@@ -44,7 +44,6 @@ class Settings:
     maps_request_timeout_seconds: float
     cors_origins: tuple[str, ...]
     route_matrix_candidate_limit: int
-    premise_location_max_age_days: int
     public_transport_base_per_leg_rm: float
     public_transport_per_km_rm: float
     motorcycle_per_km_rm: float
@@ -85,9 +84,6 @@ def get_settings() -> Settings:
         cors_origins=origins,
         route_matrix_candidate_limit=_bounded_integer(
             "ROUTE_MATRIX_CANDIDATE_LIMIT", 25, 5, 49
-        ),
-        premise_location_max_age_days=_bounded_integer(
-            "PREMISE_LOCATION_MAX_AGE_DAYS", 29, 1, 30
         ),
         public_transport_base_per_leg_rm=_non_negative_number(
             "TRAVEL_COST_PUBLIC_TRANSPORT_BASE_PER_LEG_RM", 1.0
