@@ -26,7 +26,7 @@ ORIGIN = {"latitude": 6.1254, "longitude": 102.2381}
 
 def request_body(second_store_limit: dict | None = None) -> dict:
     body = {
-        "basket": [{"itemId": "12", "quantity": 2}],
+        "basket": [{"itemId": "12", "quantity": 2}, {"itemId": "13", "quantity": 1}],
         "travel": {
             "origin": {
                 "label": "Kota Bharu, Kelantan",
@@ -127,7 +127,9 @@ def install(monkeypatch, provider) -> None:
         "smartcart.api.get_basket_pricing",
         lambda premise_ids, _basket: {
             premise_id: StoreBasketSummary(
-                subtotal_rm=10.0, priced_count=1, basket_line_count=1
+                subtotal_rm=10.0, priced_count=2, basket_line_count=2,
+                lines=(official_line("12", 3 if premise_id == "1" else 2),
+                       official_line("13", 2 if premise_id == "1" else 3)),
             )
             for premise_id in premise_ids
         },
@@ -260,37 +262,69 @@ def test_missing_inter_store_route_yields_no_plan_and_no_invented_cost(
     assert multi["emptyReason"] == "no_inter_store_route_data"
 
 
-def test_straight_line_fallback_reports_multi_store_unsupported(monkeypatch) -> None:
-    """Without Google Routes there are no real legs, so nothing is fabricated."""
-    monkeypatch.setattr(
-        "smartcart.api.get_settings",
-        lambda: replace(get_settings(), google_routes_api_key=None),
-    )
-    monkeypatch.setattr(
-        "smartcart.api.find_nearest_premises",
-        lambda **_options: [STORE_A, STORE_B],
-    )
-    monkeypatch.setattr(
-        "smartcart.api.get_basket_pricing",
-        lambda premise_ids, _basket: {
-            premise_id: StoreBasketSummary(
-                subtotal_rm=10.0, priced_count=1, basket_line_count=1
-            )
-            for premise_id in premise_ids
-        },
-    )
+@pytest.mark.parametrize("failure_stage", ["missing_key", "home", "inter_store"])
+def test_straight_line_fallback_produces_estimated_plans(monkeypatch, failure_stage):
+    from smartcart.errors import AppError
 
+    class RejectedMaps(TwoStoreMapsProvider):
+        async def compute_route_matrix(self, *args):
+            if failure_stage == "home":
+                raise AppError("MAPS_UNAVAILABLE", "Key rejected", 502)
+            return await super().compute_route_matrix(*args)
+
+        async def compute_route_matrix_multi_origin(self, *args):
+            raise AppError("MAPS_UNAVAILABLE", "Key rejected", 502)
+
+    provider = RejectedMaps()
+    install(monkeypatch, provider)
+    if failure_stage == "missing_key":
+        monkeypatch.setattr("smartcart.api.get_settings",
+                            lambda: replace(get_settings(), google_routes_api_key=None))
+        def unexpected_maps_call():
+            raise AssertionError("Missing-key fallback must not call Google")
+        monkeypatch.setattr("smartcart.api.get_maps_provider", unexpected_maps_call)
     response = TestClient(create_app()).post(
-        "/api/recommendations",
-        json=request_body({"type": "distance", "value": 5}),
-    )
-
+        "/api/recommendations", json=request_body({"type": "distance", "value": 5}))
     assert response.status_code == 200
     body = response.json()
     assert body["routeProvider"] == "straight_line"
     multi = body["multiStore"]
-    assert multi["plans"] == []
-    assert multi["emptyReason"] == "straight_line_fallback_unsupported"
+    assert len(multi["plans"]) == 1
+    plan = multi["plans"][0]
+    assert plan["routeProvider"] == "straight_line"
+    assert 1 < plan["interStoreDistanceKm"] < 2
+    assert plan["totalTravelCostRm"] > 0
+    assert len(plan["legs"]) == 3
+    assert multi["comparison"] is not None
+
+
+@pytest.mark.parametrize("home_limit, second_limit", [
+    ({"type": "distance", "value": 0.5}, {"type": "distance", "value": 5}),
+    ({"type": "distance", "value": 15}, {"type": "distance", "value": 0.5}),
+    ({"type": "distance", "value": 15}, {"type": "time", "value": 5}),
+    ({"type": "distance", "value": 15}, {"type": "both", "distanceKm": 5, "timeMinutes": 5}),
+])
+def test_fallback_respects_estimated_limits(monkeypatch, home_limit, second_limit):
+    install(monkeypatch, TwoStoreMapsProvider())
+    monkeypatch.setattr("smartcart.api.get_settings",
+                        lambda: replace(get_settings(), google_routes_api_key=None))
+    body = request_body(second_limit)
+    body["travel"]["limit"] = home_limit
+    body["travel"]["transportMode"] = "walk"
+    response = TestClient(create_app()).post("/api/recommendations", json=body)
+    assert response.status_code == 200
+    assert response.json()["multiStore"]["plans"] == []
+
+
+def test_fallback_excludes_missing_coordinates(monkeypatch):
+    install(monkeypatch, TwoStoreMapsProvider())
+    monkeypatch.setattr("smartcart.api.get_settings",
+                        lambda: replace(get_settings(), google_routes_api_key=None))
+    monkeypatch.setattr("smartcart.api.get_premise_coordinates", lambda _ids: {"2": COORDINATES["2"]})
+    response = TestClient(create_app()).post(
+        "/api/recommendations", json=request_body({"type": "distance", "value": 5}))
+    assert response.status_code == 200
+    assert response.json()["multiStore"]["plans"] == []
 
 
 # ------------------------------------------------------- cache interaction
@@ -381,9 +415,10 @@ def install_with_official_prices(monkeypatch, provider, price_by_store) -> None:
         lambda premise_ids, _basket: {
             premise_id: StoreBasketSummary(
                 subtotal_rm=None,
-                priced_count=1,
-                basket_line_count=1,
-                lines=(official_line("12", price_by_store[premise_id]),),
+                priced_count=2,
+                basket_line_count=2,
+                lines=(official_line("12", price_by_store[premise_id]),
+                       official_line("13", 1 if premise_id == "1" else 2)),
             )
             for premise_id in premise_ids
             if premise_id in price_by_store
@@ -449,7 +484,7 @@ def test_comparison_flows_through_api_with_camel_case_fields(monkeypatch) -> Non
     assert cheapest["combinedTotalRm"] == pytest.approx(
         cheapest["basketSubtotalRm"] + cheapest["transportCostRm"]
     )
-    assert "official store prices" in comparison["priceBasisNote"]
+    assert "labelled median estimates" in comparison["priceBasisNote"]
 
 
 def test_saving_baseline_survives_the_full_request_path(monkeypatch) -> None:
@@ -508,3 +543,18 @@ def test_no_basket_means_no_comparison(monkeypatch) -> None:
     # Route-level plans still exist (US 6.2), but no priced comparison (US 6.3).
     assert multi["plans"]
     assert multi["comparison"] is None
+
+
+def test_basket_bought_entirely_at_one_store_has_no_two_stop_plans(monkeypatch):
+    provider = TwoStoreMapsProvider(inter_store={
+        "place-a": [inter_leg(0, 4_000, 480)], "place-b": [inter_leg(1, 4_000, 480)],
+    })
+    install_with_official_prices(monkeypatch, provider, {"1": 2, "2": 3})
+    body = request_body({"type": "distance", "value": 5})
+    body["basket"] = [{"itemId": "12", "quantity": 2}]
+    response = TestClient(create_app()).post("/api/recommendations", json=body)
+    assert response.status_code == 200
+    multi = response.json()["multiStore"]
+    assert multi["plans"] == []
+    assert all(plan["storeCount"] == 1 for plan in multi["comparison"]["completePlans"])
+    assert len(response.json()["recommendations"]) == 2

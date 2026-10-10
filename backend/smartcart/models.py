@@ -353,18 +353,13 @@ class MultiStorePlan(CamelModel):
 
 
 class PlanStoreAssignment(CamelModel):
-    """One basket line assigned to a store within a two-store plan (AC 6.3.1).
-
-    A line's full quantity always goes to a single store; it is never split.
-    ``unit_price_rm`` is an official store observation (price_source "store"),
-    never a median estimate, because AC 6.3.1 allocates on official prices.
-    """
+    """A basket line assigned to a store, including labelled median estimates."""
 
     item_id: str
     item_name: str | None
     quantity: int
-    unit_price_rm: float
-    line_total_rm: float
+    unit_price_rm: float | None
+    line_total_rm: float | None
     store_premise_id: str
     store_name: str
     # AC 6.4.2: the pack spec (e.g. "500 g", "1 L") shown per assigned line.
@@ -372,30 +367,29 @@ class PlanStoreAssignment(CamelModel):
     # items the catalogue has no parsed pack size for.
     unit: str | None
     observed_date: str | None = None
+    price_source: Literal["store", "median"] | None = None
+    item_name_en: str | None = None
+    item_name_ms: str | None = None
+    category: CategorySummary | None = None
+    source_category: SourceCategorySummary | None = None
+    sara_eligible: bool | None = None
+    sara_category_candidate: bool = False
 
 
 class PricedPlan(CamelModel):
-    """A single-store or two-store plan priced for comparison (US 6.3).
-
-    Every money figure here uses the SAME basis: official store prices only
-    (median estimates are excluded), so single-store and two-store plans are
-    directly comparable and the saving in AC 6.3.5 subtracts like from like.
-    This is deliberately separate from the single-store card's displayed
-    ``combined_total_rm``, which mixes store and median prices.
-    """
+    """A store plan priced using observed prices and median estimates."""
 
     plan_id: str
     store_count: Literal[1, 2]
     store_premise_ids: list[str]
     store_names: list[str]
     # AC 6.3.2: basket subtotal is the sum of assigned unit prices x quantities.
-    basket_subtotal_rm: float
+    basket_subtotal_rm: float | None
     # Complete-route transport: round trip for one store, the full loop for two.
     transport_cost_rm: float
     # AC 6.3.2: combined total = basket subtotal + transport.
-    combined_total_rm: float
-    # AC 6.3.4: complete means every requested basket line has an official price
-    # at its assigned store(s); an incomplete plan is never ranked as cheapest.
+    combined_total_rm: float | None
+    # Effective coverage includes observed prices and median estimates.
     is_complete: bool
     priced_line_count: int
     basket_line_count: int
@@ -434,7 +428,7 @@ class PlanComparison(CamelModel):
     # case no saving is shown for any two-store plan (AC 6.3.6).
     single_store_baseline_rm: float | None = None
     single_store_baseline_name: str | None = None
-    # Transparency: states that the comparison uses official store prices only.
+    # Transparency: explains observed prices and labelled median estimates.
     price_basis_note: str
 
 
@@ -460,6 +454,7 @@ class MultiStorePlans(CamelModel):
     # only when a basket was sent and at least one two-store plan exists; the
     # route-level ``plans`` above remain the US 6.2 output.
     comparison: PlanComparison | None = None
+    stores: list[StoreRecommendation] = Field(default_factory=list)
 
 
 class RecommendationResponse(CamelModel):

@@ -70,9 +70,14 @@ from .premises import (
     get_premise_location_coverage,
 )
 from .pricing import get_basket_pricing
-from .multi_store import plan_multi_store_trips, select_pairs_for_routing
+from .multi_store import (
+    MAX_INTER_STORE_PAIRS, MAX_RETURNED_PLANS,
+    haversine_km, pair_passes_second_limit, plan_multi_store_trips,
+    resolve_limit, select_pairs_for_routing,
+)
 from .multi_store_pricing import build_plan_comparison
 from .recommendation import (
+    FALLBACK_TRAVEL_SPEED_KMH,
     TravelCostRate,
     apply_basket_pricing,
     get_travel_cost_model,
@@ -165,22 +170,18 @@ def _priced_ranking_method(route_provider: str, expanded_search: bool) -> str:
     if expanded_search:
         return (
             "No store matched your travel limit, so the nearest stores are shown instead. "
-            "They are ranked by exact store-price coverage, then effective coverage "
-            "including cached median estimates, then lowest combined cost (effective "
+            "They are ranked by lowest combined cost, including cached median estimates (effective "
             "basket subtotal plus estimated return transport cost); these stores exceed "
             "your chosen limit."
         )
     if route_provider == "straight_line":
         return (
-            "Nearest 25 premises by straight-line distance; stores are ranked by exact "
-            "store-price coverage, then effective coverage including cached median "
-            "estimates, then estimated combined cost using rough travel estimates. "
+            "Nearest 25 premises by straight-line distance; stores are ranked by estimated combined cost, including cached median estimates, using rough travel estimates. "
             "Google Routes is unavailable, so travel limits and route feasibility "
             "are not verified."
         )
     return (
-        "Stores ranked by exact store-price coverage, then effective coverage including "
-        "cached median estimates, then lowest combined cost: effective basket subtotal "
+        "Stores ranked by lowest combined cost, including cached median estimates: effective basket subtotal "
         "plus estimated return transport cost; ties by shortest travel time, route "
         "distance, store name, then premise ID."
     )
@@ -420,24 +421,14 @@ async def _build_multi_store_plans(
     Returns None whenever the client sent no second-store limit, so the response
     shape is byte-identical for every pre-Epic-6 caller.
 
-    Route data rules:
-    * The straight-line fallback has no real routes, and AC 6.2.7 forbids
-      inventing transport costs, so multi-store planning is reported as
-      unsupported rather than estimated from synthetic values.
-    * Only stores that satisfy the *original* travel limit may be visited first
-      (AC 6.2.1); expanded-search stores are flagged ``exceeds_limit`` and are
-      therefore excluded from that role.
+    When Routes is unavailable, use explicitly labelled straight-line estimates
+    with the same speed and cost model as single-store recommendations.
+    Both travel limits still apply to these estimates.
     """
     if payload.second_store_limit is None:
         return None
 
     second_store_limit = payload.second_store_limit
-    if use_straight_line_fallback:
-        return MultiStorePlans(
-            second_store_limit=second_store_limit,
-            empty_reason="straight_line_fallback_unsupported",
-        )
-
     reachable_first_store_ids = [
         store.premise_id for store in recommendations if not store.exceeds_limit
     ]
@@ -451,14 +442,26 @@ async def _build_multi_store_plans(
         get_premise_coordinates,
         [candidate.premise_id for candidate in candidates],
     )
+    if use_straight_line_fallback:
+        home_limit = resolve_limit(travel.limit)
+        reachable_first_store_ids = [
+            candidates[route.destination_index].premise_id
+            for route in route_results
+            if 0 <= route.destination_index < len(candidates)
+            and pair_passes_second_limit(route, home_limit)
+        ]
+        # A missing coordinate cannot produce a meaningful inter-store estimate.
+        candidates_with_coordinates = [c for c in candidates if c.premise_id in coordinates]
+    else:
+        candidates_with_coordinates = candidates
     first_stores = [
         candidate
-        for candidate in candidates
+        for candidate in candidates_with_coordinates
         if candidate.premise_id in set(reachable_first_store_ids)
     ]
     pairs = select_pairs_for_routing(
         first_stores=first_stores,
-        candidates=candidates,
+        candidates=candidates_with_coordinates,
         coordinates=coordinates,
         second_store_limit=second_store_limit,
     )
@@ -488,23 +491,33 @@ async def _build_multi_store_plans(
         if candidate.premise_id in {second_id for _, second_id in pairs}:
             second_ids.append(candidate.premise_id)
 
-    inter_store_results = await get_maps_provider().compute_route_matrix_multi_origin(
-        [by_id[premise_id].google_place_id for premise_id in first_ids],
-        [by_id[premise_id].google_place_id for premise_id in second_ids],
-        travel.transport_mode,
-    )
     inter_store_routes: dict[tuple[str, str], RouteMatrixResult] = {}
-    for route in inter_store_results:
-        if (
-            0 <= route.origin_index < len(first_ids)
-            and 0 <= route.destination_index < len(second_ids)
-        ):
-            inter_store_routes[
-                (
-                    first_ids[route.origin_index],
-                    second_ids[route.destination_index],
-                )
-            ] = route
+    if use_straight_line_fallback:
+        speed_kmh = FALLBACK_TRAVEL_SPEED_KMH[travel.transport_mode]
+        for first_id, second_id in pairs:
+            distance_km = haversine_km(coordinates[first_id], coordinates[second_id])
+            inter_store_routes[first_id, second_id] = RouteMatrixResult(
+                destination_index=0,
+                distance_meters=distance_km * 1000,
+                duration_seconds=distance_km / speed_kmh * 3600,
+            )
+    else:
+        inter_store_results = await get_maps_provider().compute_route_matrix_multi_origin(
+            [by_id[premise_id].google_place_id for premise_id in first_ids],
+            [by_id[premise_id].google_place_id for premise_id in second_ids],
+            travel.transport_mode,
+        )
+        for route in inter_store_results:
+            if (
+                0 <= route.origin_index < len(first_ids)
+                and 0 <= route.destination_index < len(second_ids)
+            ):
+                inter_store_routes[
+                    (
+                        first_ids[route.origin_index],
+                        second_ids[route.destination_index],
+                    )
+                ] = route
 
     plans = plan_multi_store_trips(
         candidates=candidates,
@@ -515,6 +528,8 @@ async def _build_multi_store_plans(
         second_store_limit=second_store_limit,
         cost_rate=cost_rate,
         home_name=travel.origin.label,
+        route_provider="straight_line" if use_straight_line_fallback else "google",
+        max_returned_plans=MAX_INTER_STORE_PAIRS if payload.basket else MAX_RETURNED_PLANS,
     )
 
     # US 6.3: price the plans against single-store alternatives. Needs per-store
@@ -533,12 +548,29 @@ async def _build_multi_store_plans(
             sorted(participating_ids),
             payload.basket,
         )
+        plans.stores = apply_basket_pricing(
+            rank_reachable_stores(
+                candidates=candidates, route_results=route_results,
+                limit_type="distance", limit_value=float("inf"), cost_rate=cost_rate,
+            ), comparison_pricing,
+        )
         plans.comparison = build_plan_comparison(
             recommendations=recommendations,
             two_store_plans=plans.plans,
             pricing=comparison_pricing,
             basket=payload.basket,
         )
+        comparison = plans.comparison
+        if comparison is not None:
+            eligible = [p for p in comparison.complete_plans + comparison.incomplete_plans if p.store_count == 2]
+            eligible.sort(key=lambda p: (
+                p.combined_total_rm if p.combined_total_rm is not None else float("inf"),
+                p.total_travel_minutes, p.total_route_distance_km, p.plan_id,
+            ))
+            selected_ids = {p.plan_id for p in eligible[:MAX_RETURNED_PLANS]}
+            comparison.complete_plans = [p for p in comparison.complete_plans if p.store_count == 1 or p.plan_id in selected_ids]
+            comparison.incomplete_plans = [p for p in comparison.incomplete_plans if p.store_count == 1 or p.plan_id in selected_ids]
+            plans.plans = [p for p in plans.plans if f"two:{p.first_store_premise_id}:{p.second_store_premise_id}" in selected_ids]
 
     return plans
 
@@ -665,13 +697,11 @@ async def _recommend_stores(
         recommendations = apply_basket_pricing(recommendations, pricing)
         ranking_method = (
             "Nearest 25 premises by straight-line distance; stores are ranked by "
-            "exact store-price coverage, then effective coverage including cached "
-            "median estimates, then estimated combined cost using rough travel estimates. "
+            "estimated combined cost including cached median estimates using rough travel estimates. "
             f"Google Routes is {routes_status}, so travel limits and route feasibility "
             "are not verified."
             if use_straight_line_fallback
-            else "Stores ranked by exact store-price coverage, then effective "
-            "coverage including cached median estimates, then lowest combined cost: "
+            else "Stores ranked by lowest combined cost, including cached median estimates: "
             "effective basket subtotal plus estimated return transport cost; ties by "
             "shortest travel time, route distance, store name, then premise ID."
         )
@@ -725,9 +755,7 @@ async def _recommend_stores(
             expanded_search = True
             ranking_method = (
                 "No store matched your travel limit, so the nearest stores are "
-                "shown instead. They are ranked by exact store-price coverage, "
-                "then effective coverage including cached median estimates, then "
-                "lowest combined cost (effective basket subtotal plus estimated "
+                "shown instead. They are ranked by lowest combined cost, including cached median estimates (effective basket subtotal plus estimated "
                 "return transport cost); these stores exceed your chosen limit."
             )
             route_warning_parts.append(

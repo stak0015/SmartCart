@@ -75,7 +75,7 @@ function buildExportRow(
       ? null
       : `${formatRm(item.actualPriceRm)} (${copy.shopperRecorded})`;
   return {
-    name: localizedExportName(item, locale),
+    name: item.storeName ? `${localizedExportName(item, locale)} · ${item.storeName}` : localizedExportName(item, locale),
     packageSize: item.packageSize,
     quantity: item.actualQuantity ?? item.quantity,
     quantitySourceLabel:

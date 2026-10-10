@@ -246,8 +246,6 @@ def rank_reachable_stores(
     if basket_prices_by_premise:
         recommendations.sort(
             key=lambda store: (
-                -store.store_price_count,
-                -store.priced_item_count,
                 store.estimated_total_cost_rm
                 if store.estimated_total_cost_rm is not None
                 else float("inf"),
@@ -278,9 +276,8 @@ def apply_basket_pricing(
 ) -> list[StoreRecommendation]:
     """Attach per-store basket subtotals with their SARA Credit / Cash
     Needed split, combined total and per-line detail, then re-rank
-    (AC 2.3.4): stores sort by exact store-price coverage (descending), then
-    effective coverage including cached median estimates (descending), then
-    effective combined basket-plus-transport cost (ascending), ties by shortest
+    stores sort by combined basket-plus-transport cost (ascending), including
+    labelled median estimates, with ties by shortest
     travel time, shortest route distance, store name, then premise ID. Missing
     prices remain explicit and stores with no effective priced lines have null
     totals."""
@@ -391,8 +388,6 @@ def apply_basket_pricing(
             else float("inf")
         )
         return (
-            -int(store.store_price_count or 0),
-            -int(store.priced_count or 0),
             combined,
             store.estimated_travel_minutes,
             store.route_distance_km,

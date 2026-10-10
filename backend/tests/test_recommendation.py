@@ -242,7 +242,7 @@ def test_ignores_missing_store_prices_in_basket_subtotal() -> None:
     assert store.basket_prices[1].unit_price_rm is None
 
 
-def test_ranks_complete_baskets_before_cheaper_incomplete_baskets() -> None:
+def test_ranks_cheaper_baskets_first_regardless_of_coverage() -> None:
     missing_line = BasketItemPrice(
         item_id="11",
         item_name="Missing item",
@@ -271,5 +271,5 @@ def test_ranks_complete_baskets_before_cheaper_incomplete_baskets() -> None:
         },
     )
 
-    assert [store.premise_id for store in recommendations] == ["2", "1"]
-    assert recommendations[0].is_complete_basket is True
+    assert [store.premise_id for store in recommendations] == ["1", "2"]
+    assert recommendations[1].is_complete_basket is True

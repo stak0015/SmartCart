@@ -374,13 +374,20 @@ export interface PlanStoreAssignment {
   itemId: string;
   itemName: string | null;
   quantity: number;
-  unitPriceRm: number;
-  lineTotalRm: number;
+  unitPriceRm: number | null;
+  lineTotalRm: number | null;
   storePremiseId: string;
   storeName: string;
   // AC 6.4.2: pack spec for the assigned line (e.g. "500 g"), null if unknown.
   unit: string | null;
   observedDate: string | null;
+  priceSource?: PriceSource | null;
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
+  category?: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
+  saraEligible?: boolean | null;
+  saraCategoryCandidate?: boolean;
 }
 
 /** A single-store or two-store plan priced for combined-cost comparison
@@ -391,11 +398,11 @@ export interface PricedPlan {
   storePremiseIds: string[];
   storeNames: string[];
   // AC 6.3.2: sum of assigned unit prices x quantities.
-  basketSubtotalRm: number;
+  basketSubtotalRm: number | null;
   // Complete-route transport: round trip for one store, full loop for two.
   transportCostRm: number;
   // AC 6.3.2: subtotal + transport.
-  combinedTotalRm: number;
+  combinedTotalRm: number | null;
   // AC 6.3.4: false when any requested line lacks an official price at the
   // assigned store(s); such a plan is never presented as the cheapest.
   isComplete: boolean;
@@ -433,6 +440,7 @@ export interface PlanComparison {
 }
 
 export interface MultiStorePlans {
+  stores?: StoreRecommendation[];
   plans: MultiStorePlan[];
   secondStoreLimit: TravelLimit | null;
   // Ordered store pairs whose inter-store leg was actually routed.

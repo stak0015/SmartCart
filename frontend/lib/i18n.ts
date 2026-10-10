@@ -105,10 +105,10 @@ export const COPY = {
     distance: "Distance",
     travelTime: "Travel time",
     multiStorePlans: "Include multi-store plans",
-    multiStorePlansSummary: (limit: string) => `Second store · ${limit}`,
+    storePlans: "Store plans",
     multiStorePlansOff: "Second store · off",
     secondStoreTravelLimits: "Second-store travel limits",
-    secondStoreTravelLegNote: "These limits apply to travel from the first store to the second store using your selected transport mode.",
+    secondStoreTravelLegNote: "From the first store to the second, using your selected transport mode.",
     secondStoreLimitType: "Second-store limit type",
     applyLimits: "Apply limits",
     secondStoreLimitRequired: "Select a value for each limit before applying.",
@@ -128,11 +128,7 @@ export const COPY = {
     // Transparency for AC 6.2.7/6.2.8: how many store pairs were actually
     // routed before the empty result, so the shopper sees work was done.
     multiStoreEvaluatedCount: (count: number) => `${count} store pair${count === 1 ? "" : "s"} checked against your limits.`,
-    // US 6.3: combined-cost comparison. The basis note is localised here rather
-    // than shown from the backend's English string, because this UI is bilingual
-    // (the backend field stays as the machine-readable disclosure).
     planComparisonTitle: "Compare plans",
-    multiStorePriceBasis: "Prices are compared using official store prices only; median estimates are excluded so single-store and two-store totals match. Transport is the estimated complete return route.",
     singleStorePlanLabel: "One store",
     twoStorePlanLabel: "Two stores",
     planBasketSubtotal: "Basket subtotal",
@@ -204,7 +200,6 @@ export const COPY = {
     useSavedItems: "Plan with saved items",
     addToChecklist: "Add to checklist",
     revertItem: "Revert changes",
-    checklistHint: "Tick what you buy. Bookmark what you need next time. Use the pencil to edit quantity or price.",
     checklistTotal: "Checklist total",
     checklistEstimatedTotal: "Estimated total",
     noActiveChecklist: "No active checklist",
@@ -213,7 +208,6 @@ export const COPY = {
     checklistTitle: "Shopping checklist",
     checklistItems: "Items",
     checklistStore: (store: string) => `Store: ${store}`,
-    checklistCreated: (date: string) => `Created: ${date}`,
     checklistProgress: (bought: number, total: number) =>
       `${bought} of ${total} ${total === 1 ? "item" : "items"} bought`,
     plannedSubtotal: "Planned subtotal",
@@ -265,7 +259,7 @@ export const COPY = {
     close: "Close",
     reachablePremises: "Reachable premises",
     reachableSummary: (reachable: number, checked: number) => `${reachable} reachable from ${checked} nearby candidates checked.`,
-    lowerTravelFirst: "Most products priced first",
+    lowerTravelFirst: "Lowest total cost first",
     completeBasketsTab: "Complete baskets",
     incompleteBasketsTab: "Incomplete baskets",
     completeBasketsDescription: "Every basket item has a price at these stores.",
@@ -399,9 +393,9 @@ export const COPY = {
     beyondTravelLimit: "Beyond travel limit",
     calculationTitle: "How this recommendation is calculated",
     stockNotVerified: "SmartCart does not verify affordability or in-store stock.",
-    rankingMethod: "Ranked by products priced, then priced subtotal + return travel cost, travel time and distance. Missing prices are excluded.",
+    rankingMethod: "Ranked by basket + return travel cost, including estimated prices; ties by travel time and distance.",
     fallbackRankingMethod: "Nearest 25 premises by straight-line distance; stores are ranked by exact store-price coverage, then effective coverage including cached median estimates, then estimated combined cost using rough travel estimates. Google Routes is not configured, so travel limits and route feasibility are not verified.",
-    routeEstimateNote: "Route distance and time are estimates from Google Maps. Straight-line distance is used only to limit paid route checks; SmartCart does not store your starting location.",
+    routeEstimateNote: "Route distance and time are estimates from Google Maps. Straight-line distance is used only to limit paid route checks. The selected origin coordinates are saved on this device with the checklist so its route can be reopened.",
     straightLineFallbackNote: "Google Routes is not configured. Distances use straight-line proximity and travel times are rough estimates; the selected travel limit and route feasibility are not verified.",
     planningEstimate: (rate: string) => `Planning estimate: ${rate}/km. Parking, tolls and ownership costs are excluded.`,
     costAssumptions: {
@@ -545,10 +539,10 @@ export const COPY = {
     distance: "Jarak",
     travelTime: "Masa perjalanan",
     multiStorePlans: "Sertakan pelbagai kedai",
-    multiStorePlansSummary: (limit: string) => `Kedai kedua · ${limit}`,
+    storePlans: "Pelan kedai",
     multiStorePlansOff: "Kedai kedua · mati",
     secondStoreTravelLimits: "Had perjalanan kedai kedua",
-    secondStoreTravelLegNote: "Had ini terpakai untuk perjalanan dari kedai pertama ke kedai kedua menggunakan mod pengangkutan yang anda pilih.",
+    secondStoreTravelLegNote: "Dari kedai pertama ke kedai kedua, mengikut mod pengangkutan pilihan anda.",
     secondStoreLimitType: "Jenis had kedai kedua",
     applyLimits: "Guna had",
     secondStoreLimitRequired: "Pilih satu nilai bagi setiap had sebelum guna.",
@@ -566,10 +560,7 @@ export const COPY = {
     // Ketelusan bagi AC 6.2.7/6.2.8: bilangan pasangan kedai yang benar-benar
     // dikira laluan sebelum keputusan kosong.
     multiStoreEvaluatedCount: (count: number) => `${count} pasangan kedai disemak terhadap had anda.`,
-    // US 6.3: perbandingan kos gabungan. Nota asas harga dilokalkan di sini dan
-    // bukan dipaparkan daripada rentetan Inggeris backend, kerana UI ini dwibahasa.
     planComparisonTitle: "Bandingkan pelan",
-    multiStorePriceBasis: "Harga dibandingkan menggunakan harga rasmi kedai sahaja; anggaran median dikecualikan supaya jumlah satu kedai dan dua kedai sepadan. Pengangkutan ialah anggaran laluan pulang lengkap.",
     singleStorePlanLabel: "Satu kedai",
     twoStorePlanLabel: "Dua kedai",
     planBasketSubtotal: "Jumlah bakul",
@@ -640,7 +631,6 @@ export const COPY = {
     useSavedItems: "Rancang dengan item disimpan",
     addToChecklist: "Tambah ke senarai semak",
     revertItem: "Pulihkan perubahan",
-    checklistHint: "Tandakan item yang dibeli. Simpan item untuk lain kali dengan penanda buku. Gunakan pensel untuk mengubah kuantiti atau harga.",
     checklistTotal: "Jumlah senarai semak",
     checklistEstimatedTotal: "Anggaran jumlah",
     noActiveChecklist: "Tiada senarai semak aktif",
@@ -649,7 +639,6 @@ export const COPY = {
     checklistTitle: "Senarai semak beli-belah",
     checklistItems: "Item",
     checklistStore: (store: string) => `Kedai: ${store}`,
-    checklistCreated: (date: string) => `Dicipta: ${date}`,
     checklistProgress: (bought: number, total: number) =>
       `${bought} daripada ${total} item dibeli`,
     plannedSubtotal: "Jumlah kecil dirancang",
@@ -701,7 +690,7 @@ export const COPY = {
     close: "Tutup",
     reachablePremises: "Premis yang boleh dikunjungi",
     reachableSummary: (reachable: number, checked: number) => `${reachable} boleh dikunjungi daripada ${checked} calon berdekatan yang disemak.`,
-    lowerTravelFirst: "Produk berharga terbanyak dahulu",
+    lowerTravelFirst: "Jumlah kos terendah dahulu",
     completeBasketsTab: "Bakul lengkap",
     incompleteBasketsTab: "Bakul tidak lengkap",
     completeBasketsDescription: "Setiap item bakul mempunyai harga di kedai-kedai ini.",
@@ -831,9 +820,9 @@ export const COPY = {
     beyondTravelLimit: "Melebihi had perjalanan",
     calculationTitle: "Cara cadangan ini dikira",
     stockNotVerified: "SmartCart tidak mengesahkan kemampuan membayar atau stok di kedai.",
-    rankingMethod: "Disusun mengikut bilangan produk berharga, kemudian jumlah kecil + kos pergi balik, masa dan jarak. Harga tiada dikecualikan.",
+    rankingMethod: "Disusun mengikut kos bakul + perjalanan pergi balik, termasuk anggaran harga; seri mengikut masa dan jarak perjalanan.",
     fallbackRankingMethod: "25 premis terdekat berdasarkan jarak garis lurus; kedai disusun mengikut liputan harga kedai yang tepat, kemudian liputan berkesan termasuk anggaran median cache, dan seterusnya anggaran kos gabungan menggunakan anggaran perjalanan kasar. Google Routes tidak dikonfigurasikan, jadi had perjalanan dan kebolehlaluan laluan tidak disahkan.",
-    routeEstimateNote: "Jarak dan masa laluan ialah anggaran daripada Google Maps. Jarak garis lurus hanya digunakan untuk mengehadkan semakan laluan berbayar; SmartCart tidak menyimpan lokasi permulaan anda.",
+    routeEstimateNote: "Jarak dan masa laluan ialah anggaran daripada Google Maps. Jarak garis lurus hanya digunakan untuk mengehadkan semakan laluan berbayar. Koordinat lokasi permulaan yang dipilih disimpan pada peranti ini bersama senarai semak supaya laluannya boleh dibuka semula.",
     straightLineFallbackNote: "Google Routes tidak dikonfigurasikan. Jarak menggunakan kedekatan garis lurus dan masa perjalanan ialah anggaran kasar; had perjalanan dipilih dan kebolehlaluan laluan tidak disahkan.",
     planningEstimate: (rate: string) => `Anggaran perancangan: ${rate}/km. Kos parkir, tol dan pemilikan tidak termasuk.`,
     costAssumptions: {

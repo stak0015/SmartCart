@@ -1,182 +1,34 @@
 "use client";
 
-import type { PlanComparison, PricedPlan } from "@/lib/contracts";
-import type { AppCopy } from "@/lib/i18n";
+import { useState } from "react";
+import type { PricedPlan, StoreRecommendation } from "@/lib/contracts";
+import type { BasketItem } from "@/lib/basket-state";
+import type { AppCopy, Locale } from "@/lib/i18n";
 import { formatRm } from "@/lib/format-rm";
-import { savingState } from "@/lib/multi-store";
+import { StoreChainLogo } from "./store-chain-logo";
+import { SaraStoreTag } from "./store-tags";
+import { DropdownChevron, UIIcon } from "./ui-icon";
+import { StorePriceTable } from "./store-basket-row";
 
-/**
- * US 6.3 — combined-cost comparison of single-store and two-store plans.
- *
- * Render rules, all driven by the backend's already-computed figures so this
- * component invents nothing:
- * - AC 6.3.3: `completePlans` arrive cheapest-combined-total first and are shown
- *   in that order.
- * - AC 6.3.4: `incompletePlans` render in a separate, clearly-labelled group and
- *   never inside the ranked complete list.
- * - AC 6.3.5: a positive saving states the amount and the baseline store.
- * - AC 6.3.6: when no baseline existed the backend sends null and nothing
- *   numeric is claimed — no "RM0 saving".
- *
- * The single-store card list from Epic 2 is rendered elsewhere and is untouched;
- * this is an additional comparison view that only appears when the backend
- * produced a `comparison` (basket sent + at least one two-store plan).
- */
-export function PlanComparisonSection({
-  comparison,
-  copy,
-  onSelectPlan,
-}: {
-  comparison: PlanComparison;
-  copy: AppCopy;
-  onSelectPlan: (planId: string) => void;
+export function MultiPlanCard({ plan, copy, basket, stores, locale, onSelectPlan, routeUrl, isRecommended = false }: {
+  plan: PricedPlan; copy: AppCopy; basket: BasketItem[]; stores: StoreRecommendation[]; locale: Locale;
+  routeUrl?: string; onSelectPlan: (planId: string) => void; isRecommended?: boolean;
 }) {
-  const { completePlans, incompletePlans } = comparison;
-  if (completePlans.length === 0 && incompletePlans.length === 0) return null;
+  const [pricesExpanded, setPricesExpanded] = useState(false);
+  const medianCount = plan.assignments.filter(line => line.priceSource === "median").length;
+  const officialCount = plan.pricedLineCount - medianCount;
+  const totalLabel = plan.missingItems.length ? copy.partialEstimatedTotal : medianCount ? copy.estimatedCombinedTotal : copy.combinedTotal;
+  const priceListId = `plan-prices-${plan.planId.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
+  return <article className={"store-card multi-plan-card " + (isRecommended ? "is-recommended" : "")}>
+    <div className="store-card-marker">{isRecommended && <span>★ {copy.recommendedStore}</span>}<small>{copy.twoStorePlanLabel}</small></div>
+    <header className="multi-plan-stores">{plan.storePremiseIds.map((id, index) => {
+      const store = stores.find(store => store.premiseId === id);
+      return <div key={id} className="store-card-header"><div className="store-symbol" aria-hidden="true"><StoreChainLogo name={plan.storeNames[index]} fallback={<UIIcon name="bag" size={24}/>}/></div><div className="store-card-identity"><small>{locale === "en" ? `Store ${index + 1}` : `Kedai ${index + 1}`}</small><h3>{plan.storeNames[index]}</h3>{store && <SaraStoreTag status={store.saraStatus} copy={copy}/>}</div></div>;
+    })}</header>
+    <div className="store-card-travel"><div className="store-card-trip-fact"><UIIcon name="route" size={20}/><small>{copy.distance}</small><strong>{plan.totalRouteDistanceKm.toFixed(1)} km</strong></div><div className="store-card-trip-fact"><UIIcon name="history" size={20}/><small>{copy.travelTime}</small><strong>{plan.totalTravelMinutes} {copy.minutes}</strong></div><div className="store-card-trip-fact"><UIIcon name="wallet" size={20}/><small>{copy.returnTravel}</small><strong>{formatRm(plan.transportCostRm)}</strong></div>{routeUrl && <a className="store-card-route" href={routeUrl} target="_blank" rel="noopener noreferrer">{copy.openInGoogleMaps} ↗</a>}</div>
 
-  return (
-    <section className="flex flex-col gap-3" aria-label={copy.planComparisonTitle}>
-      <div>
-        <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">
-          {copy.planComparisonTitle}
-        </h2>
-        {/* The basis is disclosed rather than implied: these totals use official
-            store prices only, so they differ from the store cards above, which
-            may include median estimates. */}
-        <p className="mt-1 text-xs leading-4 text-[#718078]">{copy.multiStorePriceBasis}</p>
-      </div>
-
-      {completePlans.map(plan => (
-        <PlanCard
-          key={plan.planId}
-          plan={plan}
-          copy={copy}
-          baselineName={comparison.singleStoreBaselineName}
-          onSelectPlan={onSelectPlan}
-        />
-      ))}
-
-      {incompletePlans.length > 0 && (
-        <div className="mt-2 flex flex-col gap-3">
-          {/* AC 6.3.4: kept visually apart and explicitly not ranked. */}
-          <div>
-            <h3 className="text-sm font-bold leading-5 text-[#10152e]">
-              {copy.incompletePlansTitle}
-            </h3>
-            <p className="mt-1 text-xs leading-4 text-[#718078]">{copy.incompletePlansNote}</p>
-          </div>
-          {incompletePlans.map(plan => (
-            <PlanCard
-              key={plan.planId}
-              plan={plan}
-              copy={copy}
-              baselineName={comparison.singleStoreBaselineName}
-              onSelectPlan={onSelectPlan}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PlanCard({
-  plan,
-  copy,
-  baselineName,
-  onSelectPlan,
-}: {
-  plan: PricedPlan;
-  copy: AppCopy;
-  baselineName: string | null;
-  onSelectPlan: (planId: string) => void;
-}) {
-  const isTwoStore = plan.storeCount === 2;
-  const label = isTwoStore ? copy.twoStorePlanLabel : copy.singleStorePlanLabel;
-  // A negative saving is shown as a real amount, not silently dropped, so a more
-  // expensive split is never implied to be a win.
-  const state = savingState(plan.savingVsSingleRm);
-  const absoluteSaving = plan.savingVsSingleRm === null
-    ? null
-    : formatRm(Math.abs(plan.savingVsSingleRm));
-
-  return (
-    <article className="rounded-2xl border border-[#dce5e0] bg-white p-4">
-      <header className="flex items-baseline justify-between gap-3">
-        <h3 className="text-base font-bold leading-6 text-[#10152e]">{plan.storeNames.join(" → ")}</h3>
-        <span className="shrink-0 rounded-full bg-[#e8f1ec] px-2.5 py-1 text-xs font-bold text-[#00535b]">
-          {label}
-        </span>
-      </header>
-
-      {/* AC 6.3.2: the combined total is the sum of the two lines below, shown
-          separately so the arithmetic is checkable rather than asserted. */}
-      <dl className="mt-3 flex flex-col gap-1.5 text-sm">
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-[#526078]">{copy.planBasketSubtotal}</dt>
-          <dd className="font-semibold text-[#10152e]">{formatRm(plan.basketSubtotalRm)}</dd>
-        </div>
-        <div className="flex items-baseline justify-between gap-3">
-          <dt className="text-[#526078]">{copy.planTransportCost}</dt>
-          <dd className="font-semibold text-[#10152e]">{formatRm(plan.transportCostRm)}</dd>
-        </div>
-        <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-[#e8ecea] pt-2">
-          <dt className="font-bold text-[#10152e]">{copy.planCombinedTotal}</dt>
-          <dd className="text-lg font-extrabold text-[#00535b]">{formatRm(plan.combinedTotalRm)}</dd>
-        </div>
-      </dl>
-
-      {/* AC 6.3.4: an incomplete plan shows coverage and a partial total, and is
-          labelled as such rather than presented as a cheapest option. */}
-      {!plan.isComplete && (
-        <div className="mt-3 rounded-xl bg-[#fff7e8] px-3 py-2 text-xs leading-4 text-[#7a4d00]">
-          <p className="font-bold">
-            {copy.planPartialTotal}: {formatRm(plan.combinedTotalRm)} ·{" "}
-            {copy.planPriceCoverage(plan.pricedLineCount, plan.basketLineCount)}
-          </p>
-          {plan.missingItems.length > 0 && (
-            <p className="mt-1">{copy.planMissingItems(plan.missingItems.join(", "))}</p>
-          )}
-        </div>
-      )}
-
-      {/* AC 6.3.5 / 6.3.6: the saving claim is driven entirely by the backend's
-          null-or-number. Null renders an explanatory line with no amount. */}
-      {isTwoStore && state === "save" && absoluteSaving !== null && (
-        <p className="mt-3 text-sm font-semibold leading-5 text-[#007d38]">
-          {copy.planSavingVsSingle(
-            absoluteSaving,
-            // "save" implies a baseline existed, so the name is present; the
-            // fallback only guards the type, never names a wrong store.
-            baselineName ?? copy.singleStorePlanLabel,
-          )}
-        </p>
-      )}
-      {isTwoStore && state === "more" && absoluteSaving !== null && (
-        <p className="mt-3 text-sm font-semibold leading-5 text-[#93000a]">
-          {copy.planCostsMoreThanSingle(absoluteSaving)}
-        </p>
-      )}
-      {/* "equal" and "none" both mean no money is saved: equal is a zero saving,
-          none means no baseline existed (AC 6.3.6). Neither claims an amount. */}
-      {isTwoStore && (state === "equal" || state === "none") && (
-        <p className="mt-3 text-sm leading-5 text-[#526078]">
-          {copy.planNoSingleStoreBaseline}
-        </p>
-      )}
-
-      {/* US 6.4: only two-store plans get a detail view — the visit order and
-          per-store shopping list. A single-store plan already has the store
-          overview route, so it is not offered here. */}
-      {isTwoStore && (
-        <button
-          type="button"
-          onClick={() => onSelectPlan(plan.planId)}
-          className="mt-3 min-h-11 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38]"
-        >
-          {copy.planDetailViewButton} <span aria-hidden="true">→</span>
-        </button>
-      )}
-    </article>
-  );
+    <div className="store-card-costs"><div><span>{medianCount ? copy.estimatedSubtotal : copy.basketSubtotal}</span><strong>{plan.basketSubtotalRm == null ? "—" : formatRm(plan.basketSubtotalRm)}</strong></div><div><span>{copy.returnTravel}</span><strong>{formatRm(plan.transportCostRm)}</strong></div><div className="store-card-grand-total"><span>{totalLabel}</span><strong>{plan.combinedTotalRm == null ? "—" : formatRm(plan.combinedTotalRm)}</strong></div></div>
+    <div className="price-coverage"><span>{officialCount} {locale === "en" ? "store prices" : "harga kedai"} · {medianCount} {locale === "en" ? "median estimates" : "anggaran median"}{plan.missingItems.length > 0 && ` · ${plan.missingItems.length} ${locale === "en" ? "missing prices" : "tiada harga"}`}</span><progress max={plan.basketLineCount || 1} value={officialCount} aria-label={copy.priceCoverage(officialCount, plan.basketLineCount)}/></div>
+    <div className="store-card-actions"><div className="store-price-anchor"><button type="button" className="store-price-trigger" aria-expanded={pricesExpanded} aria-controls={priceListId} onClick={() => setPricesExpanded(value => !value)}>{pricesExpanded ? copy.hidePriceList : copy.viewPriceList}<DropdownChevron/></button>{pricesExpanded && <div id={priceListId} className="store-price-popover plan-price-popover" onKeyDown={event => { if (event.key === "Escape") setPricesExpanded(false); }}><div className="store-price-popover-heading"><strong>{copy.basketItems}</strong><button type="button" onClick={() => setPricesExpanded(false)} aria-label={copy.dismiss}>×</button></div>{plan.storePremiseIds.map((id, index) => <div key={id}><h4>{plan.storeNames[index]}</h4><StorePriceTable prices={plan.assignments.filter(line => line.storePremiseId === id).map(line => ({...line, itemName: line.itemName || basket.find(item => item.id === `db-${line.itemId}`)?.name || line.itemId, packageSize: line.unit}))} copy={copy} locale={locale}/></div>)}</div>}</div><button type="button" className="store-select-button" onClick={() => onSelectPlan(plan.planId)}>{copy.planDetailViewButton}<span aria-hidden="true">→</span></button></div>
+  </article>;
 }

@@ -1,4 +1,5 @@
-import { isItemCategory, isSourceCategory, type BasketItemPrice, type ItemCategory, type SourceCategory, type StoreRecommendation } from "./contracts";
+import type { BasketItem } from "./basket-state";
+import { isItemCategory, isSourceCategory, type PricedPlan, type BasketItemPrice, type ItemCategory, type SelectedLocation, type SourceCategory, type StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 import {
   isEstimatedSavingsSnapshot,
@@ -31,9 +32,14 @@ export interface ChecklistStore {
   premiseCode: string;
   name: string;
   address: string | null;
+  saraStatus?: StoreRecommendation["saraStatus"];
 }
 
+export type ChecklistRouteOrigin = Pick<SelectedLocation, "latitude" | "longitude">;
+
 export interface ChecklistItem {
+  storePremiseId?: string;
+  storeName?: string;
   id: string;
   source: ChecklistItemSource;
   catalogueItemId: string | null;
@@ -90,6 +96,10 @@ export interface ShoppingChecklist {
   version: typeof SHOPPING_CHECKLIST_VERSION;
   id: string;
   store: ChecklistStore;
+  stores?: ChecklistStore[];
+  /** Selected start point needed to reopen the complete route from the checklist. */
+  routeOrigin?: ChecklistRouteOrigin;
+  planId?: string;
   createdAt: string;
   updatedAt: string;
   // AC 5.1.1: the snapshot keeps the planned subtotal, the estimated return
@@ -147,6 +157,7 @@ export interface ChecklistProgress {
 interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
+  routeOrigin?: ChecklistRouteOrigin;
   alternativeStores?: StoreRecommendation[];
   estimatedSavings?: EstimatedSavingsSnapshot | null;
   // AC 8.2.3: provenance of the frozen travel estimates.
@@ -276,7 +287,9 @@ export function createShoppingChecklist(
       premiseCode: store.premiseCode,
       name: store.name,
       address: store.address,
+      saraStatus: store.saraStatus,
     },
+    ...(options.routeOrigin ? { routeOrigin: options.routeOrigin } : {}),
     createdAt,
     updatedAt: createdAt,
     plannedSubtotalRm: store.basketSubtotalRm == null ? null : money(store.basketSubtotalRm),
@@ -293,6 +306,52 @@ export function createShoppingChecklist(
     // that predate the field.
     ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}),
     items,
+  };
+}
+
+/** Freeze a whole two-store trip; rows retain their assigned store and source. */
+export function createPlanShoppingChecklist(
+  plan: PricedPlan,
+  stores: StoreRecommendation[],
+  basket: BasketItem[],
+  options: ChecklistCreationOptions = {},
+): ShoppingChecklist {
+  const createdAt = options.createdAt ?? nowIso();
+  const planStores = plan.storePremiseIds.map((id, index) => {
+    const store = stores.find(store => store.premiseId === id);
+    return { premiseId: id, premiseCode: store?.premiseCode ?? id,
+      name: plan.storeNames[index], address: store?.address ?? null,
+      ...(store?.saraStatus ? { saraStatus: store.saraStatus } : {}) };
+  });
+  const items = plan.assignments.map((line, index) => {
+    const basketItem = basket.find(item => item.id === `db-${line.itemId}`);
+    return {
+      ...checklistItemFromBasketPrice({
+        itemId: line.itemId, itemName: line.itemName || basketItem?.name || line.itemId,
+        itemNameEn: line.itemNameEn ?? basketItem?.itemNameEn,
+        itemNameMs: line.itemNameMs ?? basketItem?.itemNameMs,
+        packageSize: line.unit ?? basketItem?.size ?? null, quantity: line.quantity,
+        unitPriceRm: line.unitPriceRm, lineTotalRm: line.lineTotalRm,
+        priceObservedDate: line.observedDate, priceSource: line.priceSource,
+        category: line.category ?? basketItem?.category ?? null,
+        sourceCategory: line.sourceCategory ?? basketItem?.sourceCategory ?? null,
+      }, index),
+      imageUrl: basketItem?.imageUrl ?? null,
+      storePremiseId: line.storePremiseId, storeName: line.storeName,
+    };
+  });
+  return {
+    version: SHOPPING_CHECKLIST_VERSION, id: options.checklistId ?? generatedId("checklist"),
+    planId: plan.planId, stores: planStores,
+    ...(options.routeOrigin ? { routeOrigin: options.routeOrigin } : {}),
+    // The combined name also keeps existing history and export headers useful.
+    store: { premiseId: plan.planId, premiseCode: plan.planId,
+      name: planStores.map(store => store.name).join(" → "),
+      address: planStores.map(store => store.address).filter(Boolean).join(" · ") || null },
+    createdAt, updatedAt: createdAt, plannedSubtotalRm: plan.basketSubtotalRm == null ? null : money(plan.basketSubtotalRm),
+    estimatedRoundTripCostRm: money(plan.transportCostRm), plannedCombinedTotalRm: plan.combinedTotalRm == null ? null : money(plan.combinedTotalRm),
+    alternativeStoreEstimates: [], estimatedSavings: null,
+    ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}), items,
   };
 }
 
@@ -680,6 +739,8 @@ function isIsoDate(value: unknown): value is string {
 function isChecklistItem(value: unknown): value is ChecklistItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
+  if ((item.storePremiseId !== undefined && typeof item.storePremiseId !== "string")
+    || (item.storeName !== undefined && typeof item.storeName !== "string")) return false;
   const sourceIsValid = item.source === "catalogue" || item.source === "manual";
   const statusIsValid = item.status === "neutral" || item.status === "bought"
     || item.status === "not_bought";
@@ -786,9 +847,16 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || (checklist.routeProvider !== undefined
       && checklist.routeProvider !== "google"
       && checklist.routeProvider !== "straight_line")
+    || (checklist.routeOrigin !== undefined && !isChecklistRouteOrigin(checklist.routeOrigin))
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 
+  if (checklist.planId !== undefined && typeof checklist.planId !== "string") return false;
+  if (checklist.stores !== undefined && (!Array.isArray(checklist.stores)
+    || !checklist.stores.every(value => value && typeof value === "object"
+      && typeof value.premiseId === "string" && typeof value.premiseCode === "string"
+      && typeof value.name === "string" && isNullableString(value.address)
+      && (value.saraStatus === undefined || isSaraStatus(value.saraStatus))))) return false;
   if (!checklist.store || typeof checklist.store !== "object") return false;
   const store = checklist.store as Record<string, unknown>;
   return typeof store.premiseId === "string"
@@ -796,7 +864,19 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     && typeof store.premiseCode === "string"
     && typeof store.name === "string"
     && store.name.length > 0
-    && isNullableString(store.address);
+    && isNullableString(store.address)
+    && (store.saraStatus === undefined || isSaraStatus(store.saraStatus));
+}
+
+function isSaraStatus(value: unknown): value is StoreRecommendation["saraStatus"] {
+  return value === "verified" || value === "candidate" || value === "unverified";
+}
+
+function isChecklistRouteOrigin(value: unknown): value is ChecklistRouteOrigin {
+  if (!value || typeof value !== "object") return false;
+  const location = value as Record<string, unknown>;
+  return typeof location.latitude === "number" && Number.isFinite(location.latitude)
+    && typeof location.longitude === "number" && Number.isFinite(location.longitude);
 }
 
 export function serializeShoppingChecklist(checklist: ShoppingChecklist): string {

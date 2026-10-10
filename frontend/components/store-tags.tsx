@@ -21,3 +21,16 @@ export function SaraStoreTag({ status, copy }: { status: SaraStoreStatus; copy: 
   }
   return <span className="inline-flex self-start rounded-md bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>;
 }
+
+export function SaraEligibilityFlag({
+  status,
+  candidate = false,
+  copy,
+}: {
+  status: boolean | null;
+  candidate?: boolean;
+  copy: AppCopy;
+}) {
+  if (status !== true && !candidate) return null;
+  return <span className="sara-item-status">{copy.saraCategory}</span>;
+}

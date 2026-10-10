@@ -25,6 +25,8 @@ export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
  * an official catalogue item (catalogueItemId stays null).
  */
 export interface TripRecordLine {
+  storePremiseId?: string;
+  storeName?: string;
   id: string;
   source: ChecklistItemSource;
   catalogueItemId: string | null;
@@ -59,6 +61,8 @@ export interface TripRecord {
   recordedAt: string;
   checklistId: string;
   store: ChecklistStore;
+  stores?: ChecklistStore[];
+  planId?: string;
   // Planned metadata (AC 5.4.2): the estimated return transport is kept here
   // as planned data only — it is never counted as money the shopper spent.
   plannedSubtotalRm: number | null;
@@ -134,6 +138,7 @@ export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
 function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
   return {
     id: item.id,
+    ...(item.storePremiseId ? { storePremiseId: item.storePremiseId, storeName: item.storeName } : {}),
     source: item.source,
     catalogueItemId: item.source === "manual" ? null : item.catalogueItemId,
     itemName: item.itemName,
@@ -170,6 +175,7 @@ export function buildTripRecord(
     recordedAt: options.recordedAt ?? nowIso(),
     checklistId: checklist.id,
     store: { ...checklist.store },
+    ...(checklist.stores ? { stores: checklist.stores.map(store => ({ ...store })), planId: checklist.planId } : {}),
     plannedSubtotalRm: checklist.plannedSubtotalRm,
     estimatedRoundTripCostRm: checklist.estimatedRoundTripCostRm,
     plannedCombinedTotalRm: checklist.plannedCombinedTotalRm,
@@ -237,6 +243,8 @@ function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEs
 function isTripRecordLine(value: unknown): value is TripRecordLine {
   if (!value || typeof value !== "object") return false;
   const line = value as Record<string, unknown>;
+  if ((line.storePremiseId !== undefined && typeof line.storePremiseId !== "string")
+    || (line.storeName !== undefined && typeof line.storeName !== "string")) return false;
   const sourceIsValid = line.source === "catalogue" || line.source === "manual";
   const statusIsValid = line.status === "neutral" || line.status === "bought"
     || line.status === "not_bought";
@@ -304,6 +312,11 @@ export function isTripRecord(value: unknown): value is TripRecord {
     || !record.lines.every(isTripRecordLine)) return false;
 
   if (!record.store || typeof record.store !== "object") return false;
+  if (record.planId !== undefined && typeof record.planId !== "string") return false;
+  if (record.stores !== undefined && (!Array.isArray(record.stores)
+    || !record.stores.every(value => value && typeof value === "object"
+      && typeof value.premiseId === "string" && typeof value.premiseCode === "string"
+      && typeof value.name === "string" && isNullableString(value.address)))) return false;
   const store = record.store as Record<string, unknown>;
   return typeof store.premiseId === "string"
     && store.premiseId.length > 0

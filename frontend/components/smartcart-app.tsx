@@ -1,5 +1,8 @@
 "use client";
 
+import { TripFactsItems } from "./trip-facts";
+import { StoreBasketRow, StorePriceTable } from "./store-basket-row";
+
 import { usePathname, useRouter } from "next/navigation";
 import { DropdownChevron, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
@@ -47,9 +50,10 @@ import {
   type MultiStoreConfig,
 } from "@/lib/multi-store";
 import { MultiStorePanel } from "./multi-store-panel";
-import { PlanComparisonSection } from "./plan-comparison";
+import { MultiPlanCard } from "./plan-comparison";
+import { rankedStorePlanOptions } from "@/lib/multi-store";
 import { PlanDetailView } from "./plan-detail";
-import { SaraStoreTag } from "./store-tags";
+import { SaraEligibilityFlag, SaraStoreTag } from "./store-tags";
 import {
   applyBasketReplacement,
   currentReplacementImpactRm,
@@ -77,7 +81,7 @@ import {
   type TripJourneyStep,
 } from "@/components/journey-screens";
 import { ReceiptHistoryScreen, ReportConsentDialog, ReportScreen, type ConsentDialogMode, type ReportGenerationUiState } from "@/components/report-screens";
-import { mapsRouteUrl } from "@/lib/travel";
+import { mapsPlanRouteUrl, mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { uppercaseItemName } from "@/lib/item-name";
 import { localizedPackageSize } from "@/lib/package-size";
@@ -270,26 +274,7 @@ function TransportModeIcon({ mode, color = "#3E494A" }: { mode: TransportMode; c
   );
 }
 
-type TripFact = { icon: ReactNode; label: string; value: ReactNode };
-
-function TripFactsItems({ facts }: { facts: TripFact[] }) {
-  return <>{facts.map(fact => <span key={fact.label}>{fact.icon}<small>{fact.label}</small><strong>{fact.value}</strong></span>)}</>;
-}
-
 // ── Header ─────────────────────────────────────────────────────────────────
-function SaraEligibilityFlag({
-  status,
-  candidate = false,
-  copy,
-}: {
-  status: boolean | null;
-  candidate?: boolean;
-  copy: AppCopy;
-}) {
-  if (status !== true && !candidate) return null;
-  return <span className="sara-item-status">{copy.saraCategory}</span>;
-}
-
 function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
   return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
 }
@@ -1433,7 +1418,7 @@ function LocationScreen({
 
 // AC 2.3.3/2.3.5/2.3.9: one reachable-store card — priced-basket amounts,
 // travel estimates, SARA status and the expandable per-line price detail.
-function StoreCard({
+export function StoreCard({
   store,
   isRecommended,
   pricesExpanded,
@@ -1494,8 +1479,7 @@ function StoreCard({
           <button type="button" className="store-price-trigger" aria-expanded={pricesExpanded} aria-controls={priceListId} onClick={onTogglePrices}>{pricesExpanded ? copy.hidePriceList : copy.viewPriceList} <DropdownChevron/></button>
           {pricesExpanded && <div id={priceListId} className="store-price-popover" onKeyDown={event => { if (event.key === "Escape") onTogglePrices(); }}>
             <div className="store-price-popover-heading"><strong>{copy.basketItems}</strong><button type="button" onClick={onTogglePrices} aria-label={copy.dismiss}>×</button></div>
-            <div className="store-price-table-head"><span>{copy === COPY.ms ? "Item" : "Item"}</span><span>{copy === COPY.ms ? "Saiz" : "Pack"}</span><span>{copy === COPY.ms ? "Kuantiti" : "Qty"}</span><span>{copy === COPY.ms ? "Harga" : "Unit"}</span><span>{copy === COPY.ms ? "Jumlah" : "Total"}</span></div>
-            <ul>{store.basketPrices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{localizedName(copy, price.itemName, price)}{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{packageSizeForCopy(copy, price.packageSize) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
+            <StorePriceTable prices={store.basketPrices} copy={copy} locale={locale}/>
             {store.missingItems.length > 0 && <p className="store-price-missing">{copy.missingItemPrices(store.missingItems.map(name => localizedName(copy, name, store.basketPrices.find(price => price.itemName === name))).join(", "))}</p>}
           </div>}
         </div>}
@@ -1556,24 +1540,11 @@ function RecommendationBasketRow({
 
   return (
     <li className="recommendation-item">
-      <div className="store-item-row">
-        <span className="store-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={currentImageUrl} fallbackSize={27}/></span>
-        <div className="store-item-name">
-          <strong>{localizedName(copy, row.current.itemName, row.current)}</strong>
-          <small>{categoryLabel(locale, row.current.category)}</small>
-          <small>{packageSizeForCopy(copy, row.current.packageSize) ?? "—"}<span className="store-item-mobile-quantity"> × {row.current.quantity}</span>{row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}</small>
-          {row.replacement && <small className="store-item-replaced">{row.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</small>}
-          {row.current.priceSource === "median" && <small className="store-item-estimate">{copy.medianPriceEstimate}</small>}
-        </div>
-        <div className="store-item-sara"><SaraEligibilityFlag status={row.current.saraEligible} candidate={row.current.saraCategoryCandidate} copy={copy}/></div>
-        <span className="store-item-package">{packageSizeForCopy(copy, row.current.packageSize) ?? "—"}</span>
-        <div className="store-item-quantity">
-          {row.basketItem ? <QuantitySelector value={String(row.current.quantity)} onChange={raw => { const quantity = parseQty(raw); if (quantity != null) onChangeQuantity(row.basketItem!.id, quantity); }} onStep={delta => onChangeQuantity(row.basketItem!.id, stepQty(row.current.quantity, delta))} decreaseLabel={copy.decreaseQuantity(row.current.itemName)} increaseLabel={copy.increaseQuantity(row.current.itemName)} quantityLabel={copy.quantityFor(row.current.itemName)} errorId={`store-quantity-${row.source.itemId}`} errorText={copy.quantityError}/> : row.current.quantity}
-        </div>
-        <span className="store-item-unit-price">{row.current.unitPriceRm == null ? "—" : formatRm(row.current.unitPriceRm)}</span>
-        <strong className="store-item-total">{row.current.lineTotalRm == null ? copy.noStorePrice : formatRm(row.current.lineTotalRm)}</strong>
-        {hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>}
-      </div>
+      <StoreBasketRow price={row.current} imageUrl={currentImageUrl} copy={copy} locale={locale}
+        originalNote={row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}
+        replacementNote={row.replacement ? (row.replacement.kind === "pack" ? copy.packChanged : copy.swapped) : null}
+        quantityControl={row.basketItem ? <QuantitySelector value={String(row.current.quantity)} onChange={raw => { const quantity = parseQty(raw); if (quantity != null) onChangeQuantity(row.basketItem!.id, quantity); }} onStep={delta => onChangeQuantity(row.basketItem!.id, stepQty(row.current.quantity, delta))} decreaseLabel={copy.decreaseQuantity(row.current.itemName)} increaseLabel={copy.increaseQuantity(row.current.itemName)} quantityLabel={copy.quantityFor(row.current.itemName)} errorId={`store-quantity-${row.source.itemId}`} errorText={copy.quantityError}/> : row.current.quantity}
+        disclosure={hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>} />
       {hasOptions && expanded && <div className="store-item-options">
 
       {row.replacement && row.basketItem && (
@@ -1811,6 +1782,7 @@ function RecommendationOverview({
     onCreateChecklist(createShoppingChecklist(store, detailRows, {
       alternativeStores: recommendations,
       estimatedSavings,
+      ...(preferences.origin ? { routeOrigin: { latitude: preferences.origin.latitude, longitude: preferences.origin.longitude } } : {}),
     }));
     setReplaceChecklistOpen(false);
   };
@@ -1840,8 +1812,8 @@ function RecommendationOverview({
           <div className="store-detail-facts">
             <TripFactsItems facts={[
               { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: transportLabel(copy, preferences.transportMode) },
-              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${store.estimatedTravelMinutes} ${copy.minutes}` },
               { icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: `${store.routeDistanceKm.toFixed(1)} km` },
+              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${store.estimatedTravelMinutes} ${copy.minutes}` },
               { icon: <UIIcon name="wallet" size={20}/>, label: copy.returnTravel, value: formatRm(store.estimatedRoundTripCostRm) },
             ]}/>
           </div>
@@ -1997,8 +1969,9 @@ function CompareScreen({
   }, [requestBasketLines, requestCandidateCacheId, requestSecondStoreLimit, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
   const recommendations = result?.recommendations ?? [];
-  const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
-  const visibleStores = recommendations.slice(0, visibleCount);
+  const storePlanOptions = rankedStorePlanOptions(recommendations, result?.multiStore?.comparison);
+  const visibleOptions = storePlanOptions.slice(0, visibleCount);
+  const hasSplitPlans = storePlanOptions.some(option => option.kind === "plan");
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.label ?? "";
   const limitLabel = preferences.limitType === "both"
@@ -2044,8 +2017,15 @@ function CompareScreen({
     if (selectedPlan) {
       return (
         <PlanDetailView
+          isEstimate={result?.routeProvider === "straight_line"}
+          origin={preferences.origin}
+          transportMode={preferences.transportMode}
           plan={selectedPlan}
-          stores={recommendations}
+          key={selectedPlan.planId}
+          basket={basket}
+          activeChecklist={activeChecklist}
+          onCreateChecklist={onCreateChecklist}
+          stores={result?.multiStore?.stores ?? recommendations}
           secondStoreLimit={result?.multiStore?.secondStoreLimit ?? null}
           copy={copy}
           locale={copy === COPY.ms ? "ms" : "en"}
@@ -2070,18 +2050,22 @@ function CompareScreen({
           )}
         </div>
 
-        <div className="store-detail-facts">
-          <TripFactsItems facts={[
-            { icon: <UIIcon name="home"/>, label: copy === COPY.ms ? "Dari" : "From", value: originLabel || "—" },
-            { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: modeLabel },
-            { icon: <UIIcon name="history" size={20}/>, label: copy.travelLimit, value: limitLabel },
-            { icon: <IcoStore/>, label: copy === COPY.ms ? "Kedai" : "Stores", value: loading ? "—" : recommendations.length },
-          ]}/>
-        </div>
+        <div className="compare-travel-toolbar">
+          <div className="store-detail-facts">
+            <TripFactsItems facts={[
+              { icon: <UIIcon name="home"/>, label: copy === COPY.ms ? "Dari" : "From", value: originLabel || "—" },
+              { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: modeLabel },
+              { icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: preferences.limitType === "time" ? "—" : `${preferences.limitType === "both" ? preferences.distanceKm : preferences.limitValue} km` },
+              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: preferences.limitType === "distance" ? "—" : `${preferences.limitType === "both" ? preferences.timeMinutes : preferences.limitValue} ${copy.minutes}` },
+            ]}/>
+          </div>
 
-        {/* US 6.1: the opt-in multi-store toggle and second-store travel limits. */}
-        <div className="preference-bar">
-          <MultiStorePanel config={multiStore} onChange={onMultiStoreChange} copy={copy} />
+          {/* US 6.1: the opt-in multi-store toggle and second-store travel limits. */}
+          <MultiStorePanel
+            config={multiStore}
+            onChange={onMultiStoreChange}
+            copy={copy}
+          />
         </div>
 
         {loading && (
@@ -2113,9 +2097,9 @@ function CompareScreen({
                 the limits. The single-store list below is untouched, so this
                 never empties the recommendation page. Plan rendering itself is
                 US 6.3/6.4; US 6.2 only reports the outcome. */}
-            {result.multiStore && result.multiStore.plans.length === 0 && result.multiStore.emptyReason && (
-              <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-4">
-                <p className="text-sm font-semibold leading-5 text-[#10152e]">
+            {result.multiStore && result.multiStore.plans.length === 0 && result.multiStore.emptyReason && result.multiStore.emptyReason !== "straight_line_fallback_unsupported" && (
+              <div role="status" className="multi-store-empty">
+                <p className="text-[13px] font-semibold leading-5 text-[#10152e]">
                   {multiStoreEmptyMessage(copy, result.multiStore.emptyReason)}
                 </p>
                 {result.multiStore.evaluatedPairCount > 0 && (
@@ -2127,43 +2111,44 @@ function CompareScreen({
                   type="button"
                   // Re-expands the limits menu (idempotent: it is already
                   // enabled once a limit was applied) and keeps the selection.
-                  onClick={() => onMultiStoreChange({ ...multiStore, enabled: true })}
-                  className="mt-3 min-h-11 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38]"
+                  onClick={() => {
+                    onMultiStoreChange({ ...multiStore, enabled: true });
+                    const menu = document.getElementById("multi-store-settings") as HTMLDetailsElement | null;
+                    if (menu) {
+                      menu.open = true;
+                      menu.querySelector("summary")?.focus();
+                    }
+                  }}
+                  className="plan-card-action w-fit"
                 >
                   {copy.editLimits}
                 </button>
               </div>
             )}
-            {/* US 6.3: when the backend priced the plans against single-store
-                alternatives, show the combined-cost comparison above the single
-                store list. Absent unless a basket was sent and a two-store plan
-                qualified, so single-store-only shoppers see an unchanged page. */}
-            {result.multiStore?.comparison && (
-              <PlanComparisonSection
-                comparison={result.multiStore.comparison}
-                copy={copy}
-                onSelectPlan={setSelectedPlanId}
-              />
-            )}
-
             <div className="flex items-end justify-between gap-3">
               <div>
-                <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
+                <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{hasSplitPlans ? copy.planComparisonTitle : result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
                 <p className="mt-1 text-sm text-[#526078]">{result.routeProvider === "straight_line" ? `${recommendations.length} / ${result.totalCandidatesEvaluated}` : copy.reachableSummary(recommendations.length, result.totalCandidatesEvaluated)}</p>
               </div>
               <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</span>
             </div>
 
-            <div className="store-grid">
-              {visibleStores.map(store => (
+            <div className={"store-grid " + (hasSplitPlans ? "mixed-store-grid" : "")}>
+              {visibleOptions.map((option, index) => option.kind === "plan" ? (
+                <MultiPlanCard key={option.plan.planId} plan={option.plan}
+                  routeUrl={preferences.origin ? mapsPlanRouteUrl(preferences.origin, option.plan, result.multiStore?.stores ?? recommendations, preferences.transportMode) : undefined}
+                  copy={copy} basket={basket} stores={result.multiStore?.stores ?? recommendations}
+                  locale={copy === COPY.ms ? "ms" : "en"} isRecommended={index === 0}
+                  onSelectPlan={setSelectedPlanId}/>
+              ) : (
                 <StoreCard
-                  key={store.premiseId}
-                  store={store}
-                  isRecommended={recommendedStore?.premiseId === store.premiseId}
-                  routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, store, preferences.transportMode) : undefined}
-                  pricesExpanded={expandedStoreId === store.premiseId}
-                  onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
-                  onSelectStore={() => onSelectStore(store)}
+                  key={option.store.premiseId}
+                  store={option.store}
+                  isRecommended={index === 0}
+                  routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, option.store, preferences.transportMode) : undefined}
+                  pricesExpanded={expandedStoreId === option.store.premiseId}
+                  onTogglePrices={() => setExpandedStoreId(current => (current === option.store.premiseId ? null : option.store.premiseId))}
+                  onSelectStore={() => onSelectStore(option.store)}
                   copy={copy}
                   locale={copy === COPY.ms ? "ms" : "en"}
                   transportMode={preferences.transportMode}
@@ -2171,9 +2156,9 @@ function CompareScreen({
               ))}
 
               {/* Page the unified ranking six stores at a time. */}
-              {hasMoreStores(visibleCount, recommendations.length) && (
-                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, recommendations.length))} className="h-12 w-full rounded-xl border border-[#007d38] bg-white text-sm font-bold text-[#007d38]">
-                  {copy.moreStores}
+              {hasMoreStores(visibleCount, storePlanOptions.length) && (
+                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, storePlanOptions.length))} className="h-12 w-full rounded-xl border border-[#007d38] bg-white text-sm font-bold text-[#007d38]">
+                  {hasSplitPlans ? (copy === COPY.ms ? "Lihat pilihan lagi (+6)" : "See more options (+6)") : copy.moreStores}
                 </button>
               )}
 
@@ -2809,6 +2794,7 @@ export default function App() {
     // The record appears in the in-memory history immediately (no reload) and
     // is persisted by the storage effect above.
     setTripHistory(current => addTripRecord(current, record));
+    resetTrip();
     navigateTo("history");
   };
   if (!sessionStorageReady) return <div className="smartcart-app" aria-busy="true" />;
@@ -2865,6 +2851,8 @@ export default function App() {
             checklist={checklist}
             locale={locale}
             copy={copy}
+            origin={preferences.origin}
+            transportMode={preferences.transportMode}
             onToggleStatus={updateChecklistStatus}
             onAddManual={addChecklistItem}
             onEditItem={editChecklistItem}
@@ -2961,8 +2949,7 @@ export default function App() {
               );
               setChecklist(withSavedItems);
               setSavedItems(current => current.filter(item => !usedSavedItems.some(saved => saved.id === item.id)));
-              resetTrip();
-              navigateTo("home");
+              navigateTo("checklist");
             }}
             selectedStore={isStoreRoute ? selectedStore : null}
             onSelectStore={store => {

@@ -18,6 +18,7 @@ journey must return home (AC 6.2.6).
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from math import asin, ceil, cos, radians, sin, sqrt
+from typing import Literal
 
 from .maps import RouteMatrixResult
 from .models import MultiStorePlan, MultiStorePlans, RouteLeg, TravelLimit
@@ -157,6 +158,7 @@ def _evaluate_direction(
     second_limit: ResolvedLimit,
     cost_rate: TravelCostRate,
     home_name: str,
+    route_provider: Literal["google", "straight_line"] = "google",
 ) -> tuple[MultiStorePlan, float] | None:
     """Evaluate one visit order, or None if it is ineligible or unrouteable.
 
@@ -202,7 +204,7 @@ def _evaluate_direction(
         total_travel_minutes=minutes_total,
         total_travel_cost_rm=cost_total,
         legs=legs,
-        route_provider="google",
+        route_provider=route_provider,
     )
     return plan, cost_total
 
@@ -217,6 +219,8 @@ def plan_multi_store_trips(
     second_store_limit: TravelLimit,
     cost_rate: TravelCostRate,
     home_name: str,
+    route_provider: Literal["google", "straight_line"] = "google",
+    max_returned_plans: int = MAX_RETURNED_PLANS,
 ) -> MultiStorePlans:
     """Build every eligible two-store plan, cheapest loop first.
 
@@ -265,6 +269,7 @@ def plan_multi_store_trips(
             second_limit=second_limit,
             cost_rate=cost_rate,
             home_name=home_name,
+            route_provider=route_provider,
         )
 
         # AC 6.2.5: also try the reverse order, but only when the other store is
@@ -279,6 +284,7 @@ def plan_multi_store_trips(
                 second_limit=second_limit,
                 cost_rate=cost_rate,
                 home_name=home_name,
+                route_provider=route_provider,
             )
 
         if forward is None and reverse is None:
@@ -330,7 +336,7 @@ def plan_multi_store_trips(
         )
 
     return MultiStorePlans(
-        plans=plans[:MAX_RETURNED_PLANS],
+        plans=plans[:max_returned_plans],
         second_store_limit=second_store_limit,
         evaluated_pair_count=evaluated,
         unrouteable_pair_count=unrouteable,

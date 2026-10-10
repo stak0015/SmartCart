@@ -1,4 +1,6 @@
 import type {
+  PlanComparison,
+  StoreRecommendation,
   PlanStoreAssignment,
   PricedPlan,
   TravelLimit,
@@ -189,7 +191,7 @@ export interface PlanStoreGroup {
 export function groupAssignmentsByStore(plan: PricedPlan): PlanStoreGroup[] {
   return plan.storePremiseIds.map((storePremiseId, index) => {
     const lines = plan.assignments.filter(line => line.storePremiseId === storePremiseId);
-    const subtotalRm = lines.reduce((total, line) => total + line.lineTotalRm, 0);
+    const subtotalRm = lines.reduce((total, line) => total + (line.lineTotalRm ?? 0), 0);
     return {
       storePremiseId,
       storeName: plan.storeNames[index] ?? plan.storeNames[0] ?? storePremiseId,
@@ -211,4 +213,35 @@ export function legRoleKey(
   if (role === "origin_to_first") return "legOriginToFirst";
   if (role === "first_to_second") return "legFirstToSecond";
   return "legSecondToOrigin";
+}
+
+
+export type StorePlanOption = { kind: "store"; store: StoreRecommendation } | { kind: "plan"; plan: PricedPlan };
+
+/** Rank all viable options by basket plus return-travel cost, including estimates. */
+export function rankedStorePlanOptions(stores: StoreRecommendation[], comparison?: PlanComparison | null): StorePlanOption[] {
+  const options: StorePlanOption[] = stores.map(store => ({ kind: "store", store }));
+
+  const seen = new Set<string>();
+  for (const plan of [...(comparison?.completePlans ?? []), ...(comparison?.incompletePlans ?? [])]) {
+    if (plan.storeCount !== 2 || seen.has(plan.planId)
+      || !plan.storePremiseIds.every(id => plan.assignments.some(line => line.storePremiseId === id))) continue;
+    seen.add(plan.planId);
+    options.push({ kind: "plan", plan });
+  }
+  const metrics = (option: StorePlanOption) => {
+    if (option.kind === "store") {
+      const store = option.store;
+      return { cost: store.combinedTotalRm ?? (store.basketPrices.length === 0 ? store.estimatedRoundTripCostRm : Infinity),
+        minutes: store.estimatedTravelMinutes * 2, distance: store.routeDistanceKm * 2, name: store.name, id: store.premiseId };
+    }
+    const plan = option.plan;
+    return { cost: plan.combinedTotalRm ?? Infinity,
+      minutes: plan.totalTravelMinutes, distance: plan.totalRouteDistanceKm, name: plan.storeNames.join(" → "), id: plan.planId };
+  };
+  return options.sort((a, b) => {
+    const first = metrics(a), second = metrics(b);
+    return first.cost - second.cost || first.minutes - second.minutes || first.distance - second.distance
+      || first.name.localeCompare(second.name) || first.id.localeCompare(second.id);
+  });
 }

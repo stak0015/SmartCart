@@ -6,6 +6,80 @@
   --grid-gap: 20px;
 }
 .smartcart-app { line-height: 1.5; }
+/* Two-store planning follows the same sizing as travel controls and store cards. */
+.compare-travel-toolbar { display: flex; width: 100%; align-items: center; gap: 20px; }
+.compare-travel-toolbar .store-detail-facts { flex: 1; min-width: 0; margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+.store-plans-dropdown { position: relative; flex-shrink: 0; }
+.store-plans-trigger { display: flex; align-items: center; gap: 8px; min-height: var(--control-height); padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.store-plans-trigger::-webkit-details-marker { display: none; }
+.store-plans-trigger > svg { color: var(--green); }
+.store-plans-trigger:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.store-plans-active { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.store-plans-dropdown[open] .store-plans-trigger { border-color: var(--green); background: #eef9f1; }
+.store-plans-dropdown[open] .store-plans-chevron { transform: rotate(180deg); }
+.store-plans-dropdown > .multi-store-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 440px; max-width: calc(100vw - 48px); max-height: min(560px, 65dvh); overflow-y: auto; box-shadow: 0 8px 28px #10152e20; }
+.multi-store-panel { width: 100%; max-width: 440px; border: 1px solid var(--line); border-radius: var(--control-radius); background: white; padding: 8px 16px; }
+.multi-store-header { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
+.multi-store-toggle { display: flex; align-items: center; gap: 8px; min-height: var(--control-height); font-size: 13px; font-weight: 600; text-align: left; }
+.multi-store-toggle > svg { color: var(--green); }
+.multi-store-toggle .remember-switch { position: relative; display: inline-block; flex-shrink: 0; width: 36px; height: 20px; border-radius: 20px; background: #aebcbb; }
+.multi-store-toggle .remember-switch.is-on { background: var(--green); }
+.multi-store-content { display: flex; flex-direction: column; gap: 12px; padding: 10px 0 8px; border-top: 1px solid var(--line); }
+.multi-store-intro h2 { font-size: 14px; font-weight: 700; }
+.multi-store-intro p { margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.multi-store-controls { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+.multi-store-types { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; padding: 2px; border-radius: 6px; background: #edf2ef; }
+.multi-store-types button { min-height: var(--control-height); padding: 4px 8px; border-radius: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.multi-store-types button[aria-pressed="true"] { background: white; color: var(--green); box-shadow: 0 1px 3px #10152e12; }
+.multi-store-presets { display: flex; width: 100%; flex-direction: column; gap: 12px; }
+.multi-store-presets fieldset { min-width: 0; }
+.multi-store-presets legend { margin-bottom: 4px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.multi-store-presets fieldset > div { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.multi-store-presets button { min-height: var(--control-height); padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: white; font-size: 12px; font-weight: 600; }
+.multi-store-presets button[aria-pressed="true"] { border-color: var(--green); background: #eef9f1; color: var(--green); }
+.multi-store-apply { min-height: var(--control-height); padding: 6px 16px; border-radius: 6px; background: var(--green); color: white; font-size: 13px; font-weight: 600; }
+.multi-store-error { color: #ba1a1a; font-size: 12px; }
+.multi-store-empty { padding: 12px 16px; border: 1px solid var(--line); border-radius: var(--control-radius); background: white; }
+.multi-store-empty .plan-card-action { width: fit-content; margin-top: 8px; }
+.multi-store-panel button:focus-visible, .plan-card-action:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.plan-comparison, .plan-incomplete-group { display: flex; flex-direction: column; gap: 12px; }
+.plan-section-title { color: var(--ink); font-size: 16px; font-weight: 700; line-height: 1.5; }
+.plan-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.plan-incomplete-group { padding-top: 12px; border-top: 1px solid var(--line); }
+.plan-card, .plan-detail-card { min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: var(--control-radius); background: white; }
+.plan-card { display: flex; flex-direction: column; }
+.plan-card-header { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.plan-card-header h3 { color: var(--ink); font-size: 14px; font-weight: 700; line-height: 1.5; }
+.plan-card-label { padding: 2px 6px; border-radius: 4px; background: #eef5f0; color: var(--green); font-size: 11px; font-weight: 600; }
+.plan-card-costs { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 12px; }
+.plan-card-total { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-top: 4px; padding-top: 8px; border-top: 1px solid var(--line); }
+.plan-card-total dd { color: var(--green); font-size: 18px; font-weight: 700; }
+.plan-card > p { margin-top: 8px; font-size: 12px; line-height: 1.5; }
+.plan-card-action { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: var(--control-height); margin-top: 12px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; color: var(--green); font-size: 13px; font-weight: 600; }
+.plan-card-action:hover { border-color: var(--green); background: #eef9f1; }
+.plan-detail.compare-screen h1 { font-size: 24px; line-height: 1.3; letter-spacing: -.3px; }
+.plan-detail-card h2 { font-size: 14px; line-height: 1.5; }
+.plan-detail > .plan-detail-layout { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 4px 0 24px; }
+.plan-detail-layout > button, .plan-detail-layout > header, .plan-detail-journey, .plan-detail-total { grid-column: 1 / -1; }
+.plan-detail-legs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.plan-detail-legs span { font-size: 13px; }
+@media (max-width: 1000px) {
+  .plan-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .compare-travel-toolbar { gap: 10px; align-items: flex-start; }
+  .compare-travel-toolbar .store-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
+  .compare-travel-toolbar .store-detail-facts > span { border-right: 0; padding-inline: 0; }
+  .compare-travel-toolbar .store-detail-facts > span:first-child { display: grid; grid-column: 1 / -1; }
+  .store-plans-trigger { gap: 6px; padding-inline: 8px; font-size: 12px; }
+  .store-plans-trigger > svg { display: none; }
+  .store-plans-dropdown > .multi-store-panel, .store-plans-dropdown > .multi-store-panel.has-both-limits { position: fixed; inset: auto 16px 16px; width: auto; max-width: none; max-height: 70dvh; }
+  .multi-store-panel { padding-inline: 12px; }
+  .multi-store-controls { gap: 10px; align-items: stretch; }
+  .multi-store-types { width: 100%; }
+  .plan-card-grid { grid-template-columns: minmax(0, 1fr); }
+  .plan-detail > .plan-detail-layout, .plan-detail-legs { grid-template-columns: minmax(0, 1fr); }
+}
 .shopping-step-nav { margin: 16px var(--page-gutter) 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
 .shopping-step-nav ol { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
 .shopping-step-nav button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
@@ -135,13 +209,21 @@
 .pack-option button { min-height: 44px; }
 
 /* Checklist, receipts and reports share flexible rows rather than fixed totals. */
-.checklist-metrics { position: static; width: 100%; max-width: none; margin-top: 20px; }
+.checklist-items-heading { flex-wrap: wrap; }
+.checklist-summary { display: flex; min-width: 0; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 14px; margin-left: auto; color: var(--muted); font-size: 12px; }
+.checklist-summary-progress { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.checklist-summary-progress > span { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.checklist-summary-meter { width: 40px; height: 5px; overflow: hidden; border-radius: 999px; background: #cce3d9; }
+.checklist-summary-meter > span { display: block; height: 100%; border-radius: inherit; background: var(--green); transition: width 180ms ease; }
+.checklist-summary-total { display: inline-flex; align-items: baseline; gap: 5px; white-space: nowrap; }
+.checklist-summary-total > span { font-size: 11px; }
+.checklist-summary-total > strong { color: var(--ink); font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.checklist-summary-disclosure { flex-basis: 100%; text-align: right; font-size: 10px; line-height: 1.3; }
 .checklist-columns, .checklist-row { grid-template-columns: 30px minmax(0, 2fr) 72px 40px 84px 90px minmax(0, 1fr) 176px; gap: 12px; }
 .checklist-row > * { min-width: 0; }
 .checklist-columns > span:nth-child(2) { padding-left: 52px; }
 .checklist-row-actions button { width: 44px; height: 44px; min-height: 44px; padding: 0; }
 .checklist-row-actions > div { gap: 0; }
-.checklist-filters button { min-height: 44px; padding: 8px 16px; }
 .checklist-toolbar > button { min-height: 44px; }
 .checklist-toolbar { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; }
 .checklist-toolbar > button:nth-child(2) { grid-column: 4; grid-row: 1; margin: 0; }
@@ -264,8 +346,10 @@
   .checklist-row { grid-template-columns: 26px minmax(0, 1fr) 80px 32px; gap: 8px; padding: 12px 8px; }
   .checklist-row-name h3 { font-size: 13px; }
   .checklist-row-total { font-size: 13px; }
-  .checklist-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-  .checklist-filters button { padding: 8px 4px; font-size: 12px; }
+  .checklist-filter-bar { align-items: stretch; gap: 8px; }
+  .checklist-store-select { flex: 1 1 100%; }
+  .checklist-item-filter-group { width: 100%; }
+  .checklist-filter-button { flex: 1 1 0; min-width: 0; padding-inline: 5px; font-size: 11px; }
   .checklist-toolbar { display: flex; flex-wrap: wrap; gap: 8px; }
   .checklist-toolbar > button { flex: 1 1 140px; margin: 0; }
   .checklist-item-dialog form { padding: 20px; }
@@ -311,8 +395,22 @@
 .store-detail-identity > span { max-width: 100%; }
 .store-detail-facts { grid-column: 1 / -1; grid-row: 2; }
 .receipt-store-icon { position: relative; overflow: hidden; padding: 4px; }
-.checklist-store-identity { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 12px; margin-bottom: 8px; }
-.checklist-store-symbol { position: relative; display: grid; place-items: center; overflow: hidden; width: 56px; height: 56px; padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--green); }
+.checklist-overview-top { display: flex; width: 100%; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
+.checklist-overview .checklist-overview-top h1 { order: 0; flex: 1 1 auto; min-width: 0; margin: 0; }
+.checklist-overview-stores { width: 100%; margin-top: 10px; }
+.checklist-map-route { display: inline-flex; flex: 0 0 auto; align-self: center; align-items: center; gap: 6px; }
+.checklist-store-identity { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 12px; margin-bottom: 8px; }
+.checklist-store-identity.is-multi-store { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
+.checklist-plan-store.store-card-header { grid-template-columns: 60px minmax(0, 1fr); gap: 12px; min-height: 60px; margin: 0; }
+.checklist-plan-store .store-symbol { width: 60px; height: 60px; padding: 4px; }
+.checklist-plan-store .store-card-identity { width: 100%; gap: 2px; }
+.checklist-plan-store .store-card-identity h3 { font-size: 14px; line-height: 1.3; font-weight: 650; }
+.checklist-plan-store-address { display: block; width: 100%; min-width: 0; margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+.checklist-sara-status { display: inline-flex; align-self: flex-start; max-width: 100%; margin-top: 3px; padding: 3px 7px; border-radius: 4px; font-size: 10px; line-height: 1.25; font-weight: 600; }
+.checklist-sara-status.is-verified { background: #e5f5ed; color: #166534; }
+.checklist-sara-status.is-candidate { background: #fff4ce; color: #755b00; }
+.checklist-sara-status.is-unverified { background: #f3f4f5; color: #5f6368; }
+.checklist-store-symbol { position: relative; display: grid; place-items: center; overflow: hidden; width: 64px; height: 64px; padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--green); }
 .checklist-store-name { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .checklist-store-address { display: block; overflow-wrap: anywhere; }
 
@@ -343,8 +441,8 @@
   .store-detail-symbol { width: 68px; height: 68px; }
   .store-detail-facts { grid-column: 1 / -1; grid-row: 2; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .store-detail-facts > span:first-child { display: grid; }
-  .checklist-store-identity { grid-template-columns: 48px minmax(0, 1fr); gap: 10px; }
-  .checklist-store-symbol { width: 48px; height: 48px; }
+  .checklist-store-identity { grid-template-columns: 56px minmax(0, 1fr); gap: 10px; }
+  .checklist-store-symbol { width: 56px; height: 56px; }
 }
 
 @media (max-width: 700px) {
@@ -653,3 +751,66 @@
 .catalogue-dialog-details .product-visual > span { display: grid; place-items: center; width: 100%; height: 100%; }
 .catalogue-dialog-details .price-trends-trigger { position: absolute; top: 8px; right: 8px; display: flex; justify-content: center; align-items: center; width: 40px; height: 40px; min-height: 40px; padding: 0; margin: 0; border-radius: 50%; background: #fff; box-shadow: 0 2px 8px #10231d18; }
 .price-trends-trigger:focus-visible { outline: 2px solid #007d38; outline-offset: 2px; }
+
+
+/* Store plans use the same card, product-row and summary styles as stores. */
+.multi-plan-card { display: flex; flex-direction: column; height: 100%; }
+.multi-plan-stores { display: flex; flex-direction: column; gap: 12px; min-height: 152px; }
+.multi-plan-stores .store-card-header { min-height: 64px; align-items: center; }
+.multi-plan-stores .store-symbol { width: 44px; height: 44px; flex: 0 0 44px; }
+.multi-plan-stores .store-card-identity h3 { font-size: 14px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.multi-plan-stores .store-card-identity > small { color: var(--muted); font-size: 11px; }
+.multi-plan-card .store-card-travel { margin-top: 12px; }
+.multi-plan-card .store-card-actions { margin-top: auto; padding-top: 12px; }
+.multi-plan-card .store-card-costs { flex: 0 0 auto; }
+.plan-price-popover { max-height: min(420px, 60vh); overflow-y: auto; }
+.plan-price-popover h4 { color: var(--ink); font-size: 13px; padding: 12px 8px 4px; font-weight: 700; }
+.plan-back-button { min-height: 44px; color: var(--green); font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.plan-store-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.plan-store-tabs button { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 3px; min-height: 48px; min-width: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); text-align: left; background: white; font-size: 13px; }
+.plan-store-tabs button span { font-size: 11px; }
+.plan-store-tabs button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-store-tabs button[aria-pressed="true"] { color: var(--green); background: #eef6f1; border-color: var(--green); }
+.plan-store-tabs button:focus-visible, .plan-back-button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.plan-summary-legs { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+.plan-summary-legs li { padding-block: 4px; display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
+.plan-summary-legs li > span { min-width: 0; }
+.plan-summary-legs li > span:last-child { flex-shrink: 0; text-align: right; }
+.plan-summary-legs small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
+.checklist-item-store { color: var(--green); }
+@media (max-width: 720px) {
+  .multi-plan-detail .plan-store-tabs, .multi-plan-detail .plan-back-button { margin-inline: 16px; }
+  .checklist-items-heading { align-items: flex-start; }
+  .checklist-summary { width: 100%; justify-content: space-between; margin-left: 0; }
+  .checklist-summary-disclosure { text-align: left; }
+  .checklist-map-route { min-width: 0; max-width: 145px; padding-inline: 8px; font-size: 11px; }
+}
+/* Keep every option in the mixed ranking on identical rows. */
+.mixed-store-grid .store-card { display: flex; flex-direction: column; height: 100%; }
+.mixed-store-grid .store-card-marker { display: flex; align-items: center; justify-content: space-between; min-height: 28px; }
+.mixed-store-grid .store-card-marker small { color: var(--muted); font-size: 11px; margin-left: auto; }
+.mixed-store-grid .store-card > .store-card-header, .mixed-store-grid .multi-plan-stores { height: 112px; min-height: 112px; margin: 0; }
+.mixed-store-grid .multi-plan-stores { display: flex; gap: 6px; }
+.mixed-store-grid .multi-plan-stores .store-card-header { min-height: 48px; }
+.mixed-store-grid .multi-plan-stores .store-symbol { width: 36px; height: 36px; flex-basis: 36px; }
+.mixed-store-grid .multi-plan-stores .store-card-identity > small { display: none; }
+.mixed-store-grid .multi-plan-stores .store-card-identity h3 { font-size: 13px; line-height: 1.3; -webkit-line-clamp: 1; }
+.mixed-store-grid .multi-plan-stores .store-card-identity > span { padding: 2px 6px; font-size: 10px; }
+.mixed-store-grid .store-card .store-card-travel { min-height: 106px; margin-top: 12px; align-content: start; }
+.mixed-store-grid .store-card .store-card-costs { margin-top: 12px; }
+.mixed-store-grid .store-card .price-coverage { min-height: 48px; }
+.mixed-store-grid .store-card .store-card-actions { margin-top: auto; padding-top: 12px; }
+.mixed-store-grid .store-card .store-card-travel { height: 116px; min-height: 116px; flex-shrink: 0; }
+.mixed-store-grid .store-card .store-card-trip-fact { min-height: 64px; }
+.mixed-store-grid .store-card .store-card-costs { min-height: 110px; }
+
+.checklist-item-copy .checklist-item-store { display: block; margin-top: 2px; }
+
+.plan-journey { border-bottom: 1px solid var(--line); padding: 8px 16px; }
+.plan-journey summary { display: flex; align-items: center; justify-content: space-between; min-height: 44px; color: var(--green); font-size: 13px; font-weight: 700; cursor: pointer; list-style: none; }
+.plan-journey summary::-webkit-details-marker { display: none; }
+.plan-journey summary:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+@media (max-width: 720px) {
+  .store-item-row:not(:has(.store-item-toggle)) { grid-template-columns: 40px minmax(0, 1fr) 64px; }
+}

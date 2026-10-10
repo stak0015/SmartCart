@@ -289,6 +289,7 @@ describe("shopping checklist snapshots", () => {
       premiseCode: "P10",
       name: "Test Store",
       address: "1 Test Street",
+      saraStatus: "candidate",
     });
     expect(checklist.items.map(item => item.catalogueItemId)).toEqual(["4", "2"]);
     expect(checklist.items[0]).toMatchObject({
