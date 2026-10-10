@@ -5,7 +5,7 @@ import { UIIcon } from "./ui-icon";
 
 export { cataloguePrice } from "../lib/catalogue-price";
 
-export function CatalogueItemDialog({ open, title, details, quantity, back, nutrition, alternatives, trends, onClose, onAdd, canAdd, locale }: {
+export function CatalogueItemDialog({ open, title, details, quantity, back, nutrition, alternatives, trends, onClose, onAdd, onSchedule, canAdd, locale }: {
   open: boolean; title: string; details: ReactNode | ((priceTrendsButton: ReactNode) => ReactNode); quantity: ReactNode;
   // Epic 7 (US 7.2): "Back to [previous item]" control, shown only when the
   // shopper has walked into an alternative.
@@ -17,6 +17,7 @@ export function CatalogueItemDialog({ open, title, details, quantity, back, nutr
   nutrition?: ReactNode;
   onClose: () => void; onAdd: () => void; canAdd: boolean; locale: "en" | "ms";
   trends?: (onClose: () => void) => ReactNode;
+  onSchedule?: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [trendsOpen, setTrendsOpen] = useState(false);
@@ -58,7 +59,7 @@ export function CatalogueItemDialog({ open, title, details, quantity, back, nutr
       {nutrition && <details className="catalogue-nutrition-disclosure"><summary>{locale === 'en' ? 'Nutrition information' : 'Maklumat pemakanan'}<UIIcon name="chevronDown" size={18}/></summary>{nutrition}</details>}
       <div className="catalogue-dialog-quantity"><h3>{locale === "en" ? "Quantity" : "Kuantiti"}</h3>{quantity}</div>
     </div>
-    <footer><button type="button" className="primary-button" disabled={!canAdd} onClick={onAdd}><UIIcon name="basket"/>{locale === "en" ? "Add to basket" : "Tambah ke bakul"}</button></footer>
+    <footer><button type="button" className="primary-button" disabled={!canAdd} onClick={onAdd}><UIIcon name="basket"/>{locale === "en" ? "Add to basket" : "Tambah ke bakul"}</button>{onSchedule && <button type="button" className="secondary-button catalogue-schedule-button" disabled={!canAdd} onClick={onSchedule} aria-haspopup="dialog" aria-label={locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"} title={locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"}><UIIcon name="calendar" size={20}/></button>}</footer>
     </div>{trendsOpen && trends && <div id="catalogue-price-trends" className="catalogue-trends-card">{trends(() => { setTrendsOpen(false); dialogRef.current?.querySelector<HTMLButtonElement>('.price-trends-trigger')?.focus(); })}</div>}
     {insights && <aside id="catalogue-alternative-insights" className="catalogue-trends-card" aria-labelledby="catalogue-insights-title"><header className="catalogue-insights-header"><h3 id="catalogue-insights-title" tabIndex={-1}>{locale === 'en' ? 'Why this alternative?' : 'Mengapa alternatif ini?'}</h3><button type="button" className="icon-button" aria-label={locale === 'en' ? 'Close insights' : 'Tutup pandangan'} onClick={() => { setInsights(null); insightTrigger.current?.focus(); }}><UIIcon name="close"/></button></header>{insights}</aside>}</div>
   </dialog>;

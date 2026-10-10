@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
   check: "m5 12 4 4L19 6",
+  calendar: "M4 5h16v16H4V5ZM8 2v6M16 2v6M4 10h16M8 14h2M14 14h2",
   close: "M6 6l12 12M6 18 18 6",
   lightbulb: "M9 18h6M9 21h6M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4Z",
   priceTrends: "M4 3v17h17M7 14l4-4 4 3 6-8M17 5h4v4",

@@ -431,15 +431,15 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
 
   return (
     <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel}
-      className="checklist-item-dialog m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55">
-      <form onSubmit={submit} noValidate className="p-5 sm:p-6">
-        <div className="flex items-center justify-between gap-4">
+      className="checklist-item-dialog shopping-item-dialog m-auto max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-[32rem] overflow-y-auto rounded-2xl border border-[#dce5e0] bg-white p-0 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55">
+      <form onSubmit={submit} noValidate>
+        <div className="shopping-dialog-heading">
           <h2 id={titleId} className="text-xl font-extrabold">{item ? copy.editChecklistItem : copy.addChecklistItem}</h2>
-          <IconButton label={copy.close} onClick={onCancel}><ActionIcon name="close" /></IconButton>
+          <IconButton className="shopping-dialog-close" label={copy.close} onClick={onCancel}><ActionIcon name="close" /></IconButton>
         </div>
-        <div className="dialog-context">{item ? (locale === "en" ? "Edit existing item" : "Edit item sedia ada") : (locale === "en" ? "Add manual item" : "Tambah item manual")}</div>
-        {item && <div className="dialog-original"><strong>{localizedItemName(item, locale)}</strong><p>{item.packageSize}</p><span>{locale === "en" ? "Original (planned) price" : "Harga asal (dirancang)"}</span><b>{original?.unitPriceRm == null ? "—" : formatRm(original.unitPriceRm)}</b></div>}
-        <div className="dialog-fields mt-5 grid gap-4">
+        <p className="shopping-dialog-description">{locale === "en" ? "Set the item name, quantity and price for your checklist." : "Tetapkan nama item, kuantiti dan harga untuk senarai semak anda."}</p>
+        {item && <div className="shopping-dialog-item"><span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span><div><strong>{localizedItemName(item, locale)}</strong><small>{item.packageSize}</small></div><div className="shopping-dialog-reference"><small>{locale === "en" ? "Planned price" : "Harga dirancang"}</small><strong>{(original?.unitPriceRm ?? item.unitPriceRm) == null ? "—" : formatRm((original?.unitPriceRm ?? item.unitPriceRm)!)}</strong></div></div>}
+        <div className="dialog-fields shopping-dialog-fields">
           <div>
             <label htmlFor={nameId} className="text-sm font-bold">{copy.itemName}</label>
             <div className="mt-1.5 flex gap-2">
@@ -465,7 +465,7 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
             {errors.quantity && <p id={quantityId + "-error"} role="alert" className="mt-1 text-xs text-[#93000a]">{errors.quantity}</p>}
           </div>
           <div>
-            <label htmlFor={priceId} className="text-sm font-bold">{copy.itemUnitPrice}</label>
+            <label htmlFor={priceId} className="text-sm font-bold">{locale === "en" ? "Unit price (RM)" : "Harga seunit (RM)"}</label>
             <div className="mt-1.5 flex gap-2">
               <input id={priceId} type="number" inputMode="decimal" min="0.01" step="0.01" value={unitPriceRm}
                 aria-invalid={Boolean(errors.unitPriceRm)} aria-describedby={errors.unitPriceRm ? priceId + "-error" : undefined}
@@ -474,10 +474,11 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
               {original && <IconButton label={copy.revertItem + ": " + copy.checklistUnitPrice} disabled={unitPriceRm === originalPrice}
                 onClick={() => { setUnitPriceRm(originalPrice); setErrors(current => ({ ...current, unitPriceRm: undefined })); }}><ActionIcon name="revert" /></IconButton>}
             </div>
+            <p className="shopping-field-hint">{locale === "en" ? "Optional" : "Pilihan"}</p>
             {errors.unitPriceRm && <p id={priceId + "-error"} role="alert" className="mt-1 text-xs text-[#93000a]">{errors.unitPriceRm}</p>}
           </div>
         </div>
-        <div className="mt-6 flex justify-end gap-2 border-t border-[#e2e9e5] pt-4">
+        <div className="shopping-dialog-actions">
           <button type="button" className="secondary-button" onClick={onCancel}>{copy.cancel}</button>
           <button type="submit" className="primary-button">{copy.saveItem}</button>
         </div>
@@ -486,12 +487,13 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
   );
 }
 
-function ActionIcon({ name }: { name: "check" | "close" | "revert" | "bookmark" | "history" | "list" | "trash" | "image" | "pdf" }) {
+function ActionIcon({ name }: { name: "check" | "close" | "revert" | "bookmark" | "calendar" | "history" | "list" | "trash" | "image" | "pdf" }) {
   const paths = {
     check: "m4 10.5 3.6 3.6L16 5.8",
     close: "m5 5 10 10M15 5 5 15",
     revert: "M4 4v5h5M4 9a6 6 0 1 1 1 6",
     bookmark: "M5 3h10v14l-5-3-5 3V3Z",
+    calendar: "M3 5h14v13H3V5ZM6 2v5M14 2v5M3 9h14M6 12h2M12 12h2",
     history: "M10 5v5l3 2M3 3v5h5M3 8a7 7 0 1 1 0 5",
     list: "m3 5 1 1 2-2M9 5h8m-14 6 1 1 2-2M9 11h8M9 17h8",
     trash: "M4 6h12M7 6V3h6v3M6 6l1 11h6l1-11M9 9v5M11 9v5",
@@ -601,28 +603,30 @@ export function PlannedWeekDialog({ item, locale, onSave, onCancel }: {
 }) {
   const titleId = useId();
   const weekId = useId();
-  const selectRef = useRef<HTMLSelectElement>(null);
-  const { dialogRef, handleCancel } = useNativeDialog(true, onCancel, selectRef);
+  const selectedRef = useRef<HTMLInputElement>(null);
+  const { dialogRef, handleCancel } = useNativeDialog(true, onCancel, selectedRef);
   const options = plannedWeekOptions();
   const [week, setWeek] = useState(options.includes(item.plannedWeek ?? "") ? item.plannedWeek! : options[0]);
   const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
-  return <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel}
-    className="checklist-item-dialog m-auto w-[calc(100%_-_2rem)] max-w-[32rem] rounded-2xl border border-[#dce5e0] bg-white p-5 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55">
+  return <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel} className="checklist-item-dialog shopping-item-dialog planned-week-dialog">
     <form onSubmit={event => { event.preventDefault(); if (plannedWeekOptions().includes(week)) onSave(week); }}>
-      <h2 id={titleId} className="text-xl font-extrabold">{locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"}</h2>
-      <p className="my-3">{name} · {item.quantity}</p>
-      <label htmlFor={weekId} className="block font-bold">{locale === "en" ? "Planned week (Monday–Sunday)" : "Minggu dirancang (Isnin–Ahad)"}</label>
-      <select ref={selectRef} id={weekId} value={week} onChange={event => setWeek(event.target.value)} className="my-3 min-h-11 w-full rounded-lg border border-[#cbd8d1] p-2">
-        {options.map((value, index) => <option key={value} value={value}>{index === 0 ? (locale === "en" ? "This week" : "Minggu ini") : (locale === "en" ? (index === 1 ? "Next week" : `In ${index} weeks`) : `${index} minggu lagi`)} · {plannedWeekLabel(value, locale)}</option>)}
-      </select>
-      <div className="mt-3 flex justify-end gap-3"><button type="button" className="secondary-button" onClick={onCancel}>{locale === "en" ? "Cancel" : "Batal"}</button><button type="submit" className="primary-button">{locale === "en" ? "Save planned item" : "Simpan item dirancang"}</button></div>
+      <div className="shopping-dialog-heading"><h2 id={titleId}>{locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"}</h2><IconButton className="shopping-dialog-close" label={locale === "en" ? "Close" : "Tutup"} onClick={onCancel}><ActionIcon name="close"/></IconButton></div>
+      <p className="shopping-dialog-description">{locale === "en" ? "Choose when you plan to buy this item." : "Pilih masa anda merancang untuk membeli item ini."}</p>
+      <div className="shopping-dialog-item"><span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span><div><strong>{name}</strong><small>{locale === "en" ? "Quantity" : "Kuantiti"}: {item.quantity}{item.packageSize ? ` · ${item.packageSize}` : ""}</small></div></div>
+      <fieldset className="planned-week-options"><legend id={weekId}>{locale === "en" ? "Planned week" : "Minggu dirancang"}<span>{locale === "en" ? "Monday–Sunday" : "Isnin–Ahad"}</span></legend>
+        {options.map((value, index) => <label key={value} className="planned-week-option">
+          <input ref={week === value ? selectedRef : undefined} type="radio" name={weekId} value={value} checked={week === value} onChange={() => setWeek(value)}/>
+          <span><strong>{index === 0 ? (locale === "en" ? "This week" : "Minggu ini") : index === 1 ? (locale === "en" ? "Next week" : "Minggu depan") : (locale === "en" ? `In ${index} weeks` : `${index} minggu lagi`)}</strong><small>{plannedWeekLabel(value, locale)}</small></span>
+        </label>)}
+      </fieldset>
+      <div className="shopping-dialog-actions"><button type="button" className="secondary-button" onClick={onCancel}>{locale === "en" ? "Cancel" : "Batal"}</button><button type="submit" className="primary-button">{locale === "en" ? "Save planned item" : "Simpan item dirancang"}</button></div>
     </form>
   </dialog>;
 }
 
-export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, title, onSchedule }: {
+export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, title, onSchedule, variant = "list" }: {
   items: NextTripItem[]; locale: "en" | "ms"; copy: ShoppingChecklistCopy;
-  title?: string; onSchedule?: (item: NextTripItem) => void;
+  title?: string; variant?: "list" | "week"; onSchedule?: (item: NextTripItem) => void;
   onUse?: (items: NextTripItem[]) => void; onRestore?: (item: NextTripItem) => void | Promise<void>; onRemove: (id: string) => void;
 }) {
   const headingId = useId();
@@ -640,25 +644,33 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
     }
   };
 
-  return <section aria-labelledby={headingId} className="next-trip-panel">
+  return <section aria-labelledby={headingId} className={"next-trip-panel" + (variant === "week" ? " weekly-planned-panel" : " planned-items-panel")}>
     <div className="flex items-center justify-between gap-3">
       <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{title ?? copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
-      {onUse && selectedItems.length > 0 && <button type="button" className="secondary-button saved-use" onClick={() => onUse?.(selectedItems)}>{copy.useSavedItems} →</button>}
+      {variant === "list" && onUse && selectedItems.length > 0 && <button type="button" className="secondary-button saved-use" onClick={() => onUse?.(selectedItems)}>{copy.useSavedItems} →</button>}
     </div>
-    <p className="mt-2 text-xs leading-5 text-[#526078]">{items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
-    {items.length > 0 && <ul className="mt-3 divide-y divide-[#e8e2d5]">
+    <p className="planned-list-hint">{variant === "week" ? plannedWeekLabel(items[0]?.plannedWeek, locale) : items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
+    {items.length > 0 && <ul className="next-trip-list">
       {items.map(item => {
         const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
-        return <li key={item.id} className="flex items-center gap-2 py-2">
+        const week = plannedWeekLabel(item.plannedWeek, locale);
+        const weekContent = <><UIIcon name="calendar" size={20}/><span><small>{locale === "en" ? "Planned week" : "Minggu dirancang"}</small><strong>{week.replace(/ \d{4}/g, "")}</strong></span></>;
+        return <li key={item.id} className={"next-trip-row" + (variant === "list" ? " planned-item-card" : "")}>
+          <div className="next-trip-item-identity">
           {onUse && <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#007d38]" aria-label={(locale === "en" ? "Select for trip: " : "Pilih untuk perjalanan: ") + name} checked={selectedIds.includes(item.id)} onChange={event => setSelectedIds(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))}/>}
           <span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span>
-          <div className="next-trip-item-copy min-w-0 flex-1"><p className="next-trip-item-name break-words text-sm font-bold text-[#10152e]">{name}</p><p className="next-trip-item-meta text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p><p className="text-xs font-semibold text-[#007d38]">{locale === "en" ? "Planned week: " : "Minggu dirancang: "}{plannedWeekLabel(item.plannedWeek, locale)}</p></div>
-          {onSchedule && <IconButton label={(locale === "en" ? "Change planned week: " : "Tukar minggu dirancang: ") + name} onClick={() => onSchedule(item)}><ActionIcon name="bookmark" /></IconButton>}
+          <div className="next-trip-item-copy"><p className="next-trip-item-name">{name}</p><p className="next-trip-item-meta">{`${copy.checklistQuantity}: ${item.quantity}${item.packageSize ? " · " + item.packageSize : ""}`}</p></div>
+          </div>
+          {variant === "list" && <div className="planned-card-footer">
+            {onSchedule ? <button type="button" className="planned-card-week" title={week} aria-label={(locale === "en" ? "Change planned week: " : "Tukar minggu dirancang: ") + name} onClick={() => onSchedule(item)}>{weekContent}</button> : <div className="planned-card-week" title={week}>{weekContent}</div>}
+          <div className="next-trip-item-actions">
           {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
           <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="trash" /></IconButton>
+          </div></div>}
         </li>;
       })}
     </ul>}
+    {variant === "week" && onUse && selectedItems.length > 0 && <button type="button" className="primary-button weekly-plan-action" onClick={() => onUse(selectedItems)}>{copy.useSavedItems} →</button>}
   </section>;
 }
 
@@ -711,6 +723,49 @@ function ChecklistSaraTag({ status, copy }: {
       ? copy.candidateSara
       : copy.unverifiedSara;
   return <span className={`checklist-sara-status is-${value}`}>{label}</span>;
+}
+
+function ChecklistStoreFilter({ value, options, onChange, locale }: {
+  value: string; options: { value: string; label: string }[]; onChange: (value: string) => void; locale: "en" | "ms";
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  const label = options.find(option => option.value === value)?.label ?? options[0].label;
+  useEffect(() => {
+    if (!open) return;
+    rootRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open]);
+  return <div ref={rootRef} className="checklist-store-select">
+    <button ref={triggerRef} type="button" className="checklist-store-trigger" aria-haspopup="menu" aria-expanded={open} aria-controls={menuId}
+      aria-label={`${locale === "en" ? "Filter by store" : "Tapis mengikut kedai"}: ${label}`} onClick={() => setOpen(current => !current)}
+      onKeyDown={event => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); setOpen(true); } }}>
+      <span>{label}</span><DropdownChevron/>
+    </button>
+    {open && <div id={menuId} className="catalogue-sort-menu checklist-store-menu" role="menu" aria-label={locale === "en" ? "Store options" : "Pilihan kedai"}
+      onKeyDown={event => {
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("button"));
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        } else if (event.key === "Escape") {
+          event.preventDefault(); setOpen(false); triggerRef.current?.focus();
+        } else if (event.key === "Tab") setOpen(false);
+      }}>
+      {options.map(option => <button key={option.value} type="button" role="menuitemradio" tabIndex={-1} aria-checked={option.value === value}
+        onClick={() => { onChange(option.value); setOpen(false); triggerRef.current?.focus(); }}>
+        <span>{option.label}</span>{option.value === value && <UIIcon name="check" size={16}/>}
+      </button>)}
+    </div>}
+  </div>;
 }
 
 export function ShoppingChecklistScreen({
@@ -864,17 +919,10 @@ export function ShoppingChecklistScreen({
         <section aria-labelledby="checklist-items-heading" className="checklist-items">
           <div className="checklist-filter-bar">
             {checklist.stores && checklist.stores.length > 1 && (
-              <label className="checklist-store-select">
-                <span>{locale === "en" ? "Store" : "Kedai"}</span>
-                <select value={selectedStoreFilter} onChange={event => setStoreFilter(event.target.value)}>
-                  <option value="all">{locale === "en" ? "All stores" : "Semua kedai"} ({checklist.items.length})</option>
-                  {checklist.stores.map(store => (
-                    <option key={store.premiseId} value={store.premiseId}>
-                      {store.name} ({checklist.items.filter(item => item.storePremiseId === store.premiseId).length})
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <ChecklistStoreFilter value={selectedStoreFilter} onChange={setStoreFilter} locale={locale} options={[
+                { value: "all", label: `${locale === "en" ? "All stores" : "Semua kedai"} (${checklist.items.length})` },
+                ...checklist.stores.map(store => ({ value: store.premiseId, label: `${store.name} (${checklist.items.filter(item => item.storePremiseId === store.premiseId).length})` })),
+              ]}/>
             )}
             <div className="checklist-item-filter-group" role="group" aria-label={locale === "en" ? "Filter items by status" : "Tapis item mengikut status"}>
               {(["all", "bought", "not_bought"] as const).map(filter => (

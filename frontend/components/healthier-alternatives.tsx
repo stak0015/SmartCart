@@ -181,7 +181,7 @@ export function HealthierAlternativesSection({
                     <CatalogueItemImage imageUrl={card.alternative.item.image_url} fallbackSize={32} />
                   </span>
                   <span className="healthier-alternative-text">
-                    <strong>{card.name}</strong>
+                    <strong title={card.name}>{card.name}</strong>
                     <em>{reasonText(card, copy)}</em>
                   </span>
                 </button>

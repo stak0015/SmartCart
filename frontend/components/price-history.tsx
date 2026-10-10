@@ -8,7 +8,7 @@ import { UIIcon } from './ui-icon';
 
 const PriceSeriesChart = dynamic(() => import('./price-series-chart'), {ssr:false,loading:()=><div className="price-chart-placeholder" aria-busy="true"/>});
 
-export function ItemPriceHistory({ code, locale, onClose, onSchedule, plannedWeek }: { code: string; quantity: number | null; locale: Locale; onClose: () => void; onSchedule?: () => void; plannedWeek?: string | null }) {
+export function ItemPriceHistory({ code, locale, onClose, plannedWeek }: { code: string; quantity: number | null; locale: Locale; onClose: () => void; plannedWeek?: string | null }) {
   const [data, setData] = useState<PriceHistory | null>(null);
   const [months, setMonths] = useState<number | null>(12);
   const [forecastWeeks, setForecastWeeks] = useState(12);
@@ -31,7 +31,6 @@ export function ItemPriceHistory({ code, locale, onClose, onSchedule, plannedWee
   const hasPrices = history.some(p => p.price !== null) || forecast.length > 0;
   return <section className="item-price-history" aria-label={t('Price trends','Trend harga')}>
     <header className="price-trends-header"><h3>{t('Price trends','Trend harga')}</h3><button type="button" className="icon-button" onClick={onClose} aria-label={t('Close price trends','Tutup trend harga')}><UIIcon name="close"/></button></header>
-    {onSchedule && <button type="button" className="primary-button my-3" onClick={onSchedule}>{t("Schedule purchase", "Jadualkan pembelian")}</button>}
     {plannedWeek && <p role="status" className="my-2 text-sm font-semibold text-[#007d38]">{t("Planned week: ", "Minggu dirancang: ")}{plannedWeekLabel(plannedWeek, locale)}</p>}
     {loading && <p role="status">{t('Loading history…','Memuatkan sejarah…')}</p>}
     {error && <p role="alert">{t('Price history could not be loaded.','Sejarah harga tidak dapat dimuatkan.')} <button type="button" className="price-retry" onClick={() => setRetry(v => v+1)}>{t('Retry','Cuba lagi')}</button></p>}

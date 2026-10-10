@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { formatRm } from "@/lib/format-rm";
 import type { Locale } from "@/lib/i18n";
 import { tripTravelSavingsInsight } from "@/lib/savings-insights";
@@ -148,6 +149,7 @@ function HomeCard({
   );
 }
 export function SmartCartHomeScreen({
+  plannedThisWeek,
   locale,
   checklist,
   history,
@@ -160,6 +162,7 @@ export function SmartCartHomeScreen({
   onHistory,
   onInbox,
 }: {
+  plannedThisWeek?: ReactNode;
   locale: Locale;
   checklist: ShoppingChecklist | null;
   history: TripRecord[];
@@ -177,8 +180,8 @@ export function SmartCartHomeScreen({
 
   return (
     <div className="screen-enter home-screen">
-      <div className="home-hero"><h1>{hasTripInProgress ? (locale === "en" ? "Shopping trip in progress" : text.resumeTrip) : text.title}</h1>
-      <p>{hasTripInProgress ? (locale === "en" ? "Continue where you left off, or start a new trip." : text.description) : (locale === "en" ? "Plan your household shopping, compare nearby stores and keep track of your spending." : text.description)}</p></div>
+      <div className={"home-hero" + (plannedThisWeek ? " has-weekly-plan" : "")}><div className="home-hero-copy"><h1>{hasTripInProgress ? (locale === "en" ? "Shopping trip in progress" : text.resumeTrip) : text.title}</h1>
+      <p>{hasTripInProgress ? (locale === "en" ? "Continue where you left off, or start a new trip." : text.description) : (locale === "en" ? "Plan your household shopping, compare nearby stores and keep track of your spending." : text.description)}</p></div>{plannedThisWeek && <div className="home-hero-weekly">{plannedThisWeek}</div>}</div>
       <section className="home-trip"><span className="home-trip-icon"><Icon kind="trip"/></span><div><h2>{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2><p>{hasTripInProgress ? text.resumeAt(journeyStepLabel(locale, resumeStep)) : (locale === "en" ? "Choose your location and travel preferences to begin." : text.travelStep)}</p></div>
       <div className="home-trip-actions"><button type="button" className="primary-button" onClick={onStartOrResume}>{hasTripInProgress ? text.resumeTrip : text.startTrip} <span aria-hidden="true">→</span></button>{hasTripInProgress && <button type="button" className="secondary-button" onClick={onStartNew}>{text.startNew}</button>}</div></section>
       <section className="home-tools" aria-label="SmartCart tools">

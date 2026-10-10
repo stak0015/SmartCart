@@ -973,8 +973,9 @@ function BasketScreen({
         </aside>
       )}
       <CatalogueItemDialog key={selectedItem?.item_code ?? 'closed'} open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedStack(clearStack<Item>())} canAdd={selectedQty !== null}
-        trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose} plannedWeek={plannedItems.find(item => item.catalogueItemId === String(selectedItem.item_id))?.plannedWeek} onSchedule={selectedQty === null ? undefined : () => onSchedulePurchase(selectedItem, selectedQty)}/> : undefined}
+        trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose} plannedWeek={plannedItems.find(item => item.catalogueItemId === String(selectedItem.item_id))?.plannedWeek}/> : undefined}
         back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
+        onSchedule={selectedItem ? () => { if (selectedQty !== null) onSchedulePurchase(selectedItem, selectedQty); } : undefined}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
         details={selectedItem ? priceTrendsButton => <div className="catalogue-dialog-details">
           <div className="product-visual"><span aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></span>{priceTrendsButton}</div>
@@ -2929,6 +2930,7 @@ export default function App() {
         {screen === "home" ? (
           <>
           <SmartCartHomeScreen
+            plannedThisWeek={savedItems.some(item => item.plannedWeek === currentWeek) ? <NextTripList variant="week" title={locale === "en" ? "Planned this week" : "Dirancang minggu ini"} items={savedItems.filter(item => item.plannedWeek === currentWeek)} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/> : undefined}
             locale={locale}
             checklist={checklist}
             history={tripHistory}
@@ -2941,8 +2943,7 @@ export default function App() {
             onHistory={() => navigateTo("history")}
             onInbox={() => navigateTo("inbox")}
           />
-          {savedItems.length > 0 && <div className="space-y-4 px-4 pb-8 sm:px-6">
-            {savedItems.some(item => item.plannedWeek === currentWeek) && <NextTripList title={locale === "en" ? "Planned this week" : "Dirancang minggu ini"} items={savedItems.filter(item => item.plannedWeek === currentWeek)} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/>}
+          {savedItems.length > 0 && <div className="home-planned-lists">
             <NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/>
           </div>}
           </>
