@@ -54,6 +54,8 @@ export interface CategoriesResult {
 /**
  * Search items by keyword
  */
+export type CatalogueSort = "price_asc" | "price_desc" | "name_asc" | "name_desc";
+
 export async function searchItems(
   q: string,
   page = 1,
@@ -61,11 +63,17 @@ export async function searchItems(
   signal?: AbortSignal,
   candidateCacheId?: string | null,
   pageSize = 25,
+  options?: { saraCategoryOnly: boolean; sort: CatalogueSort; locale: "en" | "ms" },
 ): Promise<SearchResult> {
   const params = new URLSearchParams({ q, page: String(page) });
   categories.forEach(category => params.append("category", category));
   if (candidateCacheId) params.set("candidate_cache_id", candidateCacheId);
   if (pageSize !== 25) params.set("page_size", String(pageSize));
+  if (options) {
+    params.set("sara_category_only", String(options.saraCategoryOnly));
+    params.set("sort", options.sort);
+    params.set("locale", options.locale);
+  }
   const url = `${API_BASE_URL}/items/search?${params.toString()}`;
   const res = await fetch(url, { signal });
   if (!res.ok) {

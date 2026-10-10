@@ -129,6 +129,10 @@ def search_catalogue(
     page: int,
     page_size: int,
     categories: list[str] | None = None,
+    sara_category_only: bool = False,
+    sort: str = "name_asc",
+    premise_ids: list[str] | None = None,
+    locale: str = "en",
 ) -> tuple[list[dict[str, Any]], int]:
     keyword = f"%{query.strip()}%"
     selected_categories = [
@@ -146,6 +150,30 @@ def search_catalogue(
         include_unmapped,
         ALL_MAPPED_RAW_CATEGORIES,
     )
+    if sara_category_only:
+        where += " AND BTRIM(i.item_category) = ANY(%s::text[])"
+        params += (sorted(SARA_CATEGORY_CANDIDATES),)
+    name_order = "i.item_name" if locale == "ms" else "COALESCE(NULLIF(i.item_name_en, ''), i.item_name)"
+    price_join = ""
+    price_params: tuple[object, ...] = ()
+    if sort in {"price_asc", "price_desc"}:
+        # Aggregate before LIMIT/OFFSET so price ordering spans every page.
+        price_join = """
+            LEFT JOIN (
+                SELECT item_id, MIN(current_price) AS min_rm
+                FROM current_status
+                WHERE premise_id = ANY(%s::bigint[]) AND current_price > 0
+                GROUP BY item_id
+            ) catalogue_prices ON catalogue_prices.item_id = i.item_id
+        """
+        price_params = ([int(value) for value in premise_ids or []],)
+        direction = "ASC" if sort == "price_asc" else "DESC"
+        order = f"COALESCE(catalogue_prices.min_rm, CASE WHEN i.median_price_rm > 0 THEN i.median_price_rm END) {direction} NULLS LAST, {name_order} ASC, i.item_id ASC"
+    elif sort in {"name_asc", "name_desc"}:
+        direction = "ASC" if sort == "name_asc" else "DESC"
+        order = f"{name_order} {direction}, i.item_id ASC"
+    else:
+        raise ValueError("Unknown catalogue sort")
     with database_cursor() as cursor:
         cursor.execute(
             f"""
@@ -166,12 +194,13 @@ def search_catalogue(
                    {translation_select_columns()}
             FROM item i
             {joins}
+            {price_join}
             WHERE {where}
-            ORDER BY i.item_name
+            ORDER BY {order}
             LIMIT %s
             OFFSET %s
             """,
-            (*params, page_size, offset),
+            (*price_params, *params, page_size, offset),
         )
         columns = [
             "item_id",

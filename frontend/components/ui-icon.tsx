@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  check: "m5 12 4 4L19 6",
   close: "M6 6l12 12M6 18 18 6",
   lightbulb: "M9 18h6M9 21h6M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4Z",
   priceTrends: "M4 3v17h17M7 14l4-4 4 3 6-8M17 5h4v4",

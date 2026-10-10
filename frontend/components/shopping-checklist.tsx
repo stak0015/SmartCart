@@ -34,6 +34,7 @@ import {
   type ShoppingChecklist,
 } from "@/lib/shopping-checklist";
 
+import { plannedWeekOptions, plannedWeekLabel } from "@/lib/planned-week";
 import { nextTripItemId, type NextTripItem } from "@/lib/next-trip";
 
 export interface ShoppingChecklistCopy {
@@ -120,6 +121,7 @@ export interface ShoppingChecklistScreenProps {
   savedItems: NextTripItem[];
   onRestoreSavedItem: (item: NextTripItem) => void | Promise<void>;
   onRemoveSavedItem: (itemId: string) => void;
+  onUseSavedItems?: (items: NextTripItem[]) => void;
   onDeleteItem: (itemId: string) => void;
   onDeleteChecklist: () => void;
   alreadyRecorded: boolean;
@@ -130,7 +132,7 @@ export interface EmptyChecklistScreenProps {
   locale: "en" | "ms";
   copy: ShoppingChecklistCopy;
   savedItems: NextTripItem[];
-  onUseSavedItems: () => void;
+  onUseSavedItems: (items: NextTripItem[]) => void;
   onRemoveSavedItem: (itemId: string) => void;
   onStartOrResume: () => void;
 }
@@ -594,11 +596,38 @@ function ChecklistRow({ item, locale, copy, saved, hideImage = false, onToggleBo
   </li>;
 }
 
-export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }: {
+export function PlannedWeekDialog({ item, locale, onSave, onCancel }: {
+  item: NextTripItem; locale: "en" | "ms"; onSave: (week: string) => void; onCancel: () => void;
+}) {
+  const titleId = useId();
+  const weekId = useId();
+  const selectRef = useRef<HTMLSelectElement>(null);
+  const { dialogRef, handleCancel } = useNativeDialog(true, onCancel, selectRef);
+  const options = plannedWeekOptions();
+  const [week, setWeek] = useState(options.includes(item.plannedWeek ?? "") ? item.plannedWeek! : options[0]);
+  const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
+  return <dialog ref={dialogRef} aria-labelledby={titleId} onCancel={handleCancel}
+    className="checklist-item-dialog m-auto w-[calc(100%_-_2rem)] max-w-[32rem] rounded-2xl border border-[#dce5e0] bg-white p-5 text-[#10152e] shadow-2xl backdrop:bg-[#10152e]/55">
+    <form onSubmit={event => { event.preventDefault(); if (plannedWeekOptions().includes(week)) onSave(week); }}>
+      <h2 id={titleId} className="text-xl font-extrabold">{locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"}</h2>
+      <p className="my-3">{name} · {item.quantity}</p>
+      <label htmlFor={weekId} className="block font-bold">{locale === "en" ? "Planned week (Monday–Sunday)" : "Minggu dirancang (Isnin–Ahad)"}</label>
+      <select ref={selectRef} id={weekId} value={week} onChange={event => setWeek(event.target.value)} className="my-3 min-h-11 w-full rounded-lg border border-[#cbd8d1] p-2">
+        {options.map((value, index) => <option key={value} value={value}>{index === 0 ? (locale === "en" ? "This week" : "Minggu ini") : (locale === "en" ? (index === 1 ? "Next week" : `In ${index} weeks`) : `${index} minggu lagi`)} · {plannedWeekLabel(value, locale)}</option>)}
+      </select>
+      <div className="mt-3 flex justify-end gap-3"><button type="button" className="secondary-button" onClick={onCancel}>{locale === "en" ? "Cancel" : "Batal"}</button><button type="submit" className="primary-button">{locale === "en" ? "Save planned item" : "Simpan item dirancang"}</button></div>
+    </form>
+  </dialog>;
+}
+
+export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, title, onSchedule }: {
   items: NextTripItem[]; locale: "en" | "ms"; copy: ShoppingChecklistCopy;
-  onUse?: () => void; onRestore?: (item: NextTripItem) => void | Promise<void>; onRemove: (id: string) => void;
+  title?: string; onSchedule?: (item: NextTripItem) => void;
+  onUse?: (items: NextTripItem[]) => void; onRestore?: (item: NextTripItem) => void | Promise<void>; onRemove: (id: string) => void;
 }) {
   const headingId = useId();
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selectedItems = items.filter(item => selectedIds.includes(item.id));
   const [restoringItemId, setRestoringItemId] = useState<string | null>(null);
 
   const restoreItem = async (item: NextTripItem) => {
@@ -613,16 +642,18 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove }
 
   return <section aria-labelledby={headingId} className="next-trip-panel">
     <div className="flex items-center justify-between gap-3">
-      <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
-      {onUse && items.length > 0 && <button type="button" className="secondary-button saved-use" onClick={onUse}>{copy.useSavedItems} →</button>}
+      <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{title ?? copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
+      {onUse && selectedItems.length > 0 && <button type="button" className="secondary-button saved-use" onClick={() => onUse?.(selectedItems)}>{copy.useSavedItems} →</button>}
     </div>
     <p className="mt-2 text-xs leading-5 text-[#526078]">{items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
     {items.length > 0 && <ul className="mt-3 divide-y divide-[#e8e2d5]">
       {items.map(item => {
         const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
         return <li key={item.id} className="flex items-center gap-2 py-2">
+          {onUse && <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#007d38]" aria-label={(locale === "en" ? "Select for trip: " : "Pilih untuk perjalanan: ") + name} checked={selectedIds.includes(item.id)} onChange={event => setSelectedIds(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))}/>}
           <span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span>
-          <div className="next-trip-item-copy min-w-0 flex-1"><p className="next-trip-item-name break-words text-sm font-bold text-[#10152e]">{name}</p><p className="next-trip-item-meta text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p><small>{categoryLabel(locale, item.category)}</small></div>
+          <div className="next-trip-item-copy min-w-0 flex-1"><p className="next-trip-item-name break-words text-sm font-bold text-[#10152e]">{name}</p><p className="next-trip-item-meta text-xs text-[#526078]">{copy.checklistQuantity}: {item.quantity}{item.packageSize ? " · " + item.packageSize : ""}</p><p className="text-xs font-semibold text-[#007d38]">{locale === "en" ? "Planned week: " : "Minggu dirancang: "}{plannedWeekLabel(item.plannedWeek, locale)}</p></div>
+          {onSchedule && <IconButton label={(locale === "en" ? "Change planned week: " : "Tukar minggu dirancang: ") + name} onClick={() => onSchedule(item)}><ActionIcon name="bookmark" /></IconButton>}
           {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
           <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="trash" /></IconButton>
         </li>;
@@ -694,6 +725,7 @@ export function ShoppingChecklistScreen({
   onRevertItem,
   savedItems,
   onRestoreSavedItem,
+  onUseSavedItems,
   onRemoveSavedItem,
   onDeleteItem,
   onDeleteChecklist,
@@ -931,7 +963,7 @@ export function ShoppingChecklistScreen({
             <TrashIcon /> {copy.deleteChecklist}
           </button>
         </div>
-        <NextTripList items={savedItems} locale={locale} copy={copy} onRestore={onRestoreSavedItem} onRemove={onRemoveSavedItem} />
+        <NextTripList items={savedItems} locale={locale} copy={copy} onUse={onUseSavedItems} onRestore={onRestoreSavedItem} onRemove={onRemoveSavedItem} />
       </div>
 
       {manualDialog.open && (

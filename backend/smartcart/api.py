@@ -8,6 +8,7 @@ import json
 import logging
 from time import monotonic, perf_counter
 from uuid import uuid4
+from typing import Literal
 
 from fastapi import APIRouter, Path, Query, Request
 from pydantic import ValidationError
@@ -223,6 +224,9 @@ def search_items(
     page_size: int = Query(default=CATALOGUE_PAGE_SIZE, ge=1, le=CATALOGUE_PAGE_SIZE),
     category: list[str] = Query(default=[]),
     candidate_cache_id: str | None = None,
+    sara_category_only: bool = False,
+    sort: Literal["price_asc", "price_desc", "name_asc", "name_desc"] = "price_asc",
+    locale: Literal["en", "ms"] = "en",
 ) -> dict[str, object]:
     selected_categories = [value.strip() for value in category if value.strip()]
     if any(category_id not in CATEGORIES_BY_ID for category_id in selected_categories):
@@ -231,16 +235,15 @@ def search_items(
             "Select a valid SmartCart catalogue category.",
             400,
         )
-    items, total = search_catalogue(q, page, page_size, selected_categories)
     _prune_candidate_cache(monotonic())
     snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
     stores = (
         sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
         if snapshot else []
     )
-    ranges = catalogue_price_ranges(
-        [item["item_id"] for item in items], [store.premise_id for store in stores]
-    )
+    premise_ids = [store.premise_id for store in stores]
+    items, total = search_catalogue(q, page, page_size, selected_categories, sara_category_only, sort, premise_ids, locale)
+    ranges = catalogue_price_ranges([item["item_id"] for item in items], premise_ids)
     items = [{**item, "price_range": ranges.get(item["item_id"])} for item in items]
     total_pages = (total + page_size - 1) // page_size
     return {

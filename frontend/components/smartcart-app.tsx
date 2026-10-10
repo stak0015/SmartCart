@@ -1,4 +1,5 @@
 "use client";
+import type { CatalogueSort } from "@/lib/api";
 
 import { TripFactsItems } from "./trip-facts";
 import { StoreBasketRow, StorePriceTable } from "./store-basket-row";
@@ -15,7 +16,7 @@ import { ItemNutritionSection } from "./item-nutrition";
 import { SHOPPING_SESSION_STORAGE_KEY, parseShoppingSession, serializeShoppingSession, type TravelPreferences } from "@/lib/shopping-session";
 import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useId, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { fetchHealthierAlternatives, fetchItemNutrition, listCategories, searchItems, type Item, type HealthierAlternativesResult, type ItemNutritionResult } from "@/lib/api";
 import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
@@ -72,6 +73,7 @@ import {
   ConfirmationDialog,
   EmptyChecklistScreen,
   NextTripList,
+  PlannedWeekDialog,
   ShoppingChecklistScreen,
 } from "@/components/shopping-checklist";
 import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
@@ -116,10 +118,12 @@ import {
   nextTripItemId,
   parseNextTrip,
   saveForNextTrip,
+  schedulePlannedItem,
   serializeNextTrip,
   type NextTripItem,
   type NextTripPriceQuote,
 } from "@/lib/next-trip";
+import { currentPlannedWeek, plannedWeekOptions } from "@/lib/planned-week";
 import { calculateEstimatedSavings } from "@/lib/estimated-savings";
 import {
   EMPTY_INBOX,
@@ -408,15 +412,68 @@ function QuantitySelector({
 }
 
 // ── Screen 1: Build Your Basket ───────────────────────────────────────────────
+function CatalogueSortControl({ value, locale, onChange, onOpen }: {
+  value: CatalogueSort; locale: Locale; onChange: (value: CatalogueSort) => void; onOpen: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  const options: { value: CatalogueSort; label: string }[] = [
+    { value: "price_asc", label: locale === "en" ? "Cheapest first" : "Termurah dahulu" },
+    { value: "price_desc", label: locale === "en" ? "Highest price first" : "Harga tertinggi dahulu" },
+    { value: "name_asc", label: locale === "en" ? "Name: A–Z" : "Nama: A–Z" },
+    { value: "name_desc", label: locale === "en" ? "Name: Z–A" : "Nama: Z–A" },
+  ];
+  const selectedLabel = options.find(option => option.value === value)!.label;
+  const compactLabel = value === "price_asc" ? `${locale === "en" ? "Price" : "Harga"} ↑` : value === "price_desc" ? `${locale === "en" ? "Price" : "Harga"} ↓` : value === "name_asc" ? "A–Z" : "Z–A";
+  useEffect(() => {
+    if (!open) return;
+    rootRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open]);
+  return <div ref={rootRef} className="catalogue-sort-control">
+    <button ref={triggerRef} type="button" className="catalogue-sort-trigger" aria-haspopup="menu" aria-expanded={open} aria-controls={menuId}
+      aria-label={`${locale === "en" ? "Sort by" : "Susun mengikut"}: ${selectedLabel}`} onClick={() => { if (!open) onOpen(); setOpen(current => !current); }}
+      onKeyDown={event => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); onOpen(); setOpen(true); } }}>
+      <span><span className="catalogue-sort-label-full">{selectedLabel}</span><span className="catalogue-sort-label-short">{compactLabel}</span></span><DropdownChevron/>
+    </button>
+    {open && <div id={menuId} className="catalogue-sort-menu" role="menu" aria-label={locale === "en" ? "Sort options" : "Pilihan susunan"}
+      onKeyDown={event => {
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        } else if (event.key === "Escape") {
+          event.preventDefault(); setOpen(false); triggerRef.current?.focus();
+        } else if (event.key === "Tab") setOpen(false);
+      }}>
+      {options.map(option => <button key={option.value} type="button" role="menuitemradio" tabIndex={-1} aria-checked={option.value === value}
+        onClick={() => { onChange(option.value); setOpen(false); triggerRef.current?.focus(); }}>
+        <span>{option.label}</span>{option.value === value && <UIIcon name="check" size={16}/>}
+      </button>)}
+    </div>}
+  </div>;
+}
+
 function BasketScreen({
   candidateCacheId = null,
   hasLocation = false,
   candidatePreparation = { status: "idle" },
   onRetryNearbyPrices,
+  onSchedulePurchase,
+  plannedItems,
   view,
   basket,
   setBasket,
   onViewBasket,
+  onBackToShop,
   onContinue,
   copy,
   locale,
@@ -425,10 +482,13 @@ function BasketScreen({
   hasLocation?: boolean;
   candidatePreparation?: CandidatePreparationState;
   onRetryNearbyPrices?: () => void;
+  onSchedulePurchase: (item: Item, quantity: number) => void;
+  plannedItems: NextTripItem[];
   view: "shop" | "basket";
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onViewBasket: () => void;
+  onBackToShop: () => void;
   onContinue: () => void;
   copy: AppCopy;
   locale: Locale;
@@ -445,6 +505,8 @@ function BasketScreen({
   const [priceStoreCount, setPriceStoreCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
+  const [saraCategoryOnly, setSaraCategoryOnly] = useState(false);
+  const [catalogueSort, setCatalogueSort] = useState<CatalogueSort>("price_asc");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
@@ -504,7 +566,7 @@ function BasketScreen({
     setApiSearched(true);
     setApiError(false);
     const timer = window.setTimeout(() => {
-      searchItems(query, page, activeCategories, controller.signal, candidateCacheId, 15)
+      searchItems(query, page, activeCategories, controller.signal, candidateCacheId, 15, { saraCategoryOnly, sort: catalogueSort, locale })
         .then(data => {
           if (controller.signal.aborted) return;
           setApiResults(data.items);
@@ -535,7 +597,7 @@ function BasketScreen({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [activeCategories, page, search, view, candidateCacheId]);
+  }, [activeCategories, page, search, view, candidateCacheId, saraCategoryOnly, catalogueSort, locale]);
 
   // Epic 7 (US 7.1): load approved healthier alternatives for the item
   // currently open in the dialog. A failure only affects this section
@@ -689,8 +751,8 @@ function BasketScreen({
         <ul className="basket-rows">{basket.map(item => {
           const replacement = item.replacement && item.id !== item.replacement.original.id ? item.replacement : null;
           return <li key={item.id} className={"basket-row " + (replacement ? "is-replaced" : "")}>
-          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span><small>{categoryLabel(locale, item.category)}</small></div></div>
-          <div className="basket-sara"><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
+          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3 title={localizedName(copy, item.name, item)}>{localizedName(copy, item.name, item)}</h3>{!isDesktopBasketRail && <><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span><small>{categoryLabel(locale, item.category)}</small></>}</div></div>
+          <div className="basket-sara"><small className="basket-compact-size">{packageSizeForCopy(copy, item.size)}</small><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
           <span className="basket-package">{packageSizeForCopy(copy, item.size)}</span>
           <div className="basket-quantity"><QuantitySelector value={basketQtyById[item.id] ?? String(item.qty)} onChange={raw => typeBasketQty(item.id, raw)} onStep={delta => stepBasketQty(item.id, delta)} decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))} increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))} quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))} errorId={`basket-quantity-error-${item.id}`} errorText={copy.quantityError}/></div>
           <button type="button" className="basket-remove" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)}><IcoTrash color="#526078"/></button>
@@ -737,6 +799,7 @@ function BasketScreen({
         </div>
       </div>
 
+      <div className="catalogue-controls" role="group" aria-label={locale === "en" ? "Catalogue filters and sorting" : "Penapis dan susunan katalog"}>
       {/* Multi-select category filter */}
       <div className="catalogue-categories">
         <button
@@ -782,6 +845,13 @@ function BasketScreen({
           </div>
         )}
       </div>
+
+        <CatalogueSortControl value={catalogueSort} locale={locale} onOpen={() => setCategoryOpen(false)} onChange={value => { setCatalogueSort(value); setPage(1); }}/>
+      </div>
+      <label className="catalogue-sara-control">
+        <input type="checkbox" checked={saraCategoryOnly} onChange={event => { setSaraCategoryOnly(event.target.checked); setPage(1); }} className="h-4 w-4 accent-[#007d38]"/>
+        {locale === "en" ? "SARA categories only" : "Kategori SARA sahaja"}
+      </label>
 
       {/* Matching items —— now shows real backend data with prices (Step 7) */}
       <div id="catalogue-results" className="scroll-mt-36 px-4 pb-7 sm:px-6">
@@ -903,7 +973,7 @@ function BasketScreen({
         </aside>
       )}
       <CatalogueItemDialog key={selectedItem?.item_code ?? 'closed'} open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedStack(clearStack<Item>())} canAdd={selectedQty !== null}
-        trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose}/> : undefined}
+        trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose} plannedWeek={plannedItems.find(item => item.catalogueItemId === String(selectedItem.item_id))?.plannedWeek} onSchedule={selectedQty === null ? undefined : () => onSchedulePurchase(selectedItem, selectedQty)}/> : undefined}
         back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
         details={selectedItem ? priceTrendsButton => <div className="catalogue-dialog-details">
@@ -930,11 +1000,12 @@ function BasketScreen({
 
       {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className={(view === "shop" ? "lg:hidden " : "") + "fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur"}>
         {view === "basket" ? (
-          <div className="mx-auto flex w-full max-w-[712px] gap-3">
+          <div className="basket-review-actions mx-auto w-full max-w-[712px]">
+            <button type="button" onClick={onBackToShop} className="secondary-button h-14 min-w-0 flex-1">{copy.backToShop}</button>
             <button
               type="button"
               onClick={handleContinue}
-              className="h-14 w-full rounded-2xl bg-[#007d38] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
+              className="h-14 min-w-0 flex-1 rounded-2xl bg-[#007d38] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
             >
               {copy.chooseLocation}
             </button>
@@ -2199,6 +2270,15 @@ export default function App() {
   const candidatePreparationController = useRef<AbortController | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
+  const [purchaseToSchedule, setPurchaseToSchedule] = useState<{ item: NextTripItem; checklistItemId?: string } | null>(null);
+  const [plannedItemsNotice, setPlannedItemsNotice] = useState("");
+  const [currentWeek, setCurrentWeek] = useState(() => currentPlannedWeek());
+  useEffect(() => {
+    const refreshWeek = () => setCurrentWeek(currentPlannedWeek());
+    const timer = window.setInterval(refreshWeek, 60_000);
+    window.addEventListener("focus", refreshWeek);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refreshWeek); };
+  }, []);
   const [savedItems, setSavedItems] = useState<NextTripItem[]>([]);
   const [savedItemsReady, setSavedItemsReady] = useState(false);
   const [savedItemsToUse, setSavedItemsToUse] = useState<NextTripItem[]>([]);
@@ -2705,20 +2785,38 @@ export default function App() {
     if (!checklist) return;
     const currentItem = checklist.items.find(item => item.id === itemId);
     if (!currentItem) return;
-    // Unticking a purchased item records it as unbought and keeps it for later.
-    const isSaved = savedItems.some(item => item.id === nextTripItemId(currentItem));
-    let next = checklist;
-    if (status === "bought") {
-      next = toggleChecklistItemStatus(checklist, itemId, currentItem.status === "bought" ? "not_bought" : "bought");
-    } else if ((currentItem.status === "not_bought") === isSaved) {
-      // A saved item can also be neutral after recording an unfinished trip.
-      next = toggleChecklistItemStatus(checklist, itemId, "not_bought");
+    const savedItem = savedItems.find(item => item.id === nextTripItemId(currentItem));
+    if (status === "not_bought" && !savedItem) {
+      setPurchaseToSchedule({ item: saveForNextTrip([], { ...currentItem, status: "not_bought" })[0], checklistItemId: itemId });
+      return;
     }
+    if (status === "not_bought") {
+      removeSavedItem(nextTripItemId(currentItem));
+      return;
+    }
+    const next = toggleChecklistItemStatus(checklist, itemId, currentItem.status === "bought" ? "not_bought" : "bought");
     setChecklist(next);
-    const item = next.items.find(candidate => candidate.id === itemId)!;
-    setSavedItems(current => (status === "not_bought" ? !isSaved : item.status === "not_bought")
-      ? saveForNextTrip(current, item)
-      : current.filter(saved => saved.id !== nextTripItemId(item)));
+    if (next.items.find(item => item.id === itemId)?.status === "bought") removeSavedItem(nextTripItemId(currentItem));
+  };
+  const scheduleCataloguePurchase = (item: Item, quantity: number) => {
+    setPurchaseToSchedule({ item: {
+      id: `catalogue:${item.item_id}`, source: "catalogue", catalogueItemId: String(item.item_id),
+      itemName: item.item_name, itemNameEn: item.item_name_en ?? null, itemNameMs: item.item_name_ms ?? null,
+      category: item.category, sourceCategory: item.source_category ?? null,
+      imageUrl: item.image_url ?? null, packageSize: item.package_size, quantity,
+      plannedWeek: savedItems.find(saved => saved.catalogueItemId === String(item.item_id))?.plannedWeek,
+    } });
+  };
+  const confirmPurchaseWeek = (week: string) => {
+    if (!purchaseToSchedule || !plannedWeekOptions().includes(week)) return;
+    const { item, checklistItemId } = purchaseToSchedule;
+    setSavedItems(current => schedulePlannedItem(current, item, week));
+    if (checklistItemId) setChecklist(current => current ? {
+      ...current, updatedAt: new Date().toISOString(),
+      items: current.items.map(line => line.id === checklistItemId ? { ...line, status: "not_bought" } : line),
+    } : current);
+    setPurchaseToSchedule(null);
+    setPlannedItemsNotice(locale === "en" ? "Purchase saved to planned items." : "Pembelian disimpan ke item dirancang.");
   };
   const addChecklistItem = (input: ManualChecklistItemInput) => {
     setChecklist(current => current ? addManualChecklistItem(current, input) ?? current : current);
@@ -2775,9 +2873,10 @@ export default function App() {
     setChecklist(current => current ? addNextTripItem(current, item, quote) : current);
     removeSavedItem(item.id);
   };
-  const planWithSavedItems = () => {
-    setBasket(current => nextTripBasket(current, savedItems));
-    setSavedItemsToUse(savedItems);
+  const planWithSavedItems = (items: NextTripItem[]) => {
+    if (!items.length) return;
+    setBasket(current => nextTripBasket(current, items));
+    setSavedItemsToUse(items);
     navigateTrip(preferences.origin ? "shop" : "location");
   };
   const removeChecklistItem = (itemId: string) => {
@@ -2790,7 +2889,6 @@ export default function App() {
   const recordTrip = () => {
     if (!checklist) return;
     const record = buildTripRecord(checklist);
-    setSavedItems(current => checklist.items.reduce((saved, item) => saveForNextTrip(saved, item), current));
     // The record appears in the in-memory history immediately (no reload) and
     // is persisted by the storage effect above.
     setTripHistory(current => addTripRecord(current, record));
@@ -2843,7 +2941,10 @@ export default function App() {
             onHistory={() => navigateTo("history")}
             onInbox={() => navigateTo("inbox")}
           />
-          {savedItems.length > 0 && <div className="px-4 pb-8 sm:px-6"><NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} /></div>}
+          {savedItems.length > 0 && <div className="space-y-4 px-4 pb-8 sm:px-6">
+            {savedItems.some(item => item.plannedWeek === currentWeek) && <NextTripList title={locale === "en" ? "Planned this week" : "Dirancang minggu ini"} items={savedItems.filter(item => item.plannedWeek === currentWeek)} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/>}
+            <NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/>
+          </div>}
           </>
         ) : null}
         {screen === "checklist" ? checklist ? (
@@ -2858,6 +2959,7 @@ export default function App() {
             onEditItem={editChecklistItem}
             onRevertItem={revertItem}
             savedItems={savedItems}
+            onUseSavedItems={planWithSavedItems}
             onRestoreSavedItem={restoreSavedItem}
             onRemoveSavedItem={removeSavedItem}
             onDeleteItem={removeChecklistItem}
@@ -2896,6 +2998,8 @@ export default function App() {
         ) : null}
         {screen === "shop" ? (
           <BasketScreen
+            plannedItems={savedItems}
+            onSchedulePurchase={scheduleCataloguePurchase}
             view="shop"
             candidateCacheId={candidateCacheId}
             hasLocation={preferences.origin != null}
@@ -2904,6 +3008,7 @@ export default function App() {
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => navigateTrip("basket")}
+            onBackToShop={() => navigateTrip("shop")}
             onContinue={() => navigateTrip("basket")}
             copy={copy}
             locale={locale}
@@ -2911,10 +3016,13 @@ export default function App() {
         ) : null}
         {screen === "basket" ? (
           <BasketScreen
+            plannedItems={savedItems}
+            onSchedulePurchase={scheduleCataloguePurchase}
             view="basket"
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => navigateTrip("basket")}
+            onBackToShop={() => navigateTrip("shop")}
             onContinue={() => navigateTrip("compare")}
             copy={copy}
             locale={locale}
@@ -2976,6 +3084,8 @@ export default function App() {
         onDeleteAll={deleteLocalReports}
         onClose={() => setConsentDialogMode(null)}
       />
+      {purchaseToSchedule && <PlannedWeekDialog key={purchaseToSchedule.item.id} item={purchaseToSchedule.item} locale={locale} onSave={confirmPurchaseWeek} onCancel={() => setPurchaseToSchedule(null)}/>}
+      {plannedItemsNotice && <div role="status" className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-[#007d38] px-4 py-3 text-sm text-white shadow-lg">{plannedItemsNotice}<button type="button" aria-label={copy.close} onClick={() => setPlannedItemsNotice("")}>×</button></div>}
       <ConfirmationDialog
         open={restartTripOpen}
         title={locale === "ms" ? "Mulakan perjalanan baharu?" : "Start a new trip?"}

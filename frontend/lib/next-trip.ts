@@ -1,3 +1,4 @@
+import { isPlannedWeek, plannedWeekOptions } from "./planned-week";
 import type { BasketItem } from "./basket-state";
 import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory, type PriceSource } from "./contracts";
 import {
@@ -8,7 +9,7 @@ import {
 } from "./shopping-checklist";
 
 export const NEXT_TRIP_STORAGE_KEY = "smartcart.next-trip.v1";
-export const NEXT_TRIP_VERSION = 2 as const;
+export const NEXT_TRIP_VERSION = 3 as const;
 
 function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -18,7 +19,7 @@ function money(value: number): number {
 // price, shopping outcome and location are not a quote for the next trip.
 export type NextTripItem = Pick<ChecklistItem,
   "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "category" | "sourceCategory" | "imageUrl" | "packageSize" | "quantity"
->;
+> & { plannedWeek?: string | null };
 
 export interface NextTripPriceQuote {
   itemName?: string | null;
@@ -37,7 +38,7 @@ export function nextTripItemId(item: Pick<ChecklistItem, "id" | "catalogueItemId
   return item.catalogueItemId == null ? item.id : `catalogue:${item.catalogueItemId}`;
 }
 
-export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): NextTripItem[] {
+export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem, plannedWeek?: string | null): NextTripItem[] {
   if (item.status === "bought") return saved;
   const entry: NextTripItem = {
     id: nextTripItemId(item),
@@ -51,9 +52,19 @@ export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): Nex
     imageUrl: item.imageUrl,
     packageSize: item.packageSize,
     quantity: effectiveChecklistQuantity(item),
+    plannedWeek: plannedWeek ?? saved.find(candidate => candidate.id === nextTripItemId(item))?.plannedWeek ?? null,
   };
   const existing = saved.findIndex(candidate => candidate.id === entry.id);
   return existing < 0 ? [...saved, entry] : saved.map((candidate, index) => index === existing ? entry : candidate);
+}
+
+/** Only newly scheduled purchases are restricted to the upcoming four weeks. */
+export function schedulePlannedItem(saved: NextTripItem[], item: NextTripItem, week: string): NextTripItem[] {
+  if (!plannedWeekOptions().includes(week)) return saved;
+  const entry = { ...item, plannedWeek: week };
+  return saved.some(candidate => candidate.id === item.id)
+    ? saved.map(candidate => candidate.id === item.id ? entry : candidate)
+    : [...saved, entry];
 }
 
 export function serializeNextTrip(items: NextTripItem[]): string {
@@ -65,7 +76,7 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
     const value: unknown = JSON.parse(serialized ?? "null");
     if (!value || typeof value !== "object") return [];
     const envelope = value as Record<string, unknown>;
-    if ((envelope.version !== 1 && envelope.version !== NEXT_TRIP_VERSION) || !Array.isArray(envelope.items)) return [];
+    if ((envelope.version !== 1 && envelope.version !== 2 && envelope.version !== NEXT_TRIP_VERSION) || !Array.isArray(envelope.items)) return [];
     const seen = new Set<string>();
     return envelope.items.filter((entry): entry is NextTripItem => {
       if (!entry || typeof entry !== "object") return false;
@@ -76,6 +87,7 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
         || !(item.category === null || (envelope.version === 1 && item.category === undefined) || isItemCategory(item.category))
         || !(item.sourceCategory === undefined || item.sourceCategory === null || isSourceCategory(item.sourceCategory))
         || (item.imageUrl !== undefined && item.imageUrl !== null && typeof item.imageUrl !== "string")
+        || !(item.plannedWeek == null || isPlannedWeek(item.plannedWeek))
         || typeof item.quantity !== "number" || !Number.isSafeInteger(item.quantity) || item.quantity < 1
         || !(item.source === "manual" && item.catalogueItemId === null
           && (item.category === null || envelope.version === 1 && item.category === undefined)
@@ -96,6 +108,7 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
       ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
       packageSize: item.packageSize,
       quantity: item.quantity,
+      ...(item.plannedWeek !== undefined ? { plannedWeek: item.plannedWeek } : {}),
     }));
   } catch {
     return [];
@@ -168,7 +181,7 @@ export function addNextTripItem(
         : money(existingUnitPrice * quantity),
     }),
   } : {
-    ...saved,
+    id: saved.id, source: saved.source, catalogueItemId: saved.catalogueItemId,
     itemName,
     itemNameEn,
     itemNameMs,

@@ -7,6 +7,19 @@ afterEach(() => {
 });
 
 describe("searchItems", () => {
+  it("sends SARA category filtering, sorting and locale with pagination", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ items: [] }) });
+    vi.stubGlobal("fetch", fetchMock);
+    await searchItems("rice", 3, ["staples"], undefined, "nearby", 15, {
+      saraCategoryOnly: true, sort: "price_desc", locale: "ms",
+    });
+    const url = new URL(fetchMock.mock.calls[0][0]);
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({
+      q: "rice", page: "3", category: "staples", page_size: "15",
+      candidate_cache_id: "nearby", sara_category_only: "true", sort: "price_desc", locale: "ms",
+    });
+  });
+
   it("requests the default catalogue when the query and filters are empty", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

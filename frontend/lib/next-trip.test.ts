@@ -27,6 +27,15 @@ const checklist: ShoppingChecklist = {
 };
 
 describe("next trip carry-over", () => {
+  it("preserves the scheduled week when quantity changes and leaves it out of the active checklist", () => {
+    const scheduled = { ...saveForNextTrip([], item)[0], plannedWeek: "2026-10-05" };
+    const updated = saveForNextTrip([scheduled], { ...item, quantity: 3 });
+    expect(updated[0]).toMatchObject({ quantity: 3, plannedWeek: "2026-10-05" });
+    const restored = addNextTripItem({ ...checklist, items: [] }, updated[0]);
+    expect(restored.items[0]).not.toHaveProperty("plannedWeek");
+    expect(parseShoppingChecklist(serializeShoppingChecklist(restored))).toEqual(restored);
+  });
+
   it("keeps unbought and unchecked items once, independently of the checklist", () => {
     const saved = saveForNextTrip([], item);
     expect(saveForNextTrip(saved, { ...item, quantity: 3 })).toHaveLength(1);

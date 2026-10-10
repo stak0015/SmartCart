@@ -583,7 +583,7 @@ def test_item_search_passes_page_and_multiple_category_filters(monkeypatch) -> N
 
     captured = {}
 
-    def fake_search(query, page, page_size, categories):
+    def fake_search(query, page, page_size, categories, *_options):
         captured.update(
             query=query, page=page, page_size=page_size, categories=categories
         )
@@ -615,7 +615,7 @@ def test_item_search_allows_empty_query_for_default_catalogue(monkeypatch) -> No
 
     captured = {}
 
-    def fake_search(query, page, page_size, categories):
+    def fake_search(query, page, page_size, categories, *_options):
         captured.update(
             query=query, page=page, page_size=page_size, categories=categories
         )
