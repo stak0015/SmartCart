@@ -25,6 +25,11 @@ TRAVEL_MODE: dict[TransportMode, str] = {
     "car": "DRIVE",
 }
 
+# Google computeRouteMatrix accepts at most 25 origins and 25 destinations
+# (625 elements) per request. The multi-origin caller batches origins to stay
+# inside this cap.
+ROUTE_MATRIX_MAX_ELEMENTS = 625
+
 
 @dataclass(frozen=True)
 class RouteMatrixResult:
@@ -35,6 +40,10 @@ class RouteMatrixResult:
     # supplies it. Keep only MYR values because SmartCart reports RM and does
     # not have a currency-conversion source.
     transit_fare_rm: float | None = None
+    # Index into the origins list. Defaults to 0 so every existing single-origin
+    # caller and positional construction site keeps working unchanged; only
+    # compute_route_matrix_multi_origin returns non-zero values.
+    origin_index: int = 0
 
 
 def _parse_duration_seconds(duration: object) -> float | None:
@@ -319,6 +328,92 @@ class GoogleMapsProvider:
                         transit_fare_rm=transit_fare_rm,
                     )
                 )
+        return routes
+
+    async def compute_route_matrix_multi_origin(
+        self,
+        origin_place_ids: list[str],
+        destination_place_ids: list[str],
+        mode: TransportMode,
+    ) -> list[RouteMatrixResult]:
+        """Route every origin->destination pair using store place IDs.
+
+        Added for US 6.2: the single-store endpoint only ever needed one origin
+        (the shopper's home), while a two-store plan needs the store-to-store
+        leg for both visit orders. ``compute_route_matrix`` is left untouched so
+        existing single-origin callers and their tests keep their contract.
+
+        Only pairs the provider confirms as ROUTE_EXISTS are returned, so a
+        missing inter-store route surfaces as "no entry" rather than an invented
+        distance (AC 6.2.7). Google caps one request at 25 origins x 25
+        destinations (625 elements), so larger combinations are sent in
+        origin batches and the results concatenated.
+        """
+        if not origin_place_ids or not destination_place_ids:
+            return []
+        field_mask = "originIndex,destinationIndex,status,condition,distanceMeters,duration"
+        if mode == "public_transport":
+            field_mask += ",travelAdvisory.transitFare"
+
+        batch_size = max(1, ROUTE_MATRIX_MAX_ELEMENTS // len(destination_place_ids))
+        routes: list[RouteMatrixResult] = []
+        for batch_start in range(0, len(origin_place_ids), batch_size):
+            batch = origin_place_ids[batch_start : batch_start + batch_size]
+            response = await self._request(
+                "POST",
+                ROUTES_MATRIX_URL,
+                field_mask,
+                "routes",
+                json={
+                    "origins": [
+                        {"waypoint": {"placeId": place_id}} for place_id in batch
+                    ],
+                    "destinations": [
+                        {"waypoint": {"placeId": place_id}}
+                        for place_id in destination_place_ids
+                    ],
+                    "travelMode": TRAVEL_MODE[mode],
+                    "languageCode": "en",
+                    "regionCode": "my",
+                    "units": "METRIC",
+                },
+            )
+            if not isinstance(response, list):
+                raise AppError(
+                    "MAPS_UNAVAILABLE",
+                    "The location service is temporarily unavailable. Please try again.",
+                    502,
+                )
+            for element in response:
+                duration_seconds = _parse_duration_seconds(element.get("duration"))
+                transit_fare_rm = (
+                    _parse_transit_fare_rm(element)
+                    if mode == "public_transport"
+                    else None
+                )
+                status = element.get("status") or {}
+                origin_index = element.get("originIndex")
+                destination_index = element.get("destinationIndex")
+                distance_meters = element.get("distanceMeters")
+                if (
+                    element.get("condition") == "ROUTE_EXISTS"
+                    and status.get("code", 0) == 0
+                    and isinstance(origin_index, int)
+                    and isinstance(destination_index, int)
+                    and isinstance(distance_meters, (int, float))
+                    and duration_seconds is not None
+                ):
+                    routes.append(
+                        RouteMatrixResult(
+                            destination_index=destination_index,
+                            distance_meters=distance_meters,
+                            duration_seconds=duration_seconds,
+                            transit_fare_rm=transit_fare_rm,
+                            # Google indexes origins per request, so shift the
+                            # batch-local index back to the caller's list order.
+                            origin_index=batch_start + origin_index,
+                        )
+                    )
         return routes
 
 

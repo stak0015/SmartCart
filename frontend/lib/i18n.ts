@@ -104,6 +104,67 @@ export const COPY = {
     travelLimitType: "Travel limit type",
     distance: "Distance",
     travelTime: "Travel time",
+    multiStorePlans: "Include multi-store plans",
+    multiStorePlansSummary: (limit: string) => `Second store · ${limit}`,
+    multiStorePlansOff: "Second store · off",
+    secondStoreTravelLimits: "Second-store travel limits",
+    secondStoreTravelLegNote: "These limits apply to travel from the first store to the second store using your selected transport mode.",
+    secondStoreLimitType: "Second-store limit type",
+    applyLimits: "Apply limits",
+    secondStoreLimitRequired: "Select a value for each limit before applying.",
+    secondStoreDistanceRequired: "Select a distance limit before applying.",
+    secondStoreTimeRequired: "Select a travel time limit before applying.",
+    secondStoreLimitsApplied: (limit: string) => `Recalculating with second-store limits of ${limit}.`,
+    multiStoreNotAvailableForMode: "Multi-store plans are not available for this transport mode.",
+    // AC 6.2.8: when no two-store plan qualifies, say why and offer a way back
+    // to the limits instead of leaving an empty area. Each reason is reported
+    // separately because "outside your limit" and "no route data" need
+    // different shopper responses.
+    multiStoreNoMatchingPlans: "No multi-store plans match your second-store travel limits.",
+    multiStoreNoInterStoreRoutes: "No route data was available between the recommended stores, so no two-store plan could be priced.",
+    multiStoreInsufficientStores: "At least two reachable stores are needed to compare a split basket.",
+    multiStoreUnsupportedFallback: "Multi-store plans need real route data, which is unavailable without Google Routes configured.",
+    editLimits: "Edit limits",
+    // Transparency for AC 6.2.7/6.2.8: how many store pairs were actually
+    // routed before the empty result, so the shopper sees work was done.
+    multiStoreEvaluatedCount: (count: number) => `${count} store pair${count === 1 ? "" : "s"} checked against your limits.`,
+    // US 6.3: combined-cost comparison. The basis note is localised here rather
+    // than shown from the backend's English string, because this UI is bilingual
+    // (the backend field stays as the machine-readable disclosure).
+    planComparisonTitle: "Compare plans",
+    multiStorePriceBasis: "Prices are compared using official store prices only; median estimates are excluded so single-store and two-store totals match. Transport is the estimated complete return route.",
+    singleStorePlanLabel: "One store",
+    twoStorePlanLabel: "Two stores",
+    planBasketSubtotal: "Basket subtotal",
+    planTransportCost: "Transport (return route)",
+    planCombinedTotal: "Estimated total",
+    // AC 6.3.5: saving against the cheapest complete single-store plan.
+    planSavingVsSingle: (amount: string, baseline: string) => `Saves ${amount} versus the cheapest single-store plan (${baseline}).`,
+    // Negative saving: shown explicitly rather than hidden, so splitting is not
+    // presented as a win when it costs more.
+    planCostsMoreThanSingle: (amount: string) => `Costs ${amount} more than the cheapest single-store plan.`,
+    // AC 6.3.6: no eligible baseline exists, so no number is claimed at all.
+    planNoSingleStoreBaseline: "No complete single-store plan to compare against, so no saving is shown.",
+    // AC 6.3.4: incomplete plans are labelled and grouped apart.
+    incompletePlansTitle: "Incomplete baskets",
+    incompletePlansNote: "These plans are missing an official price for at least one item, so they are not ranked against complete plans.",
+    planPriceCoverage: (priced: number, total: number) => `${priced} of ${total} items priced`,
+    planPartialTotal: "Partial total",
+    planMissingItems: (items: string) => `No official price: ${items}`,
+    // US 6.4: inspecting one two-store plan.
+    planDetailBack: "Back to plans",
+    planDetailViewButton: "View plan detail",
+    planDetailJourneyTitle: "Journey",
+    legOriginToFirst: "Home to first store",
+    legFirstToSecond: "First store to second store",
+    legSecondToOrigin: "Second store to home",
+    legInterStoreNote: "Governed by your second-store travel limits.",
+    planDetailSecondStoreLimit: (limit: string) => `Second-store limit applied: ${limit}`,
+    planDetailReverseOrder: (amount: string) => `The reverse visit order would cost ${amount} in transport.`,
+    planDetailTotalReturn: "Total return journey",
+    planDetailItemsAtStore: (store: string) => `Buy at ${store}`,
+    planDetailStoreSubtotal: "This store",
+    planDetailAddressUnavailable: "Address unavailable",
     optional: "optional",
     saraPlanning: "SARA store filter",
     saraCandidatesOnly: "Show SARA stores and possible matches",
@@ -483,6 +544,64 @@ export const COPY = {
     travelLimitType: "Jenis had perjalanan",
     distance: "Jarak",
     travelTime: "Masa perjalanan",
+    multiStorePlans: "Sertakan pelbagai kedai",
+    multiStorePlansSummary: (limit: string) => `Kedai kedua · ${limit}`,
+    multiStorePlansOff: "Kedai kedua · mati",
+    secondStoreTravelLimits: "Had perjalanan kedai kedua",
+    secondStoreTravelLegNote: "Had ini terpakai untuk perjalanan dari kedai pertama ke kedai kedua menggunakan mod pengangkutan yang anda pilih.",
+    secondStoreLimitType: "Jenis had kedai kedua",
+    applyLimits: "Guna had",
+    secondStoreLimitRequired: "Pilih satu nilai bagi setiap had sebelum guna.",
+    secondStoreDistanceRequired: "Pilih had jarak sebelum guna.",
+    secondStoreTimeRequired: "Pilih had masa perjalanan sebelum guna.",
+    secondStoreLimitsApplied: (limit: string) => `Mengira semula dengan had kedai kedua ${limit}.`,
+    multiStoreNotAvailableForMode: "Pelan pelbagai kedai tidak tersedia untuk mod pengangkutan ini.",
+    // AC 6.2.8: keadaan kosong diterangkan mengikut sebab supaya pengguna tahu
+    // sama ada perlu melonggarkan had atau menunggu data laluan.
+    multiStoreNoMatchingPlans: "Tiada pelan pelbagai kedai yang sepadan dengan had perjalanan kedai kedua anda.",
+    multiStoreNoInterStoreRoutes: "Tiada data laluan antara kedai yang disyorkan, jadi tiada pelan dua kedai dapat dikira.",
+    multiStoreInsufficientStores: "Sekurang-kurangnya dua kedai boleh dicapai diperlukan untuk membandingkan bakul berpisah.",
+    multiStoreUnsupportedFallback: "Pelan pelbagai kedai memerlukan data laluan sebenar, yang tidak tersedia tanpa Google Routes.",
+    editLimits: "Sunting had",
+    // Ketelusan bagi AC 6.2.7/6.2.8: bilangan pasangan kedai yang benar-benar
+    // dikira laluan sebelum keputusan kosong.
+    multiStoreEvaluatedCount: (count: number) => `${count} pasangan kedai disemak terhadap had anda.`,
+    // US 6.3: perbandingan kos gabungan. Nota asas harga dilokalkan di sini dan
+    // bukan dipaparkan daripada rentetan Inggeris backend, kerana UI ini dwibahasa.
+    planComparisonTitle: "Bandingkan pelan",
+    multiStorePriceBasis: "Harga dibandingkan menggunakan harga rasmi kedai sahaja; anggaran median dikecualikan supaya jumlah satu kedai dan dua kedai sepadan. Pengangkutan ialah anggaran laluan pulang lengkap.",
+    singleStorePlanLabel: "Satu kedai",
+    twoStorePlanLabel: "Dua kedai",
+    planBasketSubtotal: "Jumlah bakul",
+    planTransportCost: "Pengangkutan (laluan pulang)",
+    planCombinedTotal: "Anggaran jumlah",
+    // AC 6.3.5: penjimatan berbanding pelan satu kedai lengkap yang termurah.
+    planSavingVsSingle: (amount: string, baseline: string) => `Jimat ${amount} berbanding pelan satu kedai termurah (${baseline}).`,
+    // Penjimatan negatif: dipaparkan secara terang dan bukan disembunyikan, supaya
+    // pemisahan tidak kelihatan menguntungkan sedangkan kosnya lebih tinggi.
+    planCostsMoreThanSingle: (amount: string) => `Kos ${amount} lebih tinggi daripada pelan satu kedai termurah.`,
+    // AC 6.3.6: tiada asas yang layak, jadi tiada angka penjimatan dituntut.
+    planNoSingleStoreBaseline: "Tiada pelan satu kedai lengkap untuk dibandingkan, jadi tiada penjimatan dipaparkan.",
+    // AC 6.3.4: pelan tidak lengkap dilabel dan dikumpulkan berasingan.
+    incompletePlansTitle: "Bakul tidak lengkap",
+    incompletePlansNote: "Pelan ini tiada harga rasmi untuk sekurang-kurangnya satu item, jadi ia tidak disenaraikan bersama pelan lengkap.",
+    planPriceCoverage: (priced: number, total: number) => `${priced} daripada ${total} item berharga`,
+    planPartialTotal: "Jumlah separa",
+    planMissingItems: (items: string) => `Tiada harga rasmi: ${items}`,
+    // US 6.4: melihat satu pelan dua kedai.
+    planDetailBack: "Kembali ke pelan",
+    planDetailViewButton: "Lihat butiran pelan",
+    planDetailJourneyTitle: "Perjalanan",
+    legOriginToFirst: "Rumah ke kedai pertama",
+    legFirstToSecond: "Kedai pertama ke kedai kedua",
+    legSecondToOrigin: "Kedai kedua ke rumah",
+    legInterStoreNote: "Tertakluk kepada had perjalanan kedai kedua anda.",
+    planDetailSecondStoreLimit: (limit: string) => `Had kedai kedua digunakan: ${limit}`,
+    planDetailReverseOrder: (amount: string) => `Susunan lawatan songsang akan menelan kos pengangkutan ${amount}.`,
+    planDetailTotalReturn: "Jumlah perjalanan pulang",
+    planDetailItemsAtStore: (store: string) => `Beli di ${store}`,
+    planDetailStoreSubtotal: "Kedai ini",
+    planDetailAddressUnavailable: "Alamat tidak tersedia",
     optional: "pilihan",
     saraPlanning: "Perancangan SARA",
     saraCandidatesOnly: "Papar kedai SARA dan padanan berpotensi",

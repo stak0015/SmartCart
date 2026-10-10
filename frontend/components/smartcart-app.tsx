@@ -28,6 +28,7 @@ import {
 import type {
   BasketItemPrice,
   LocationSuggestion,
+  MultiStoreEmptyReason,
   RecommendationResponse,
   SaraFilter,
   SelectedLocation,
@@ -39,6 +40,16 @@ import type {
   ItemCategory,
 } from "@/lib/contracts";
 import { toAlternativeLineRequests, toBasketLineRequests } from "@/lib/basket-lines";
+import {
+  DEFAULT_MULTI_STORE_CONFIG,
+  DISTANCE_LIMITS,
+  TIME_LIMITS,
+  type MultiStoreConfig,
+} from "@/lib/multi-store";
+import { MultiStorePanel } from "./multi-store-panel";
+import { PlanComparisonSection } from "./plan-comparison";
+import { PlanDetailView } from "./plan-detail";
+import { SaraStoreTag } from "./store-tags";
 import {
   applyBasketReplacement,
   currentReplacementImpactRm,
@@ -277,16 +288,6 @@ function SaraEligibilityFlag({
 }) {
   if (status !== true && !candidate) return null;
   return <span className="sara-item-status">{copy.saraCategory}</span>;
-}
-
-function SaraStoreTag({ status, copy }: { status: StoreRecommendation["saraStatus"]; copy: AppCopy }) {
-  if (status === "verified") {
-    return <span className="inline-flex self-start rounded-md bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>;
-  }
-  if (status === "candidate") {
-    return <span className="inline-flex self-start rounded-md bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>;
-  }
-  return <span className="inline-flex self-start rounded-md bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>;
 }
 
 function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
@@ -998,15 +999,37 @@ function transportLabel(copy: AppCopy, mode: TransportMode): string {
   }[mode];
 }
 
+/**
+ * AC 6.2.8: map the backend's empty-state reason to shopper-facing copy.
+ *
+ * The reasons are kept distinct rather than collapsed into one message because
+ * they need different shopper responses: "no_pairs_within_limit" means the
+ * limits are too tight (edit them), while "no_inter_store_route_data" means the
+ * provider had no route (a data condition the shopper cannot fix by editing).
+ */
+function multiStoreEmptyMessage(
+  copy: AppCopy,
+  reason: MultiStoreEmptyReason,
+): string {
+  switch (reason) {
+    case "no_inter_store_route_data":
+      return copy.multiStoreNoInterStoreRoutes;
+    case "insufficient_reachable_stores":
+      return copy.multiStoreInsufficientStores;
+    case "straight_line_fallback_unsupported":
+      return copy.multiStoreUnsupportedFallback;
+    case "no_pairs_within_limit":
+    default:
+      return copy.multiStoreNoMatchingPlans;
+  }
+}
+
 function createLocationSessionToken(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return "smartcart-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 }
-
-const DISTANCE_LIMITS = [2, 5, 10, 15] as const;
-const TIME_LIMITS = [10, 20, 30, 45] as const;
 
 function LocationScreen({
   preferences,
@@ -1869,6 +1892,8 @@ function CompareScreen({
   preferences,
   candidateCacheId,
   onChangeTravel,
+  multiStore,
+  onMultiStoreChange,
   copy,
 }: {
   basket: BasketItem[];
@@ -1880,6 +1905,8 @@ function CompareScreen({
   preferences: TravelPreferences;
   candidateCacheId: string | null;
   onChangeTravel: () => void;
+  multiStore: MultiStoreConfig;
+  onMultiStoreChange: (next: MultiStoreConfig) => void;
   copy: AppCopy;
 }) {
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -1888,14 +1915,34 @@ function CompareScreen({
   const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
   // One price disclosure is expanded at a time.
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
+  // US 6.4: the two-store plan whose detail view is open, if any. Held here
+  // (not in a URL route) so opening the detail never unmounts CompareScreen —
+  // the basket, travel preferences and multi-store configuration therefore
+  // survive the round trip unchanged (AC 6.4.4 / 6.4.6).
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
   const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
   const [requestCandidateCacheId] = useState(candidateCacheId);
+  // AC 6.1.9: the limit actually bound to the current request. Kept in a
+  // snapshot (like requestBasketLines) so editing presets without pressing Apply
+  // does not trigger a re-request; only an applied limit does.
+  const [requestSecondStoreLimit, setRequestSecondStoreLimit] = useState(() => multiStore.applied);
   const hasBasket = requestBasketLines.length > 0;
   const previousSelectedStore = useRef(selectedStore);
+  const previousAppliedLimit = useRef(multiStore.applied);
+
+  useEffect(() => {
+    // Only a change in the applied limit re-requests; toggling presets alone
+    // must not. Reference identity is stable until Apply produces a new object.
+    if (previousAppliedLimit.current !== multiStore.applied) {
+      previousAppliedLimit.current = multiStore.applied;
+      setLoading(true);
+      setRequestSecondStoreLimit(multiStore.applied);
+    }
+  }, [multiStore.applied]);
 
   useEffect(() => {
     if (previousSelectedStore.current && !selectedStore) {
@@ -1924,16 +1971,19 @@ function CompareScreen({
     // AC 2.3.2: a fresh recommendation list starts again at the first six.
     setVisibleCount(VISIBLE_STEP);
     setExpandedStoreId(null);
+    setSelectedPlanId(null);
 
     getRecommendations({
       ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
       ...(requestCandidateCacheId ? { candidateCacheId: requestCandidateCacheId } : {}),
+      ...(requestSecondStoreLimit ? { secondStoreLimit: requestSecondStoreLimit } : {}),
       travel: recommendationTravelRequest(preferences),
     }, controller.signal)
       .then(response => {
         setResult(response);
             setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
+        setSelectedPlanId(null);
       })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -1944,7 +1994,7 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [requestBasketLines, requestCandidateCacheId, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [requestBasketLines, requestCandidateCacheId, requestSecondStoreLimit, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
 
   const recommendations = result?.recommendations ?? [];
   const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
@@ -1978,6 +2028,33 @@ function CompareScreen({
     );
   }
 
+  // AC 6.4.1: opening a two-store plan replaces the list with its detail view.
+  // Because this is an in-place swap (not a route), returning clears
+  // selectedPlanId and the list reappears exactly as it was; the basket,
+  // travel preferences and multi-store configuration are untouched throughout
+  // (AC 6.4.4 / 6.4.6).
+  if (selectedPlanId) {
+    const comparison = result?.multiStore?.comparison;
+    const selectedPlan = comparison
+      ? [...comparison.completePlans, ...comparison.incompletePlans]
+          .find(plan => plan.planId === selectedPlanId)
+      : undefined;
+    // A stale id (e.g. the list refreshed and the plan is gone) falls through to
+    // the normal list rather than showing an empty detail view.
+    if (selectedPlan) {
+      return (
+        <PlanDetailView
+          plan={selectedPlan}
+          stores={recommendations}
+          secondStoreLimit={result?.multiStore?.secondStoreLimit ?? null}
+          copy={copy}
+          locale={copy === COPY.ms ? "ms" : "en"}
+          onBack={() => setSelectedPlanId(null)}
+        />
+      );
+    }
+  }
+
   return (
     <div className="screen-enter compare-screen pb-8">
       <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
@@ -2001,6 +2078,12 @@ function CompareScreen({
             { icon: <IcoStore/>, label: copy === COPY.ms ? "Kedai" : "Stores", value: loading ? "—" : recommendations.length },
           ]}/>
         </div>
+
+        {/* US 6.1: the opt-in multi-store toggle and second-store travel limits. */}
+        <div className="preference-bar">
+          <MultiStorePanel config={multiStore} onChange={onMultiStoreChange} copy={copy} />
+        </div>
+
         {loading && (
           <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-6 text-center shadow-sm">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[#cce3d9] border-t-[#007d38]" />
@@ -2024,6 +2107,45 @@ function CompareScreen({
                 {copy.expandedSearchNotice}
               </div>
             )}
+
+            {/* AC 6.2.8: when the shopper applied second-store limits and no
+                two-store plan qualified, explain why and offer a way back to
+                the limits. The single-store list below is untouched, so this
+                never empties the recommendation page. Plan rendering itself is
+                US 6.3/6.4; US 6.2 only reports the outcome. */}
+            {result.multiStore && result.multiStore.plans.length === 0 && result.multiStore.emptyReason && (
+              <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-4">
+                <p className="text-sm font-semibold leading-5 text-[#10152e]">
+                  {multiStoreEmptyMessage(copy, result.multiStore.emptyReason)}
+                </p>
+                {result.multiStore.evaluatedPairCount > 0 && (
+                  <p className="mt-1 text-xs text-[#718078]">
+                    {copy.multiStoreEvaluatedCount(result.multiStore.evaluatedPairCount)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  // Re-expands the limits menu (idempotent: it is already
+                  // enabled once a limit was applied) and keeps the selection.
+                  onClick={() => onMultiStoreChange({ ...multiStore, enabled: true })}
+                  className="mt-3 min-h-11 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38]"
+                >
+                  {copy.editLimits}
+                </button>
+              </div>
+            )}
+            {/* US 6.3: when the backend priced the plans against single-store
+                alternatives, show the combined-cost comparison above the single
+                store list. Absent unless a basket was sent and a two-store plan
+                qualified, so single-store-only shoppers see an unchanged page. */}
+            {result.multiStore?.comparison && (
+              <PlanComparisonSection
+                comparison={result.multiStore.comparison}
+                copy={copy}
+                onSelectPlan={setSelectedPlanId}
+              />
+            )}
+
             <div className="flex items-end justify-between gap-3">
               <div>
                 <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
@@ -2119,6 +2241,10 @@ export default function App() {
     timeMinutes: 20,
     saraFilter: "any",
   });
+  // AC 6.1.1: a new recommendation session starts with multi-store plans off.
+  // Held at app level so the configuration outlives the compare screen and can
+  // be restored when the shopper returns to the recommendations (AC 6.4.4).
+  const [multiStore, setMultiStore] = useState<MultiStoreConfig>(DEFAULT_MULTI_STORE_CONFIG);
 
   const runReportGeneration = useCallback(async (period: ReportPeriod) => {
     if (activeReportControllerRef.current) return;
@@ -2846,6 +2972,8 @@ export default function App() {
             preferences={preferences}
             candidateCacheId={candidateCacheId}
             onChangeTravel={() => navigateTo("location")}
+            multiStore={multiStore}
+            onMultiStoreChange={setMultiStore}
             copy={copy}
           />
         ) : null}

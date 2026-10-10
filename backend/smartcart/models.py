@@ -86,6 +86,11 @@ class RecommendationRequest(CamelModel):
     # Opaque, short-lived token returned by candidate preparation. The server
     # validates that it belongs to the same travel settings before reuse.
     candidate_cache_id: str | None = Field(default=None, min_length=16, max_length=128)
+    # US 6.1/6.2: limits for the first-store -> second-store leg only. Reuses
+    # TravelLimit so the same 0.5-100 km / 5-180 min validation applies. None
+    # keeps the response single-store, which is what every pre-Epic-6 client
+    # sends, so omitting it cannot change existing behaviour.
+    second_store_limit: TravelLimit | None = None
 
 
 class CandidatePreparationRequest(CamelModel):
@@ -303,6 +308,160 @@ class StoreRecommendation(CamelModel):
     exceeds_limit: bool = False
 
 
+class RouteLeg(CamelModel):
+    """One segment of a two-store journey (AC 6.2.6).
+
+    ``role`` names the segment so the client can explain the journey in order.
+    ``cost_rm`` is that segment's own transport cost using the same cost model
+    as single-store recommendations; the plan total is their sum.
+    """
+
+    role: Literal["origin_to_first", "first_to_second", "second_to_origin"]
+    from_name: str
+    to_name: str
+    distance_km: float
+    travel_minutes: int
+    cost_rm: float
+
+
+class MultiStorePlan(CamelModel):
+    """One eligible two-store journey in visit order (US 6.2).
+
+    The store fields are ordered by the visit sequence chosen under AC 6.2.5,
+    so ``first_store_*`` is always visited first. ``inter_store_*`` describes
+    only the leg governed by the second-store limits (AC 6.1.4/6.2.1); the
+    home legs remain governed by the original travel limit.
+    """
+
+    first_store_premise_id: str
+    second_store_premise_id: str
+    first_store_name: str
+    second_store_name: str
+    # The first-to-second leg, i.e. what the second-store limits constrain.
+    inter_store_distance_km: float
+    inter_store_travel_minutes: int
+    # Whole loop: home -> first -> second -> home (AC 6.2.6).
+    total_route_distance_km: float
+    total_travel_minutes: int
+    total_travel_cost_rm: float
+    legs: list[RouteLeg]
+    # AC 6.2.5: cost of the rejected reverse order, kept for transparency so
+    # the UI can explain why this order was chosen. None when the reverse
+    # order was unrouteable.
+    reverse_order_cost_rm: float | None = None
+    route_provider: Literal["google", "straight_line"] = "google"
+
+
+class PlanStoreAssignment(CamelModel):
+    """One basket line assigned to a store within a two-store plan (AC 6.3.1).
+
+    A line's full quantity always goes to a single store; it is never split.
+    ``unit_price_rm`` is an official store observation (price_source "store"),
+    never a median estimate, because AC 6.3.1 allocates on official prices.
+    """
+
+    item_id: str
+    item_name: str | None
+    quantity: int
+    unit_price_rm: float
+    line_total_rm: float
+    store_premise_id: str
+    store_name: str
+    # AC 6.4.2: the pack spec (e.g. "500 g", "1 L") shown per assigned line.
+    # Required (no default) so it cannot be silently omitted; may be None for
+    # items the catalogue has no parsed pack size for.
+    unit: str | None
+    observed_date: str | None = None
+
+
+class PricedPlan(CamelModel):
+    """A single-store or two-store plan priced for comparison (US 6.3).
+
+    Every money figure here uses the SAME basis: official store prices only
+    (median estimates are excluded), so single-store and two-store plans are
+    directly comparable and the saving in AC 6.3.5 subtracts like from like.
+    This is deliberately separate from the single-store card's displayed
+    ``combined_total_rm``, which mixes store and median prices.
+    """
+
+    plan_id: str
+    store_count: Literal[1, 2]
+    store_premise_ids: list[str]
+    store_names: list[str]
+    # AC 6.3.2: basket subtotal is the sum of assigned unit prices x quantities.
+    basket_subtotal_rm: float
+    # Complete-route transport: round trip for one store, the full loop for two.
+    transport_cost_rm: float
+    # AC 6.3.2: combined total = basket subtotal + transport.
+    combined_total_rm: float
+    # AC 6.3.4: complete means every requested basket line has an official price
+    # at its assigned store(s); an incomplete plan is never ranked as cheapest.
+    is_complete: bool
+    priced_line_count: int
+    basket_line_count: int
+    missing_items: list[str] = Field(default_factory=list)
+    total_travel_minutes: int
+    total_route_distance_km: float
+    # Two-store plans only: which store each line was assigned to (AC 6.3.1).
+    assignments: list[PlanStoreAssignment] = Field(default_factory=list)
+    # Two-store leg detail, echoed for the comparison view (US 6.4 renders it).
+    inter_store_distance_km: float | None = None
+    # AC 6.4.1: inter-store travel time, the full ordered legs and the rejected
+    # reverse-order cost, echoed from the route plan so the detail view is
+    # self-contained. A detail screen that had to re-join the route plan by
+    # premise ID could silently lose the journey breakdown; carrying it here
+    # makes that impossible. Empty/None for single-store plans.
+    inter_store_travel_minutes: int | None = None
+    legs: list[RouteLeg] = Field(default_factory=list)
+    # AC 6.2.5 transparency: what the rejected reverse visit order would cost.
+    reverse_order_cost_rm: float | None = None
+    # AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
+    # Two-store plans only; None when there is no eligible single-store baseline
+    # (never fabricated as 0). Negative means the split costs more.
+    saving_vs_single_rm: float | None = None
+
+
+class PlanComparison(CamelModel):
+    """AC 6.3: single-store and two-store plans compared by combined cost."""
+
+    # AC 6.3.3: complete plans, cheapest combined total first.
+    complete_plans: list[PricedPlan] = Field(default_factory=list)
+    # AC 6.3.4: plans with at least one unpriced basket line, kept separate so
+    # they are never presented as the cheapest complete option.
+    incomplete_plans: list[PricedPlan] = Field(default_factory=list)
+    # AC 6.3.5: the cheapest complete single-store combined total, used as the
+    # savings baseline. None when no complete single-store plan exists, in which
+    # case no saving is shown for any two-store plan (AC 6.3.6).
+    single_store_baseline_rm: float | None = None
+    single_store_baseline_name: str | None = None
+    # Transparency: states that the comparison uses official store prices only.
+    price_basis_note: str
+
+
+class MultiStorePlans(CamelModel):
+    """Two-store planning result for one recommendation request (US 6.2)."""
+
+    plans: list[MultiStorePlan] = Field(default_factory=list)
+    second_store_limit: TravelLimit | None = None
+    # Ordered store pairs whose inter-store leg was checked against the limits.
+    evaluated_pair_count: int = 0
+    # AC 6.2.7: pairs dropped because the provider returned no route for the
+    # inter-store leg. These are excluded rather than given an invented cost.
+    unrouteable_pair_count: int = 0
+    # AC 6.2.8: why the plan list is empty, so the client can show the right
+    # empty state and an "edit limits" affordance instead of a blank panel.
+    empty_reason: Literal[
+        "no_pairs_within_limit",
+        "no_inter_store_route_data",
+        "insufficient_reachable_stores",
+        "straight_line_fallback_unsupported",
+    ] | None = None
+    # US 6.3: priced comparison of single-store and two-store plans. Present
+    # only when a basket was sent and at least one two-store plan exists; the
+    # route-level ``plans`` above remain the US 6.2 output.
+    comparison: PlanComparison | None = None
+
+
 class RecommendationResponse(CamelModel):
     recommendations: list[StoreRecommendation]
     total_candidates_evaluated: int
@@ -315,6 +474,9 @@ class RecommendationResponse(CamelModel):
     # True when no store matched the shopper's travel limit and the nearest
     # stores were returned anyway (iteration1 feedback: always show something).
     expanded_search: bool = False
+    # US 6.2: two-store plans. Stays None unless the client sent a second-store
+    # limit, so existing clients see an unchanged response shape.
+    multi_store: MultiStorePlans | None = None
 
 
 # ---------------------------------------------------------------------------

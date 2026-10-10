@@ -38,10 +38,11 @@ from .alternatives import (
     get_basket_alternatives_with_pack_options,
     premise_exists,
 )
-from .maps import get_maps_provider
+from .maps import RouteMatrixResult, get_maps_provider
 from .models import (
     HealthierAlternativesResponse,
     LocationResolveRequest,
+    MultiStorePlans,
     ReverseLocationRequest,
     ReverseLocationResponse,
     LocationSearchResponse,
@@ -49,6 +50,7 @@ from .models import (
     RecommendationResponse,
     CandidatePreparationRequest,
     CandidatePreparationResponse,
+    StoreRecommendation,
     TravelPreferences,
     ResolvedLocation,
     BasketAlternativesRequest,
@@ -61,9 +63,17 @@ from .models import (
 from .nutrition import healthier_alternatives
 from .item_nutrition import get_item_nutrition
 from .pack_ratios import get_pack_options
-from .premises import find_nearest_premises, get_premise_location_coverage
+from .premises import (
+    PremiseCandidate,
+    find_nearest_premises,
+    get_premise_coordinates,
+    get_premise_location_coverage,
+)
 from .pricing import get_basket_pricing
+from .multi_store import plan_multi_store_trips, select_pairs_for_routing
+from .multi_store_pricing import build_plan_comparison
 from .recommendation import (
+    TravelCostRate,
     apply_basket_pricing,
     get_travel_cost_model,
     rank_reachable_stores,
@@ -395,6 +405,144 @@ async def prepare_recommendation_candidates(
     )
 
 
+async def _build_multi_store_plans(
+    *,
+    payload: RecommendationRequest,
+    travel: TravelPreferences,
+    candidates: list[PremiseCandidate],
+    recommendations: list[StoreRecommendation],
+    route_results: list[RouteMatrixResult],
+    cost_rate: TravelCostRate,
+    use_straight_line_fallback: bool,
+) -> MultiStorePlans | None:
+    """Compute two-store plans for US 6.2, or None when not requested.
+
+    Returns None whenever the client sent no second-store limit, so the response
+    shape is byte-identical for every pre-Epic-6 caller.
+
+    Route data rules:
+    * The straight-line fallback has no real routes, and AC 6.2.7 forbids
+      inventing transport costs, so multi-store planning is reported as
+      unsupported rather than estimated from synthetic values.
+    * Only stores that satisfy the *original* travel limit may be visited first
+      (AC 6.2.1); expanded-search stores are flagged ``exceeds_limit`` and are
+      therefore excluded from that role.
+    """
+    if payload.second_store_limit is None:
+        return None
+
+    second_store_limit = payload.second_store_limit
+    if use_straight_line_fallback:
+        return MultiStorePlans(
+            second_store_limit=second_store_limit,
+            empty_reason="straight_line_fallback_unsupported",
+        )
+
+    reachable_first_store_ids = [
+        store.premise_id for store in recommendations if not store.exceeds_limit
+    ]
+    if len(candidates) < 2 or not reachable_first_store_ids:
+        return MultiStorePlans(
+            second_store_limit=second_store_limit,
+            empty_reason="insufficient_reachable_stores",
+        )
+
+    coordinates = await run_in_threadpool(
+        get_premise_coordinates,
+        [candidate.premise_id for candidate in candidates],
+    )
+    first_stores = [
+        candidate
+        for candidate in candidates
+        if candidate.premise_id in set(reachable_first_store_ids)
+    ]
+    pairs = select_pairs_for_routing(
+        first_stores=first_stores,
+        candidates=candidates,
+        coordinates=coordinates,
+        second_store_limit=second_store_limit,
+    )
+    if not pairs:
+        return MultiStorePlans(
+            second_store_limit=second_store_limit,
+            empty_reason="no_pairs_within_limit",
+        )
+
+    # Existing single-store routes, re-keyed by premise ID for the home legs of
+    # the loop (AC 6.2.6). No additional API call is needed for these.
+    origin_routes: dict[str, RouteMatrixResult] = {}
+    for route in route_results:
+        if 0 <= route.destination_index < len(candidates):
+            premise = candidates[route.destination_index]
+            origin_routes[premise.premise_id] = route
+
+    by_id = {candidate.premise_id: candidate for candidate in candidates}
+    # Deterministic order: first stores in candidate-rank order, second stores in
+    # the same order, so response ordering is reproducible for tests.
+    first_ids: list[str] = []
+    for candidate in candidates:
+        if candidate.premise_id in {first_id for first_id, _ in pairs}:
+            first_ids.append(candidate.premise_id)
+    second_ids: list[str] = []
+    for candidate in candidates:
+        if candidate.premise_id in {second_id for _, second_id in pairs}:
+            second_ids.append(candidate.premise_id)
+
+    inter_store_results = await get_maps_provider().compute_route_matrix_multi_origin(
+        [by_id[premise_id].google_place_id for premise_id in first_ids],
+        [by_id[premise_id].google_place_id for premise_id in second_ids],
+        travel.transport_mode,
+    )
+    inter_store_routes: dict[tuple[str, str], RouteMatrixResult] = {}
+    for route in inter_store_results:
+        if (
+            0 <= route.origin_index < len(first_ids)
+            and 0 <= route.destination_index < len(second_ids)
+        ):
+            inter_store_routes[
+                (
+                    first_ids[route.origin_index],
+                    second_ids[route.destination_index],
+                )
+            ] = route
+
+    plans = plan_multi_store_trips(
+        candidates=candidates,
+        reachable_first_store_ids=reachable_first_store_ids,
+        pairs=pairs,
+        origin_routes=origin_routes,
+        inter_store_routes=inter_store_routes,
+        second_store_limit=second_store_limit,
+        cost_rate=cost_rate,
+        home_name=travel.origin.label,
+    )
+
+    # US 6.3: price the plans against single-store alternatives. Needs per-store
+    # pricing for every store that could take part — single-store baselines come
+    # from ``recommendations`` and two-store legs reference ``candidates`` — so
+    # fetch the union rather than reuse the endpoint's recommendations-only
+    # pricing, which would leave a second store's lines unpriced. This is a local
+    # database read; it spends no additional Google quota.
+    if payload.basket and plans.plans:
+        participating_ids = {store.premise_id for store in recommendations}
+        for plan in plans.plans:
+            participating_ids.add(plan.first_store_premise_id)
+            participating_ids.add(plan.second_store_premise_id)
+        comparison_pricing = await run_in_threadpool(
+            get_basket_pricing,
+            sorted(participating_ids),
+            payload.basket,
+        )
+        plans.comparison = build_plan_comparison(
+            recommendations=recommendations,
+            two_store_plans=plans.plans,
+            pricing=comparison_pricing,
+            basket=payload.basket,
+        )
+
+    return plans
+
+
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
     try:
@@ -412,7 +560,15 @@ async def _recommend_stores(
 ) -> RecommendationResponse:
     settings = get_settings()
     travel = payload.travel
-    cached = _get_candidate_snapshot(payload.candidate_cache_id, travel)
+    # A cached snapshot is prepared without a second-store limit, so its
+    # multi_store field is always None. Serving it here would silently drop
+    # two-store plans after the shopper presses Apply (AC 6.1.9), so the cache is
+    # bypassed whenever multi-store planning is requested.
+    cached = (
+        None
+        if payload.second_store_limit is not None
+        else _get_candidate_snapshot(payload.candidate_cache_id, travel)
+    )
     if cached is not None and payload.basket:
         recommendations = cached.recommendations
         pricing = await run_in_threadpool(
@@ -604,6 +760,21 @@ async def _recommend_stores(
         route_provider="straight_line" if use_straight_line_fallback else "google",
         route_warning=" ".join(route_warning_parts) if route_warning_parts else None,
         expanded_search=expanded_search,
+        multi_store=await _build_multi_store_plans(
+            payload=payload,
+            travel=travel,
+            # The expanded-search branch rebinds its results to locals, so pick
+            # whichever candidate set actually produced ``recommendations``.
+            # ``expanded_search`` is only True once that branch has run, so the
+            # names are always defined when they are read.
+            candidates=expanded_candidates if expanded_search else candidates,
+            recommendations=recommendations,
+            route_results=(
+                expanded_route_results if expanded_search else route_results
+            ),
+            cost_rate=cost_model[travel.transport_mode],
+            use_straight_line_fallback=use_straight_line_fallback,
+        ),
     )
 
 
