@@ -1,4 +1,7 @@
-"""Environment-backed application settings."""
+"""Environment-backed application settings.
+
+Owner: Shun | Contributors: Zhihao
+"""
 
 from dataclasses import dataclass
 from functools import lru_cache
@@ -35,6 +38,10 @@ def _bounded_text(name: str, fallback: str, maximum: int) -> str:
 
 @dataclass(frozen=True)
 class Settings:
+    """Immutable runtime settings read from environment variables. See
+    docs/07-operations/deployment-and-operations.md#configuration for every variable.
+    """
+
     database_url: str | None
     database_ssl: bool
     google_maps_api_key: str | None
@@ -58,6 +65,10 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    """Read settings once per process (cached). Malformed or negative numbers fall back to
+    safe defaults and bounded settings (candidate limit, timeout) are clamped, instead of
+    failing startup.
+    """
     origins = tuple(
         origin.strip()
         for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")

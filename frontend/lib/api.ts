@@ -1,3 +1,4 @@
+// Owners: Shun, Zhihao, Randy
 // Epic 1 catalogue calls use the same FastAPI base as every other feature.
 import { API_BASE_URL } from "./api-base";
 import type { ItemCategory, SourceCategory } from "./contracts";
@@ -10,7 +11,7 @@ export interface CataloguePriceRange {
   price_source?: "store" | "median";
 }
 
-// Shape of an item (matches backend response, Step 7 v2)
+// Shape of a catalogue item (matches the /items/search row)
 export interface Item {
   item_id: number;
   item_code: string;
@@ -56,6 +57,7 @@ export interface CategoriesResult {
  */
 export type CatalogueSort = "price_asc" | "price_desc" | "name_asc" | "name_desc";
 
+// Owners: Shun, Randy
 export async function searchItems(
   q: string,
   page = 1,
@@ -84,6 +86,8 @@ export async function searchItems(
 
 /**
  * Get all item categories
+ *
+ * Owner: Zhihao
  */
 export async function listCategories(signal?: AbortSignal): Promise<CategoriesResult> {
   const url = `${API_BASE_URL}/items/categories`;

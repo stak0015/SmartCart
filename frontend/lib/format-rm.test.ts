@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { formatRm } from "./format-rm";
 
 describe("formatRm", () => {
-  it("renders zero verbatim as RM0 (AC 2.3.4)", () => {
+  it("renders zero verbatim as RM0 (AC 2.3.8)", () => {
     expect(formatRm(0)).toBe("RM0");
   });
 

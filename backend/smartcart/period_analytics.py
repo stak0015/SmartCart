@@ -1,4 +1,7 @@
-"""Pure period analytics shared with the TypeScript implementation by fixtures."""
+"""Pure period analytics shared with the TypeScript implementation by fixtures.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 
@@ -233,6 +236,10 @@ def _analyze_range(
     cadence: AnalyticsCadence,
     period_range: tuple[datetime, datetime],
 ) -> PeriodAnalytics:
+    """Totals for one period from device trip records: trip count, recorded spending in
+    cents with partial flags, category and spending-class totals, and savings
+    components.
+    """
     start, end = period_range
     trips: list[Mapping[str, object]] = []
     for record in records:

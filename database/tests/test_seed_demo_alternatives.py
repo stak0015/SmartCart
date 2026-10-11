@@ -13,7 +13,11 @@ sys.path.insert(0, str(PROJECT_DIR / "backend"))
 
 from ingest_pricecatcher import parse_pack_quantity  # noqa: E402
 from seed_demo_alternatives import DEMO_ITEMS  # noqa: E402
-from smartcart.alternatives import package_basis, product_family  # noqa: E402
+from smartcart.alternatives import (  # noqa: E402
+    ALTERNATIVE_NAME_SIMILARITY_THRESHOLD,
+    alternative_name_similarity,
+    package_basis,
+)
 
 
 class DemoAlternativeFixtureTests(unittest.TestCase):
@@ -34,8 +38,9 @@ class DemoAlternativeFixtureTests(unittest.TestCase):
                 package_basis(source.item_name, source.unit),
                 package_basis(alternative.item_name, alternative.unit),
             )
-            self.assertEqual(
-                product_family(source.item_name), product_family(alternative.item_name)
+            self.assertGreaterEqual(
+                alternative_name_similarity(source.item_name, alternative.item_name),
+                ALTERNATIVE_NAME_SIMILARITY_THRESHOLD,
             )
             self.assertLess(alternative.current_price, source.current_price)
 

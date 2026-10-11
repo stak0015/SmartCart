@@ -1,17 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { coverageLabel, isCompleteBasket } from "./basket-coverage";
-
-describe("coverageLabel", () => {
-  it("renders the priced-item coverage verbatim", () => {
-    expect(coverageLabel(3, 5)).toBe("3 of 5 items priced");
-  });
-
-  it("handles full and empty coverage", () => {
-    expect(coverageLabel(5, 5)).toBe("5 of 5 items priced");
-    expect(coverageLabel(0, 5)).toBe("0 of 5 items priced");
-  });
-});
+import { isCompleteBasket } from "./basket-coverage";
 
 describe("isCompleteBasket", () => {
   it("is complete only when every requested line is priced", () => {

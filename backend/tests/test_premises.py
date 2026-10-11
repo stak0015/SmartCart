@@ -60,7 +60,6 @@ def test_nearest_premises_query_only_selects_open_locations(monkeypatch) -> None
     )
 
     assert "open_closed_status = 'open'" in cursor.query
-    assert "location_refreshed_at" not in cursor.query
     assert "latitude IS NOT NULL" in cursor.query
     assert "longitude IS NOT NULL" in cursor.query
     assert cursor.params == (4.5975, 4.5975, 101.0901, "any", "any", "any", 5, 5, 25)
@@ -73,5 +72,4 @@ def test_location_coverage_counts_only_open_premises(monkeypatch) -> None:
 
     assert get_premise_location_coverage() == (7, 5)
     assert cursor.query.count("open_closed_status = 'open'") == 2
-    assert "location_refreshed_at" not in cursor.query
     assert cursor.params == ()

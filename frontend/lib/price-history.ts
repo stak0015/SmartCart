@@ -1,3 +1,4 @@
+// Owner: Shun
 import { API_BASE_URL } from './api-base';
 
 export type PricePoint = { week: string; price: number | null; stores?: number; observations?: number };
@@ -13,6 +14,10 @@ export type PriceHistory = {
     overlapping_test_paths?: boolean; historical_archive_reused?: boolean; shape_correlation?: number | null};
 };
 
+/**
+ * Forecast points the chart may show: none unless the item is 'available', and never beyond the 12
+ * validated weeks or the requested length.
+ */
 export function forecastForDisplay(data: Pick<PriceHistory, 'status' | 'forecast' | 'forecast_horizon_weeks' | 'validated_horizon_weeks'> | null, displayWeeks = 12) {
   if (!data || data.status !== 'available') return [];
   const horizon = data.forecast_horizon_weeks ?? 52;
@@ -21,6 +26,11 @@ export function forecastForDisplay(data: Pick<PriceHistory, 'status' | 'forecast
   return data.forecast.slice(0, Math.min(12, displayWeeks, horizon, validated));
 }
 
+/**
+ * Price rise/drop banner (US 4.2): compares the average of the next four forecast weeks with the
+ * latest recorded price and returns a signal only when they differ by more than 10 %. Returns null
+ * when any of the four weeks is missing or not consecutive.
+ */
 export function fourWeekForecastSignal(data: Pick<PriceHistory, 'status' | 'history' | 'forecast' | 'forecast_horizon_weeks' | 'validated_horizon_weeks'> | null, now = new Date()) {
   if (!data) return null;
   const anchor = data.history.filter(p => p.price !== null).at(-1)?.price;
@@ -37,6 +47,7 @@ export function fourWeekForecastSignal(data: Pick<PriceHistory, 'status' | 'hist
     percent: difference / anchor * 100, firstWeek: window[0].week, lastWeek: window[3].week };
 }
 
+/** Load an item's national history and forecast from the backend. */
 export async function fetchPriceHistory(code: string, region: string, signal: AbortSignal): Promise<PriceHistory> {
   const params = new URLSearchParams();
   if (region) params.set('region', region);
@@ -45,12 +56,7 @@ export async function fetchPriceHistory(code: string, region: string, signal: Ab
   return response.json();
 }
 
-export function costInsight(projected: number | null, reference: number | null, quantity: number | null) {
-  if (projected === null || reference === null || quantity === null || !Number.isFinite(quantity) || quantity <= 0) return null;
-  return { projectedCost: projected * quantity, referenceCost: reference * quantity,
-    difference: (projected - reference) * quantity, percent: reference > 0 ? (projected-reference)/reference*100 : null };
-}
-
+/** History points within the last `months` months of the series (all points when months is null). */
 export function historyPeriod(points: PricePoint[], months: number | null) {
   if (months === null || !points.length) return points;
   const end = new Date(`${points[points.length-1].week}T00:00:00Z`);
@@ -58,6 +64,7 @@ export function historyPeriod(points: PricePoint[], months: number | null) {
   return points.filter(p => new Date(`${p.week}T00:00:00Z`) >= end);
 }
 
+/** Points from the current Malaysian week onwards. */
 export function upcomingPoints(points: PricePoint[], now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Kuala_Lumpur',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
   const part = (name: string) => parts.find(p => p.type===name)?.value;

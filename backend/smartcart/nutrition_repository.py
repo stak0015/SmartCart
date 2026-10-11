@@ -2,25 +2,10 @@
 
 Item mappings live on item rows; alternative rules/policy remain in files.
 No database failure is silently replaced with older file-based values.
+
+Owner: Shun
 """
 from .database import database_cursor
-
-
-def load_nutrition_records(food_ids=None):
-    """Fetch current item profiles, optionally restricted to mapped food IDs."""
-    with database_cursor() as cursor:
-        cursor.execute("""SELECT document || jsonb_build_object(
-            'id', food_id, 'source', source_id, 'source_code', source_record_code,
-            'description', description, 'basis', basis, 'nutrients', nutrients),
-            source_metadata
-            FROM nutrition_food WHERE dataset = 'items'"""
-            + ("" if food_ids is None else " AND food_id = ANY(%s)") + " ORDER BY food_id",
-            None if food_ids is None else (list(food_ids),))
-        foods, sources = [], {}
-        for food, source in cursor.fetchall():
-            foods.append(food)
-            sources[source['id']] = source
-    return {'sources': list(sources.values()), 'foods': foods}
 
 
 def load_item_dataset(item_code=None):

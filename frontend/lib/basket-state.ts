@@ -1,3 +1,4 @@
+// Owner: Shun
 import type {
   AlternativePriceItem,
   BasketAlternativeLine,
@@ -71,6 +72,12 @@ function withoutReplacement(item: BasketItem): BasketItemBase {
   return original;
 }
 
+/**
+ * Swap a basket line for a cheaper equivalent or another pack size at the chosen store (US 3.3).
+ * Keeps the quantity and stores the original line so the swap can be undone. Refuses a
+ * cheaper-equivalent swap that is not cheaper (a pack-size swap may cost more upfront) and any swap
+ * that would duplicate an existing basket line. Choosing the original again restores it.
+ */
 export function applyBasketReplacement(
   basket: BasketItem[],
   choice: BasketReplacementChoice,
@@ -118,6 +125,10 @@ export function applyBasketReplacement(
   return basket.map((item, index) => index === sourceIndex ? replacementItem : item);
 }
 
+/**
+ * Restore the original item of a swapped line. If the original is already in the basket again, the
+ * quantities are merged instead of creating a duplicate line.
+ */
 export function undoBasketReplacement(basket: BasketItem[], itemId: string): BasketItem[] {
   const index = basket.findIndex(item => item.id === itemId && item.replacement);
   if (index < 0) return basket;
@@ -139,10 +150,10 @@ export function currentReplacementImpactRm(item: BasketItem): number | null {
   return money((item.replacement.sourceUnitPriceRm - item.replacement.alternativeUnitPriceRm) * item.qty);
 }
 
-export function itemFromAlternative(item: AlternativePriceItem, qty = 1): BasketItem {
-  return { ...baseItem(item), qty };
-}
-
+/**
+ * Swap choice for a cheaper equivalent, or null when there is no positive saving or a price is
+ * missing.
+ */
 export function lowerCostReplacementChoice(line: BasketAlternativeLine): BasketReplacementChoice | null {
   const alternative = line.alternative;
   if (
@@ -164,6 +175,7 @@ export function lowerCostReplacementChoice(line: BasketAlternativeLine): BasketR
   };
 }
 
+/** Swap choice for another pack size of the same product; null when the pack has no price. */
 export function packReplacementChoice(
   line: BasketAlternativeLine,
   pack: PackSizeOption,

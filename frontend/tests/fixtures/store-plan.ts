@@ -22,7 +22,7 @@ export const plan: PricedPlan = {
     { itemId: "1", itemName: "Rice", quantity: 2, unit: "5 kg", unitPriceRm: 30, lineTotalRm: 60, priceSource: "store", storePremiseId: "1", storeName: stores[0].name, observedDate: "2026-10-08", saraEligible: true },
     { itemId: "2", itemName: "Milk", quantity: 1, unit: "1 L", unitPriceRm: 5, lineTotalRm: 5, priceSource: "median", storePremiseId: "2", storeName: stores[1].name, observedDate: null, saraEligible: true },
   ],
-  interStoreDistanceKm: 3, interStoreTravelMinutes: 8, reverseOrderCostRm: 4, savingVsSingleRm: null,
+  interStoreDistanceKm: 3, interStoreTravelMinutes: 8, reverseOrderCostRm: 4,
   legs: [
     { role: "origin_to_first", fromName: "Home", toName: stores[0].name, distanceKm: 3, travelMinutes: 8, costRm: 1 },
     { role: "first_to_second", fromName: stores[0].name, toName: stores[1].name, distanceKm: 3, travelMinutes: 8, costRm: 1 },

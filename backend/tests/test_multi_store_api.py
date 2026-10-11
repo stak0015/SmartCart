@@ -449,8 +449,6 @@ def test_comparison_flows_through_api_with_camel_case_fields(monkeypatch) -> Non
     assert set(comparison) == {
         "completePlans",
         "incompletePlans",
-        "singleStoreBaselineRm",
-        "singleStoreBaselineName",
         "priceBasisNote",
     }
     assert comparison["completePlans"], "a complete plan should exist"
@@ -475,7 +473,6 @@ def test_comparison_flows_through_api_with_camel_case_fields(monkeypatch) -> Non
         "interStoreTravelMinutes",
         "legs",
         "reverseOrderCostRm",
-        "savingVsSingleRm",
     }
     # Plans are ordered cheapest-first by combined cost.
     totals = [plan["combinedTotalRm"] for plan in comparison["completePlans"]]
@@ -485,43 +482,6 @@ def test_comparison_flows_through_api_with_camel_case_fields(monkeypatch) -> Non
         cheapest["basketSubtotalRm"] + cheapest["transportCostRm"]
     )
     assert "labelled median estimates" in comparison["priceBasisNote"]
-
-
-def test_saving_baseline_survives_the_full_request_path(monkeypatch) -> None:
-    """AC 6.3.5 wiring: the baseline and saving reach the client consistently.
-
-    This asserts the *relationship*, not hand-computed money, because the exact
-    combined totals depend on the real transport cost model. The economic rules
-    (cheapest complete single store anchors the saving; a split can only win when
-    different stores are cheapest for different lines) are covered exhaustively
-    by the pure-logic tests in test_multi_store_pricing.py. Here we only prove
-    the values survive the request path and stay mutually consistent.
-    """
-    provider = TwoStoreMapsProvider(
-        inter_store={
-            "place-a": [inter_leg(0, 4_000, 480)],
-            "place-b": [inter_leg(1, 4_000, 480)],
-        }
-    )
-    install_with_official_prices(monkeypatch, provider, {"1": 3.00, "2": 2.50})
-
-    response = TestClient(create_app()).post(
-        "/api/recommendations",
-        json=request_body({"type": "distance", "value": 5}),
-    )
-
-    comparison = response.json()["multiStore"]["comparison"]
-    complete = comparison["completePlans"]
-    single_totals = [p["combinedTotalRm"] for p in complete if p["storeCount"] == 1]
-    two_store = next(p for p in complete if p["storeCount"] == 2)
-
-    # A complete single-store baseline exists and is the cheapest single store.
-    assert single_totals, "expected at least one complete single-store plan"
-    assert comparison["singleStoreBaselineRm"] == pytest.approx(min(single_totals))
-    # AC 6.3.5: saving = baseline - two-store combined, same official basis.
-    assert two_store["savingVsSingleRm"] == pytest.approx(
-        comparison["singleStoreBaselineRm"] - two_store["combinedTotalRm"]
-    )
 
 
 def test_no_basket_means_no_comparison(monkeypatch) -> None:

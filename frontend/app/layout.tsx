@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { Metadata } from "next";
 import SmartCartApp from "@/components/smartcart-app";
 import "./globals.css";

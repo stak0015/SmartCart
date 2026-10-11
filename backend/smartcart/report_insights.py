@@ -5,6 +5,8 @@ preceding periods sent with the request) and returns a typed finding: the
 numbers it rests on, pre-formatted display values, and localized fallback copy.
 The narrator may rephrase findings, but every figure a shopper reads comes from
 here, through ``{{placeholder}}`` substitution.
+
+Owner: Shun
 """
 
 from __future__ import annotations
@@ -258,6 +260,11 @@ def _noun(cadence: Cadence, locale: Locale) -> str:
 def detect_spending_vs_usual(
     current: Period, baseline: list[Period], cadence: Cadence, in_progress: bool,
 ) -> Finding | None:
+    """Period spending versus the median of earlier periods (needs 3 weeks or 2 months).
+    Reported when the gap is at least RM10 and 15 %; a period still in progress is never
+    reported as lower. Names the category behind the change when it explains at least 30
+    %.
+    """
     totals = [cents for period in baseline if (cents := period.spending_cents()) is not None]
     current_cents = current.spending_cents()
     if current_cents is None or len(totals) < (3 if cadence == "weekly" else 2):
@@ -345,6 +352,10 @@ def _history_unit_prices(baseline: list[Period]) -> dict[str, list[tuple[int, st
 
 
 def detect_price_changes(current: Period, baseline: list[Period]) -> list[Finding]:
+    """Unit-price rises and drops of at least 30 sen and 8 % against the item's median in
+    earlier periods (needs two earlier prices). Returns at most one rise finding (summing
+    the top three items) and one drop finding (the largest drop).
+    """
     history = _history_unit_prices(baseline)
     rises: list[tuple[int, Line, int, int, str | None]] = []
     drops: list[tuple[int, Line, int, int, str | None]] = []
@@ -463,6 +474,9 @@ def detect_price_changes(current: Period, baseline: list[Period]) -> list[Findin
 
 
 def detect_items_due(current: Period, baseline: list[Period]) -> Finding | None:
+    """Items bought in at least half (minimum 3) of the active earlier weeks whose usual
+    gap has passed and that were not bought this week.
+    """
     active = [period for period in baseline if period.active]
     if len(active) < 3:
         return None
@@ -517,6 +531,9 @@ def detect_items_due(current: Period, baseline: list[Period]) -> Finding | None:
 
 
 def detect_store_choice(current: Period) -> Finding | None:
+    """Trips where the cheapest saved alternative store was estimated at least RM2 and 3 %
+    cheaper than the chosen plan.
+    """
     gaps: list[tuple[int, Trip]] = []
     for trip in current.trips:
         if trip.cheapest_alternative is None or trip.planned_combined_cents is None:
@@ -566,6 +583,9 @@ def detect_store_choice(current: Period) -> Finding | None:
 
 
 def detect_top_up_trips(current: Period, cadence: Cadence) -> Finding | None:
+    """Small trips (under 40 % of the period's largest) whose combined estimated travel is
+    at least RM2.
+    """
     priced = [(trip.priced_cents, trip) for trip in current.trips if trip.priced_cents is not None]
     if len(priced) < 2:
         return None
@@ -617,6 +637,8 @@ def detect_top_up_trips(current: Period, cadence: Cadence) -> Finding | None:
 
 
 def detect_repeat_skips(current: Period, baseline: list[Period]) -> Finding | None:
+    """Items left unbought this period that were skipped on at least three trips overall.
+    """
     current_skips = {key: name for trip in current.trips for key, name in trip.skipped}
     if not current_skips:
         return None
@@ -947,6 +969,10 @@ def detect_getting_started(baseline: list[Period], cadence: Cadence) -> Finding 
 def build_findings(
     payload: GenerateReportRequest, start: datetime, now: datetime,
 ) -> tuple[list[Finding], Period, list[Period]]:
+    """Run every detector, keep the highest-priority findings (four per report), keep one
+    forward-looking finding when found, and add the getting-started note when history is
+    thin. Returns (findings, current period, baseline periods).
+    """
     cadence: Cadence = payload.cadence
     current, baseline = build_periods(payload, start)
     in_progress = now < current.end
@@ -989,6 +1015,9 @@ def build_findings(
 def default_headline(
     findings: Sequence[Finding], current: Period, baseline: Sequence[Period], cadence: Cadence, locale: Locale,
 ) -> str:
+    """Deterministic headline: a monthly summary and/or the lead finding, else a plain
+    count of trips and spending.
+    """
     lead = next((finding for finding in findings if finding.kind != "getting_started"), None)
     if cadence == "monthly" and current.active:
         summary = _month_summary(current, baseline, locale)

@@ -3,11 +3,12 @@ import pytest
 from smartcart.maps import RouteMatrixResult
 from smartcart.config import get_settings
 from smartcart.fuel import FuelPrice
-from smartcart.models import BasketItemPrice
 from smartcart.premises import PremiseCandidate
+from smartcart.pricing import StoreBasketSummary
 from smartcart.recommendation import (
     TravelCostRate,
     estimate_round_trip_cost_rm,
+    apply_basket_pricing,
     rank_reachable_stores,
     straight_line_route_results,
     get_travel_cost_model,
@@ -76,16 +77,9 @@ def test_fallback_travel_time_uses_kilometres_for_speed(mode, expected_minutes):
     assert stores[0].estimated_travel_minutes == expected_minutes
 
 
-def priced_line(item_id: str, unit_price: float, quantity: int = 1) -> BasketItemPrice:
-    return BasketItemPrice(
-        item_id=item_id,
-        item_name=f"Item {item_id}",
-        package_size=None,
-        quantity=quantity,
-        unit_price_rm=unit_price,
-        line_total_rm=unit_price * quantity,
-        price_observed_date=None,
-    )
+def summary(subtotal: float, priced: int, lines: int) -> StoreBasketSummary:
+    """A store's basket pricing as produced by pricing.summarize_basket_prices."""
+    return StoreBasketSummary(subtotal_rm=subtotal, priced_count=priced, basket_line_count=lines)
 
 
 def test_calculates_return_trip_cost_from_one_way_route() -> None:
@@ -190,30 +184,22 @@ def test_sorts_by_cost_then_duration_and_distance() -> None:
 
 
 def test_sorts_by_basket_plus_transport_cost() -> None:
-    recommendations = rank_reachable_stores(
+    ranked = rank_reachable_stores(
         candidates=[
             candidate(premise_id="1", name="Nearby expensive"),
-            candidate(
-                premise_id="2",
-                name="Farther affordable",
-                google_place_id="place-2",
-            ),
+            candidate(premise_id="2", name="Farther affordable", google_place_id="place-2"),
         ],
         route_results=[route(0, 1_000, 300), route(1, 3_000, 600)],
         limit_type="distance",
         limit_value=10,
         cost_rate=COST_RATE,
-        basket_prices_by_premise={
-            "1": [priced_line("10", 10, quantity=2)],
-            "2": [priced_line("10", 7, quantity=2)],
-        },
     )
+    recommendations = apply_basket_pricing(ranked, {"1": summary(20, 1, 1), "2": summary(14, 1, 1)})
 
     assert [store.premise_id for store in recommendations] == ["2", "1"]
-    assert recommendations[0].basket_cost_rm == 14
+    assert recommendations[0].basket_subtotal_rm == 14
     assert recommendations[0].estimated_round_trip_cost_rm == 3
-    assert recommendations[0].estimated_total_cost_rm == 17
-
+    assert recommendations[0].combined_total_rm == 17
 
 def test_ranks_all_candidates_when_limit_is_unbounded() -> None:
     """Iteration1 expansion pass: infinity limit returns every candidate."""
@@ -232,63 +218,34 @@ def test_ranks_all_candidates_when_limit_is_unbounded() -> None:
 
 
 def test_ignores_missing_store_prices_in_basket_subtotal() -> None:
-    missing_line = BasketItemPrice(
-        item_id="11",
-        item_name="Unpriced item",
-        package_size=None,
-        quantity=3,
-        unit_price_rm=None,
-        line_total_rm=None,
-        price_observed_date=None,
-    )
-    recommendations = rank_reachable_stores(
+    ranked = rank_reachable_stores(
         candidates=[candidate()],
         route_results=[route(0, 2_000, 600)],
         limit_type="distance",
         limit_value=10,
         cost_rate=COST_RATE,
-        basket_prices_by_premise={
-            "1": [priced_line("10", 4, quantity=2), missing_line]
-        },
     )
+    store = apply_basket_pricing(ranked, {"1": summary(8, 1, 2)})[0]
 
-    store = recommendations[0]
-    assert store.basket_cost_rm == 8
-    assert store.estimated_total_cost_rm == 10
-    assert store.priced_item_count == 1
-    assert store.basket_item_count == 2
+    assert store.basket_subtotal_rm == 8
+    assert store.combined_total_rm == 10
+    assert store.priced_count == 1
+    assert store.basket_line_count == 2
     assert store.is_complete_basket is False
-    assert store.basket_prices[1].unit_price_rm is None
-
 
 def test_ranks_cheaper_baskets_first_regardless_of_coverage() -> None:
-    missing_line = BasketItemPrice(
-        item_id="11",
-        item_name="Missing item",
-        package_size=None,
-        quantity=1,
-        unit_price_rm=None,
-        line_total_rm=None,
-        price_observed_date=None,
-    )
-    recommendations = rank_reachable_stores(
+    ranked = rank_reachable_stores(
         candidates=[
             candidate(premise_id="1", name="Incomplete cheap"),
-            candidate(
-                premise_id="2",
-                name="Complete basket",
-                google_place_id="place-2",
-            ),
+            candidate(premise_id="2", name="Complete basket", google_place_id="place-2"),
         ],
         route_results=[route(0, 1_000, 300), route(1, 1_000, 300)],
         limit_type="distance",
         limit_value=10,
         cost_rate=COST_RATE,
-        basket_prices_by_premise={
-            "1": [priced_line("10", 1), missing_line],
-            "2": [priced_line("10", 5), priced_line("11", 5)],
-        },
     )
+    recommendations = apply_basket_pricing(ranked, {"1": summary(1, 1, 2), "2": summary(10, 2, 2)})
 
     assert [store.premise_id for store in recommendations] == ["1", "2"]
     assert recommendations[1].is_complete_basket is True
+

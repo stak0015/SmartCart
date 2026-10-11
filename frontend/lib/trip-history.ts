@@ -1,3 +1,4 @@
+// Owners: Zhihao, Shun | Contributors: Randy
 import { isTripTravelSnapshot, type TripTravelSnapshot } from "./trip-travel-cost";
 import type {
   AlternativeStoreEstimate,
@@ -39,7 +40,7 @@ export interface TripRecordLine extends SaraItemSnapshot {
   sourceCategory?: SourceCategory | null;
   imageUrl?: string | null;
   packageSize: string | null;
-  // Planned quantity plus the shopper-recorded actual quantity (AC 5.3.4);
+  // Planned quantity plus any shopper-recorded actual quantity (older records);
   // quantitySource says which one the spending figure used.
   quantity: number;
   actualQuantity: number | null;
@@ -51,7 +52,7 @@ export interface TripRecordLine extends SaraItemSnapshot {
   actualPriceRm: number | null;
   // Frozen bought-line total; null for unbought or unpriced lines.
   actualLineTotalRm: number | null;
-  // AC 5.2.3: "neutral" lines were still unfinished when the trip was
+  // AC 5.2.4: "neutral" lines were still unfinished when the trip was
   // recorded; they stay in the record labelled with their outcome.
   status: ChecklistStatus;
 }
@@ -113,6 +114,7 @@ export type BoughtLineTotalInput = Pick<
   "actualQuantity" | "quantity" | "actualPriceRm" | "unitPriceRm"
 >;
 
+// Owner: Shun
 export function boughtLineQuantity(line: Pick<TripRecordLine, "actualQuantity" | "quantity">): number {
   return line.actualQuantity ?? line.quantity;
 }
@@ -121,12 +123,17 @@ export function boughtLineUnitPrice(line: Pick<TripRecordLine, "actualPriceRm" |
   return line.actualPriceRm ?? line.unitPriceRm;
 }
 
+// Owner: Shun
 export function boughtLineTotalRm(line: BoughtLineTotalInput): number | null {
   const unitPrice = boughtLineUnitPrice(line);
   return unitPrice == null ? null : money(unitPrice * boughtLineQuantity(line));
 }
 
-/** Sum priced bought lines, regardless of whether the shopper edited a price. */
+/**
+ * Sum priced bought lines, regardless of whether the shopper edited a price.
+ *
+ * Owners: Zhihao, Shun
+ */
 export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
   const knownTotals = lines
     .filter(line => line.status === "bought")
@@ -137,7 +144,11 @@ export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
     : null;
 }
 
-/** Estimated SARA allocation for priced bought items; travel remains a cash expense. */
+/**
+ * Estimated SARA allocation for priced bought items; travel remains a cash expense.
+ *
+ * Owner: Shun
+ */
 export function tripPaymentBreakdown(lines: TripRecordLine[]) {
   const priced = lines.filter(line => line.status === "bought" && boughtLineTotalRm(line) != null);
   const subtotal = actualExpenseTotal(lines);
@@ -216,7 +227,11 @@ export function addTripRecord(records: TripRecord[], record: TripRecord): TripRe
   return [record, ...records];
 }
 
-/** Remove one saved trip while preserving the order of all remaining records. */
+/**
+ * Remove one saved trip while preserving the order of all remaining records.
+ *
+ * Owner: Shun
+ */
 export function removeTripRecord(records: TripRecord[], recordId: string): TripRecord[] {
   return records.filter(record => record.id !== recordId);
 }
@@ -298,7 +313,7 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
     && isFiniteMoneyOrNull(line.actualLineTotalRm)
     && statusIsValid;
   if (!commonFieldsAreValid) return false;
-  // The quantity source label must agree with the actual quantity (AC 5.3.4).
+  // The quantity source label must agree with the actual quantity.
   if ((line.actualQuantity === null) !== (line.quantitySource === "planned")) return false;
   if (line.source === "manual") {
     // Shopper-added lines are never matched to an official item (AC 5.4.1).
@@ -308,6 +323,11 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
   return typeof line.catalogueItemId === "string" && line.catalogueItemId.length > 0;
 }
 
+/**
+ * Runtime validation of a stored trip record; invalid records are dropped when history is read.
+ *
+ * Owners: Zhihao, Shun
+ */
 export function isTripRecord(value: unknown): value is TripRecord {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
@@ -346,9 +366,11 @@ export function isTripRecord(value: unknown): value is TripRecord {
 }
 
 /**
- * AC 5.5.4: the record format is versioned. Records whose version or shape is
+ * The record format is versioned. Records whose version or shape is
  * unknown are ignored individually — one bad record never crashes the app or
  * hides the healthy ones, and totals are never invented.
+ *
+ * Owners: Shun, Zhihao
  */
 export function migrateTripHistory(raw: unknown): TripRecord[] {
   if (!raw || typeof raw !== "object") return [];
@@ -395,6 +417,10 @@ export function serializeTripHistory(records: TripRecord[]): string {
   return JSON.stringify(envelope);
 }
 
+/**
+ * Read trip history from device storage, migrating older versions; returns an empty list on any
+ * error.
+ */
 export function parseTripHistory(serialized: string | null | undefined): TripRecord[] {
   if (!serialized) return [];
   try {

@@ -1,3 +1,4 @@
+// Owner: Zhihao
 // Epic 7 (US 7.2) — the item dialog walks a stack of visited items so an
 // alternative can be opened, explored further, and stepped back one level at
 // a time. Kept pure so the navigation rules are unit-tested (ENV-08).

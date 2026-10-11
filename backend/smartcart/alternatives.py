@@ -3,6 +3,8 @@
 Names are normalized into comparison tokens, then candidates in the same
 category and package basis are matched by token Jaccard similarity. PriceCatcher
 observations are estimates and do not establish current stock.
+
+Owner: Shun
 """
 
 from dataclasses import dataclass

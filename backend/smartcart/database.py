@@ -1,4 +1,7 @@
-"""Short-lived PostgreSQL connection helpers for request handlers."""
+"""Short-lived PostgreSQL connection helpers for request handlers.
+
+Owner: Shun
+"""
 
 from contextlib import contextmanager
 from typing import Iterator
@@ -11,6 +14,9 @@ from .errors import AppError
 
 
 def get_connection() -> connection:
+    """Open a new PostgreSQL connection (5 s connect timeout, SSL when DATABASE_SSL=true).
+    Raises DATABASE_NOT_CONFIGURED (503) when no URL is set.
+    """
     settings = get_settings()
     if not settings.database_url:
         raise AppError(

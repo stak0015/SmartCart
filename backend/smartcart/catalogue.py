@@ -1,4 +1,7 @@
-"""Epic 1 catalogue database queries."""
+"""Epic 1 catalogue database queries.
+
+Owners: Shun, Zhihao | Contributors: Randy
+"""
 
 import re
 from typing import Any
@@ -18,10 +21,9 @@ from .translations import (
     translation_select_columns,
 )
 
-# Query-time parsing of brand and package size from item_name (the item table
-# has no dedicated columns). Anything that cannot be parsed confidently is
-# returned as None so the frontend can show "—" instead of an invented value.
-_BRAND_MARKER = re.compile(r"\b(?:CAP|JENAMA)\s+(.+?)\s*(?:\(|$)", re.IGNORECASE)
+# Query-time parsing of package size from item_name; the item table has no
+# dedicated column. Anything that cannot be parsed confidently is returned as
+# None so the frontend can show "—" instead of an invented value.
 _PACKAGE_SIZE = re.compile(
     r"(\d+\s?[Xx]\s?\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L)\b"  # multipack, e.g. 5X79G
     r"|\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L|LITER|LITRE|CM)\b"  # e.g. 850G, 15CM
@@ -83,21 +85,11 @@ SARA_CATEGORY_CANDIDATES = frozenset(
 )
 
 
-def parse_brand(item_name: str | None) -> str | None:
-    """Extract the brand after a CAP/JENAMA marker; None when unbranded."""
-    if not item_name:
-        return None
-    if "PELBAGAI JENAMA" in item_name.upper():
-        return None  # sold under various brands; no single brand to show
-    match = _BRAND_MARKER.search(item_name)
-    if not match:
-        return None
-    brand = match.group(1).strip(" '\"-")
-    return brand or None
-
-
 def parse_package_size(item_name: str | None) -> str | None:
-    """Extract an explicit package size from the name; None when absent."""
+    """Extract an explicit package size from the name; None when absent.
+
+    Owner: Zhihao
+    """
     if not item_name:
         return None
     if _WEIGHT_RANGE.search(item_name):
@@ -109,7 +101,10 @@ def parse_package_size(item_name: str | None) -> str | None:
 def display_package_size(item_name: str | None, unit: str | None) -> str | None:
     """Merged quantity/pricing-basis column: the parsed package size when the
     name states one, otherwise the pricing unit (e.g. "1kg" for fresh goods).
-    None only when neither exists."""
+    None only when neither exists.
+
+    Owner: Zhihao
+    """
     return parse_package_size(item_name) or (unit.strip() if unit and unit.strip() else None)
 
 
@@ -134,6 +129,11 @@ def search_catalogue(
     premise_ids: list[str] | None = None,
     locale: str = "en",
 ) -> tuple[list[dict[str, Any]], int]:
+    """Run the paged catalogue query and enrich each row with categories, package size,
+    SARA category flag and image URL. Price sorts use the cheapest observed price among
+    premise_ids, else the cached median; unpriced items sort last. Returns (rows,
+    total).
+    """
     keyword = f"%{query.strip()}%"
     selected_categories = [
         category.strip() for category in categories or [] if category.strip()
@@ -235,19 +235,6 @@ def search_catalogue(
         # issue a failed request for every catalogue row without an image.
         row["image_url"] = catalogue_image_url(row["item_code"])
     return rows, total
-
-
-def list_catalogue_categories() -> list[str]:
-    with database_cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT DISTINCT item_category
-            FROM item
-            WHERE item_category IS NOT NULL AND item_category <> ''
-            ORDER BY item_category
-            """
-        )
-        return [row[0] for row in cursor.fetchall()]
 
 
 def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[int, dict]:

@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {

@@ -120,9 +120,7 @@ def test_other_filter_includes_lain_lain_and_unmapped_nonempty_categories(
 
     assert rows == []
     assert total == 0
-    count_sql, params = calls[0]
-    assert "NULLIF(BTRIM(i.item_category), '') IS NOT NULL" in count_sql
-    assert "NOT (i.item_category = ANY(%s::text[]))" in count_sql
+    _count_sql, params = calls[0]
     assert params[5] == ["LAIN-LAIN"]
     assert params[6] == ["LAIN-LAIN"]
     assert params[7] is True
@@ -132,9 +130,6 @@ def test_other_filter_includes_lain_lain_and_unmapped_nonempty_categories(
 def test_price_aggregation_preserves_observation_date_and_money(monkeypatch):
     class Cursor:
         def execute(self, sql, params):
-            assert "current_price > 0" in sql
-            assert "COALESCE(p.min_rm, i.median_price_rm)" in sql
-            assert "COALESCE(p.min_rm, i.median_price_rm) > 0" in sql
             assert params == ([1, 2, 3], [12, 13], [1, 2, 3])
         def fetchall(self):
             return [

@@ -1,1 +1,4 @@
-"""SmartCart backend package."""
+"""SmartCart backend package.
+
+Owner: Shun
+"""

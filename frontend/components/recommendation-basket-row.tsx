@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 import { useState } from "react";
 import type { BasketAlternativeLine } from "@/lib/contracts";
 import { currentReplacementImpactRm, type BasketItem } from "@/lib/basket-state";
@@ -68,6 +69,10 @@ export function RecommendationBasketRow({
   );
 }
 
+/**
+ * Options panel for one basket line on the store details page: cheaper equivalent, pack sizes,
+ * apply and undo (Epic 3).
+ */
 export function RecommendationItemOptions({ row, basket, copy, locale, onApplyAlternative, onApplyPack, onUndo }: Omit<RecommendationRowProps, "onChangeQuantity">) {
   const suggestion = row.alternatives;
   const alternative = suggestion.alternative;

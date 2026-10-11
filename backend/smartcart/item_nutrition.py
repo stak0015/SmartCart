@@ -5,6 +5,8 @@ healthier-alternatives data.  Catalogue item codes are local identifiers, so
 the mapping file records the reviewed relationship to a generic food or an
 exact product record instead of assuming the external source uses the same
 code.
+
+Owner: Shun | Contributors: Zhihao
 """
 
 from __future__ import annotations

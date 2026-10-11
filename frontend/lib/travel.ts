@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { PricedPlan, SelectedLocation, StoreRecommendation, TransportMode } from "./contracts";
 
 const GOOGLE_MAPS_DIRECTIONS_URL = "https://www.google.com/maps/dir/";
@@ -42,6 +43,10 @@ export function mapsPlanRouteUrl(
   return `${GOOGLE_MAPS_DIRECTIONS_URL}?${params.toString()}`;
 }
 
+/**
+ * Google Maps directions link from the origin to a store for the chosen mode. Google recomputes
+ * the route when opened; SmartCart does not store the link.
+ */
 export function mapsRouteUrl(
   origin: SelectedLocation,
   store: StoreRecommendation,

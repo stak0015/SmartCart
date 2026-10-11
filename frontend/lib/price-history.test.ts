@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { costInsight, fetchPriceHistory, historyPeriod, upcomingPoints, forecastForDisplay, fourWeekForecastSignal } from './price-history';
+import { fetchPriceHistory, historyPeriod, upcomingPoints, forecastForDisplay, fourWeekForecastSignal } from './price-history';
 describe('price history', () => {
   it('shows only qualified forecasts within the configured display horizon', () => {
     const forecast=Array.from({length:52},(_,i)=>({week:String(i),price:2}));
@@ -15,12 +15,6 @@ describe('price history', () => {
     expect(forecastForDisplay({status:'available',forecast,validated_horizon_weeks:0})).toEqual([]);
     expect(forecastForDisplay({status:'available',forecast},0)).toEqual([]);
     expect(forecastForDisplay({status:'available',forecast},4.5)).toEqual([]);
-  });
-  it('updates quantity cost, RM difference and percentage on the same basis', () => {
-    expect(costInsight(3,2,4)).toEqual({projectedCost:12,referenceCost:8,difference:4,percent:50});
-    expect(costInsight(1,2,2)?.difference).toBe(-2);
-    expect(costInsight(3,0,2)?.percent).toBeNull();
-    expect(costInsight(3,2,null)).toBeNull();
   });
   it('filters history without replacing gaps or modifying the source', () => {
     const points=[{week:'2022-01-03',price:2},{week:'2026-06-01',price:null},{week:'2026-09-21',price:4}];

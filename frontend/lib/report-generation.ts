@@ -1,3 +1,4 @@
+// Owner: Shun | Contributors: Randy
 import { API_BASE_URL } from "./api-base";
 import {
   ITEM_CATEGORY_IDS,
@@ -286,6 +287,7 @@ function expectedRange(cadence: ReportCadence, periodStart: string): { start: st
   }
 }
 
+/** Runtime validation of a report returned by the backend or read from the inbox. */
 export function isGeneratedReport(value: unknown): value is GeneratedReport {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const report = value as Record<string, unknown>;
@@ -329,6 +331,7 @@ export function validateGeneratedReport(
   return value;
 }
 
+/** Completed weeks and months that have trips; candidates for automatic reports. */
 export function getEligibleReportPeriods(records: readonly TripRecord[], now: string | Date): ReportPeriod[] {
   const periods: ReportPeriod[] = [];
   for (const cadence of ["weekly", "monthly"] as const) {
@@ -403,6 +406,11 @@ function storeNameForUpload(name: string): string | null {
   return trimmed ? Array.from(trimmed).slice(0, 120).join("") : null;
 }
 
+/**
+ * Build the report upload for one period: the period's trips plus earlier baseline trips, with
+ * localised item names, prices, store names, unbought lines and saved estimates. No origin or
+ * route is included. Sent only after consent.
+ */
 export function buildGenerateReportRequest(
   records: readonly TripRecord[],
   period: ReportPeriod,
@@ -479,6 +487,10 @@ export function buildGenerateReportRequest(
   };
 }
 
+/**
+ * POST the report request and validate the response; throws on failure so the UI can offer a
+ * retry.
+ */
 export async function requestGeneratedReport(
   request: GenerateReportRequest,
   storage: Pick<ConsentStorage, "getItem">,
@@ -502,16 +514,6 @@ export function buildCategoryChartRows(
   categories: readonly Pick<ReportCategoryAmount, "categoryId" | "amountRm" | "spendingClass" | "partial">[],
   totalRm: number | null,
 ): CategoryChartRow[] {
-  return categories.map(category => ({
-    ...category,
-    percent: totalRm != null && totalRm > 0 ? Math.round((category.amountRm / totalRm) * 1000) / 10 : null,
-  }));
-}
-
-export function buildSpecificCategoryChartRows(
-  categories: readonly SpecificCategoryAmount[],
-  totalRm: number | null,
-): SpecificCategoryChartRow[] {
   return categories.map(category => ({
     ...category,
     percent: totalRm != null && totalRm > 0 ? Math.round((category.amountRm / totalRm) * 1000) / 10 : null,

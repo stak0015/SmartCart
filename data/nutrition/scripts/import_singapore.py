@@ -3,6 +3,8 @@
 The SG FoodID site is a JavaScript application.  Its public bundle exposes
 the API used by the food search and details pages; this importer records the
 raw responses and converts only the publisher's base nutrient values.
+
+Owner: Shun
 """
 import argparse
 import datetime as dt

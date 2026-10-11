@@ -76,7 +76,7 @@ def test_multi_size_family_lists_every_priced_pack(monkeypatch) -> None:
     assert packs[0].category == category_for_raw("MINYAK DAN LEMAK")
     assert packs[1].sara_eligible is True
     assert packs[1].is_sara_credit_candidate
-    # AC 3.2.2: exactly one Best value pick, the cheapest unit price.
+    # AC 3.2.3: exactly one Best value pick, the cheapest unit price.
     assert [pack.is_best_value for pack in packs] == [True, False, False, False]
 
 

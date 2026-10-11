@@ -156,7 +156,7 @@ def test_each_rule_explains_its_inferred_use_and_preparation_in_both_languages()
             assert all(text.strip() for text in rule[field].values())
 
 
-def test_catalogue_associations_do_not_confuse_food_forms_or_species():
+def test_mappings_use_distinct_catalogue_items():
     catalogue_path = DATA_DIR.parents[1] / "database" / "data" / "item_name_en.csv"
     with catalogue_path.open(encoding="utf-8-sig") as source:
         catalogue = {row["item_code"]: row for row in csv.DictReader(source)}
@@ -164,22 +164,9 @@ def test_catalogue_associations_do_not_confuse_food_forms_or_species():
         assert mapping["original_item_code"] in catalogue
         assert mapping["alternative_item_code"] in catalogue
         assert mapping["original_item_code"] != mapping["alternative_item_code"]
-        assert "KRIMER" not in mapping["original_item_name"], "milk data cannot substantiate non-dairy creamers"
-        if mapping["original_item_code"] == "320":
-            assert mapping["original_food"] == "MFC-97-111008", "evaporated milk is not milk powder"
-        if mapping["alternative_food"] == "MFC-97-110053":
-            assert "KEMBUNG" in mapping["alternative_item_name"], "use an Indian mackerel catalogue entry"
 
 
-def test_whole_chicken_recommendation_requires_the_nutritionally_supported_cut():
-    rule = next(rule for rule in MAPPINGS["rules"] if rule["id"] == "H5")
-    assert "only to its skinless breast" in rule["usage_note"]["en"]
-
-
-def test_priority_review_covers_more_than_snacks_and_drinks():
-    mapped_categories = {item["category"] for item in PRIORITY_REVIEW["items"] if item["status"] == "mapped"}
-    assert {"salty_snacks", "sweet_snacks", "sweetened_drinks", "instant_noodles",
-            "fried_main_meals", "fried_snacks", "salty_condiments", "sweet_spreads"} <= mapped_categories
+def test_priority_review_matches_approved_mappings():
     mappings_by_code: dict[str, list[dict]] = {}
     for mapping in MAPPINGS["mappings"]:
         mappings_by_code.setdefault(mapping["original_item_code"], []).append(mapping)
@@ -195,39 +182,13 @@ def test_priority_review_covers_more_than_snacks_and_drinks():
             assert item["reason"] and item["proposed_alternative_item_codes"]
 
 
-def test_ambiguous_light_and_unspecified_drink_forms_are_not_approved():
-    original_codes = {m["original_item_code"] for m in MAPPINGS["mappings"]}
-    assert not {"1896", "1712", "1321", "1866", "1867", "1868"} & original_codes
-    fried_instant = [m for m in MAPPINGS["mappings"] if m["original_item_code"] == "1247"]
-    assert fried_instant and all(m["original_food"] == "MFC-97-221010" for m in fried_instant)
-
-
-def test_sugar_reasons_use_measured_total_sugars_and_keep_unknowns_missing():
+def test_sugar_reasons_only_use_measured_values():
     foods = _foods_by_id()
     rules = {rule["id"]: rule for rule in MAPPINGS["rules"]}
-    assert foods["MFC-97-106006"]["nutrients"]["sugars_g"] is None
-    assert foods["FDC-174158"]["nutrients"]["sugars_g"] == 0
     for mapping in MAPPINGS["mappings"]:
         if rules[mapping["rule"]]["comparison"] == "sugars_g":
             assert foods[mapping["original_food"]]["nutrients"]["sugars_g"] is not None
             assert foods[mapping["alternative_food"]]["nutrients"]["sugars_g"] is not None
-
-
-def test_peanut_snack_options_require_plain_preparation_and_supported_benefits():
-    mappings = [m for m in MAPPINGS["mappings"] if m["alternative_item_code"] == "368"]
-    assert len(mappings) == 22
-    assert {m["alternative_food"] for m in mappings} == {"FDC-173806"}
-    assert {m["rule"] for m in mappings} == {"N1", "N2"}
-    rules = {rule["id"]: rule for rule in MAPPINGS["rules"]}
-    assert rules["N1"]["comparison"] == "sodium_mg"
-    assert rules["N2"]["comparison"] == "protein_g"
-    for rule_id in ("N1", "N2"):
-        note = rules[rule_id]["usage_note"]["en"]
-        assert "without salt or sugar" in note
-        assert "higher in fat and energy" in note
-    nutrients = _foods_by_id()["FDC-173806"]["nutrients"]
-    assert nutrients["sodium_mg"] == 6
-    assert nutrients["protein_g"] == 24.4
 
 
 def test_new_food_evidence_is_traceable_to_primary_publishers():

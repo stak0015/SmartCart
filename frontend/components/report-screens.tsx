@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 
 import { UIIcon } from "./ui-icon";
 
@@ -247,6 +248,7 @@ function GenerateReportMenu({ locale, periods, disabled, aiEnabled, reportLangua
   </div>;
 }
 
+/** Reports page: statistics dashboard plus the AI report inbox and reader. */
 export function ReportScreen({
   state, locale, history, generationStates, consentStatus, onCadence, onRead, onRetry, onGenerate, onOpenSettings, reportLanguage, onReportLanguage,
 }: {
@@ -333,6 +335,10 @@ export function ReportScreen({
   );
 }
 
+/**
+ * AI report privacy window: explains exactly what is sent and lets the shopper enable, decline,
+ * disable or delete reports.
+ */
 export function ReportConsentDialog({ mode, status, locale, storageError, onAccept, onDecline, onDisable, onDeleteAll, onClose }: {
   mode: ConsentDialogMode;
   status: "accepted" | "declined" | "undecided";

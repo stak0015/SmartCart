@@ -1,4 +1,7 @@
-"""Daily, process-local cache of Malaysia's official RON95 retail price."""
+"""Daily, process-local cache of Malaysia's official RON95 retail price.
+
+Owner: Shun
+"""
 
 import csv
 from dataclasses import dataclass, replace
@@ -25,6 +28,9 @@ class FuelPrice:
 
 
 def latest_fuel_price(rows: list[dict], field: str, today: date) -> FuelPrice:
+    """Most recent positive 'level' price for the field whose effective date is not after
+    today. Raises ValueError when no row qualifies.
+    """
     eligible = []
     for row in rows:
         if row.get("series_type") != "level":

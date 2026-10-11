@@ -3,6 +3,8 @@
 ``data/item_name_en.csv`` is keyed by stable ``item_code`` rather than the
 database identity. A blank official source name remains NULL. Translation
 changes are reviewed in the CSV; this script never generates translations.
+
+Owner: Shun
 """
 
 from __future__ import annotations

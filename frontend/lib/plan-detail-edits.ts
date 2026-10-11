@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { BasketItem } from "./basket-state";
 import type { BasketAlternativeLine, PricedPlan, StoreRecommendation } from "./contracts";
 import type { StorePlanOption } from "./multi-store";
@@ -9,6 +10,10 @@ export function planBasketItem(basket: BasketItem[], itemId: string) {
   return basket.find(item => item.id === `db-${itemId}` || item.replacement?.original.id === `db-${itemId}`);
 }
 
+/**
+ * Detail rows for one store of a store plan, keeping any swap already accepted at that store while
+ * suggestions reload.
+ */
 export function planDetailRows(plan: PricedPlan, store: Pick<StoreRecommendation, "premiseId" | "basketLines" | "basketPrices">, basket: BasketItem[], alternatives: BasketAlternativeLine[] = []): RecommendationDetailRow[] {
   const assignments = plan.assignments.filter(line => line.storePremiseId === store.premiseId);
   const suggestions: BasketAlternativeLine[] = assignments.map(line => {
@@ -41,6 +46,7 @@ export function planDetailRows(plan: PricedPlan, store: Pick<StoreRecommendation
   });
 }
 
+/** Rebuild a plan's assignments and totals after the shopper edits items on the plan details page. */
 export function editedPlan(plan: PricedPlan, rowsByStore: Record<string, RecommendationDetailRow[]>): PricedPlan {
   const assignments = plan.storePremiseIds.flatMap((id, index) => (rowsByStore[id] ?? []).map(row => ({
     ...row.current, unit: row.current.packageSize, storePremiseId: id, storeName: plan.storeNames[index],

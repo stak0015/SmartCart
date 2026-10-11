@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+// Owner: Shun
 // Run against a local Next dev server; catalogue requests use fixed fixtures.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');

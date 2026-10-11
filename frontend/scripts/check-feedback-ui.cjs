@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+// Owner: Shun | Contributors: Zhihao
 // Run against a local Next.js server: NODE_PATH=<playwright modules> node scripts/check-feedback-ui.cjs
 // All API traffic is mocked; this check never calls Google or the database.
 const { chromium } = require('playwright');

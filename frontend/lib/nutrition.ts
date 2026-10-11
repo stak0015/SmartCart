@@ -1,3 +1,4 @@
+// Owner: Zhihao | Contributors: Shun
 import type {
   CatalogueItemSummary,
   HealthierAlternative,
@@ -39,6 +40,7 @@ export function localizedAlternativeName(
   return localized.toLocaleUpperCase(locale === "ms" ? "ms-MY" : "en-MY");
 }
 
+/** Short reason label for an alternative card, from its headline nutrient and direction. */
 export function comparisonReasonKind(
   alternative: HealthierAlternative,
 ): ComparisonReasonKind {
@@ -60,6 +62,7 @@ export function comparisonReasonKind(
   return "other";
 }
 
+/** Card view models for the healthier-alternatives section. */
 export function alternativeCards(
   result: HealthierAlternativesResult,
   locale: "en" | "ms",
@@ -75,7 +78,8 @@ export function alternativeCards(
 
 /**
  * AC 7.1.4 / 7.1.5: no alternatives and a failed request are different
- * states, and both leave the item details and Add control usable.
+ * states (the section is hidden in both), and both leave the item details and
+ * Add control usable.
  */
 export function alternativesStatus(
   loading: boolean,
@@ -166,9 +170,4 @@ export function insightRows(alternative: HealthierAlternative): InsightRow[] {
  */
 export function tradeOffRows(alternative: HealthierAlternative): InsightRow[] {
   return insightRows(alternative).filter((row) => row.better === "original");
-}
-
-/** Rows the recommendation actually improves, for the supporting summary. */
-export function improvedRows(alternative: HealthierAlternative): InsightRow[] {
-  return insightRows(alternative).filter((row) => row.better === "alternative");
 }

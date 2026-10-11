@@ -1,44 +1,44 @@
 # SmartCart
 
-SmartCart is an accessible household-essential basket planning tool for the
-FIT5120 SDG 10 industry experience project.
+Plan essential grocery shopping in Malaysia at the lowest total cost — item prices plus the cost of getting there. Built by team TM17 for FIT5120 (2026 S2), aligned with UN SDG 10 (Reduced Inequalities). Uses the government's open PriceCatcher price data and shows SARA eligibility signals.
 
-The application uses a Next.js frontend and one FastAPI backend for item
-catalogue, location, and reachable-store recommendation endpoints. Start the
-backend first, then the frontend; the service-specific instructions are in
-[`backend/README.md`](backend/README.md) and
-[`frontend/README.md`](frontend/README.md).
+**All documentation is in [`docs/`](docs/README.md).**
 
-For a beginner-friendly local database walkthrough, start with
-[`database/SETUP_GUIDE.md`](database/SETUP_GUIDE.md). Technical ingestion and
-maintenance details are in [`database/README.md`](database/README.md).
+| Start here | |
+| --- | --- |
+| What the product does | [Product overview](docs/01-product/overview.md) |
+| Requirements (epics, stories, ACs) | [Requirements](docs/02-requirements/README.md) |
+| How it works | [System architecture](docs/03-architecture/system-architecture.md), [Design decisions](docs/03-architecture/design-decisions.md) |
+| Run it locally | [Local setup](docs/07-operations/local-setup.md) |
+| API | [API reference](docs/04-backend/api-reference.md) |
 
-The location and basket-plus-transport recommendation architecture, provider
-choice, cost controls, privacy behaviour, and setup are documented in
-[`docs/recommendation-engine.md`](docs/recommendation-engine.md).
+## Repository layout
 
-Proposed product changes for later iterations are recorded in
-[`docs/future-iteration-improvements.md`](docs/future-iteration-improvements.md).
+```text
+backend/    FastAPI service (Python) — catalogue, routing, ranking, forecasts, nutrition, reports
+frontend/   Next.js app (TypeScript) — all screens and on-device records
+database/   PostgreSQL schema, PriceCatcher ingestion, enrichment and migrations
+data/       Versioned nutrition datasets and their build scripts
+docs/       Documentation (current) and docs/archive (superseded)
+.github/    Daily PriceCatcher ingestion workflow
+```
 
-Shared price-forecast research, corrected backtests and current coverage limits
-are documented in [`research/price_forecasting/UNIFIED.md`](research/price_forecasting/UNIFIED.md).
-The default `backend/data/price_forecasts.json` now serves batch-generated
-Chronos-2 Small forecasts with a shared ridge correction. At the 2026-10-09
-assessment, 129 of 796 national items pass the relaxed short-window and data-quality
-checks. The policy requires 52 observed weeks, 80% recent coverage, 3 recent
-stores, observations no older than 28 days, worst short-window relative error
-at most 15%, baseline error ratio at most 1.35, and store-composition variation
-at most RM0.75. Complete 4/8/12-week backtests and consistent item definitions
-remain required. Only qualifying items show projections; other items retain price
-history. The requested full-year view remains experimental beyond the validated
-12 weeks. Runtime freshness checks can withdraw older forecasts.
-The previous serving snapshot is archived in
-`research/price_forecasting/unified_results/serving_snapshot_before_short_promotion.json`.
-The verified promotion can be reproduced with `build_short_serving.py`, using
-that archived source and the frozen research artifacts. The API reads the saved
-results without loading or fitting the model. `SMARTCART_FORECAST_PATH` remains
-available for previews.
-To reapply eligibility to the saved shared-model paths without fitting the model,
-run `python backend/scripts/requalify_price_forecasts.py --as-of 2026-10-09`.
-Desktop and mobile feature screenshots are in
-[`docs/evidence/epic4-prices/shared-short/README.md`](docs/evidence/epic4-prices/shared-short/README.md).
+## Quick start
+
+```bash
+cd database && docker compose up -d && python ingest_pricecatcher.py
+```
+
+```bash
+cd backend && uvicorn main:app --reload --port 8000
+```
+
+```bash
+cd frontend && pnpm install && pnpm dev
+```
+
+The quick start alone gives no store recommendations; the premise open-status import and `.env` files are also needed. Full steps, environment variables and data imports: [Local setup](docs/07-operations/local-setup.md).
+
+## Data attribution
+
+Price data: Government of Malaysia, PriceCatcher (data.gov.my), CC BY 4.0. Other sources and terms: [Security and privacy](docs/03-architecture/security-and-privacy.md#data-licences-and-attribution).

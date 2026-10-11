@@ -1,3 +1,4 @@
+// Owner: Shun
 const LEGACY_CATALOGUE_IMAGE = /^\/pricecatcher\/([^/]+)\.png$/;
 
 /**

@@ -1,4 +1,7 @@
-"""Compare store plans using the same store/median pricing as recommendations."""
+"""Compare store plans using the same store/median pricing as recommendations.
+
+Owners: Randy, Shun
+"""
 
 from decimal import Decimal, ROUND_HALF_UP
 
@@ -41,7 +44,7 @@ def _effective_line_map(summary: StoreBasketSummary) -> dict[str, BasketLinePric
 def _item_name_lookup(pricing: dict[str, StoreBasketSummary]) -> dict[str, str]:
     """Best available display name per item, from any store's line (any source).
 
-    Used only to label a line that no store priced officially, so the missing
+    Used only to label a line that no store priced, so the missing
     list is human-readable instead of a bare item ID.
     """
     names: dict[str, str] = {}
@@ -60,7 +63,10 @@ def allocate_basket(
     store_names: dict[str, str],
     item_names: dict[str, str],
 ) -> tuple[Decimal, list[PlanStoreAssignment], list[str], int]:
-    """Assign each full basket line to one store, retaining price provenance."""
+    """Assign each full basket line to one store, retaining price provenance.
+
+    Owners: Shun, Randy
+    """
     ordered_store_ids = sorted(store_ids, key=_premise_sort_key)
     subtotal = Decimal("0")
     assignments: list[PlanStoreAssignment] = []
@@ -271,28 +277,8 @@ def build_plan_comparison(
     complete.sort(key=_ranking_key)
     incomplete.sort(key=_ranking_key)
 
-    # AC 6.3.5: the baseline is the cheapest COMPLETE SINGLE-STORE plan.
-    baseline_plan = next(
-        (plan for plan in complete if plan.store_count == 1),
-        None,
-    )
-    baseline_rm = baseline_plan.combined_total_rm if baseline_plan else None
-    baseline_name = baseline_plan.store_names[0] if baseline_plan else None
-
-    if baseline_rm is not None:
-        for plan in complete:
-            if plan.store_count == 2:
-                # Same basis on both sides, so this subtraction is meaningful.
-                # Negative means the split costs more than the best single store.
-                plan.saving_vs_single_rm = _round2(
-                    Decimal(str(baseline_rm)) - Decimal(str(plan.combined_total_rm))
-                )
-    # AC 6.3.6: with no baseline, saving_vs_single_rm stays None for every plan.
-
     return PlanComparison(
         complete_plans=complete,
         incomplete_plans=incomplete,
-        single_store_baseline_rm=baseline_rm,
-        single_store_baseline_name=baseline_name,
         price_basis_note=PRICE_BASIS_NOTE,
     )

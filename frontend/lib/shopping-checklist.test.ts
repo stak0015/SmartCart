@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { withActualPrice, withActualQuantity } from "../tests/fixtures/legacy-checklist";
 import type { StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 import {
@@ -7,22 +8,16 @@ import {
   SHOPPING_CHECKLIST_VERSION,
   actualLineTotalRm,
   addManualChecklistItem,
-  boughtChecklistTotal,
   checklistProgress,
   createShoppingChecklist,
   deleteChecklistItem,
   editChecklistItem,
   migrateShoppingChecklist,
   parseShoppingChecklist,
-  plannedChecklistSubtotal,
   revertChecklistItem,
   serializeShoppingChecklist,
-  setChecklistItemActualPrice,
-  setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
   updateChecklistItemField,
-  validateActualQuantity,
-  validateActualUnitPrice,
   validateManualChecklistItem,
 } from "./shopping-checklist";
 
@@ -226,13 +221,10 @@ describe("single-price checklist rows", () => {
   it("counts the displayed catalogue price for bought items and keeps missing prices unavailable", () => {
     const initial = checklistFromDetails();
     const withOil = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    expect(boughtChecklistTotal(withOil)).toBe(8.5);
     const withMissing = toggleChecklistItemStatus(withOil, initial.items[1].id, "bought");
-    expect(boughtChecklistTotal(withMissing)).toBe(20.5);
     const cleared = updateChecklistItemField(withMissing, initial.items[0].id, "unitPriceRm", "")!;
     expect(cleared.items[0].unitPriceRm).toBeNull();
     expect(cleared.items[0].lineTotalRm).toBeNull();
-    expect(boughtChecklistTotal(cleared)).toBe(12);
   });
 
   it("edits each row field and reverts values without changing the outcome", () => {
@@ -244,7 +236,6 @@ describe("single-price checklist rows", () => {
     const priced = updateChecklistItemField(quantified, id, "unitPriceRm", "4.00")!;
     expect(priced.items[0]).toMatchObject({ itemName: "My oil", quantity: 3, unitPriceRm: 4, lineTotalRm: 12, status: "bought", source: "catalogue" });
     expect(priced.items[0].itemNameEn).toBeNull();
-    expect(boughtChecklistTotal(priced)).toBe(12);
     expect(updateChecklistItemField(priced, id, "quantity", "0")).toBeNull();
     expect(updateChecklistItemField(priced, id, "unitPriceRm", "1.234")).toBeNull();
     const reverted = revertChecklistItem(priced, id);
@@ -304,7 +295,6 @@ describe("shopping checklist snapshots", () => {
       status: "neutral",
     });
     expect(checklist.items[1].priceSource).toBe("median");
-    expect(plannedChecklistSubtotal(checklist)).toBe(20.5);
   });
 
   it("falls back to store basket prices and keeps unavailable prices explicit", () => {
@@ -320,7 +310,6 @@ describe("shopping checklist snapshots", () => {
       lineTotalRm: null,
       priceSource: null,
     });
-    expect(plannedChecklistSubtotal(checklist)).toBe(15);
   });
 
   it("keeps planned totals on the persisted snapshot (AC 5.1.1)", () => {
@@ -367,7 +356,7 @@ describe("shopping checklist mutations", () => {
     expect(checklistProgress(neutralAgain).completed).toBe(0);
   });
 
-  it("keeps purchased and not-purchased mutually exclusive (AC 5.2.2)", () => {
+  it("keeps purchased and not-purchased mutually exclusive (AC 5.2.1, 5.2.2)", () => {
     const initial = checklistFromDetails();
     const itemId = initial.items[0].id;
 
@@ -431,7 +420,6 @@ describe("shopping checklist mutations", () => {
       lineTotalRm: 2.2,
       status: "bought",
     });
-    expect(plannedChecklistSubtotal(edited)).toBe(22.7);
     expect(deleteChecklistItem(edited, "manual-1").items).toHaveLength(2);
   });
 
@@ -601,46 +589,11 @@ describe("shopping checklist persistence", () => {
   });
 });
 
-describe("actual price recording (AC 5.3.1-5.3.3)", () => {
-  it("validates actual prices: blank clears, positive two-decimal accepted, bad rejected", () => {
-    expect(validateActualUnitPrice("")).toEqual({ success: true, value: null });
-    expect(validateActualUnitPrice("   ")).toEqual({ success: true, value: null });
-    expect(validateActualUnitPrice("3.4")).toEqual({ success: true, value: 3.4 });
-    expect(validateActualUnitPrice("2.55")).toEqual({ success: true, value: 2.55 });
-    expect(validateActualUnitPrice("0").success).toBe(false);
-    expect(validateActualUnitPrice("-1").success).toBe(false);
-    expect(validateActualUnitPrice("1.234").success).toBe(false);
-    expect(validateActualUnitPrice("abc").success).toBe(false);
-  });
-
-  it("records and clears the actual price only on purchased lines (AC 5.3.1)", () => {
-    const initial = checklistFromDetails();
-    const itemId = initial.items[0].id;
-
-    // Neutral lines and unknown ids reject the write.
-    expect(setChecklistItemActualPrice(initial, itemId, 4)).toBeNull();
-    expect(setChecklistItemActualPrice(initial, "missing", 4)).toBeNull();
-
-    const bought = toggleChecklistItemStatus(initial, itemId, "bought", "2026-09-13T01:00:00.000Z");
-    const recorded = setChecklistItemActualPrice(bought, itemId, 3.789, "2026-09-13T02:00:00.000Z")!;
-    expect(recorded.items[0].actualPriceRm).toBe(3.79);
-    expect(recorded.updatedAt).toBe("2026-09-13T02:00:00.000Z");
-    // The original checklist is untouched (immutable update).
-    expect(initial.items[0].actualPriceRm).toBeNull();
-
-    const cleared = setChecklistItemActualPrice(recorded, itemId, null)!;
-    expect(cleared.items[0].actualPriceRm).toBeNull();
-
-    // Non-positive and non-finite values are rejected.
-    expect(setChecklistItemActualPrice(bought, itemId, 0)).toBeNull();
-    expect(setChecklistItemActualPrice(bought, itemId, -2)).toBeNull();
-    expect(setChecklistItemActualPrice(bought, itemId, Number.NaN)).toBeNull();
-  });
-
-  it("recalculates the actual line total immediately and stays empty when unknown (AC 5.3.3)", () => {
+describe("legacy actual prices on saved checklists", () => {
+  it("recalculates the actual line total immediately and stays empty when unknown", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const recorded = withActualPrice(bought, initial.items[0].id, 3.5);
 
     // items[0] quantity is 2 → 3.50 × 2 = 7.00
     expect(actualLineTotalRm(recorded.items[0])).toBe(7);
@@ -648,10 +601,10 @@ describe("actual price recording (AC 5.3.1-5.3.3)", () => {
     expect(actualLineTotalRm(recorded.items[0])).not.toBe(0);
   });
 
-  it("keeps the actual price separate from official and planned figures (AC 5.3.2)", () => {
+  it("keeps the actual price separate from official and planned figures", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const recorded = withActualPrice(bought, initial.items[0].id, 3.5);
     const line = recorded.items[0];
 
     expect(line.unitPriceRm).toBe(4.25);
@@ -666,7 +619,7 @@ describe("actual price recording (AC 5.3.1-5.3.3)", () => {
   it("keeps the recorded price when the line leaves the bought state", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const recorded = withActualPrice(bought, initial.items[0].id, 3.5);
     const unmarked = toggleChecklistItemStatus(recorded, initial.items[0].id, "bought");
     expect(unmarked.items[0].status).toBe("neutral");
     expect(unmarked.items[0].actualPriceRm).toBe(3.5);
@@ -675,7 +628,7 @@ describe("actual price recording (AC 5.3.1-5.3.3)", () => {
   it("persists actual prices through serialization and upgrades v1 lines with null", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const recorded = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const recorded = withActualPrice(bought, initial.items[0].id, 3.5);
     expect(parseShoppingChecklist(serializeShoppingChecklist(recorded))).toEqual(recorded);
 
     const legacy = JSON.parse(serializeShoppingChecklist(recorded)) as Record<string, unknown>;
@@ -693,52 +646,15 @@ describe("actual price recording (AC 5.3.1-5.3.3)", () => {
   });
 });
 
-describe("actual quantity recording (AC 5.3.4)", () => {
-  it("validates actual quantities: blank means planned, positive whole numbers accepted", () => {
-    expect(validateActualQuantity("")).toEqual({ success: true, value: null });
-    expect(validateActualQuantity("  ")).toEqual({ success: true, value: null });
-    expect(validateActualQuantity("3")).toEqual({ success: true, value: 3 });
-    expect(validateActualQuantity("120")).toEqual({ success: true, value: 120 });
-    expect(validateActualQuantity("0").success).toBe(false);
-    expect(validateActualQuantity("1.5").success).toBe(false);
-    expect(validateActualQuantity("-2").success).toBe(false);
-    expect(validateActualQuantity("abc").success).toBe(false);
-  });
-
-  it("records and clears the actual quantity only on purchased lines, marking the source", () => {
-    const initial = checklistFromDetails();
-    const itemId = initial.items[0].id;
-
-    // Neutral lines and unknown ids reject the write.
-    expect(setChecklistItemActualQuantity(initial, itemId, 3)).toBeNull();
-    expect(setChecklistItemActualQuantity(initial, "missing", 3)).toBeNull();
-
-    const bought = toggleChecklistItemStatus(initial, itemId, "bought");
-    const recorded = setChecklistItemActualQuantity(bought, itemId, 3, "2026-09-13T03:00:00.000Z")!;
-    expect(recorded.items[0].actualQuantity).toBe(3);
-    expect(recorded.items[0].quantitySource).toBe("actual");
-    // The planned quantity is untouched.
-    expect(recorded.items[0].quantity).toBe(2);
-    // The original checklist is untouched (immutable update).
-    expect(initial.items[0].actualQuantity).toBeNull();
-
-    const cleared = setChecklistItemActualQuantity(recorded, itemId, null)!;
-    expect(cleared.items[0].actualQuantity).toBeNull();
-    expect(cleared.items[0].quantitySource).toBe("planned");
-
-    // Non-whole and non-positive values are rejected.
-    expect(setChecklistItemActualQuantity(bought, itemId, 0)).toBeNull();
-    expect(setChecklistItemActualQuantity(bought, itemId, 1.5)).toBeNull();
-  });
-
+describe("legacy actual quantities on saved checklists", () => {
   it("recalculates the actual line total with the actual quantity", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const priced = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
+    const priced = withActualPrice(bought, initial.items[0].id, 3.5);
     // planned quantity is 2 → 3.50 × 2 = 7.00
     expect(actualLineTotalRm(priced.items[0])).toBe(7);
 
-    const withQty = setChecklistItemActualQuantity(priced, initial.items[0].id, 3)!;
+    const withQty = withActualQuantity(priced, initial.items[0].id, 3);
     // actual quantity 3 → 3.50 × 3 = 10.50
     expect(actualLineTotalRm(withQty.items[0])).toBe(10.5);
     // Planned figures stay untouched.
@@ -749,8 +665,8 @@ describe("actual quantity recording (AC 5.3.4)", () => {
   it("serializes actual quantities and upgrades v2 and v1 payloads in the chain", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const priced = setChecklistItemActualPrice(bought, initial.items[0].id, 3.5)!;
-    const withQty = setChecklistItemActualQuantity(priced, initial.items[0].id, 3)!;
+    const priced = withActualPrice(bought, initial.items[0].id, 3.5);
+    const withQty = withActualQuantity(priced, initial.items[0].id, 3);
     expect(parseShoppingChecklist(serializeShoppingChecklist(withQty))).toEqual(withQty);
 
     // v2 payload: carries actualPriceRm but lacks the quantity fields.
@@ -791,7 +707,7 @@ describe("actual quantity recording (AC 5.3.4)", () => {
   it("rejects payloads whose quantity source disagrees with the actual quantity", () => {
     const initial = checklistFromDetails();
     const bought = toggleChecklistItemStatus(initial, initial.items[0].id, "bought");
-    const withQty = setChecklistItemActualQuantity(bought, initial.items[0].id, 3)!;
+    const withQty = withActualQuantity(bought, initial.items[0].id, 3);
 
     const mislabelled = JSON.parse(serializeShoppingChecklist(withQty)) as Record<string, unknown>;
     (mislabelled.items as Record<string, unknown>[])[0].quantitySource = "planned";
@@ -803,7 +719,7 @@ describe("actual quantity recording (AC 5.3.4)", () => {
   });
 });
 
-describe("alternative store estimates snapshot (gap G4)", () => {
+describe("alternative store estimates snapshot", () => {
   const altA: StoreRecommendation = {
     ...store,
     premiseId: "20",

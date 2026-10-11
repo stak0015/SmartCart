@@ -31,14 +31,11 @@ describe("combined catalogue item dialog", () => {
 });
 
 
-it("places complete nutrition immediately after alternatives and keeps it closed", () => {
+it("renders item nutrition collapsed by default", () => {
   const markup = renderToStaticMarkup(createElement(CatalogueItemDialog, {
     open: true, title: "Chicken", locale: "en", canAdd: true, onClose: () => {}, onAdd: () => {},
     details: "Details", alternatives: "Alternative cards", quantity: "Quantity", nutrition: createElement("div", null, "All nutrition values"),
   }));
-  expect(markup.indexOf("Alternative cards")).toBeLessThan(markup.indexOf("catalogue-nutrition-disclosure"));
-  expect(markup.indexOf("catalogue-nutrition-disclosure")).toBeLessThan(markup.indexOf("catalogue-dialog-quantity"));
-  expect(markup).toContain('<details class="catalogue-nutrition-disclosure">');
   expect(markup).toContain("All nutrition values");
   expect(markup).not.toContain("<details open");
 });

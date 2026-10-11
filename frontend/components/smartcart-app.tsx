@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun | Contributors: Randy, Zhihao
 import type { CatalogueSort } from "@/lib/api";
 
 import { TripFactsItems } from "./trip-facts";
@@ -393,7 +394,7 @@ function BasketScreen({
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState(false);
 
-  // ── Real database search (Step 6) ─────────────────────────────────────────
+  // ── Catalogue search ─────────────────────────────────────────
   const [apiResults, setApiResults] = useState<Item[]>([]);
   const [apiTotal, setApiTotal] = useState(0);
   const [apiTotalPages, setApiTotalPages] = useState(0);
@@ -584,11 +585,11 @@ function BasketScreen({
   };
 
   // Convert a real database Item into a BasketItem and add it to the basket.
-  // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
+  // id is prefixed with "db-"; only "db-" lines are sent for pricing.
   // Package size comes from the same mapping as the result row, so both views
   // always show identical details; unparsed values show "—".
   const addRealItem = (item: Item, qty: number) => {
-    // AC-1.4.2: same item added again increases quantity, never duplicates.
+    // AC 1.4.5: same item added again increases quantity, never duplicates.
     setBasket(current => upsertBasketLine(current, {
       id: `db-${item.item_id}`,
       ...basketDetails(item),
@@ -656,7 +657,7 @@ function BasketScreen({
         </p>
       </div>
 
-      {/* Search —— now calls the real backend API (Step 6) */}
+      {/* Search bar (US 1.1) */}
       <div className="catalogue-search px-4 pb-3 pt-2 sm:px-6">
         <div className="relative h-14">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -732,7 +733,7 @@ function BasketScreen({
         {locale === "en" ? "SARA categories only" : "Kategori SARA sahaja"}
       </label>
 
-      {/* Matching items —— now shows real backend data with prices (Step 7) */}
+      {/* Catalogue results with nearby prices (US 1.1, 2.5) */}
       <div id="catalogue-results" className="scroll-mt-36 px-4 pb-7 sm:px-6">
         <div className="mb-3 flex items-end justify-between gap-3">
           <h2 className="section-title">
@@ -763,7 +764,7 @@ function BasketScreen({
           <p className="text-[16px] text-[#718078] text-center py-6">{copy.searchingDatabase}</p>
         )}
 
-        {/* Searched but no results — AC-1.1.1 exact wording */}
+        {/* Searched but no results (AC 1.1.4) */}
         {!apiLoading && apiSearched && !apiError && apiResults.length === 0 && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
             {copy.noItems}
@@ -1366,7 +1367,7 @@ function LocationScreen({
   );
 }
 
-// AC 2.3.3/2.3.5/2.3.9: one reachable-store card — priced-basket amounts,
+// AC 2.3.3/2.3.9/2.3.11: one reachable-store card — priced-basket amounts,
 // travel estimates, SARA status and the expandable per-line price detail.
 export function StoreCard({
   store,
@@ -1697,8 +1698,7 @@ function CompareScreen({
   // (not in a URL route) so opening the detail never unmounts CompareScreen —
   // the basket, travel preferences and multi-store configuration therefore
   // survive the round trip unchanged (AC 6.4.4 / 6.4.6).
-  // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
-  // filtered out. Empty after filtering -> request without a basket, keeping
+  // AC 2.3.1: only catalogue items ("db-" ids) are priced. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
   const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
@@ -2232,7 +2232,7 @@ export default function App() {
     }
   }, [savedItems, savedItemsReady]);
 
-  // AC 5.4.3: trip records live on this device only (localStorage), mirroring
+  // Trip records live on this device only (localStorage), mirroring
   // the checklist persistence pattern above.
   useEffect(() => {
     try {

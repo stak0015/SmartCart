@@ -1,4 +1,7 @@
-"""Stateless deterministic report assembly and the async narrator seam."""
+"""Stateless deterministic report assembly and the async narrator seam.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 
@@ -92,6 +95,10 @@ class FallbackReportNarrator:
 def _validate_range_and_trips(
     payload: GenerateReportRequest, now: datetime
 ) -> tuple[datetime, datetime]:
+    """Accept only the current or previous period for the cadence, and only trips between
+    the baseline start and the period end that are not in the future. Anything else is
+    rejected without detail.
+    """
     current_period = period_analytics([], payload.cadence, now)
     submitted_start = parse_report_instant(payload.period_start)
     submitted_end = parse_report_instant(payload.period_end)
@@ -135,7 +142,7 @@ def _adapt_trips(payload: GenerateReportRequest) -> list[dict[str, object]]:
                         "category": {"id": line.category_id}
                         if line.category_id is not None
                         else None,
-                        # G3's line calculator consumes unit price × actual
+                        # The period-analytics line calculator consumes unit price × actual
                         # quantity. The request's total is already authoritative,
                         # so adapt it as a single known total while retaining the
                         # submitted quantity snapshot in `quantity`.
@@ -245,6 +252,9 @@ def _disclosures(
     locale: str,
     metrics: Mapping[str, object],
 ) -> list[str]:
+    """Localised notes attached to a report when spending excludes unpriced lines or
+    savings are incomplete or unavailable.
+    """
     disclosures: list[str] = []
     missing_prices = int(metrics["missingPriceCount"])
     savings = metrics["savings"]  # type: ignore[index]

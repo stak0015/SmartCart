@@ -1,73 +1,9 @@
-# SmartCart FastAPI backend
+# SmartCart backend
 
-This is the single HTTP backend for Epic 1 item discovery, Google-backed
-location search, and basket-plus-transport store recommendations.
+FastAPI service. Documentation lives in [`docs/`](../docs/README.md):
 
-## Local setup
-
-From `backend` on Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements-dev.txt
-Copy-Item .env.example .env
-```
-
-Set `DATABASE_URL` in `.env`. Google keys are optional for local development:
-`GOOGLE_PLACES_API_KEY` enables location autocomplete and
-`GOOGLE_ROUTES_API_KEY` enables routed recommendations (a single
-`GOOGLE_MAPS_API_KEY` works as a fallback for both). If the Routes key is
-missing or a Routes request fails (including an invalid key), recommendations
-automatically use the 25 nearest located premises with
-straight-line distance and clearly marked approximate travel estimates. Then
-start the API. Report narratives use Cerebras when the server-only
-`CEREBRAS_API_KEY` is set; otherwise reports use deterministic localized
-fallback text. `CEREBRAS_MODEL` selects the model and defaults to
-`gpt-oss-120b`. Keep the key in the backend `.env` only; never expose it through
-a `NEXT_PUBLIC_*` variable.
-
-```powershell
-uvicorn main:app --reload --port 8000
-```
-
-FastAPI documentation is available at `http://localhost:8000/docs`. The main
-routes are:
-
-- `GET /api/health`
-- `GET /api/items/search?q=&page=&category=` (25 items per page)
-- `GET /api/items/categories`
-- `GET /api/locations/autocomplete?query=&sessionToken=`
-- `POST /api/locations/resolve`
-- `POST /api/locations/reverse`
-- `POST /api/recommendations`
-- `POST /api/premises/{premiseId}/basket-alternatives`
-
-With Google Routes configured, the recommendation response ranks reachable
-premises by exact store-price coverage, then effective coverage, effective
-basket-plus-return-transport cost, travel time, and distance. Without a Routes
-key, or after a Routes request fails, it returns the 25 nearest located premises by
-straight-line distance; route limits and reachability are not verified in that
-fallback. Both paths include quantity-aware unit and line prices for each
-basket item. A missing store observation uses the cached cross-store item
-median and is marked with `priceSource: "median"`; a line remains null and is
-excluded only when neither source exists. Partial stores remain in the unified
-list, and stores with no effective prices keep null combined totals. Reverse
-geocoding is best-effort and requires the server-only Geocoding key.
-
-Run backend tests from this directory with:
-
-```powershell
-python -m pytest
-```
-
-The API does not persist user origins or route calculations. Google-derived
-premise coordinates remain subject to the documented 30-day deletion rule.
-
-The selected-store alternatives endpoint returns one lower-priced, name-similar
-item per requested basket line when a candidate in the same category and exact
-package basis is available at that premise. Names are normalized for package
-sizes and brand markers, then compared with a 0.67 token Jaccard threshold;
-parenthetical product details remain part of the match. The closest match is
-preferred, with price used to break similarity ties. Price observations remain
-estimates and do not prove stock.
+- [Local setup](../docs/07-operations/local-setup.md#2-backend) — install, `.env`, run (`uvicorn main:app --reload --port 8000`)
+- [API reference](../docs/04-backend/api-reference.md)
+- [System architecture](../docs/03-architecture/system-architecture.md#backend-layering) — module layout
+- Feature logic: [store recommendation](../docs/04-backend/store-recommendation.md), [multi-store](../docs/04-backend/multi-store-planning.md), [alternatives](../docs/04-backend/budget-alternatives.md), [price history](../docs/04-backend/price-history-and-forecasts.md), [nutrition](../docs/04-backend/nutrition.md), [reports](../docs/04-backend/reports-and-analytics.md)
+- [Testing](../docs/07-operations/testing.md) — `python -m pytest`

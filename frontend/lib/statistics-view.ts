@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { Locale } from "./i18n";
 import {
   periodAnalytics,
@@ -86,6 +87,11 @@ function periodBefore(records: readonly TripRecord[], cadence: AnalyticsCadence,
   return periodAnalyticsForStart(records, cadence, new Date(Date.parse(period.periodStart) - 1));
 }
 
+/**
+ * View model for the Statistics dashboard (US 8.1, 8.3): the selected week or month (offset 0 =
+ * current, negative = earlier), its comparison with the period before, trend, category and top-
+ * item breakdowns. Computed entirely on the device.
+ */
 export function buildStatisticsView(
   records: readonly TripRecord[],
   cadence: AnalyticsCadence,

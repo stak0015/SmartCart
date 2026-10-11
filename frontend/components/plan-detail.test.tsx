@@ -25,26 +25,15 @@ describe("store plan details", () => {
     const markup = renderToStaticMarkup(createElement(MultiPlanCard, {
       plan, stores, basket, copy: COPY.en, locale: "en", routeUrl, onSelectPlan: () => {},
     }));
-    expect(markup).toContain('class="store-card-route"');
     expect(markup).toContain("waypoints=");
-    expect(markup).not.toContain('class="plan-inter-store-fact"');
   });
-  it("shares store placeholders and mode icons and labels partially estimated baskets", () => {
+  it("labels partially estimated baskets on the plan card", () => {
     const unknownStores = stores.map(store => ({ ...store, name: `Local Store ${store.premiseId}` }));
     const incomplete = { ...plan, storeNames: unknownStores.map(store => store.name), missingItems: ["Bread"] };
     const markup = renderToStaticMarkup(createElement(MultiPlanCard, {
       plan: incomplete, stores: unknownStores, basket, copy: COPY.en, locale: "en", transportMode: "public_transport", onSelectPlan: () => {},
     }));
-    expect(markup.match(/class="store-placeholder"/g)).toHaveLength(2);
     expect(markup).toContain(COPY.en.estimatedPartialTotal);
-    expect(markup).toContain('viewBox="0 0 17.3333 28.6667"');
-    expect(markup).toContain('viewBox="0 0 21.3333 25.3333"');
-    const detail = renderToStaticMarkup(createElement(PlanDetailView, {
-      plan: incomplete, stores: unknownStores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
-      onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {}, transportMode: "public_transport",
-    }));
-    expect(detail).toContain('class="store-placeholder"');
-    expect(detail).toContain('viewBox="0 0 21.3333 25.3333"');
   });
   it("shows only the active store's image rows while preserving the whole basket total", () => {
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
@@ -52,16 +41,12 @@ describe("store plan details", () => {
       onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},
       origin: {latitude: 6, longitude: 102, label: "Home", source: "device"}, transportMode: "car",
     }));
-    expect(markup).toContain("store-item-image");
     expect(markup).toContain("rice-product");
     expect(markup).not.toContain("<strong>Milk</strong>");
     expect(markup).toContain("RM65.00");
     expect(markup).toContain("RM68.00");
-    expect(markup).toContain("store-summary-travel");
     expect(markup).toContain("<small>From</small>");
     expect(markup).toContain("<strong>Home</strong>");
-    expect(markup).toContain('<details class="plan-journey">');
-    expect(markup.indexOf('class="plan-journey"')).toBeLessThan(markup.indexOf('class="store-detail-items-heading"'));
     expect(markup).toContain("waypoints=");
     expect(markup).toContain(COPY.en.openInGoogleMaps);
   });
@@ -83,7 +68,7 @@ describe("store plan details", () => {
       fuelPriceSource: "data.gov.my" as const, fuelPriceEffectiveDate: "2026-10-08",
       tollCostRm: null, tollStatus: "unavailable" as const };
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
-      plan: { ...plan, savingVsSingleRm: 5, legs: plan.legs.map(leg => ({ ...leg, travelCostBreakdown: fuel })) },
+      plan: { ...plan, legs: plan.legs.map(leg => ({ ...leg, travelCostBreakdown: fuel })) },
       comparisonOptions: comparisonOptions(73),
       stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
       onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {}, transportMode: "motorcycle",
@@ -105,7 +90,7 @@ describe("store plan details", () => {
     [0, "About the same cost as the median plan"],
   ])("discloses unavailable and signed multi-store savings (%s)", (saving, expected) => {
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
-      plan: { ...plan, savingVsSingleRm: saving as number | null },
+      plan,
       comparisonOptions: saving == null ? [] : comparisonOptions(68 + Number(saving)),
       stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
       onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},

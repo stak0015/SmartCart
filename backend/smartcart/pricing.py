@@ -4,14 +4,14 @@ Every reachable store is priced independently for the whole basket. A cached
 cross-store median fills a missing store observation; lines without either
 source remain visible and do not contribute to totals. Decimal money arithmetic
 keeps the basket subtotal, SARA credit and cash split reconciled to the cent.
+
+Owners: Shun, Zhihao
 """
 
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal, ROUND_HALF_UP
 
-from .catalogue import display_package_size
 from .categories import (
     CategorySummary,
     SourceCategorySummary,
@@ -19,15 +19,16 @@ from .categories import (
     source_category_for_raw,
 )
 from .database import database_cursor
-from .models import BasketItemPrice, BasketLineRequest
+from .models import BasketLineRequest
 from .sara import is_sara_credit_line
-
-PRICE_FRESHNESS_THRESHOLD_DAYS = 7
 
 
 @dataclass(frozen=True)
 class BasketLinePrice:
-    """One basket line at one store, including an explicit unpriced state."""
+    """One basket line at one store, including an explicit unpriced state.
+
+    Owners: Zhihao, Shun
+    """
 
     item_id: str
     item_name: str | None
@@ -47,7 +48,10 @@ class BasketLinePrice:
 
 @dataclass(frozen=True)
 class StoreBasketSummary:
-    """A store subtotal, coverage, SARA/cash split and per-line detail."""
+    """A store subtotal, coverage, SARA/cash split and per-line detail.
+
+    Owners: Zhihao, Shun
+    """
 
     subtotal_rm: float | None
     priced_count: int
@@ -74,7 +78,10 @@ def _money(value: Decimal) -> float:
 def fetch_basket_price_rows(
     premise_ids: list[str], basket: list[BasketLineRequest]
 ) -> list[tuple]:
-    """Return one row for each requested premise and basket line."""
+    """Return one row for each requested premise and basket line.
+
+    Owners: Zhihao, Shun
+    """
     if not premise_ids or not basket:
         return []
 
@@ -112,7 +119,10 @@ def fetch_basket_price_rows(
 def summarize_basket_prices(
     rows: list[tuple], today: date | None = None
 ) -> dict[str, StoreBasketSummary]:
-    """Fold raw price rows into per-store totals and item-level details."""
+    """Fold raw price rows into per-store totals and item-level details.
+
+    Owners: Shun, Zhihao
+    """
     if today is None:
         today = date.today()
 
@@ -266,112 +276,3 @@ def get_basket_pricing(
     premise_ids: list[str], basket: list[BasketLineRequest]
 ) -> dict[str, StoreBasketSummary]:
     return summarize_basket_prices(fetch_basket_price_rows(premise_ids, basket))
-
-
-def get_basket_prices_for_premises(
-    *,
-    premise_ids: list[str],
-    basket: list[BasketLineRequest],
-) -> dict[str, list[BasketItemPrice]]:
-    """Preserve the original E2 item-price API for existing callers."""
-    if not premise_ids or not basket:
-        return {premise_id: [] for premise_id in premise_ids}
-
-    item_ids = [line.item_id for line in basket]
-    quantities = [line.quantity for line in basket]
-    with database_cursor() as cursor:
-        cursor.execute(
-            """
-            WITH basket AS (
-                SELECT item_id, quantity, position
-                FROM unnest(%s::BIGINT[], %s::INTEGER[])
-                    WITH ORDINALITY AS requested(item_id, quantity, position)
-            ), requested_premise AS (
-                SELECT premise_id
-                FROM unnest(%s::BIGINT[]) AS requested(premise_id)
-            )
-            SELECT
-                requested_premise.premise_id,
-                item.item_id,
-                item.item_name,
-                item.item_name_en,
-                item.unit,
-                basket.quantity,
-                current_status.current_price,
-                item.median_price_rm,
-                current_status.price_observed_date,
-                item.item_category,
-                COALESCE(NULLIF(BTRIM(ct_en.translated_name), ''), item.item_category),
-                COALESCE(NULLIF(BTRIM(ct_ms.translated_name), ''), item.item_category)
-            FROM requested_premise
-            CROSS JOIN basket
-            JOIN item ON item.item_id = basket.item_id
-            LEFT JOIN current_status
-                ON current_status.premise_id = requested_premise.premise_id
-               AND current_status.item_id = basket.item_id
-            LEFT JOIN category_translation ct_en
-                ON ct_en.category_name = item.item_category AND ct_en.locale = 'en'
-            LEFT JOIN category_translation ct_ms
-                ON ct_ms.category_name = item.item_category AND ct_ms.locale = 'ms'
-            ORDER BY requested_premise.premise_id, basket.position
-            """,
-            (item_ids, quantities, [int(value) for value in premise_ids]),
-        )
-        rows = cursor.fetchall()
-
-    result: dict[str, list[BasketItemPrice]] = defaultdict(list)
-    for row in rows:
-        # Retain the old 7- and 8-column forms for E2 adapters. The current
-        # query includes median price, raw category and both translated labels.
-        if len(row) == 7:
-            item_name_en = None
-            item_name_ms = (row[2] or "").strip() or None
-            median_index = None
-            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 3, 4, 5, 6
-        elif len(row) == 8:
-            item_name_en = (row[3] or "").strip() or None
-            item_name_ms = (row[2] or "").strip() or None
-            median_index = None
-            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 4, 5, 6, 7
-        else:
-            item_name_en = (row[3] or "").strip() or None
-            item_name_ms = (row[2] or "").strip() or None
-            median_index = 7
-            item_name_index, unit_index, quantity_index, price_index, observed_index = 2, 4, 5, 6, 8
-        store_price = Decimal(row[price_index]) if row[price_index] is not None else None
-        median_price = (
-            Decimal(row[median_index])
-            if median_index is not None and row[median_index] is not None
-            else None
-        )
-        has_store_price = store_price is not None and store_price > 0
-        has_median_price = (
-            not has_store_price and median_price is not None and median_price > 0
-        )
-        unit_price = store_price if has_store_price else median_price if has_median_price else None
-        price_source = "store" if has_store_price else "median" if has_median_price else None
-        quantity = int(row[quantity_index])
-        result[str(row[0])].append(
-            BasketItemPrice(
-                item_id=str(row[1]),
-                item_name=(row[item_name_index] or "").strip() or "Unnamed item",
-                item_name_en=item_name_en,
-                item_name_ms=item_name_ms,
-                package_size=display_package_size(row[item_name_index], row[unit_index]),
-                quantity=quantity,
-                unit_price_rm=_money(unit_price) if unit_price is not None else None,
-                line_total_rm=(
-                    _money(unit_price * quantity) if unit_price is not None else None
-                ),
-                price_observed_date=row[observed_index] if has_store_price else None,
-                price_source=price_source,
-                category=category_for_raw(row[9] if len(row) > 9 else None),
-                source_category=source_category_for_raw(
-                    row[9] if len(row) > 9 else None,
-                    row[10] if len(row) > 10 else None,
-                    row[11] if len(row) > 11 else None,
-                ),
-            )
-        )
-
-    return {premise_id: result[premise_id] for premise_id in premise_ids}

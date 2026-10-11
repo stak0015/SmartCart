@@ -1,4 +1,7 @@
-"""Premise candidate queries for basket-plus-transport recommendations."""
+"""Premise candidate queries for basket-plus-transport recommendations.
+
+Owners: Shun, Randy
+"""
 
 from dataclasses import dataclass
 
@@ -27,6 +30,10 @@ def find_nearest_premises(
     maximum_straight_line_km: float | None,
     limit: int,
 ) -> list[PremiseCandidate]:
+    """Nearest open, located premises matching the SARA filter, ordered by Haversine
+    distance then premise ID. maximum_straight_line_km=None disables the distance cut-
+    off.
+    """
     with database_cursor() as cursor:
         cursor.execute(
             """
@@ -102,6 +109,9 @@ def find_nearest_premises(
 
 
 def get_premise_location_coverage() -> tuple[int, int]:
+    """(open premises with a place ID, of those with coordinates). Lets the API tell 'no
+    stores nearby' apart from 'locations not imported yet'.
+    """
     with database_cursor() as cursor:
         cursor.execute(
             """
@@ -138,6 +148,8 @@ def get_premise_coordinates(premise_ids: list[str]) -> dict[str, tuple[float, fl
     This is a separate query rather than extra columns on
     ``find_nearest_premises`` so that query's column order, and the tests that
     assert on it, stay untouched.
+
+    Owner: Randy
     """
     if not premise_ids:
         return {}

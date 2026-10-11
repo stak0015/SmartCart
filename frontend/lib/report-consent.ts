@@ -1,3 +1,4 @@
+// Owner: Shun
 export const REPORT_CONSENT_STORAGE_KEY = "smartcart.report-consent.v1";
 
 export type ReportConsentStatus = "accepted" | "declined";
@@ -28,6 +29,10 @@ function isIsoInstant(value: unknown): value is string {
   return typeof value === "string" && ISO_INSTANT.test(value) && Number.isFinite(Date.parse(value));
 }
 
+/**
+ * Parse a stored consent record; anything other than an exact version-2 record is treated as
+ * undecided.
+ */
 export function parseReportConsent(serialized: string | null | undefined): ReportConsentV1 | null {
   if (typeof serialized !== "string") return null;
   try {
@@ -49,6 +54,7 @@ export function serializeReportConsent(record: ReportConsentV1): string {
   return JSON.stringify(record);
 }
 
+/** Current consent state from device storage, with the reason when undecided. */
 export function readReportConsent(storage: Pick<ConsentStorage, "getItem">): ReportConsentRead {
   try {
     const serialized = storage.getItem(REPORT_CONSENT_STORAGE_KEY);

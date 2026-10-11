@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { PricedPlan, StoreRecommendation } from "./contracts";
 import type { StorePlanOption } from "./multi-store";
 
@@ -49,6 +50,12 @@ function comparisonCosts(options: StorePlanOption[], signature: string): number[
   });
 }
 
+/**
+ * Estimated savings for a chosen store plan (US 8.2): reference = median combined cost of the
+ * comparable options (same priced lines, at least two options); store-choice impact = reference
+ * minus the plan before swaps; item-change impact = before minus after swaps; net = reference
+ * minus the plan after swaps.
+ */
 export function calculatePlanEstimatedSavings(plan: PricedPlan, options: StorePlanOption[], routeProvider: "google" | "straight_line", currentPlan = plan): EstimatedSavingsSnapshot {
   const signature = plan.assignments.filter(line => line.lineTotalRm != null).map(line => line.itemId).sort().join("|");
   const costs = comparisonCosts(options, signature);
@@ -65,6 +72,10 @@ export function calculatePlanEstimatedSavings(plan: PricedPlan, options: StorePl
   };
 }
 
+/**
+ * Single-store version of calculatePlanEstimatedSavings, using the shown recommendations within
+ * the travel limit as comparable options.
+ */
 export function calculateEstimatedSavings(
   selectedStore: StoreRecommendation,
   recommendations: StoreRecommendation[],
@@ -134,6 +145,7 @@ function isNullableSignedMoney(value: unknown): boolean {
   return value === null || (typeof value === "number" && Number.isFinite(value));
 }
 
+/** Runtime validation of a stored savings snapshot. */
 export function isEstimatedSavingsSnapshot(value: unknown): value is EstimatedSavingsSnapshot {
   if (!value || typeof value !== "object") return false;
   const snapshot = value as Record<string, unknown>;

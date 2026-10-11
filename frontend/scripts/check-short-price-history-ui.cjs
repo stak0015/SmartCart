@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+// Owner: Shun
 // Real forecast API and full catalogue gate audit; catalogue search is a UI fixture.
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');

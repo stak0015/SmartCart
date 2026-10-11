@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { Locale } from "./i18n";
 
 export const REPORT_LANGUAGE_STORAGE_KEY = "smartcart.report-language.v1";

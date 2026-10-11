@@ -1,4 +1,5 @@
 "use client";
+// Owners: Randy, Shun
 
 import { useEffect, useRef, useState } from "react";
 import { DropdownChevron, UIIcon } from "./ui-icon";
@@ -29,6 +30,8 @@ import {
  * limits (AC 6.1.2) and disabling it hides them (AC 6.1.6). US 6.1 only
  * configures; the two-store plan calculation is US 6.2/6.3, so this component
  * never invents a plan — it only records the limit the shopper applied.
+ *
+ * Owners: Randy, Shun
  */
 export function MultiStorePanel({
   config,

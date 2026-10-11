@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun | Contributors: Zhihao
 import type { ReactNode } from "react";
 import { DEFAULT_QTY, MAX_QTY, parseQty } from "@/lib/result-row";
 export function QuantitySelector({

@@ -12,6 +12,8 @@ Usage from the repository root::
 The fetch option downloads the two public listing pages and each linked detail
 page into compact JSONL evidence files under ``raw``.  The normalizer can then
 be run offline, which makes the generated file reproducible and auditable.
+
+Owner: Shun | Contributors: Zhihao
 """
 
 from __future__ import annotations

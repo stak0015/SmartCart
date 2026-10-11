@@ -13,6 +13,8 @@ Two rule sets, deliberately kept apart (AC 6.2.1):
 The second store is *not* required to satisfy the home limit; it is reached from
 the first store, not from home. Its own home leg is still priced, because the
 journey must return home (AC 6.2.6).
+
+Owner: Randy | Contributors: Shun
 """
 
 from dataclasses import dataclass
@@ -31,7 +33,8 @@ from .recommendation import TravelCostRate, estimate_one_way_leg_cost_rm, fuel_c
 EARTH_RADIUS_KM = 6371.0
 
 # Hard cap on inter-store pairs sent to the provider, to bound shared API quota.
-# Deterministic: when exceeded, only the highest-ranked first stores are used.
+# Deterministic: the ordered pair list is cut at the cap, so lower-ranked first
+# stores lose their pairs first.
 MAX_INTER_STORE_PAIRS = 600
 
 # Plans returned to the client, cheapest loop first. US 6.4 renders this list.

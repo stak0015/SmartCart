@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { fetchPriceHistory, historyPeriod, forecastForDisplay, fourWeekForecastSignal, type PriceHistory } from '@/lib/price-history';
@@ -8,6 +9,10 @@ import { UIIcon } from './ui-icon';
 
 const PriceSeriesChart = dynamic(() => import('./price-series-chart'), {ssr:false,loading:()=><div className="price-chart-placeholder" aria-busy="true"/>});
 
+/**
+ * Price trends panel (US 4.1, 4.2): history and forecast buttons, rise/drop banner, chart and data
+ * details.
+ */
 export function ItemPriceHistory({ code, locale, onClose, plannedWeek }: { code: string; quantity: number | null; locale: Locale; onClose: () => void; plannedWeek?: string | null }) {
   const [data, setData] = useState<PriceHistory | null>(null);
   const [months, setMonths] = useState<number | null>(12);

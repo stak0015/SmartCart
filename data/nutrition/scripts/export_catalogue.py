@@ -1,4 +1,7 @@
-"""Read-only export of the app catalogue for nutrition coverage measurement."""
+"""Read-only export of the app catalogue for nutrition coverage measurement.
+
+Owner: Shun
+"""
 import csv
 import os
 from pathlib import Path

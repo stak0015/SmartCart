@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { PricePoint } from '@/lib/price-history';
 import type { Locale } from '@/lib/i18n';

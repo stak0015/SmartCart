@@ -1,4 +1,7 @@
-"""Validated request and response contracts shared by FastAPI endpoints."""
+"""Validated request and response contracts shared by FastAPI endpoints.
+
+Owners: Shun, Zhihao, Randy
+"""
 
 from datetime import date, datetime
 from typing import Literal
@@ -33,6 +36,10 @@ class SelectedLocation(CamelModel):
 
 
 class TravelLimit(CamelModel):
+    """A distance, time or combined travel limit. 'distance' and 'time' use value; 'both'
+    uses distance_km and time_minutes. Allowed ranges: 0.5-100 km and 5-180 minutes.
+    """
+
     type: TravelLimitType
     # ``value`` remains the wire field for the original distance/time modes.
     # Combined limits use the explicit fields so the UI can preserve both
@@ -79,6 +86,11 @@ class BasketLineRequest(CamelModel):
 
 
 class RecommendationRequest(CamelModel):
+    """Body of POST /recommendations.
+
+    Owners: Shun, Randy
+    """
+
     # An omitted or empty basket keeps transport-first ranking. The bounded
     # list preserves the E2 request contract and prevents oversized queries.
     basket: list[BasketLineRequest] = Field(default_factory=list, max_length=100)
@@ -159,6 +171,8 @@ class BasketLineDetail(CamelModel):
 
     A valid store observation is preferred, then the cached cross-store
     median. Price fields remain None when neither source is available.
+
+    Owners: Shun, Zhihao
     """
 
     item_id: str
@@ -176,7 +190,10 @@ class BasketLineDetail(CamelModel):
 
 
 class AlternativePriceItem(CamelModel):
-    """One priced item used by the selected-store alternative comparison."""
+    """One priced item used by the selected-store alternative comparison.
+
+    Owners: Shun, Zhihao
+    """
 
     item_id: str
     item_name: str | None
@@ -201,7 +218,10 @@ class PackSizeOption(CamelModel):
     """One pack size of the same product family priced at the selected store
     (AC 3.2.1). price_per_unit_rm is display-rounded to sen; ordering and the
     best-value pick use full precision server-side. unit_kind is 'KG' or 'L';
-    KG and L families never mix in one comparison."""
+    KG and L families never mix in one comparison.
+
+    Owners: Zhihao, Shun
+    """
 
     item_id: str
     item_name: str | None
@@ -215,11 +235,11 @@ class PackSizeOption(CamelModel):
     sara_eligible: bool | None = None
     sara_category_candidate: bool = False
     is_sara_credit_candidate: bool = False
-    # AC 3.2.2: true for exactly one option per comparison — the cheapest
+    # AC 3.2.3 (Best unit value): true for exactly one option per comparison — the cheapest
     # unit price at full precision (ties: newest observed price, then name,
     # then item id).
     is_best_value: bool = False
-    # AC 3.2.3: trade-off versus the Best value option, computed server-side
+    # AC 3.2.5: trade-off versus the Best value option, computed server-side
     # in Decimal (total-price difference and unit-price difference). Both are
     # null on the Best value card itself, which the client labels as the
     # baseline of the comparison.
@@ -268,6 +288,12 @@ class TravelCostBreakdown(CamelModel):
 
 
 class StoreRecommendation(CamelModel):
+    """One ranked store: route, travel cost, basket pricing and coverage, SARA credit/cash
+    split and limit status.
+
+    Owners: Shun, Zhihao
+    """
+
     premise_id: str
     premise_code: str
     name: str
@@ -303,18 +329,19 @@ class StoreRecommendation(CamelModel):
     priced_count: int | None = None
     basket_line_count: int | None = None
     # SARA Credit / Cash Needed split of the displayed subtotal
-    # (AC 2.3.7/2.3.8). Candidate-based estimate (item flag verified first,
+    # (AC 2.3.8). Candidate-based estimate (item flag verified first,
     # then official SARA category list); both are None whenever the subtotal
     # is unavailable.
     sara_credit_rm: float | None = None
     cash_needed_rm: float | None = None
-    # Combined ranking total (AC 2.3.4/2.3.5): priced basket subtotal plus
+    # Combined ranking total (AC 2.3.4): priced basket subtotal plus
     # estimated return transport cost; null when no basket line has a price.
     combined_total_rm: float | None = None
     # Per-line priced detail behind "View item prices" (AC 2.3.9).
     basket_lines: list[BasketLineDetail] = Field(default_factory=list)
-    # Age in days of the store's oldest directly observed basket-line price
-    # (AC 2.3.5); cached medians never contribute an observation date.
+    # Age in days of the store's oldest directly observed basket-line price;
+    # cached medians never contribute an observation date. Not shown by the
+    # current UI (the stale-price tag was removed).
     price_observed_days_ago: int | None = None
     # True when the store is beyond the shopper's chosen travel limit and was
     # only shown because no store matched inside it (iteration1 feedback: show
@@ -328,6 +355,8 @@ class RouteLeg(CamelModel):
     ``role`` names the segment so the client can explain the journey in order.
     ``cost_rm`` is that segment's own transport cost using the same cost model
     as single-store recommendations; the plan total is their sum.
+
+    Owner: Randy
     """
 
     role: Literal["origin_to_first", "first_to_second", "second_to_origin"]
@@ -346,6 +375,8 @@ class MultiStorePlan(CamelModel):
     so ``first_store_*`` is always visited first. ``inter_store_*`` describes
     only the leg governed by the second-store limits (AC 6.1.4/6.2.1); the
     home legs remain governed by the original travel limit.
+
+    Owner: Randy
     """
 
     first_store_premise_id: str
@@ -368,7 +399,10 @@ class MultiStorePlan(CamelModel):
 
 
 class PlanStoreAssignment(CamelModel):
-    """A basket line assigned to a store, including labelled median estimates."""
+    """A basket line assigned to a store, including labelled median estimates.
+
+    Owners: Shun, Randy
+    """
 
     item_id: str
     item_name: str | None
@@ -392,7 +426,10 @@ class PlanStoreAssignment(CamelModel):
 
 
 class PricedPlan(CamelModel):
-    """A store plan priced using observed prices and median estimates."""
+    """A store plan priced using observed prices and median estimates.
+
+    Owner: Randy
+    """
 
     plan_id: str
     store_count: Literal[1, 2]
@@ -424,31 +461,28 @@ class PricedPlan(CamelModel):
     legs: list[RouteLeg] = Field(default_factory=list)
     # AC 6.2.5 transparency: what the rejected reverse visit order would cost.
     reverse_order_cost_rm: float | None = None
-    # AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
-    # Two-store plans only; None when there is no eligible single-store baseline
-    # (never fabricated as 0). Negative means the split costs more.
-    saving_vs_single_rm: float | None = None
 
 
 class PlanComparison(CamelModel):
-    """AC 6.3: single-store and two-store plans compared by combined cost."""
+    """AC 6.3: single-store and two-store plans compared by combined cost.
+
+    Owner: Randy
+    """
 
     # AC 6.3.3: complete plans, cheapest combined total first.
     complete_plans: list[PricedPlan] = Field(default_factory=list)
-    # AC 6.3.4: plans with at least one unpriced basket line, kept separate so
-    # they are never presented as the cheapest complete option.
+    # Plans with at least one unpriced basket line. The client merges both lists
+    # into one ranking and labels these totals as partial (AC 6.3.3, 6.3.4).
     incomplete_plans: list[PricedPlan] = Field(default_factory=list)
-    # AC 6.3.5: the cheapest complete single-store combined total, used as the
-    # savings baseline. None when no complete single-store plan exists, in which
-    # case no saving is shown for any two-store plan (AC 6.3.6).
-    single_store_baseline_rm: float | None = None
-    single_store_baseline_name: str | None = None
     # Transparency: explains observed prices and labelled median estimates.
     price_basis_note: str
 
 
 class MultiStorePlans(CamelModel):
-    """Two-store planning result for one recommendation request (US 6.2)."""
+    """Two-store planning result for one recommendation request (US 6.2).
+
+    Owner: Randy
+    """
 
     plans: list[MultiStorePlan] = Field(default_factory=list)
     second_store_limit: TravelLimit | None = None
@@ -473,6 +507,10 @@ class MultiStorePlans(CamelModel):
 
 
 class RecommendationResponse(CamelModel):
+    """Ranked stores plus the explanations shown to the shopper (ranking method, cost
+    assumptions, warnings) and optional two-store plans.
+    """
+
     recommendations: list[StoreRecommendation]
     total_candidates_evaluated: int
     total_reachable: int
@@ -510,6 +548,8 @@ class CatalogueItemSummary(CamelModel):
 
     Mirrors the /items/search row shape so the client can open an
     alternative with the same controls as any other catalogue item.
+
+    Owners: Zhihao, Shun
     """
 
     item_id: int
@@ -546,6 +586,8 @@ class NutrientComparison(CamelModel):
     A null value with status "unavailable" means the dataset has no value;
     it is never rendered as zero. "non_comparable" marks a pair whose
     measurement bases are not compatible (AC 7.3.9).
+
+    Owner: Zhihao
     """
 
     nutrient: str
@@ -564,7 +606,10 @@ class AlternativeUse(CamelModel):
 
 
 class HealthierAlternative(CamelModel):
-    """One approved alternative with its supporting nutrition comparison."""
+    """One approved alternative with its supporting nutrition comparison.
+
+    Owners: Zhihao, Shun
+    """
 
     item: CatalogueItemSummary
     rule: str

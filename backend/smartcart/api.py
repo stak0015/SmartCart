@@ -1,4 +1,7 @@
-"""HTTP endpoints for catalogue, location, and store recommendation features."""
+"""HTTP endpoints for catalogue, location, and store recommendation features.
+
+Owners: Shun, Randy, Zhihao
+"""
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -137,6 +140,10 @@ def _store_candidate_snapshot(
     travel: TravelPreferences,
     response: RecommendationResponse,
 ) -> tuple[str, datetime]:
+    """Cache a routed result for 30 minutes and return its opaque ID and expiry. Only a
+    SHA-256 fingerprint of the travel settings is stored with it, so the ID cannot be
+    reused after the shopper changes origin, mode or limits.
+    """
     now = monotonic()
     _prune_candidate_cache(now)
     cache_id = uuid4().hex
@@ -154,6 +161,9 @@ def _get_candidate_snapshot(
     cache_id: str | None,
     travel: TravelPreferences,
 ) -> RecommendationResponse | None:
+    """Return a copy of a cached snapshot, or None when the ID is unknown, expired or was
+    prepared for different travel settings.
+    """
     if not cache_id:
         return None
     now = monotonic()
@@ -169,6 +179,9 @@ def _get_candidate_snapshot(
 
 
 def _priced_ranking_method(route_provider: str, expanded_search: bool) -> str:
+    """Shopper-facing explanation of the ranking used when a cached snapshot is re-priced
+    with a basket.
+    """
     if expanded_search:
         return (
             "No store matched your travel limit, so the nearest stores are shown instead. "
@@ -229,6 +242,11 @@ def search_items(
     sort: Literal["price_asc", "price_desc", "name_asc", "name_desc"] = "price_asc",
     locale: Literal["en", "ms"] = "en",
 ) -> dict[str, object]:
+    """Catalogue search (US 1.1, 1.2, 2.5). Validates broad category IDs, then filters,
+    sorts and pages the catalogue. With a valid candidate_cache_id, price sorting and
+    price ranges use the 25 nearest cached stores. Without one, price sorting uses each
+    item's cached median and no price ranges are returned.
+    """
     selected_categories = [value.strip() for value in category if value.strip()]
     if any(category_id not in CATEGORIES_BY_ID for category_id in selected_categories):
         raise AppError(
@@ -271,8 +289,13 @@ def healthier_alternatives_endpoint(
     item_code: str = Path(min_length=1, max_length=64),
     candidate_cache_id: str | None = None,
 ) -> HealthierAlternativesResponse:
-    # AC 7.1.5: a failing lookup is reported by the client as an unavailable
-    # section; the endpoint itself only ever returns approved mappings.
+    """Approved healthier alternatives for one item (US 7.1). An optional
+    candidate_cache_id adds nearby price ranges to each alternative card.
+
+    Owners: Shun, Zhihao
+    """
+    # AC 7.1.5: if this lookup fails the client hides the section; the
+    # endpoint itself only ever returns approved mappings.
     _prune_candidate_cache(monotonic())
     snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
     stores = (
@@ -309,6 +332,9 @@ def list_categories() -> dict[str, object]:
 async def autocomplete_location(
     query: str = "", sessionToken: str = ""  # noqa: N803 - public API is camelCase
 ) -> LocationSearchResponse:
+    """Malaysia-restricted Google Places suggestions. The key stays server-side; the
+    session token groups calls for Google billing.
+    """
     query = query.strip()
     session_token = sessionToken.strip()
     if not 3 <= len(query) <= 160:
@@ -356,6 +382,9 @@ async def basket_alternatives(
     payload: BasketAlternativesRequest,
     premise_id: int = Path(ge=1, le=2**63 - 1),
 ) -> BasketAlternativesResponse:
+    """Cheaper equivalents and pack-size options for every basket line at one open store
+    (Epic 3). Returns 404 when the store is unknown or not open.
+    """
     premise_found, lines, pack_options = await run_in_threadpool(
         _load_basket_alternatives,
         str(premise_id),
@@ -428,6 +457,8 @@ async def _build_multi_store_plans(
     When Routes is unavailable, use explicitly labelled straight-line estimates
     with the same speed and cost model as single-store recommendations.
     Both travel limits still apply to these estimates.
+
+    Owners: Randy, Shun
     """
     if payload.second_store_limit is None:
         return None
@@ -581,6 +612,9 @@ async def _build_multi_store_plans(
 
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
+    """Public entry point for store ranking. Any Google Maps failure is retried once with
+    the straight-line fallback so the shopper still gets results.
+    """
     try:
         return await _recommend_stores(payload)
     except AppError as error:
@@ -594,6 +628,15 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
 async def _recommend_stores(
     payload: RecommendationRequest, *, routes_unavailable: bool = False,
 ) -> RecommendationResponse:
+    """Rank stores for one request (Epics 2 and 6). Reuses a prepared snapshot when
+    possible; otherwise finds open candidates, routes them (or uses the straight-line
+    fallback), costs travel, prices the basket and ranks by combined total. If no store
+    is inside the travel limit, the nearest stores are returned flagged exceedsLimit.
+    Two-store plans are added when a second-store limit is sent. See
+    docs/04-backend/store-recommendation.md.
+
+    Owners: Shun, Zhihao
+    """
     settings = get_settings()
     travel = payload.travel
     # A cached snapshot is prepared without a second-store limit, so its
@@ -841,6 +884,11 @@ async def _read_report_body(request: Request) -> tuple[bytes | None, int]:
     },
 )
 async def generate_report_endpoint(request: Request) -> GeneratedReport:
+    """Generate one weekly or monthly report (US 8.5). The body is size-checked before
+    parsing, validated, passed through the injected rate-limit hook and built by
+    reporting.generate_report. Only metadata (counts, timings, outcome) is logged; the
+    request and the report are never stored.
+    """
     request_id = uuid4().hex
     started = perf_counter()
     outcome = "invalid_request"

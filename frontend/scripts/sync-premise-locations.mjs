@@ -1,3 +1,4 @@
+// Owner: Shun | Contributors: Zhihao
 import pg from "pg";
 
 const { Pool } = pg;

@@ -1,4 +1,5 @@
 "use client";
+// Owners: Zhihao, Shun
 
 import type { ReactNode } from "react";
 import { UIIcon } from "./ui-icon";
@@ -60,6 +61,10 @@ function valueText(row: InsightRow, value: string | null, copy: AppCopy): string
   return value ?? statusText(row, copy) ?? copy.insightUnavailable;
 }
 
+/**
+ * 'Why this alternative?' comparison (US 7.3): both items, sources, generic-food disclosure and
+ * the nutrient table.
+ */
 export function HealthierInsightPanel({
   alternative,
   originalName,
@@ -140,6 +145,10 @@ export function HealthierInsightPanel({
   );
 }
 
+/**
+ * Healthier alternative cards below item details (US 7.1); each card opens the item or its
+ * comparison.
+ */
 export function HealthierAlternativesSection({
   loading,
   result,

@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun | Contributors: Zhihao
 
 import type { ItemNutritionResult } from "@/lib/api";
 
@@ -39,6 +40,7 @@ function nutrientLabel(key: string, locale: "en" | "ms"): { label: string; unit:
   return { label: key.replace(/_/g, " "), unit: "" };
 }
 
+/** Nutrition values for the open item (US 7.4), with source and generic-food disclosure. */
 export function ItemNutritionSection({
   loading,
   result,

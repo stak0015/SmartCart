@@ -1,4 +1,7 @@
-"""Explain every curated recommendation's outcome against shared nutrition."""
+"""Explain every curated recommendation's outcome against shared nutrition.
+
+Owner: Shun
+"""
 import json
 import sys
 from collections import Counter

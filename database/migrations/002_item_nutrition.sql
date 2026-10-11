@@ -1,3 +1,4 @@
+-- Owner: Shun
 -- A stable surrogate key permits a direct item foreign key while retaining
 -- current/legacy source namespaces whose publisher food IDs overlap.
 ALTER TABLE nutrition_food ADD COLUMN IF NOT EXISTS nutrition_id BIGSERIAL;

@@ -11,6 +11,8 @@ Usage (from the repository root)::
 
 The download step is optional once the two archives exist in ``raw``.  Raw ZIPs
 are retained so that the generated JSON can be recreated and audited later.
+
+Owner: Shun
 """
 
 from __future__ import annotations

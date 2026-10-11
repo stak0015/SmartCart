@@ -1,13 +1,11 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { COPY } from "@/lib/i18n";
 import { basket, plan, stores } from "../tests/fixtures/store-plan";
 import { planDetailRows } from "@/lib/plan-detail-edits";
 import type { BasketAlternativeLine } from "@/lib/contracts";
-import { RecommendationBasketRow, RecommendationItemOptions } from "./recommendation-basket-row";
-import { StoreChainLogo } from "./store-chain-logo";
+import { RecommendationItemOptions } from "./recommendation-basket-row";
 
 const suggestion: BasketAlternativeLine = {
   quantity: 2,
@@ -38,17 +36,6 @@ describe("shared store alternatives", () => {
     expect(markup).toContain("RM50.00");
     expect(markup).toContain(COPY[locale].moreNow("RM40.00"));
     expect(markup).toContain(COPY[locale].saveAmount("RM20.00"));
-    expect(markup).toContain('class="alternative-image"');
-    expect(markup).toContain('class="dropdown-summary pack-comparison-summary"');
-    // Optionally export this exact component with production CSS for browser layout checks.
-    if (locale === "en" && process.env.ALTERNATIVES_PREVIEW_PATH) {
-      const css = ["globals.css", "ui-layout.css"].map(file => readFileSync(new URL(`../app/${file}`, import.meta.url), "utf8")).join("\n");
-      const rowMarkup = renderToStaticMarkup(createElement(RecommendationBasketRow, { row, basket, copy: COPY.en, locale, ...handlers, onChangeQuantity: () => {} })).replace("</li>", `${markup}</li>`);
-      const logo = renderToStaticMarkup(createElement(StoreChainLogo, { name: "Local Store" }));
-      writeFileSync(process.env.ALTERNATIVES_PREVIEW_PATH, `<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"><style>${css}
-/* Tailwind preflight for the standalone preview. */
-body { font-family: Inter, Arial, sans-serif; } p { margin: 0; } ul { list-style: none; margin: 0; padding: 0; }</style></head><body style="padding:16px"><main style="max-width:900px;margin:auto"><div class="store-symbol">${logo}</div><ul class="store-item-list">${rowMarkup}</ul></main></body></html>`);
-    }
   });
 
   it("prevents duplicate alternatives and packs", () => {

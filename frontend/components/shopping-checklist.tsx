@@ -1,4 +1,5 @@
 "use client";
+// Owners: Shun, Zhihao
 
 import {
   useEffect,
@@ -59,14 +60,12 @@ export interface ShoppingChecklistCopy {
   startOrResumeShoppingTrip: string;
   checklistTitle: string;
   checklistItems: string;
-  checklistStore: (store: string) => string;
   checklistProgress: (bought: number, total: number) => string;
   plannedSubtotal: string;
   estimatedPlannedSubtotal: string;
   checklistPriceDisclosure: (count: number) => string;
   checklistQuantity: string;
   checklistUnitPrice: string;
-  checklistLineTotal: string;
   checklistPriceUnavailable: string;
   checklistPriceEstimate: string;
   manualItem: string;
@@ -74,12 +73,10 @@ export interface ShoppingChecklistCopy {
   notBought: string;
   markBought: (name: string) => string;
   markNotBought: (name: string) => string;
-  clearItemStatus: (name: string) => string;
   addChecklistItem: string;
   editChecklistItem: string;
   itemName: string;
   itemQuantity: string;
-  itemUnitPrice: string;
   itemNameRequired: string;
   itemQuantityError: string;
   itemPriceError: string;
@@ -102,12 +99,10 @@ export interface ShoppingChecklistCopy {
   recordTrip: string;
   recordTripConfirm: string;
   recordTripAgain: string;
-  tripRecorded: string;
   exportChecklist: string;
   exportChecklistIntro: string;
   downloadAsImage: string;
   downloadAsPdf: string;
-  exportChecklistEmpty: string;
   exportChecklistFailed: string;
   close: string;
 }
@@ -591,6 +586,7 @@ function ChecklistRow({ item, locale, copy, saved, hideImage = false, onToggleBo
   </li>;
 }
 
+/** Week picker used when scheduling an item into Planned items. */
 export function PlannedWeekDialog({ item, locale, onSave, onCancel }: {
   item: NextTripItem; locale: "en" | "ms"; onSave: (week: string) => void; onCancel: () => void;
 }) {
@@ -617,6 +613,7 @@ export function PlannedWeekDialog({ item, locale, onSave, onCancel }: {
   </dialog>;
 }
 
+/** Planned items list (Home and checklist): select items to plan a trip, schedule or remove them. */
 export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, title, onSchedule, variant = "list" }: {
   items: NextTripItem[]; locale: "en" | "ms"; copy: ShoppingChecklistCopy;
   title?: string; variant?: "list" | "week"; onSchedule?: (item: NextTripItem) => void;
@@ -761,6 +758,12 @@ function ChecklistStoreFilter({ value, options, onChange, locale }: {
   </div>;
 }
 
+/**
+ * Active checklist: tick bought/not bought, edit or add lines, enter tolls, export, schedule
+ * unbought items and record the trip.
+ *
+ * Owners: Shun, Zhihao
+ */
 export function ShoppingChecklistScreen({
   checklist,
   locale,
@@ -821,7 +824,7 @@ export function ShoppingChecklistScreen({
   const [itemFilter, setItemFilter] = useState<"all" | "bought" | "not_bought">("all");
   const closeManualDialog = () => setManualDialog({ open: false, item: null });
 
-  // AC 5.7.4: export generation is fully on-device. The sheet renders the
+  // AC 5.7.5: export generation is fully on-device. The sheet renders the
   // privacy-bounded export model (AC 5.7.3) off-screen; PNG goes through
   // html-to-image, PDF through the print stylesheet + window.print(). A
   // failure surfaces a recoverable error in the dialog and leaves the

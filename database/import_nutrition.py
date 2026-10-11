@@ -4,6 +4,8 @@ Item references and mapping metadata are imported onto existing item rows.
 Alternative rules and comparison policy stay in files/scripts.
 Credentials come from the environment or an ignored dotenv file, not CLI args.
 The import, prototype-table cleanup and exact parity check are transactional.
+
+Owner: Shun
 """
 from __future__ import annotations
 import argparse

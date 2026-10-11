@@ -4,7 +4,6 @@ import type { HealthierAlternative, HealthierAlternativesResult } from "./api";
 import {
   alternativeCards,
   betterSide,
-  improvedRows,
   insightRows,
   nutrientPreference,
   tradeOffRows,
@@ -126,7 +125,6 @@ describe("formatNutrientValue", () => {
   });
 });
 
-
 function withNutrients(rows: HealthierAlternative["nutrients"]): HealthierAlternative {
   return alternative({ nutrients: rows, comparison_nutrient: "fat_g" });
 }
@@ -203,7 +201,7 @@ describe("insightRows", () => {
   });
 });
 
-describe("tradeOffRows and improvedRows", () => {
+describe("tradeOffRows", () => {
   const rows = [
     ROW("fat_g", "Total fat", "g", 8.9, 2.6),
     ROW("saturated_fat_g", "Saturated fat", "g", 1.0, 2.0),
@@ -215,8 +213,4 @@ describe("tradeOffRows and improvedRows", () => {
     expect(tradeOffs.map((r) => r.nutrient)).toEqual(["saturated_fat_g"]);
   });
 
-  it("lists the nutrients the recommendation actually improves", () => {
-    const improved = improvedRows(withNutrients(rows));
-    expect(improved.map((r) => r.nutrient)).toEqual(["fat_g"]);
-  });
 });

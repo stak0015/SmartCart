@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+// Owner: Shun
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const path = require('node:path');

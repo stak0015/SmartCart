@@ -1,3 +1,4 @@
+// Owner: Shun | Contributors: Zhihao
 import { isPlannedWeek, plannedWeekOptions } from "./planned-week";
 import type { BasketItem } from "./basket-state";
 import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory, type PriceSource } from "./contracts";
@@ -40,6 +41,11 @@ export function nextTripItemId(item: Pick<ChecklistItem, "id" | "catalogueItemId
   return item.catalogueItemId == null ? item.id : `catalogue:${item.catalogueItemId}`;
 }
 
+/**
+ * Save an unbought checklist line to Planned items. Only identity and quantity are kept (no price,
+ * store or outcome); saving the same item again updates the existing entry and keeps its week
+ * unless a new one is given.
+ */
 export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem, plannedWeek?: string | null): NextTripItem[] {
   if (item.status === "bought") return saved;
   const entry: NextTripItem = {
@@ -75,6 +81,10 @@ export function serializeNextTrip(items: NextTripItem[]): string {
   return JSON.stringify({ version: NEXT_TRIP_VERSION, items });
 }
 
+/**
+ * Read Planned items from device storage, migrating older versions and dropping invalid entries;
+ * returns an empty list on any error.
+ */
 export function parseNextTrip(serialized: string | null): NextTripItem[] {
   try {
     const value: unknown = JSON.parse(serialized ?? "null");

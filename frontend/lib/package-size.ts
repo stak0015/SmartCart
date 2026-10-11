@@ -1,3 +1,4 @@
+// Owner: Shun
 export type PackageSizeLocale = "en" | "ms";
 
 const ENGLISH_PORTION_LABELS: Record<string, string> = {

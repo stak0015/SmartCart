@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 
 import Image from "next/image";
 import { useEffect, useState } from "react";

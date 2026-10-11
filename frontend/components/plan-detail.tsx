@@ -1,4 +1,5 @@
 "use client";
+// Owners: Shun, Randy
 
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { BasketAlternativeLine, PricedPlan, StoreRecommendation, TravelLimit, SelectedLocation, TransportMode } from "@/lib/contracts";
@@ -23,6 +24,10 @@ import { DropdownChevron, UIIcon } from "./ui-icon";
 import { RecommendationBasketRow } from "./recommendation-basket-row";
 import { ConfirmationDialog } from "./shopping-checklist";
 
+/**
+ * Details of a single- or two-store plan (US 6.4): route legs, items grouped by store, editing and
+ * saving as a checklist.
+ */
 export function PlanDetailView({ plan: originalPlan, stores, basket, onSetBasket, secondStoreLimit, copy, locale, isEstimate = false, activeChecklist, onCreateChecklist, onBack, origin, transportMode = "car", comparisonOptions = [] }: {
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
   comparisonOptions?: StorePlanOption[];

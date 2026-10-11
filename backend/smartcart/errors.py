@@ -1,4 +1,7 @@
-"""Stable public API errors without leaking provider or database details."""
+"""Stable public API errors without leaking provider or database details.
+
+Owner: Shun
+"""
 
 import logging
 
@@ -25,6 +28,10 @@ def _response(error: AppError) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    """Map AppError, request-validation errors and unexpected exceptions to the public
+    error envelope. Validation errors become fixed messages so request content is never
+    echoed back.
+    """
     @app.exception_handler(AppError)
     async def handle_app_error(_request: Request, error: AppError) -> JSONResponse:
         return _response(error)

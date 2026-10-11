@@ -1,4 +1,7 @@
-"""Transparent category comparison of approved substitutes, not a health score."""
+"""Transparent category comparison of approved substitutes, not a health score.
+
+Owner: Shun
+"""
 import json
 from pathlib import Path
 

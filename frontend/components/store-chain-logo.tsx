@@ -1,3 +1,4 @@
+// Owner: Shun
 import Image from "next/image";
 import svgPathsCompare from "./icons/compare";
 

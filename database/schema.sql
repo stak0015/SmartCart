@@ -1,3 +1,4 @@
+-- Owner: Shun | Contributors: Zhihao
 BEGIN;
 
 CREATE TABLE IF NOT EXISTS item (

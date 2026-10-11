@@ -1,13 +1,10 @@
-from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 
 from smartcart.categories import category_for_raw
 from smartcart.models import BasketLineRequest, StoreRecommendation
 from smartcart.pricing import (
-    PRICE_FRESHNESS_THRESHOLD_DAYS,
     StoreBasketSummary,
-    get_basket_prices_for_premises,
     summarize_basket_prices,
 )
 from smartcart.recommendation import apply_basket_pricing
@@ -182,20 +179,6 @@ def test_days_ago_uses_oldest_priced_basket_line() -> None:
     assert summary.price_observed_days_ago == 241
 
 
-def test_days_ago_threshold_boundary() -> None:
-    assert PRICE_FRESHNESS_THRESHOLD_DAYS == 7
-    for observed, expected in (
-        (date(2026, 8, 23), 7),  # exactly at the threshold: no warning
-        (date(2026, 8, 22), 8),  # one day past it: warning shows
-    ):
-        rows = [(1, 10, 1, "Beras", "5kg", Decimal("5.00"), None, "BERAS", observed)]
-        summary = summarize_basket_prices(rows, today=TODAY)["1"]
-        assert summary.price_observed_days_ago == expected
-        assert (summary.price_observed_days_ago > PRICE_FRESHNESS_THRESHOLD_DAYS) is (
-            expected > 7
-        )
-
-
 def test_incomplete_store_still_reports_price_age() -> None:
     rows = [
         (1, 10, 1, "Beras", "5kg", Decimal("5.00"), None, "BERAS", STALE),
@@ -305,102 +288,6 @@ class FakeCursor:
             (1, 10, "Item with price", "500g", 2, Decimal("3.25"), date(2026, 8, 20)),
             (1, 11, "Item without price", "1kg", 1, None, None),
         ]
-
-
-def test_e2_item_price_adapter_preserves_priced_and_missing_lines(monkeypatch) -> None:
-    cursor = FakeCursor()
-
-    @contextmanager
-    def fake_database_cursor():
-        yield cursor
-
-    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
-    result = get_basket_prices_for_premises(
-        premise_ids=["1"],
-        basket=[
-            BasketLineRequest(item_id=10, quantity=2),
-            BasketLineRequest(item_id=11, quantity=1),
-        ],
-    )
-
-    assert cursor.parameters == ([10, 11], [2, 1], [1])
-    assert result["1"][0].unit_price_rm == 3.25
-    assert result["1"][0].line_total_rm == 6.5
-    assert result["1"][0].price_observed_date == date(2026, 8, 20)
-    assert result["1"][1].unit_price_rm is None
-    assert result["1"][1].line_total_rm is None
-
-
-def test_e2_item_price_adapter_uses_median_without_store_observation(monkeypatch) -> None:
-    class MedianCursor:
-        def __init__(self) -> None:
-            self.parameters = None
-
-        def execute(self, _query, parameters) -> None:
-            self.parameters = parameters
-
-        def fetchall(self):
-            return [
-                (
-                    1,
-                    10,
-                    "Item with median",
-                    "Item EN",
-                    "1kg",
-                    2,
-                    None,
-                    Decimal("3.25"),
-                    None,
-                )
-            ]
-
-    cursor = MedianCursor()
-
-    @contextmanager
-    def fake_database_cursor():
-        yield cursor
-
-    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
-    result = get_basket_prices_for_premises(
-        premise_ids=["1"],
-        basket=[BasketLineRequest(item_id=10, quantity=2)],
-    )
-
-    assert result["1"][0].unit_price_rm == 3.25
-    assert result["1"][0].line_total_rm == 6.5
-    assert result["1"][0].price_source == "median"
-    assert result["1"][0].price_observed_date is None
-
-
-def test_current_item_price_query_carries_broad_category(monkeypatch) -> None:
-    class CurrentCursor:
-        def execute(self, query, _parameters) -> None:
-            assert "item.item_category" in query
-
-        def fetchall(self):
-            return [(
-                1, 10, "Stationery", "Stationery EN", "1 pack", 2,
-                Decimal("4.00"), None, FRESH, "ALAT TULIS DAN BAHAN BACAAN",
-                "Stationery", "Alat Tulis",
-            )]
-
-    cursor = CurrentCursor()
-
-    @contextmanager
-    def fake_database_cursor():
-        yield cursor
-
-    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
-    prices = get_basket_prices_for_premises(
-        premise_ids=["1"], basket=[BasketLineRequest(item_id=10, quantity=2)],
-    )
-
-    assert prices["1"][0].category == category_for_raw("ALAT TULIS DAN BAHAN BACAAN")
-    assert prices["1"][0].source_category.model_dump(by_alias=True) == {
-        "id": "ALAT TULIS DAN BAHAN BACAAN",
-        "labelEn": "Stationery",
-        "labelMs": "Alat Tulis",
-    }
 
 
 def test_category_propagates_without_changing_raw_sara_candidacy() -> None:

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { plan, stores } from "../tests/fixtures/store-plan";
 import { rankedStorePlanOptions } from "./multi-store";
-const comparison = { completePlans: [plan], incompletePlans: [], singleStoreBaselineRm: 67, singleStoreBaselineName: stores[0].name, priceBasisNote: "" };
+const comparison = { completePlans: [plan], incompletePlans: [], priceBasisNote: "" };
 
 describe("unified store options", () => {
   it("mixes single and two-store options in the same price ranking without duplicates", () => {

@@ -6,6 +6,8 @@ USDA FoodData Central (``usda:<fdcId>``) or AFCD (``afcd:<source_code>``)
 records imported into this research directory.  The output deliberately leaves
 uncertain species, preparation states, multi-ingredient products and non-foods
 unmatched.
+
+Owner: Shun
 """
 
 from __future__ import annotations

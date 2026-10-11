@@ -4,6 +4,8 @@ English item names are imported with the PriceCatcher ``lookup_item`` row and
 stored on ``item.item_name_en``. The official ``item.item_name`` value remains
 the Malay/original fallback. Category labels are still optional additive data
 because the lookup feed has no translated category column.
+
+Owner: Shun
 """
 
 from __future__ import annotations

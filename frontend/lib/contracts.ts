@@ -1,3 +1,4 @@
+// Owners: Shun, Randy, Zhihao
 export type TransportMode = "walk" | "public_transport" | "motorcycle" | "car";
 export type TravelLimitType = "distance" | "time" | "both";
 export type SaraFilter = "any" | "candidate" | "verified";
@@ -111,10 +112,8 @@ export interface RecommendationRequest {
   basket?: BasketLineRequest[];
   travel: TravelPreferencesRequest;
   candidateCacheId?: string;
-  // US 6.1: the limit applied to the first-store → second-store leg. US 6.1 only
-  // configures and forwards it; the two-store plan calculation that consumes it
-  // is US 6.2/6.3. The backend ignores unknown fields, so sending this before
-  // that work lands is safe and keeps the wiring testable now.
+  // US 6.1: the limit applied to the first-store → second-store leg. Omit it
+  // for single-store results; sending it turns on two-store plans (US 6.2/6.3).
   secondStoreLimit?: TravelLimit;
 }
 
@@ -150,8 +149,8 @@ export interface ReverseLocationResponse {
 
 export type SaraStoreStatus = "verified" | "candidate" | "unverified";
 // A median price is a cached cross-store estimate, not a price observed at the
-// selected store. Optional fields keep older API snapshots readable while the
-// recommendation API rolls out the explicit source metadata.
+// selected store. Optional so older saved snapshots without the source
+// metadata stay readable.
 export type PriceSource = "store" | "median";
 
 export interface BasketItemPrice {
@@ -226,10 +225,10 @@ export interface PackSizeOption {
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
-  // AC 3.2.2: exactly one option per comparison carries the "Best value"
+  // AC 3.2.3: exactly one option per comparison carries the "Best value"
   // label (lowest unit price, deterministic tie-break).
   isBestValue?: boolean;
-  // AC 3.2.3: signed trade-off versus the Best value option (total-price and
+  // AC 3.2.5: signed trade-off versus the Best value option (total-price and
   // unit-price differences), computed server-side; null on the Best value
   // card itself, which the UI marks as the comparison baseline.
   upfrontDiffRm?: number | null;
@@ -299,12 +298,12 @@ export interface StoreRecommendation {
   // Effective priced-item coverage ("X of N items priced"); null without a basket.
   pricedCount: number | null;
   basketLineCount: number | null;
-  // SARA Credit / Cash Needed split of the displayed subtotal (AC 2.3.7/2.3.8);
+  // SARA Credit / Cash Needed split of the displayed subtotal (AC 2.3.8);
   // candidate-based estimate, both null whenever the subtotal is unavailable.
   saraCreditRm: number | null;
   cashNeededRm: number | null;
-  // Age in days of the store's oldest basket-line price (AC 2.3.5); null
-  // when no basket line is priced at that store (or no basket was sent).
+  // Age in days of the store's oldest basket-line price; null when no basket
+  // line is priced at that store. Not shown by the current UI.
   priceObservedDaysAgo: number | null;
   // Priced basket subtotal plus return transport cost, including partial baskets.
   // Null when no line has a store or median price; unresolved prices never
@@ -381,9 +380,9 @@ export type MultiStoreEmptyReason =
   | "straight_line_fallback_unsupported";
 
 /** One basket line assigned to a store inside a two-store plan (AC 6.3.1).
- * The full quantity always lands on a single store — never split. Prices here
- * are official store observations only; cached medians are excluded so that
- * single-store and two-store totals share one basis. */
+ * The full quantity always lands on a single store — never split. A store
+ * price is preferred; a labelled median estimate is used only when neither
+ * store has one (priceSource says which). */
 export interface PlanStoreAssignment {
   itemId: string;
   itemName: string | null;
@@ -417,8 +416,8 @@ export interface PricedPlan {
   transportCostRm: number;
   // AC 6.3.2: subtotal + transport.
   combinedTotalRm: number | null;
-  // AC 6.3.4: false when any requested line lacks an official price at the
-  // assigned store(s); such a plan is never presented as the cheapest.
+  // False when any requested line has neither a store price nor a median
+  // estimate; its totals are then labelled partial (AC 6.3.4).
   isComplete: boolean;
   pricedLineCount: number;
   basketLineCount: number;
@@ -434,22 +433,15 @@ export interface PricedPlan {
   legs: RouteLeg[];
   // AC 6.2.5 transparency: what the rejected reverse visit order would cost.
   reverseOrderCostRm: number | null;
-  // AC 6.3.5/6.3.6: saving versus the cheapest COMPLETE single-store plan.
-  // Null whenever no such baseline exists — never fabricated as 0. Negative
-  // means splitting costs more than the best single store.
-  savingVsSingleRm: number | null;
 }
 
 /** AC 6.3: single-store and two-store plans compared by combined cost. */
 export interface PlanComparison {
   // AC 6.3.3: complete plans, cheapest combined total first.
   completePlans: PricedPlan[];
-  // AC 6.3.4: kept separate so they cannot be mistaken for the cheapest option.
+  // Plans with unpriced lines. rankedStorePlanOptions merges both lists into one ranking.
   incompletePlans: PricedPlan[];
-  // AC 6.3.5 baseline; null means no saving is shown at all (AC 6.3.6).
-  singleStoreBaselineRm: number | null;
-  singleStoreBaselineName: string | null;
-  // Discloses that the comparison uses official store prices only.
+  // Discloses that store prices are used where available and medians otherwise.
   priceBasisNote: string;
 }
 

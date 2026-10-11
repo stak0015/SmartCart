@@ -1,3 +1,4 @@
+// Owner: Shun | Contributors: Randy
 import type { ReactNode } from "react";
 import type { RecommendationDetailPrice } from "@/lib/recommendation-detail";
 import { categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";

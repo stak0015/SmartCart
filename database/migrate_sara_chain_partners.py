@@ -2,6 +2,8 @@
 
 Default is a read-only preview. --apply writes an audit with previous flags and
 promotes matching premises. Existing verification and candidate flags are kept.
+
+Owner: Shun
 """
 from __future__ import annotations
 

@@ -8,6 +8,8 @@ postcode.
 
 This script writes raw CSV/Parquet/JSON artifacts only. It does not update
 PostgreSQL. The cache makes the batch resumable after an interruption.
+
+Owner: Shun
 """
 
 from __future__ import annotations

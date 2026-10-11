@@ -3,6 +3,8 @@
 Run from the repository root after the source imports and mapping review.
 No fuzzy candidate is promoted here. All selected profiles must contain the
 four core measurements on an explicit comparison basis.
+
+Owner: Shun
 """
 import argparse
 import csv

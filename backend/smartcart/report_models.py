@@ -1,4 +1,7 @@
-"""Strict request and response contracts for stateless report generation."""
+"""Strict request and response contracts for stateless report generation.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { BasketItem, BasketItemBase } from "./basket-state";
 import { isItemCategory, isSourceCategory, type SelectedLocation, type StoreRecommendation, type TransportMode, type TravelLimitType, type SaraFilter } from "./contracts";
 import { parseNextTrip, serializeNextTrip, type NextTripItem } from "./next-trip";
@@ -82,6 +83,10 @@ export function serializeShoppingSession(session: ShoppingSession): string {
   return JSON.stringify({ ...session, version: 1, savedItemsToUse: serializeNextTrip(session.savedItemsToUse) });
 }
 
+/**
+ * Restore the in-progress trip (basket, travel preferences including origin, resume step, selected
+ * store) after a reload; null when missing or invalid.
+ */
 export function parseShoppingSession(serialized: string | null): ShoppingSession | null {
   try {
     const value: unknown = JSON.parse(serialized ?? "null");

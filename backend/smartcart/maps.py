@@ -1,4 +1,7 @@
-"""Google Places and Routes API adapter."""
+"""Google Places and Routes API adapter.
+
+Owners: Shun, Randy | Contributors: Zhihao
+"""
 
 from dataclasses import dataclass
 import asyncio
@@ -57,6 +60,9 @@ def _parse_duration_seconds(duration: object) -> float | None:
 
 
 def _parse_transit_fare_rm(element: object) -> float | None:
+    """Google's transit fare for one route element in RM, or None when absent or not in
+    MYR.
+    """
     if not isinstance(element, dict):
         return None
     advisory = element.get("travelAdvisory")
@@ -75,7 +81,17 @@ def _parse_transit_fare_rm(element: object) -> float | None:
 
 
 class GoogleMapsProvider:
+    """Thin Google Maps Platform client for Places (New), Routes and Geocoding. Each
+    service uses its own server-side key; provider errors become MAPS_UNAVAILABLE
+    without exposing details to clients.
+    """
+
     def _api_key_for(self, service: str) -> str:
+        """Key for 'places', 'routes' or 'geocoding'; MAPS_NOT_CONFIGURED (503) when it is
+        missing.
+
+        Owners: Zhihao, Shun
+        """
         settings = get_settings()
         api_key = (
             settings.google_places_api_key
@@ -108,6 +124,9 @@ class GoogleMapsProvider:
         *,
         json: dict[str, Any] | None = None,
     ) -> Any:
+        """Send one JSON request in a worker thread with the configured timeout and field
+        mask, returning the decoded body.
+        """
         def send_request() -> Any:
             body = json_module.dumps(json).encode("utf-8") if json is not None else None
             request = Request(
@@ -137,6 +156,9 @@ class GoogleMapsProvider:
     async def autocomplete(
         self, input_value: str, session_token: str
     ) -> list[LocationSuggestion]:
+        """Malaysia-restricted place suggestions; predictions without a place ID or text
+        are dropped.
+        """
         body = await self._request(
             "POST",
             f"{PLACES_BASE_URL}/places:autocomplete",
@@ -182,6 +204,9 @@ class GoogleMapsProvider:
     async def resolve_place(
         self, place_id: str, session_token: str
     ) -> ResolvedLocation:
+        """Place ID to formatted address and coordinates. Raises LOCATION_NOT_RESOLVED
+        (422) when any of them is missing.
+        """
         query = urlencode({"sessionToken": session_token})
         response = await self._request(
             "GET",
@@ -267,6 +292,10 @@ class GoogleMapsProvider:
         destination_place_ids: list[str],
         mode: TransportMode,
     ) -> list[RouteMatrixResult]:
+        """One-way routes from the origin to up to 49 place IDs. Only elements with an
+        existing route and complete distance and duration are returned, so callers never
+        receive an estimated leg. Transit requests also return Google's fare.
+        """
         if not destination_place_ids:
             return []
         if len(destination_place_ids) > 49:
@@ -348,6 +377,8 @@ class GoogleMapsProvider:
         distance (AC 6.2.7). Google caps one request at 25 origins x 25
         destinations (625 elements), so larger combinations are sent in
         origin batches and the results concatenated.
+
+        Owners: Shun, Randy
         """
         if not origin_place_ids or not destination_place_ids:
             return []

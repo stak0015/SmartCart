@@ -1,3 +1,4 @@
+-- Owner: Shun
 -- One table holds publisher nutrient data and its source provenance.
 -- Namespaces preserve different current/legacy records with overlapping IDs.
 CREATE TABLE IF NOT EXISTS nutrition_food (

@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
+// Owner: Shun
 // Real snapshot API; only the catalogue shell is a fixture.
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');

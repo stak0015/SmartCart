@@ -7,6 +7,8 @@ set of monthly source archives is retained locally after a successful run.
 
 Use ``--month`` without a value for the lighter daily refresh of the growing
 current-month file, or supply ``--month YYYY-MM`` for a specific month.
+
+Owner: Shun | Contributors: Zhihao
 """
 
 from __future__ import annotations
@@ -68,7 +70,7 @@ PREMISE_DATABASE_ENRICHMENT_COLUMNS = [
     "sara_match_candidate",
 ]
 
-# US 3.2 ingest-time pack-quantity parsing (D3.2-A). The unit column carries
+# US 3.2 ingest-time pack-quantity parsing. The unit column carries
 # the package size for most items (e.g. "10 kg"); the item name is only a
 # fallback. Values are stored in the base unit (kg / litre) so pack ratios are
 # directly comparable within a unit family. Unparseable rows stay NULL, which

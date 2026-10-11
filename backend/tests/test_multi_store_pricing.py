@@ -2,7 +2,7 @@
 
 Covers every AC 6.3 rule plus the basis invariant that makes the whole story
 honest: single-store and two-store plans are compared on the SAME official-price
-basis, so the AC 6.3.5 saving subtracts like from like.
+basis, so the saving-vs-single figure (archived AC 6.3.5) subtracts like from like.
 """
 
 import pytest
@@ -109,14 +109,14 @@ def test_allocate_full_quantity_to_one_store_never_split():
     assert len(assignments) == 1  # one line, not split across the two stores
     only = assignments[0]
     assert only.quantity == 2
-    assert only.store_premise_id == "2"  # the cheaper official price
+    assert only.store_premise_id == "2"  # the cheaper store price
     assert only.unit_price_rm == 2.50
     assert only.line_total_rm == pytest.approx(5.00)
     assert float(subtotal) == pytest.approx(5.00)
 
 
 def test_allocate_uses_official_price_not_median():
-    """AC 6.3.1 says 'official price'; a cheaper median must not be used."""
+    """A store price is preferred over a cheaper median estimate."""
     official = {
         "1": _effective_line_map(store_summary(line_price(MILK, 2.00, "median"))),
         "2": _effective_line_map(store_summary(line_price(MILK, 3.50, "store"))),
@@ -268,7 +268,7 @@ def test_incomplete_plans_kept_separate_from_complete():
     assert len(comparison.incomplete_plans) == 1
     incomplete = comparison.incomplete_plans[0]
     assert incomplete.store_count == 1
-    assert incomplete.missing_items  # bread has no official price at A
+    assert incomplete.missing_items  # bread has no store or median price at A
     assert not incomplete.is_complete
 
 
@@ -284,77 +284,8 @@ def test_incomplete_plan_is_never_the_cheapest_complete_option():
         pricing=pricing,
         basket=[bl(MILK, 2), bl(BREAD, 1)],
     )
-    # Single A is incomplete (no bread), so it cannot be the baseline even
-    # though its partial total is the lowest number in the response.
-    assert comparison.single_store_baseline_rm is None
+    # Single A is incomplete (no bread), so only the two-store plan is complete.
     assert all(p.store_count == 2 for p in comparison.complete_plans)
-
-
-# ---------------------------------------------------------------- AC 6.3.5
-
-
-def test_saving_uses_cheapest_complete_single_store_baseline():
-    pricing = {
-        "1": store_summary(line_price(MILK, 3.00)),  # A milk
-        "2": store_summary(line_price(BREAD, 3.50)),  # B bread
-        "3": store_summary(line_price(MILK, 4.00), line_price(BREAD, 2.10)),  # C
-        "4": store_summary(line_price(MILK, 5.00), line_price(BREAD, 2.00)),  # D
-    }
-    comparison = build_plan_comparison(
-        recommendations=[rec(3, "C", 2.00), rec(4, "D", 3.00)],
-        two_store_plans=[two_plan(1, 2, "A", "B", travel_cost=1.00)],
-        pricing=pricing,
-        basket=[bl(MILK, 2), bl(BREAD, 1)],
-    )
-    # C: 4.00*2 + 2.10 + 2.00 = 12.10 ; D: 5.00*2 + 2.00 + 3.00 = 15.00
-    assert comparison.single_store_baseline_rm == pytest.approx(12.10)  # C, not D
-    assert comparison.single_store_baseline_name == "C"
-    two = next(p for p in comparison.complete_plans if p.store_count == 2)
-    assert two.combined_total_rm == pytest.approx(10.50)
-    assert two.saving_vs_single_rm == pytest.approx(1.60)  # 12.10 - 10.50
-
-
-def test_saving_is_negative_when_the_split_costs_more():
-    pricing = {
-        "1": store_summary(line_price(MILK, 3.00)),
-        "2": store_summary(line_price(MILK, 3.50)),
-        "3": store_summary(line_price(MILK, 4.00)),
-    }
-    pricing["1"] = store_summary(*pricing["1"].lines, line_price(BREAD, 2.00))
-    pricing["2"] = store_summary(*pricing["2"].lines, line_price(BREAD, 1.00))
-    pricing["3"] = store_summary(*pricing["3"].lines, line_price(BREAD, 1.00))
-    comparison = build_plan_comparison(
-        recommendations=[rec(3, "C", 2.00)],
-        two_store_plans=[two_plan(1, 2, "A", "B", travel_cost=8.00)],
-        pricing=pricing,
-        basket=[bl(MILK, 2), bl(BREAD, 1)],
-    )
-    two = next(p for p in comparison.complete_plans if p.store_count == 2)
-    # single C: 8.00 + 2.00 = 10.00 ; two-store: 6.00 + 8.00 = 14.00
-    assert comparison.single_store_baseline_rm == pytest.approx(11.00)
-    assert two.combined_total_rm == pytest.approx(15.00)
-    assert two.saving_vs_single_rm == pytest.approx(-4.00)
-
-
-# ---------------------------------------------------------------- AC 6.3.6
-
-
-def test_no_complete_single_store_baseline_shows_no_saving():
-    pricing = {
-        "1": store_summary(line_price(MILK, 4.00)),  # A milk only
-        "2": store_summary(line_price(BREAD, 1.50)),  # B bread only
-    }
-    comparison = build_plan_comparison(
-        recommendations=[rec(1, "A", 2.00), rec(2, "B", 2.00)],
-        two_store_plans=[two_plan(1, 2, "A", "B", travel_cost=1.00)],
-        pricing=pricing,
-        basket=[bl(MILK, 2), bl(BREAD, 1)],
-    )
-    two = next(p for p in comparison.complete_plans if p.store_count == 2)
-    assert two.is_complete
-    # Both single stores are incomplete, so there is no baseline to compare to.
-    assert comparison.single_store_baseline_rm is None
-    assert two.saving_vs_single_rm is None  # never fabricated, never 0
 
 
 def test_exceeds_limit_single_store_is_not_a_baseline():
@@ -369,8 +300,7 @@ def test_exceeds_limit_single_store_is_not_a_baseline():
         basket=[bl(MILK, 2)],
     )
     # The only single store is beyond the original travel limit, so it is not
-    # eligible to be visited first (AC 6.2.1) and cannot anchor a saving.
-    assert comparison.single_store_baseline_rm is None
+    # eligible to be visited first (AC 6.2.1), so no single-store plan is listed.
     assert all(p.store_count == 2 for p in comparison.complete_plans)
 
 
@@ -435,7 +365,6 @@ def test_median_estimates_complete_both_single_and_two_store_baskets():
     two = next(plan for plan in comparison.complete_plans if plan.store_count == 2)
     assert two.basket_subtotal_rm == 10
     assert two.combined_total_rm == 13
-    assert two.saving_vs_single_rm == -1
 
 
 def test_no_effective_prices_does_not_claim_a_zero_basket():

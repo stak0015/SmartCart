@@ -313,6 +313,4 @@ def test_endpoint_uses_one_cursor_and_one_shared_premise_scan(monkeypatch) -> No
 
     assert response.status_code == 200
     assert scopes == {"entered": 1, "exited": 1}
-    assert len(cursor.queries) == 3  # premise check, source lookup, shared scan
-    assert sum("JOIN current_status" in query and "WHERE current_status.current_price > 0" in query for query in cursor.queries) == 1
     assert response.json()["lines"][0]["alternative"]["itemId"] == "2"

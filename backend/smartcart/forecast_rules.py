@@ -1,4 +1,7 @@
-"""Shared offline/runtime forecast eligibility. Defaults are conservative pilot rules."""
+"""Shared offline/runtime forecast eligibility. Defaults are conservative pilot rules.
+
+Owner: Shun
+"""
 from datetime import date
 from math import isfinite
 
@@ -7,6 +10,11 @@ DEFAULT_RULES = dict(min_weeks=52, min_recent_coverage=.8, min_stores=3,
                      max_baseline_mae_ratio=1.35)
 
 def eligibility(coverage, latest, today, rules=None):
+    """Decide whether an item's forecast may be shown. Returns (status, reasons):
+    'no_history', 'insufficient' (fewer than min_weeks), 'rejected' with shopper-
+    readable reasons, or 'available'. Used offline when the snapshot is built and at
+    request time to withdraw stale forecasts.
+    """
     rules = {**DEFAULT_RULES, **(rules or {})}
     if not latest:
         return 'no_history', ['No historical observations for this item and region.']

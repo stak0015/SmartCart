@@ -4,6 +4,8 @@ The model never sees raw trip data and never writes a figure itself. It receives
 ranked findings from ``report_insights`` and rewrites each one's title, body and
 action using ``{{placeholder}}`` tokens that the application fills in. Each
 insight is validated on its own; a rejected one falls back to its template.
+
+Owner: Shun
 """
 
 from __future__ import annotations
@@ -281,6 +283,9 @@ _NEGATIVE_TONE = re.compile(
 
 
 def _check_prose(text: str, *, allow_advice: bool) -> None:
+    """Reject prose with a negative tone, any literal number or currency, or instructions
+    outside the action. Figures may only arrive through {{placeholders}}.
+    """
     if _NEGATIVE_TONE.search(text):
         raise _NarrativeRejected("negative_tone")
     if (
@@ -307,6 +312,11 @@ def _check_direction(texts: list[str], direction: object, locale: str) -> None:
 def _validate_insight(
     raw: object, finding: Mapping[str, Any], locale: str
 ) -> dict[str, object]:
+    """Validate one rewritten insight against its finding: exact keys, an action only when
+    the template has one, length and word limits, safe prose, no savings claims, a
+    comparison direction that matches the finding, the word 'estimated' for estimates,
+    and the requested language.
+    """
     if not isinstance(raw, dict) or set(raw) != {"id", "title", "body", "action"}:
         raise _NarrativeRejected("schema_mismatch")
     title, body, action = raw["title"], raw["body"], raw["action"]
@@ -471,6 +481,10 @@ class CerebrasReportNarrator:
     async def narrate(
         self, facts: Mapping[str, object]
     ) -> Mapping[str, object]:
+        """Ask Cerebras to rewrite the findings. A missing key, invalid output, timeout or
+        provider error returns the deterministic fallback text instead; this method
+        never raises.
+        """
         started = time.perf_counter()
         locale = facts.get("locale")
         if not self._api_key:

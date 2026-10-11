@@ -1,4 +1,7 @@
-"""Reapply eligibility to saved model paths without fitting or changing history."""
+"""Reapply eligibility to saved model paths without fitting or changing history.
+
+Owner: Shun
+"""
 import argparse
 import csv
 import hashlib
@@ -15,6 +18,10 @@ from smartcart.forecast_rules import DEFAULT_RULES, eligibility
 
 
 def requalify(source, paths_file, as_of):
+    """Re-apply eligibility to saved forecast paths as of a date and atomically rewrite the
+    snapshot. Refuses when saved paths are incomplete or differ from forecasts already
+    served. Returns status counts.
+    """
     snapshot = json.loads(source.read_text(encoding='utf-8'))
     if snapshot['model_policy']['name'] != 'chronos_2_small_ridge':
         raise ValueError('Cached paths must belong to the serving shared short model.')

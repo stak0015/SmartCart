@@ -1,3 +1,4 @@
+// Owner: Shun
 import type { Locale } from "./i18n";
 
 function localMalaysiaDate(value: string, locale: Locale): string {

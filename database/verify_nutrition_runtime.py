@@ -1,4 +1,7 @@
-"""Read-only API parity check of single-table nutrition against import snapshots."""
+"""Read-only API parity check of single-table nutrition against import snapshots.
+
+Owner: Shun
+"""
 import argparse
 import json
 import os

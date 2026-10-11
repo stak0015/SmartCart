@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { withActualPrice } from "../tests/fixtures/legacy-checklist";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   buildChecklistExportModel,
 } from "./checklist-export";
 import {
-  setChecklistItemActualPrice,
   SHOPPING_CHECKLIST_VERSION,
   toggleChecklistItemStatus,
   type ChecklistItem,
@@ -243,7 +243,7 @@ describe("checklist export current state and privacy (AC 5.7.3)", () => {
     // Note: actual prices can only be recorded while the line is bought, so
     // the price is set before the outcome is re-marked.
     const updated = toggleChecklistItemStatus(
-      setChecklistItemActualPrice(checklist, catalogueRow.id, 30.99)!,
+      withActualPrice(checklist, catalogueRow.id, 30.99),
       catalogueRow.id,
       "not_bought",
     );

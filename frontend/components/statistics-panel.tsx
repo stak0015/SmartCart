@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 
 import { useMemo, useState } from "react";
 import { DropdownChevron, UIIcon } from "./ui-icon";
@@ -171,6 +172,10 @@ function CardHeader({ id, title, hint }: { id: string; title: string; hint: stri
   return <header className="dash-card-header"><h2 id={id}>{title}</h2><p>{hint}</p></header>;
 }
 
+/**
+ * Statistics dashboard (US 8.1, 8.3): KPI tiles, trend, categories and top items with screen-
+ * reader tables.
+ */
 export function StatisticsPanel({ history, cadence, locale, onCadence }: {
   history: readonly TripRecord[];
   cadence: ReportCadence;

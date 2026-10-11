@@ -5,6 +5,8 @@ item profiles, their reviewed mappings and provenance are read from PostgreSQL.
 A suggestion is produced only from an approved catalogue-to-catalogue
 mapping and always carries the nutrition evidence behind it (AC 7.1.3,
 AC 7.3.5). Missing values stay missing (AC 7.3.11) and never become zero.
+
+Owners: Zhihao, Shun
 """
 
 from __future__ import annotations
@@ -102,6 +104,8 @@ def _comparisons(original: dict[str, Any], alternative: dict[str, Any]) -> list[
 
 
 def _summary(row: dict[str, Any], price_range: CataloguePriceRange | None) -> CatalogueItemSummary:
+    """Catalogue card fields for an alternative, in the same shape as /items/search rows.
+    """
     category = category_for_raw(row["item_category"])
     source_category = source_category_for_raw(row["item_category"], row.get("item_category_en"), row.get("item_category_ms"))
     return CatalogueItemSummary(
@@ -123,6 +127,7 @@ def _summary(row: dict[str, Any], price_range: CataloguePriceRange | None) -> Ca
 
 
 def _catalogue_rows(item_codes: list[str]) -> dict[str, dict[str, Any]]:
+    """Catalogue rows with bilingual labels for the given item codes, keyed by code."""
     if not item_codes:
         return {}
     with database_cursor() as cursor:
@@ -144,7 +149,10 @@ def healthier_alternatives(
     item_code: str,
     premise_ids: list[str] | None = None,
 ) -> HealthierAlternativesResponse:
-    """Approved healthier alternatives for one catalogue item (AC 7.1.x)."""
+    """Approved healthier alternatives for one catalogue item (AC 7.1.x).
+
+    Owners: Zhihao, Shun
+    """
 
     dataset = nutrition_dataset()
     mappings = dataset["by_item"].get(item_code, [])
@@ -171,7 +179,7 @@ def healthier_alternatives(
     for mapping in mappings:
         row = rows.get(mapping["alternative_item_code"])
         if row is None:
-            # The alternative is no longer an active catalogue item; skip it
+            # The alternative is no longer in the catalogue; skip it
             # rather than suggesting something that cannot be opened.
             continue
         alternative_reference = get_item_nutrition(mapping['alternative_item_code'], basis=original_reference['food']['basis'], dataset=profiles)

@@ -1,4 +1,7 @@
-"""Materialize reviewed prepared-food references; no fuzzy auto-approval."""
+"""Materialize reviewed prepared-food references; no fuzzy auto-approval.
+
+Owner: Shun
+"""
 import json
 from pathlib import Path
 

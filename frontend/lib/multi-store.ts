@@ -1,7 +1,7 @@
+// Owners: Randy, Shun
 import type {
   PlanComparison,
   StoreRecommendation,
-  PlanStoreAssignment,
   PricedPlan,
   TravelLimit,
   TravelLimitType,
@@ -133,79 +133,14 @@ export function changeSecondStoreLimitType(
 
 // ── US 6.3: combined-cost comparison view state ───────────────────────────────
 
-/**
- * How a two-store plan's saving against single-store plans should be shown.
- *
- * This is a pure decision so the AC 6.3.5 / 6.3.6 rules are unit-testable and
- * the render layer cannot accidentally invent a number:
- * - "none"  (AC 6.3.6): no baseline existed; show no numeric saving at all.
- * - "save": strictly positive saving; show how much it saves.
- * - "more": negative saving; splitting costs more — shown explicitly rather
- *           than hidden, so a more expensive split is never implied to be a win.
- * - "equal": zero saving; neither better nor worse, so no money claim is made.
- */
-export type SavingState = "none" | "save" | "more" | "equal";
-
-/** AC 6.3.5/6.3.6: classify a two-store plan's saving for display. `savingRm`
- * is the backend's `savingVsSingleRm`, which is null when there was no eligible
- * complete single-store baseline. A null is never rendered as RM0. */
-export function savingState(savingRm: number | null): SavingState {
-  if (savingRm === null || savingRm === undefined) return "none";
-  if (savingRm > 0) return "save";
-  if (savingRm < 0) return "more";
-  return "equal";
-}
-
-/**
- * AC 6.3.4: a plan is "incomplete" when the backend says so. The incomplete set
- * is rendered separately and never ranked among complete plans, so this is kept
- * as a single predicate rather than re-deriving it in the JSX.
- */
-export function isPlanComplete(plan: { isComplete: boolean }): boolean {
-  return plan.isComplete;
-}
-
 // ── US 6.4: inspecting one two-store plan ─────────────────────────────────────
-
-/** One store's share of a two-store plan, with every line assigned to it. */
-export interface PlanStoreGroup {
-  storePremiseId: string;
-  storeName: string;
-  lines: PlanStoreAssignment[];
-  // Sum of this store's assigned line totals.
-  subtotalRm: number;
-}
-
-/**
- * AC 6.4.2: group a plan's assigned lines by the store that buys them, in the
- * visit order the plan uses (storePremiseIds[0] is visited first).
- *
- * Grouping by store — rather than rendering one flat list — is what lets AC
- * 6.4.3 keep each store's own labels beside its own lines. A line can only ever
- * appear under the store it was assigned to, so a store's freshness/source
- * labels cannot be applied to another store's items by construction.
- *
- * A store with no assigned lines is still included (empty), so the detail view
- * can say so honestly instead of silently dropping it.
- */
-export function groupAssignmentsByStore(plan: PricedPlan): PlanStoreGroup[] {
-  return plan.storePremiseIds.map((storePremiseId, index) => {
-    const lines = plan.assignments.filter(line => line.storePremiseId === storePremiseId);
-    const subtotalRm = lines.reduce((total, line) => total + (line.lineTotalRm ?? 0), 0);
-    return {
-      storePremiseId,
-      storeName: plan.storeNames[index] ?? plan.storeNames[0] ?? storePremiseId,
-      lines,
-      // Round to cents to avoid float drift from summing line totals.
-      subtotalRm: Math.round((subtotalRm + Number.EPSILON) * 100) / 100,
-    };
-  });
-}
 
 /**
  * AC 6.4.1: the human label for one journey leg. The leg's own `role` names the
  * segment, so the detail view explains the trip in order and can flag which leg
  * the second-store limits govern (the first-to-second leg only).
+ *
+ * Owners: Randy, Shun
  */
 export function legRoleKey(
   role: "origin_to_first" | "first_to_second" | "second_to_origin",
@@ -218,7 +153,11 @@ export function legRoleKey(
 
 export type StorePlanOption = { kind: "store"; store: StoreRecommendation } | { kind: "plan"; plan: PricedPlan };
 
-/** Rank all viable options by basket plus return-travel cost, including estimates. */
+/**
+ * Rank all viable options by basket plus return-travel cost, including estimates.
+ *
+ * Owner: Shun
+ */
 export function rankedStorePlanOptions(stores: StoreRecommendation[], comparison?: PlanComparison | null): StorePlanOption[] {
   const options: StorePlanOption[] = stores.map(store => ({ kind: "store", store }));
 

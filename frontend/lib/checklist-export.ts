@@ -1,3 +1,4 @@
+// Owner: Zhihao | Contributors: Shun
 import { formatRm } from "./format-rm";
 import { COPY, type Locale } from "./i18n";
 import type { ChecklistItem, ShoppingChecklist } from "./shopping-checklist";
@@ -19,7 +20,7 @@ export interface ChecklistExportRow {
   packageSize: string | null;
   quantity: number;
   // "actual" label only when the shopper recorded an actual quantity
-  // (AC 5.3.4); planned quantities carry no extra label.
+  // (older checklists only); planned quantities carry no extra label.
   quantitySourceLabel: string | null;
   outcomeLabel: string;
   // Reference unit price with its source label when it is an estimate

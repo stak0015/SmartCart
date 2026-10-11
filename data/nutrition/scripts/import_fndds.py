@@ -13,6 +13,8 @@ Usage from the repository root::
     python research/nutrition_coverage/import_fndds.py
 
 The raw workbooks are retained under ``research/nutrition_coverage/raw``.
+
+Owner: Shun | Contributors: Zhihao
 """
 
 from __future__ import annotations

@@ -1,4 +1,5 @@
 "use client";
+// Owners: Shun, Randy
 
 import type { SaraStoreStatus } from "@/lib/contracts";
 import type { AppCopy } from "@/lib/i18n";
