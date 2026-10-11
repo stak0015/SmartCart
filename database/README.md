@@ -18,6 +18,17 @@ coordinate and postcode checks still apply.
 ## Files
 
 - `schema.sql` — idempotent PostgreSQL schema.
+- `migrations/001_nutrition.sql` — single-table nutrition records with embedded
+  source provenance; removes the earlier nutrition prototype's extra tables.
+- `migrations/002_item_nutrition.sql` — stable food key and item nutrition
+  foreign key/metadata columns; no new table.
+- `import_nutrition.py` — transactional import of the reviewed nutrition
+  food/source snapshots and item references, with validation and exact parity
+  checks. Alternative rules and comparison policy remain in files/scripts. Use
+  `--verify-only` for a read-only check.
+  See [`../data/nutrition/README.md`](../data/nutrition/README.md) for details.
+- `verify_nutrition_runtime.py` — read-only comparison of database-backed
+  item and alternative responses against the original snapshots.
 - `docker-compose.demo.yml` — isolated PostgreSQL service for deterministic UI demos.
 - `migrate_pack_quantities.py` — idempotent upgrade for existing databases;
   backfills normalized item pack quantities used by pack comparisons.

@@ -14,6 +14,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from .nutrition_repository import load_item_dataset
+
 
 DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "nutrition" / "item_nutrition.json"
 
@@ -59,14 +61,15 @@ def _valid_food(food: dict[str, Any]) -> bool:
     return "url" not in food or food["url"] is None or _text(food["url"])
 
 
-def load_item_nutrition(path: Path | str | None = None) -> dict[str, Any]:
-    """Load the item nutrition contract, returning an empty dataset if absent.
+def load_item_nutrition(path: Path | str | None = None, *, item_code: str | None = None) -> dict[str, Any]:
+    """Read item mappings and nutrient data from PostgreSQL by default.
 
-    The file is version-controlled reference data rather than a runtime
-    dependency.  Treating a missing or malformed file as an empty dataset
-    keeps catalogue item details usable while the nutrition section reports
-    that no reviewed data is available.
+    Database failures propagate rather than quietly serving an older snapshot.
+    Missing/malformed explicit fixtures still produce the unavailable contract.
     """
+
+    if path is None:
+        return load_item_dataset(item_code)
 
     try:
         with Path(path or DATA_PATH).open(encoding="utf-8") as handle:
@@ -89,7 +92,7 @@ def _unavailable(item_code: str) -> dict[str, Any]:
     }
 
 
-def get_item_nutrition(item_code: str, path: Path | str | None = None, *, basis: str | None = None) -> dict[str, Any]:
+def get_item_nutrition(item_code: str, path: Path | str | None = None, *, basis: str | None = None, dataset: dict[str, Any] | None = None) -> dict[str, Any]:
     """Return the approved nutrition record for one catalogue item.
 
     A mapping is usable only when it is explicitly approved and points to a
@@ -99,7 +102,7 @@ def get_item_nutrition(item_code: str, path: Path | str | None = None, *, basis:
     """
 
     code = str(item_code)
-    dataset = load_item_nutrition(path)
+    dataset = load_item_nutrition(path, item_code=code) if dataset is None else dataset
     sources = {
         str(source.get("id")): source
         for source in _records(dataset.get("sources", []))

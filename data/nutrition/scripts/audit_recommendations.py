@@ -14,19 +14,21 @@ def audit():
     data = ROOT / 'data/nutrition'
     catalogue = {r['item_code']: r for r in json.loads((data / 'catalogue_snapshot.json').read_text())['items']}
     mappings = json.loads((data / 'mappings.json').read_text())['mappings']
+    profiles = json.loads((data / 'item_nutrition.json').read_text())
+    policy = json.loads((data / 'comparison_policy.json').read_text())
     records = []
     for mapping in mappings:
         if not mapping.get('approved'):
             continue
         code, target = mapping['original_item_code'], mapping['alternative_item_code']
-        original = get_item_nutrition(code)
-        alternative = get_item_nutrition(target, basis=original['food']['basis']) if original['available'] else get_item_nutrition(target)
+        original = get_item_nutrition(code, dataset=profiles)
+        alternative = get_item_nutrition(target, basis=original['food']['basis'], dataset=profiles) if original['available'] else get_item_nutrition(target, dataset=profiles)
         reason = ('inactive_catalogue_item' if code not in catalogue or target not in catalogue else
                   'missing_original_profile' if not original['available'] else
                   'missing_alternative_profile' if not alternative['available'] else None)
         decision = None
         if reason is None:
-            decision, reason = compare_category(mapping['rule'], original['food'], alternative['food'])
+            decision, reason = compare_category(mapping['rule'], original['food'], alternative['food'], policy=policy)
         records.append({'item_code': code, 'item_name': catalogue.get(code, {}).get('item_name'),
                         'alternative_item_code': target, 'rule': mapping['rule'],
                         'status': 'available' if decision else 'suppressed', 'reason': reason,

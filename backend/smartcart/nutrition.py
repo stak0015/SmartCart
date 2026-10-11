@@ -1,8 +1,8 @@
-"""Epic 7 — approved healthier alternatives backed by static nutrition data.
+"""Epic 7 — file-based alternative logic backed by PostgreSQL nutrient data.
 
-The reference data lives in version control under `data/nutrition`; the
-application never fetches nutrition data at runtime and never invents a
-mapping. A suggestion is produced only from an approved catalogue-to-catalogue
+Alternative mappings and rules live in version control under `data/nutrition`;
+item profiles, their reviewed mappings and provenance are read from PostgreSQL.
+A suggestion is produced only from an approved catalogue-to-catalogue
 mapping and always carries the nutrition evidence behind it (AC 7.1.3,
 AC 7.3.5). Missing values stay missing (AC 7.3.11) and never become zero.
 """
@@ -31,7 +31,7 @@ from .models import (
     NutritionSourceRef,
 )
 from .translations import catalogue_translation_joins, translation_select_columns
-from .item_nutrition import get_item_nutrition
+from .item_nutrition import get_item_nutrition, load_item_nutrition
 from .nutrition_comparison import compare_category
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nutrition"
@@ -151,7 +151,8 @@ def healthier_alternatives(
     if not mappings:
         return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])
 
-    original_reference = get_item_nutrition(item_code)
+    profiles = load_item_nutrition()
+    original_reference = get_item_nutrition(item_code, dataset=profiles)
     if not original_reference['available']:
         return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])
 
@@ -173,7 +174,7 @@ def healthier_alternatives(
             # The alternative is no longer an active catalogue item; skip it
             # rather than suggesting something that cannot be opened.
             continue
-        alternative_reference = get_item_nutrition(mapping['alternative_item_code'], basis=original_reference['food']['basis'])
+        alternative_reference = get_item_nutrition(mapping['alternative_item_code'], basis=original_reference['food']['basis'], dataset=profiles)
         rule = dataset["rules"].get(mapping["rule"])
         if not alternative_reference['available'] or rule is None:
             continue

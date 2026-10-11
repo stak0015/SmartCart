@@ -202,3 +202,49 @@ CREATE INDEX IF NOT EXISTS current_status_premise_idx
     ON current_status (premise_id);
 
 COMMIT;
+
+-- One table holds publisher nutrient data and its source provenance.
+-- Namespaces preserve different current/legacy records with overlapping IDs.
+CREATE TABLE IF NOT EXISTS nutrition_food (
+    dataset TEXT NOT NULL CHECK (dataset IN ('items', 'foods')),
+    food_id TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    source_record_code TEXT NOT NULL,
+    description TEXT NOT NULL,
+    basis TEXT NOT NULL CHECK (basis IN ('per_100g', 'per_100ml')),
+    nutrients JSONB NOT NULL CHECK (jsonb_typeof(nutrients) = 'object'),
+    source_metadata JSONB NOT NULL CHECK (jsonb_typeof(source_metadata) = 'object'),
+    document JSONB NOT NULL CHECK (jsonb_typeof(document) = 'object'),
+    snapshot_sha256 TEXT NOT NULL,
+    imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (dataset, food_id)
+);
+
+-- A stable surrogate key permits a direct item foreign key while retaining
+-- current/legacy source namespaces whose publisher food IDs overlap.
+ALTER TABLE nutrition_food ADD COLUMN IF NOT EXISTS nutrition_id BIGSERIAL;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'nutrition_food'::regclass
+                   AND conname = 'nutrition_food_nutrition_id_key') THEN
+        ALTER TABLE nutrition_food ADD CONSTRAINT nutrition_food_nutrition_id_key UNIQUE (nutrition_id);
+    END IF;
+END $$;
+ALTER TABLE item
+    ADD COLUMN IF NOT EXISTS nutrition_food_id BIGINT,
+    ADD COLUMN IF NOT EXISTS nutrition_mapping_metadata JSONB;
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'item'::regclass
+                   AND conname = 'item_nutrition_food_fk') THEN
+        ALTER TABLE item ADD CONSTRAINT item_nutrition_food_fk
+            FOREIGN KEY (nutrition_food_id) REFERENCES nutrition_food(nutrition_id);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'item'::regclass
+                   AND conname = 'item_nutrition_metadata_check') THEN
+        ALTER TABLE item ADD CONSTRAINT item_nutrition_metadata_check
+            CHECK (nutrition_mapping_metadata IS NULL OR jsonb_typeof(nutrition_mapping_metadata) = 'object');
+    END IF;
+END $$;
+CREATE INDEX IF NOT EXISTS item_nutrition_food_id_idx
+    ON item (nutrition_food_id) WHERE nutrition_food_id IS NOT NULL;

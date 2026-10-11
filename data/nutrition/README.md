@@ -1,8 +1,71 @@
 # Epic 7 nutrition data
 
-Static, version-controlled nutrition reference data for the Healthier
-alternatives feature (Epic 7). Nothing here is generated at runtime and
-nothing is fetched from the network by the application.
+Version-controlled import snapshots for the nutrition features (Epic 7).
+The application reads nutrient values and their publisher provenance from
+one PostgreSQL table, `nutrition_food`. Item references and their reviewed
+mapping metadata live on existing `item` rows. Alternative rules and comparison
+policy stay in the existing files/scripts. Publisher
+data is not downloaded or generated at runtime. Food values in JSON remain
+reproducible import snapshots and offline audit fixtures; editing those values
+alone does not update the database.
+
+## Database import
+
+Run from the repository root:
+
+```powershell
+backend\.venv\Scripts\python.exe database\import_nutrition.py
+backend\.venv\Scripts\python.exe database\import_nutrition.py --verify-only
+backend\.venv\Scripts\python.exe database\verify_nutrition_runtime.py
+```
+
+The importer reads `DATABASE_URL_UNPOOLED` or `DATABASE_URL` from the environment,
+then falls back to the ignored `database/.env` (override with `--env-file`).
+Use an unpooled connection for hosted migrations. Never commit real URLs.
+Import and exact document/column verification share one transaction. Failed
+validation leaves the previous dataset intact. Rerunning upserts imported
+food records and backfills item nutrition references from the reviewed snapshots.
+Existing food keys remain stable. Other catalogue fields, prices and premises
+are unchanged. Back up any separately maintained nutrition
+edits before deliberately reimporting a snapshot.
+
+`nutrition_food` uses `items` and `foods` namespaces because overlapping
+current/legacy IDs have different nutrient values and provenance. Its primary
+key is `(dataset, food_id)`. Publisher details are embedded in each row, so
+there is no separate source or mapping table.
+
+| Column | Meaning |
+|---|---|
+| `nutrition_id` | Stable numeric key referenced by `item.nutrition_food_id` |
+| `dataset` | Current item profiles (`items`) or reference snapshot (`foods`) |
+| `food_id` | Stable food identity within that namespace |
+| `source_id` | Publisher/dataset identity |
+| `source_record_code` | Original publisher record identifier |
+| `description` | Food description |
+| `basis` | `per_100g` or `per_100ml` |
+| `nutrients` | JSONB nutrient values; unknowns remain null |
+| `source_metadata` | JSONB source name, URL, licence and provenance |
+| `document` | Original food metadata, retaining source-specific fields |
+| `snapshot_sha256` | Import-snapshot checksum |
+| `imported_at` | Import timestamp |
+
+The migration also removes the seven tables introduced by the earlier
+multi-table nutrition prototype, after preserving its food/source data.
+It does not use `CASCADE` or change unrelated application tables.
+
+`item.nutrition_food_id` is a nullable foreign key to
+`nutrition_food.nutrition_id`. `item.nutrition_mapping_metadata` stores approval,
+generic/product match type, rationale, source evidence and basis variants.
+Unmapped items have null values. The API follows this database reference;
+it does not read `item_nutrition.json` at runtime. The mapping metadata is
+kept on `item` to preserve disclosures without creating another table.
+
+Nutrient reads have no persistent process cache and no automatic JSON fallback.
+Alternative rules retain their existing file-based loading behaviour. Missing profiles
+still return the existing unavailable response;
+database failures are surfaced as service errors. External API response shapes,
+generic/product disclosures, basis compatibility and comparison rules are
+unchanged. Offline audits explicitly supply snapshots and comparison policy.
 
 ## Files
 
@@ -10,6 +73,8 @@ nothing is fetched from the network by the application.
 |---|---|
 | `foods.json` | Nutrition reference entries, each with a source id, the source record code, a comparison basis and nutrients per 100 g. |
 | `mappings.json` | Approved catalogue-to-catalogue alternative mappings plus the rule set that justifies each one. |
+| `item_nutrition.json` | Import snapshot for foods and reviewed item references/metadata; offline audit fixture. Runtime item nutrition reads use the database. |
+| `comparison_policy.json` | File-based comparison thresholds, priorities and trade-off checks; not imported. |
 
 ## Data sources
 

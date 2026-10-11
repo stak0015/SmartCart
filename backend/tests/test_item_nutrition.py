@@ -125,8 +125,8 @@ def test_loader_rejects_incomplete_or_invalid_review_profiles(tmp_path):
         assert item_nutrition.get_item_nutrition("007", path)["available"] is False
 
 
-def test_endpoint_handler_uses_the_same_shape_and_handles_missing_file(monkeypatch, tmp_path):
-    monkeypatch.setattr(item_nutrition, "DATA_PATH", tmp_path / "does-not-exist.json")
+def test_endpoint_handler_uses_the_same_shape_for_unmapped_item(monkeypatch):
+    monkeypatch.setattr(item_nutrition, "load_item_dataset", lambda item_code=None: {'sources': [], 'foods': [], 'mappings': []})
     assert api.item_nutrition_endpoint("007") == {
         "item_code": "007",
         "available": False,
