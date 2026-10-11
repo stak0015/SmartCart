@@ -63,7 +63,7 @@ As a household shopper, I want the recommended stores to respect my transport mo
 
 **Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (CompareScreen); backend/data: [`api.py`](../../backend/smartcart/api.py) (_recommend_stores), [`premises.py`](../../backend/smartcart/premises.py), [`recommendation.py`](../../backend/smartcart/recommendation.py) (rank_reachable_stores), [`maps.py`](../../backend/smartcart/maps.py).
 
-**Tests** — [`test_recommendation.py`](../../backend/tests/test_recommendation.py), [`test_premises.py`](../../backend/tests/test_premises.py), [`test_api.py`](../../backend/tests/test_api.py).
+**Tests** — [`test_recommendation.py`](../../backend/tests/test_recommendation.py), [`test_premises.py`](../../backend/tests/test_premises.py), [`test_api.py`](../../backend/tests/test_api.py), [`test_migrate_premise_open_status.py`](../../database/tests/test_migrate_premise_open_status.py), [`test_migrate_sara_verified.py`](../../database/tests/test_migrate_sara_verified.py), [`test_migrate_sara_chain_partners.py`](../../database/tests/test_migrate_sara_chain_partners.py), [`test_sara_chain_catalog.py`](../../database/tests/test_sara_chain_catalog.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -84,7 +84,7 @@ As a household shopper on a limited budget, I want the system to compare prices 
 
 **Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (CompareScreen, StoreCard), [`visible-stores.ts`](../../frontend/lib/visible-stores.ts), [`basket-coverage.ts`](../../frontend/lib/basket-coverage.ts), [`travel.ts`](../../frontend/lib/travel.ts) (directions links); backend/data: [`pricing.py`](../../backend/smartcart/pricing.py), [`recommendation.py`](../../backend/smartcart/recommendation.py) (apply_basket_pricing), [`sara.py`](../../backend/smartcart/sara.py).
 
-**Tests** — [`test_pricing.py`](../../backend/tests/test_pricing.py), [`test_recommendation.py`](../../backend/tests/test_recommendation.py), [`test_sara.py`](../../backend/tests/test_sara.py), [`visible-stores.test.ts`](../../frontend/lib/visible-stores.test.ts), [`basket-coverage.test.ts`](../../frontend/lib/basket-coverage.test.ts), [`travel.test.ts`](../../frontend/lib/travel.test.ts).
+**Tests** — [`test_pricing.py`](../../backend/tests/test_pricing.py), [`test_recommendation.py`](../../backend/tests/test_recommendation.py), [`test_sara.py`](../../backend/tests/test_sara.py), [`visible-stores.test.ts`](../../frontend/lib/visible-stores.test.ts), [`basket-coverage.test.ts`](../../frontend/lib/basket-coverage.test.ts), [`travel.test.ts`](../../frontend/lib/travel.test.ts), [`test_migrate_median_prices.py`](../../database/tests/test_migrate_median_prices.py), [`basket-lines.test.ts`](../../frontend/lib/basket-lines.test.ts), [`format-rm.test.ts`](../../frontend/lib/format-rm.test.ts).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

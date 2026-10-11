@@ -30,7 +30,7 @@ As a SmartCart user, I want a statistics dashboard of what I spent, how often I 
 
 **Implementation** — frontend: [`statistics-panel.tsx`](../../frontend/components/statistics-panel.tsx), [`period-analytics.ts`](../../frontend/lib/period-analytics.ts), [`statistics-view.ts`](../../frontend/lib/statistics-view.ts); backend/data: [`period_analytics.py`](../../backend/smartcart/period_analytics.py).
 
-**Tests** — [`statistics-view.test.ts`](../../frontend/lib/statistics-view.test.ts), [`test_period_analytics.py`](../../backend/tests/test_period_analytics.py) (blocked: missing fixtures).
+**Tests** — [`statistics-view.test.ts`](../../frontend/lib/statistics-view.test.ts), [`test_period_analytics.py`](../../backend/tests/test_period_analytics.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -89,7 +89,7 @@ As a SmartCart user, I want short personalised reports about each week or month,
 
 **Implementation** — frontend: [`report-screens.tsx`](../../frontend/components/report-screens.tsx), [`report-generation.ts`](../../frontend/lib/report-generation.ts), [`inbox.ts`](../../frontend/lib/inbox.ts), [`report-language.ts`](../../frontend/lib/report-language.ts); backend/data: [`reporting.py`](../../backend/smartcart/reporting.py), [`report_insights.py`](../../backend/smartcart/report_insights.py), [`cerebras_narrator.py`](../../backend/smartcart/cerebras_narrator.py), [`report_models.py`](../../backend/smartcart/report_models.py).
 
-**Tests** — [`test_report_insights.py`](../../backend/tests/test_report_insights.py), [`test_report_story.py`](../../backend/tests/test_report_story.py), [`test_cerebras_narrator.py`](../../backend/tests/test_cerebras_narrator.py), [`test_report_api.py`](../../backend/tests/test_report_api.py) (blocked: missing fixtures), [`report-generation.test.ts`](../../frontend/lib/report-generation.test.ts), [`report-screens.test.ts`](../../frontend/components/report-screens.test.ts).
+**Tests** — [`test_report_insights.py`](../../backend/tests/test_report_insights.py), [`test_report_story.py`](../../backend/tests/test_report_story.py), [`test_cerebras_narrator.py`](../../backend/tests/test_cerebras_narrator.py), [`test_report_api.py`](../../backend/tests/test_report_api.py), [`report-generation.test.ts`](../../frontend/lib/report-generation.test.ts), [`report-screens.test.ts`](../../frontend/components/report-screens.test.ts).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -119,7 +119,7 @@ As a SmartCart user, I want to decide whether my trip data is used to write repo
 
 **Implementation** — frontend: [`report-consent.ts`](../../frontend/lib/report-consent.ts), [`report-screens.tsx`](../../frontend/components/report-screens.tsx) (consent dialog), [`inbox.ts`](../../frontend/lib/inbox.ts); backend/data: —.
 
-**Tests** — [`report-consent.test.ts`](../../frontend/lib/report-consent.test.ts), [`report-screens.test.ts`](../../frontend/components/report-screens.test.ts).
+**Tests** — [`report-consent.test.ts`](../../frontend/lib/report-consent.test.ts), [`report-screens.test.ts`](../../frontend/components/report-screens.test.ts), [`test_report_api.py`](../../backend/tests/test_report_api.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

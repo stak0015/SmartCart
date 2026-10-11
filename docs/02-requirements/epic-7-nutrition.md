@@ -96,7 +96,7 @@ As a household shopper, I want to see the nutrition values of any item I am look
 
 **Implementation** — frontend: [`item-nutrition.tsx`](../../frontend/components/item-nutrition.tsx), [`api.ts`](../../frontend/lib/api.ts) (fetchItemNutrition); backend/data: [`item_nutrition.py`](../../backend/smartcart/item_nutrition.py), [`nutrition_repository.py`](../../backend/smartcart/nutrition_repository.py).
 
-**Tests** — [`test_item_nutrition.py`](../../backend/tests/test_item_nutrition.py), [`test_item_nutrition_coverage.py`](../../backend/tests/test_item_nutrition_coverage.py), [`test_nutrition_repository.py`](../../backend/tests/test_nutrition_repository.py), [`item-nutrition.test.tsx`](../../frontend/components/item-nutrition.test.tsx).
+**Tests** — [`test_item_nutrition.py`](../../backend/tests/test_item_nutrition.py), [`test_item_nutrition_coverage.py`](../../backend/tests/test_item_nutrition_coverage.py), [`test_nutrition_repository.py`](../../backend/tests/test_nutrition_repository.py), [`item-nutrition.test.tsx`](../../frontend/components/item-nutrition.test.tsx), [`test_import_nutrition.py`](../../database/tests/test_import_nutrition.py), [`test_import_usda.py`](../../data/nutrition/scripts/test_import_usda.py), [`test_import_fndds.py`](../../data/nutrition/scripts/test_import_fndds.py), [`test_import_singapore.py`](../../data/nutrition/scripts/test_import_singapore.py), [`test_map_ingredient_nutrition.py`](../../data/nutrition/scripts/test_map_ingredient_nutrition.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

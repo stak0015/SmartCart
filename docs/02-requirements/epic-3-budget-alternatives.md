@@ -28,7 +28,7 @@ As a household shopper comparing my basket at one selected store, I want to see 
 
 **Implementation** — frontend: [`recommendation-basket-row.tsx`](../../frontend/components/recommendation-basket-row.tsx), [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (RecommendationOverview); backend/data: [`alternatives.py`](../../backend/smartcart/alternatives.py).
 
-**Tests** — [`test_alternatives.py`](../../backend/tests/test_alternatives.py), [`recommendation-basket-row.test.tsx`](../../frontend/components/recommendation-basket-row.test.tsx).
+**Tests** — [`test_alternatives.py`](../../backend/tests/test_alternatives.py), [`recommendation-basket-row.test.tsx`](../../frontend/components/recommendation-basket-row.test.tsx), [`test_seed_demo_alternatives.py`](../../database/tests/test_seed_demo_alternatives.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -66,7 +66,7 @@ As a household shopper, I want to apply a cheaper equivalent or pack-size choice
 
 **Implementation** — frontend: [`basket-state.ts`](../../frontend/lib/basket-state.ts) (replacement), [`recommendation-detail.ts`](../../frontend/lib/recommendation-detail.ts), [`recommendation-basket-row.tsx`](../../frontend/components/recommendation-basket-row.tsx); backend/data: —.
 
-**Tests** — [`basket-state.test.ts`](../../frontend/lib/basket-state.test.ts), [`recommendation-detail.test.ts`](../../frontend/lib/recommendation-detail.test.ts).
+**Tests** — [`basket-state.test.ts`](../../frontend/lib/basket-state.test.ts), [`recommendation-detail.test.ts`](../../frontend/lib/recommendation-detail.test.ts), [`basket-lines.test.ts`](../../frontend/lib/basket-lines.test.ts).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

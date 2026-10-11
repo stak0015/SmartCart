@@ -51,7 +51,7 @@ As a Malaysian household shopper, I want to switch SmartCart between English and
 
 **Implementation** — frontend: [`i18n.ts`](../../frontend/lib/i18n.ts), [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (LanguageToggle); backend/data: [`translations.py`](../../backend/smartcart/translations.py), [`categories.py`](../../backend/smartcart/categories.py).
 
-**Tests** — [`i18n.test.ts`](../../frontend/lib/i18n.test.ts), [`test_translations.py`](../../backend/tests/test_translations.py).
+**Tests** — [`i18n.test.ts`](../../frontend/lib/i18n.test.ts), [`test_translations.py`](../../backend/tests/test_translations.py), [`test_seed_item_names.py`](../../database/tests/test_seed_item_names.py), [`test_migrate_item_name_en.py`](../../database/tests/test_migrate_item_name_en.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

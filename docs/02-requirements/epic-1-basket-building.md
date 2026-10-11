@@ -33,7 +33,7 @@ As a household shopper, I want to search, browse and sort the official product c
 
 **Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (BasketScreen), [`api.ts`](../../frontend/lib/api.ts), [`result-row.ts`](../../frontend/lib/result-row.ts); backend/data: [`api.py`](../../backend/smartcart/api.py) (search_items), [`catalogue.py`](../../backend/smartcart/catalogue.py), [`translations.py`](../../backend/smartcart/translations.py).
 
-**Tests** — [`test_api.py`](../../backend/tests/test_api.py), [`test_catalogue_controls.py`](../../backend/tests/test_catalogue_controls.py), [`api.test.ts`](../../frontend/lib/api.test.ts), [`result-row.test.ts`](../../frontend/lib/result-row.test.ts).
+**Tests** — [`test_api.py`](../../backend/tests/test_api.py), [`test_catalogue_controls.py`](../../backend/tests/test_catalogue_controls.py), [`api.test.ts`](../../frontend/lib/api.test.ts), [`result-row.test.ts`](../../frontend/lib/result-row.test.ts), [`test_ingest_pricecatcher.py`](../../database/tests/test_ingest_pricecatcher.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

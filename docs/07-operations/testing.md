@@ -47,7 +47,7 @@ cd frontend && pnpm lint && pnpm build
 | Device records | `shopping-checklist.test.ts`, `trip-history.test.ts`, `next-trip.test.ts`, `shopping-session.test.ts`, `report-consent.test.ts`, `checklist-snapshots.test.ts` |
 | Privacy guards | `checklist-export.test.ts` and `trip-history.test.ts` assert those modules make no network calls; `report-screens.test.ts` asserts consent copy |
 
-Story-by-story mapping: [Traceability matrix](../08-evidence/traceability-matrix.md). Latest run: [Test results](../08-evidence/test-results.md).
+Story-by-story mapping: [Traceability matrix](../08-evidence/traceability-matrix.md).
 
 ## Writing tests
 

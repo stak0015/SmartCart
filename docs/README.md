@@ -20,7 +20,7 @@ Single home for SmartCart's product, requirements, design and operations documen
 | Run it locally | [Local setup](07-operations/local-setup.md) |
 | Deploy or operate it | [Deployment and operations](07-operations/deployment-and-operations.md) |
 | Run or extend tests | [Testing](07-operations/testing.md) |
-| Find evidence for an AC | [Traceability matrix](08-evidence/traceability-matrix.md), [Test results](08-evidence/test-results.md) |
+| Find evidence for an AC | [Traceability matrix](08-evidence/traceability-matrix.md) |
 | Know who owns a file | [Code ownership](09-team/code-ownership.md) |
 
 ## Structure
@@ -34,7 +34,7 @@ docs/
 ├── 05-data/             data model (ERDs), data sources and pipelines
 ├── 06-frontend/         frontend architecture
 ├── 07-operations/       local setup, deployment and operations, testing
-├── 08-evidence/         traceability matrix, test results
+├── 08-evidence/         traceability matrix
 ├── 09-team/             code ownership
 └── archive/             superseded documents, kept unchanged for history
 ```
