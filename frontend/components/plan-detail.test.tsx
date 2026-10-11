@@ -10,7 +10,7 @@ import { mapsPlanRouteUrl } from "@/lib/travel";
 
 describe("store plan details", () => {
   it("shows the complete Google Maps route on the recommendation card", () => {
-    const routeUrl = mapsPlanRouteUrl({latitude: 6, longitude: 102, label: "Home", source: "device"}, plan, stores, "car");
+    const routeUrl = mapsPlanRouteUrl({latitude: 6, longitude: 102}, plan, stores, "car");
     const markup = renderToStaticMarkup(createElement(MultiPlanCard, {
       plan, stores, basket, copy: COPY.en, locale: "en", routeUrl, onSelectPlan: () => {},
     }));
@@ -30,6 +30,8 @@ describe("store plan details", () => {
     expect(markup).toContain("RM65.00");
     expect(markup).toContain("RM68.00");
     expect(markup).toContain("store-summary-travel");
+    expect(markup).toContain("<small>From</small>");
+    expect(markup).toContain("<strong>Home</strong>");
     expect(markup).toContain('<details class="plan-journey">');
     expect(markup.indexOf('class="plan-journey"')).toBeLessThan(markup.indexOf('class="store-detail-items-heading"'));
     expect(markup).toContain("waypoints=");
@@ -45,5 +47,38 @@ describe("store plan details", () => {
     expect(markup).toContain(COPY.en.medianPriceEstimate);
     expect(markup).not.toContain("store-item-row");
     expect(markup).not.toContain("<img");
+  });
+
+  it("shows transport mode, fuel breakdown and multi-store savings without duplicate return travel", () => {
+    const fuel = { fuelCostRm: 1, fuelLitres: 0.4, litresPer100Km: 2.5,
+      fuelPricePerLitreRm: 2.5, fuelPriceBasis: "ron95" as const,
+      fuelPriceSource: "data.gov.my" as const, fuelPriceEffectiveDate: "2026-10-08",
+      tollCostRm: null, tollStatus: "unavailable" as const };
+    const markup = renderToStaticMarkup(createElement(PlanDetailView, {
+      plan: { ...plan, savingVsSingleRm: 5, legs: plan.legs.map(leg => ({ ...leg, travelCostBreakdown: fuel })) },
+      stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
+      activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {}, transportMode: "motorcycle",
+    }));
+    expect(markup).toContain(COPY.en.transportMode);
+    expect(markup).toContain(COPY.en.motorcycle);
+    expect(markup).not.toContain("Items at this store");
+    expect(markup).not.toContain(COPY.en.returnTravel);
+    expect(markup).toContain("Expected fuel cost");
+    expect(markup).toContain("RM3.00");
+    expect(markup).toContain("Estimated savings");
+    expect(markup).toContain("RM5.00 less than the cheapest complete single-store plan");
+  });
+
+  it.each([
+    [null, "A like-for-like savings estimate is not available yet."],
+    [-3, "RM3.00 more than the cheapest complete single-store plan"],
+    [0, "costs the same as the cheapest complete single-store plan"],
+  ])("discloses unavailable and signed multi-store savings (%s)", (saving, expected) => {
+    const markup = renderToStaticMarkup(createElement(PlanDetailView, {
+      plan: { ...plan, savingVsSingleRm: saving as number | null },
+      stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
+      activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},
+    }));
+    expect(markup).toContain(expected);
   });
 });

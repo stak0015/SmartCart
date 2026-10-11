@@ -254,6 +254,18 @@ export interface BasketAlternativesResponse {
   generatedAt: string;
 }
 
+export interface TravelCostBreakdown {
+  fuelCostRm: number;
+  fuelLitres: number;
+  litresPer100Km: number;
+  fuelPricePerLitreRm: number;
+  fuelPriceBasis: "ron95" | "ron95_budi95";
+  fuelPriceSource: "data.gov.my" | "cached" | "fallback";
+  fuelPriceEffectiveDate: string | null;
+  tollCostRm: null;
+  tollStatus: "unavailable";
+}
+
 export interface StoreRecommendation {
   premiseId: string;
   premiseCode: string;
@@ -266,6 +278,7 @@ export interface StoreRecommendation {
   routeDistanceKm: number;
   estimatedTravelMinutes: number;
   estimatedRoundTripCostRm: number;
+  travelCostBreakdown?: TravelCostBreakdown | null;
   basketCostRm: number;
   estimatedTotalCostRm: number | null;
   pricedItemCount: number;
@@ -335,6 +348,7 @@ export interface RouteLeg {
   distanceKm: number;
   travelMinutes: number;
   costRm: number;
+  travelCostBreakdown?: TravelCostBreakdown | null;
 }
 
 /** One eligible two-store journey in visit order. `firstStore*` is always the

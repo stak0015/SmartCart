@@ -23,7 +23,7 @@ from typing import Literal
 from .maps import RouteMatrixResult
 from .models import MultiStorePlan, MultiStorePlans, RouteLeg, TravelLimit
 from .premises import PremiseCandidate
-from .recommendation import TravelCostRate, estimate_one_way_leg_cost_rm
+from .recommendation import TravelCostRate, estimate_one_way_leg_cost_rm, fuel_cost_breakdown
 
 # Straight-line distance never exceeds real route distance, so a pair whose
 # straight-line gap already beats the limit cannot possibly satisfy it. Skipping
@@ -126,6 +126,7 @@ def _leg(
         distance_km=round(route.distance_meters / 1000, 2),
         travel_minutes=_leg_minutes(route.duration_seconds),
         cost_rm=cost_rm,
+        travel_cost_breakdown=fuel_cost_breakdown(route.distance_meters, rate),
     )
     return leg, cost_rm
 

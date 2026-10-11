@@ -8,7 +8,8 @@
 .smartcart-app { line-height: 1.5; }
 /* Two-store planning follows the same sizing as travel controls and store cards. */
 .compare-travel-toolbar { display: flex; width: 100%; align-items: center; gap: 20px; }
-.compare-travel-toolbar .store-detail-facts { flex: 1; min-width: 0; margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+.compare-travel-toolbar .store-detail-facts, .store-detail-header .store-detail-facts { min-width: 0; margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
+.compare-travel-toolbar .store-detail-facts { flex: 1; }
 .store-plans-dropdown { position: relative; flex-shrink: 0; }
 .store-plans-trigger { display: flex; align-items: center; gap: 8px; min-height: var(--control-height); padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
 .store-plans-trigger::-webkit-details-marker { display: none; }
@@ -830,7 +831,7 @@
 .multi-plan-card .store-card-costs { flex: 0 0 auto; }
 .plan-price-popover { max-height: min(420px, 60vh); overflow-y: auto; }
 .plan-price-popover h4 { color: var(--ink); font-size: 13px; padding: 12px 8px 4px; font-weight: 700; }
-.plan-back-button { min-height: 44px; color: var(--green); font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+.plan-back-button { min-height: 44px; color: var(--green); font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 .plan-store-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
 .plan-store-tabs button { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 3px; min-height: 48px; min-width: 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); text-align: left; background: white; font-size: 13px; }
 .plan-store-tabs button span { font-size: 11px; }
@@ -844,7 +845,7 @@
 .plan-summary-legs small { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; }
 .checklist-item-store { color: var(--green); }
 @media (max-width: 720px) {
-  .multi-plan-detail .plan-store-tabs, .multi-plan-detail .plan-back-button { margin-inline: 16px; }
+  .multi-plan-detail .plan-store-tabs, .store-detail .plan-back-button { margin-inline: 16px; }
   .checklist-items-heading { align-items: flex-start; }
   .checklist-summary { width: 100%; justify-content: space-between; margin-left: 0; }
   .checklist-summary-disclosure { text-align: left; }
@@ -994,3 +995,16 @@ button.planned-card-week:focus-visible { outline: 2px solid var(--green); outlin
   .shopping-item-dialog form { padding: 20px; }
   .shopping-dialog-item .shopping-dialog-reference { flex-shrink: 1; }
 }
+
+/* Detail trip facts use the recommendation rhythm across the full header. */
+.store-detail-header .store-detail-facts { grid-column: 1 / -1; width: 100%; }
+@media (max-width: 700px) {
+  .store-detail-header .store-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
+  .store-detail-header .store-detail-facts > span { border-right: 0; padding-inline: 0; }
+  .store-detail-header .store-detail-facts > span:first-child { display: grid; grid-column: 1 / -1; }
+}
+
+/* Keep back navigation close to the selected store identity. */
+.plan-back-button + .store-detail-header,
+.plan-store-tabs + .store-detail-header { padding-top: 0; min-height: 0; }
+.multi-plan-detail .plan-store-tabs { margin-bottom: 16px; }

@@ -40,6 +40,8 @@ function normalize(value: string): string {
 
 function resolveChainLogo(name: string): string | null {
   const normalizedName = ` ${normalize(name)} `;
+  // Food courts are separate premises, even when named after their host chain.
+  if (/\b(?:MEDAN SELERA|FOOD\s*COURT)\b/.test(normalizedName)) return null;
   const chain = CHAIN_LOGOS.find(({ aliases }) =>
     aliases.some((alias) => normalizedName.includes(` ${normalize(alias)} `)),
   );

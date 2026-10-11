@@ -254,6 +254,19 @@ class BasketAlternativesResponse(CamelModel):
     generated_at: datetime
 
 
+class TravelCostBreakdown(CamelModel):
+    fuel_cost_rm: float
+    fuel_litres: float
+    litres_per_100km: float
+    fuel_price_per_litre_rm: float
+    fuel_price_basis: Literal["ron95", "ron95_budi95"]
+    fuel_price_source: Literal["data.gov.my", "cached", "fallback"]
+    fuel_price_effective_date: str | None = None
+    # Unknown is deliberately distinct from a verified zero toll charge.
+    toll_cost_rm: float | None = None
+    toll_status: Literal["unavailable"] = "unavailable"
+
+
 class StoreRecommendation(CamelModel):
     premise_id: str
     premise_code: str
@@ -266,6 +279,7 @@ class StoreRecommendation(CamelModel):
     route_distance_km: float
     estimated_travel_minutes: int
     estimated_round_trip_cost_rm: float
+    travel_cost_breakdown: TravelCostBreakdown | None = None
     sara_status: SaraStoreStatus
     # E2 compatibility fields. They mirror the richer pricing fields below so
     # existing clients keep working while the store-detail menu uses the new
@@ -322,6 +336,7 @@ class RouteLeg(CamelModel):
     distance_km: float
     travel_minutes: int
     cost_rm: float
+    travel_cost_breakdown: TravelCostBreakdown | None = None
 
 
 class MultiStorePlan(CamelModel):

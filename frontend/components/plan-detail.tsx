@@ -11,6 +11,8 @@ import { createPlanShoppingChecklist, type ShoppingChecklist } from "@/lib/shopp
 import { SaraStoreTag } from "./store-tags";
 import { StoreChainLogo } from "./store-chain-logo";
 import { TripFactsItems } from "./trip-facts";
+import { PlanEstimatedSavingsSummary } from "./estimated-savings-summary";
+import { TravelCostDetails } from "./travel-cost-breakdown";
 import { DropdownChevron, UIIcon } from "./ui-icon";
 import { PlanBasketItems } from "./plan-basket-items";
 import { ConfirmationDialog } from "./shopping-checklist";
@@ -27,8 +29,9 @@ export function PlanDetailView({ plan, stores, basket, secondStoreLimit, copy, l
   const store = stores.find(store => store.premiseId === activeStoreId);
   const lines = plan.assignments.filter(line => line.storePremiseId === activeStoreId);
   const medianCount = plan.assignments.filter(line => line.priceSource === "median").length;
-  const assignedSubtotal = lines.reduce((total, line) => total + (line.lineTotalRm ?? 0), 0);
   const credit = plan.assignments.reduce((total, line) => total + (line.saraEligible || line.saraCategoryCandidate ? line.lineTotalRm ?? 0 : 0), 0);
+  const hasFuelBreakdown = plan.storeCount === 1 ? !!store?.travelCostBreakdown : plan.legs.length > 0 && plan.legs.every(leg => !!leg.travelCostBreakdown);
+  const modeLabel = transportMode === "public_transport" ? copy.publicTransport : transportMode === "walk" ? copy.walking : copy[transportMode];
   const createChecklist = () => {
     onCreateChecklist(createPlanShoppingChecklist(plan, stores, basket, {
       routeProvider: isEstimate ? "straight_line" : "google",
@@ -44,10 +47,10 @@ export function PlanDetailView({ plan, stores, basket, secondStoreLimit, copy, l
         <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={plan.storeNames[activeIndex]} fallback={<UIIcon name="bag" size={28}/>}/></div>
         <div className="store-detail-identity"><h1>{plan.storeNames[activeIndex]}</h1><p>{store ? [store.address, store.district, store.state].filter(Boolean).join(", ") : copy.planDetailAddressUnavailable}</p>{store && <SaraStoreTag status={store.saraStatus} copy={copy}/>}</div>
         <div className="store-detail-facts"><TripFactsItems facts={[
-          {icon: <UIIcon name="bag" size={20}/>, label: locale === "en" ? "Items at this store" : "Item di kedai ini", value: `${lines.length} · ${lines.some(line => line.unitPriceRm != null) ? formatRm(assignedSubtotal) : "—"}`},
+          {icon: <UIIcon name="home"/>, label: locale === "en" ? "From" : "Dari", value: origin?.label || "—"},
+          {icon: <UIIcon name="route" size={20}/>, label: copy.transportMode, value: modeLabel},
           {icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: `${plan.totalRouteDistanceKm.toFixed(1)} km`},
           {icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${plan.totalTravelMinutes} ${copy.minutes}`},
-          {icon: <UIIcon name="wallet" size={20}/>, label: copy.returnTravel, value: formatRm(plan.transportCostRm)},
         ]}/></div>
         {origin && <a className="store-detail-route" href={mapsPlanRouteUrl(origin, plan, stores, transportMode)} target="_blank" rel="noopener noreferrer">{copy.openInGoogleMaps} ↗</a>}
       </header>
@@ -67,9 +70,10 @@ export function PlanDetailView({ plan, stores, basket, secondStoreLimit, copy, l
             {medianCount > 0 && <p className="store-summary-note">{medianCount} · {copy.medianPriceEstimate}</p>}
             {plan.missingItems.length > 0 && <p className="store-summary-note">{copy.missingItemPrices(plan.missingItems.join(", "))}</p>}
             <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>
-            <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3><div><span>{copy.returnTravel}</span><strong>{formatRm(plan.transportCostRm)}</strong></div><div><span>{plan.missingItems.length ? copy.partialEstimatedTotal : medianCount ? copy.estimatedCombinedTotal : copy.combinedTotal}</span><strong>{plan.combinedTotalRm == null ? "—" : formatRm(plan.combinedTotalRm)}</strong></div></div>
+            <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3>{!hasFuelBreakdown && <div><span>{copy.returnTravel}</span><strong>{formatRm(plan.transportCostRm)}</strong></div>}<TravelCostDetails breakdowns={plan.storeCount === 1 ? [store?.travelCostBreakdown] : plan.legs.map(leg => leg.travelCostBreakdown)} locale={locale} roundTrip/><div><span>{plan.missingItems.length ? copy.partialEstimatedTotal : medianCount ? copy.estimatedCombinedTotal : copy.combinedTotal}</span><strong>{plan.combinedTotalRm == null ? "—" : formatRm(plan.combinedTotalRm)}</strong></div></div>
             <button type="button" className="primary-button store-start-button" onClick={() => activeChecklist ? setReplaceOpen(true) : createChecklist()}>{activeChecklist ? copy.replaceChecklist : copy.createChecklist} →</button>
           </section>
+          {plan.storeCount === 2 && <PlanEstimatedSavingsSummary savingRm={plan.isComplete ? plan.savingVsSingleRm : null} locale={locale}/>}
         </aside>
       </div>
     </div>

@@ -5,6 +5,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 
 from .config import Settings
+from .fuel import FuelPrice
 from .catalogue import display_package_size
 from .maps import RouteMatrixResult
 from .models import (
@@ -13,6 +14,7 @@ from .models import (
     StoreRecommendation,
     TransportMode,
     TravelLimitType,
+    TravelCostBreakdown,
 )
 from .premises import PremiseCandidate
 from .pricing import StoreBasketSummary
@@ -35,13 +37,16 @@ class TravelCostRate:
     base_fare_per_leg_rm: float
     per_kilometre_rm: float
     description: str
+    litres_per_100km: float | None = None
+    fuel_price: FuelPrice | None = None
 
 
-def get_travel_cost_model(settings: Settings) -> dict[TransportMode, TravelCostRate]:
+def get_travel_cost_model(settings: Settings, fuel_price: FuelPrice | None = None) -> dict[TransportMode, TravelCostRate]:
     public_base = settings.public_transport_base_per_leg_rm
     public_rate = settings.public_transport_per_km_rm
-    motorcycle_rate = settings.motorcycle_per_km_rm
-    car_rate = settings.car_per_km_rm
+    fuel_price = fuel_price or FuelPrice(settings.fuel_price_fallback_rm, settings.fuel_price_field, "fallback")
+    motorcycle_rate = settings.motorcycle_litres_per_100km / 100 * fuel_price.per_litre_rm
+    car_rate = settings.car_litres_per_100km / 100 * fuel_price.per_litre_rm
     return {
         "walk": TravelCostRate(
             0,
@@ -58,14 +63,18 @@ def get_travel_cost_model(settings: Settings) -> dict[TransportMode, TravelCostR
         "motorcycle": TravelCostRate(
             0,
             motorcycle_rate,
-            f"Planning estimate: RM{motorcycle_rate:.2f}/km. Parking, tolls and "
+            f"Fuel estimate: {settings.motorcycle_litres_per_100km:g} L/100 km at RM{fuel_price.per_litre_rm:.2f}/L. Parking, tolls and "
             "ownership costs are excluded.",
+            settings.motorcycle_litres_per_100km,
+            fuel_price,
         ),
         "car": TravelCostRate(
             0,
             car_rate,
-            f"Planning estimate: RM{car_rate:.2f}/km. Parking, tolls and "
+            f"Fuel estimate: {settings.car_litres_per_100km:g} L/100 km at RM{fuel_price.per_litre_rm:.2f}/L. Parking, tolls and "
             "ownership costs are excluded.",
+            settings.car_litres_per_100km,
+            fuel_price,
         ),
     }
 
@@ -107,6 +116,22 @@ def estimate_one_way_leg_cost_rm(
     return _round(
         rate.base_fare_per_leg_rm + distance_km * rate.per_kilometre_rm,
         2,
+    )
+
+
+def fuel_cost_breakdown(distance_meters: float, rate: TravelCostRate) -> TravelCostBreakdown | None:
+    if rate.fuel_price is None or rate.litres_per_100km is None:
+        return None
+    distance_km = max(0, distance_meters) / 1000
+    litres = distance_km * rate.litres_per_100km / 100
+    return TravelCostBreakdown(
+        fuel_cost_rm=_round(distance_km * rate.per_kilometre_rm, 2),
+        fuel_litres=_round(litres, 3),
+        litres_per_100km=rate.litres_per_100km,
+        fuel_price_per_litre_rm=rate.fuel_price.per_litre_rm,
+        fuel_price_basis=rate.fuel_price.basis,
+        fuel_price_source=rate.fuel_price.source,
+        fuel_price_effective_date=rate.fuel_price.effective_date,
     )
 
 
@@ -231,6 +256,7 @@ def rank_reachable_stores(
                 route_distance_km=_round(route.distance_meters / 1000, 2),
                 estimated_travel_minutes=max(1, ceil(route.duration_seconds / 60)),
                 estimated_round_trip_cost_rm=travel_cost_rm,
+                travel_cost_breakdown=fuel_cost_breakdown(route.distance_meters * 2, cost_rate),
                 sara_status=premise.sara_status,
                 basket_cost_rm=basket_cost_rm,
                 estimated_total_cost_rm=_round(basket_cost_rm + travel_cost_rm, 2),

@@ -3126,3 +3126,17 @@ dialog::backdrop {
   .consent-dialog { max-height:calc(100vh - 20px); padding:16px; }
   .consent-dialog h2 { font-size:19px; }
 }
+
+.travel-cost-row { display: flex; align-items: baseline; justify-content: space-between; gap: 7px; margin: 8px 0; font-size: 12px; }
+.travel-cost-row > span { display: inline-flex; align-items: center; gap: 5px; }
+.travel-cost-info { position: relative; display: inline-flex; }
+.travel-cost-info > button { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border: 1px solid var(--muted); border-radius: 50%; background: transparent; color: var(--muted); font-size: 11px; font-weight: 700; cursor: pointer; }
+.travel-cost-info > button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.travel-cost-tooltip { visibility: hidden; position: absolute; bottom: calc(100% + 6px); left: -100px; z-index: 20; width: min(250px, 70vw); padding: 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; color: var(--muted); box-shadow: 0 4px 16px #0002; font-size: 11px; font-weight: 400; line-height: 1.5; }
+.travel-cost-info:hover .travel-cost-tooltip, .travel-cost-info:focus-within .travel-cost-tooltip, .travel-cost-info[data-open="true"] .travel-cost-tooltip { visibility: visible; }
+.store-summary-travel .travel-cost-tooltip-title { display: block; margin-bottom: 8px; color: var(--ink); font-size: 12px; }
+.travel-cost-tooltip-line { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 8px; margin-top: 6px; }
+.travel-cost-tooltip-line b, .travel-cost-tooltip-calculation b { color: var(--ink); font-weight: 600; }
+.travel-cost-tooltip-calculation { display: block; margin-top: 9px; padding-top: 8px; border-top: 1px solid var(--line); }
+.travel-cost-tooltip-calculation > span, .travel-cost-tooltip-calculation > b { display: block; }
+.travel-cost-tooltip-note { display: block; margin-top: 9px; }

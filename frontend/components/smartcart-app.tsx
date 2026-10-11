@@ -2,6 +2,7 @@
 import type { CatalogueSort } from "@/lib/api";
 
 import { TripFactsItems } from "./trip-facts";
+import { TravelCostDetails } from "./travel-cost-breakdown";
 import { StoreBasketRow, StorePriceTable } from "./store-basket-row";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -1731,6 +1732,7 @@ function RecommendationOverview({
   locale,
   onSetBasket,
   onCreateChecklist,
+  onBack,
 }: {
   store: StoreRecommendation;
   recommendations: StoreRecommendation[];
@@ -1742,6 +1744,7 @@ function RecommendationOverview({
   locale: Locale;
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
+  onBack: () => void;
 }) {
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(true);
@@ -1874,6 +1877,7 @@ function RecommendationOverview({
   return (
     <div className="screen-enter store-detail">
       <div className="store-detail-shell">
+        <button type="button" className="plan-back-button" onClick={onBack}>← {copy.planDetailBack}</button>
         <header className="store-detail-header">
           <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
           <div className="store-detail-identity">
@@ -1883,10 +1887,10 @@ function RecommendationOverview({
           </div>
           <div className="store-detail-facts">
             <TripFactsItems facts={[
+              { icon: <UIIcon name="home"/>, label: locale === "en" ? "From" : "Dari", value: preferences.origin?.label || "—" },
               { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: transportLabel(copy, preferences.transportMode) },
               { icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: `${store.routeDistanceKm.toFixed(1)} km` },
               { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${store.estimatedTravelMinutes} ${copy.minutes}` },
-              { icon: <UIIcon name="wallet" size={20}/>, label: copy.returnTravel, value: formatRm(store.estimatedRoundTripCostRm) },
             ]}/>
           </div>
           {preferences.origin && <a className="store-detail-route" href={mapsRouteUrl(preferences.origin, store, preferences.transportMode)} target="_blank" rel="noopener noreferrer">{copy.openInGoogleMaps} ↗</a>}
@@ -1906,7 +1910,7 @@ function RecommendationOverview({
               <h2><UIIcon name="basket" size={22}/>{locale === "en" ? "Basket summary" : "Ringkasan bakul"}</h2>
               <dl className="store-summary-money"><div><dt>{hasIncompleteBasket ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal) : hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal}</dt><dd>{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</dd></div>{displayedCredit != null && displayedCash != null && <><div><dt>{copy.saraCreditLabel}</dt><dd>{formatRm(displayedCredit)}</dd></div><div><dt>{copy.cashNeededLabel}</dt><dd>{formatRm(displayedCash)}</dd></div></>}</dl>
               {displayedCredit != null && <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>}
-              <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3><div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div><div><span>{totalLabel}</span><strong>{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</strong></div></div>
+              <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3>{!store.travelCostBreakdown && <div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div>}<TravelCostDetails breakdowns={[store.travelCostBreakdown]} locale={locale} roundTrip/><div><span>{totalLabel}</span><strong>{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</strong></div></div>
               <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={beginChecklistCreation}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist} →</button>
             </section>
             {!alternativesLoading && <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale}/>}
@@ -1933,6 +1937,9 @@ function CompareScreen({
   onCreateChecklist,
   selectedStore,
   onSelectStore,
+  onBackToPlans,
+  selectedPlanId,
+  setSelectedPlanId,
   preferences,
   candidateCacheId,
   onChangeTravel,
@@ -1946,6 +1953,9 @@ function CompareScreen({
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
   selectedStore: StoreRecommendation | null;
   onSelectStore: (store: StoreRecommendation) => void;
+  onBackToPlans: () => void;
+  selectedPlanId: string | null;
+  setSelectedPlanId: Dispatch<SetStateAction<string | null>>;
   preferences: TravelPreferences;
   candidateCacheId: string | null;
   onChangeTravel: () => void;
@@ -1963,7 +1973,6 @@ function CompareScreen({
   // (not in a URL route) so opening the detail never unmounts CompareScreen —
   // the basket, travel preferences and multi-store configuration therefore
   // survive the round trip unchanged (AC 6.4.4 / 6.4.6).
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
   // filtered out. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
@@ -2038,7 +2047,7 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [requestBasketLines, requestCandidateCacheId, requestSecondStoreLimit, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [requestBasketLines, requestCandidateCacheId, requestSecondStoreLimit, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences, setSelectedPlanId]);
 
   const recommendations = result?.recommendations ?? [];
   const storePlanOptions = rankedStorePlanOptions(recommendations, result?.multiStore?.comparison);
@@ -2065,6 +2074,7 @@ function CompareScreen({
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}
         onCreateChecklist={onCreateChecklist}
+        onBack={onBackToPlans}
         preferences={preferences}
         copy={copy}
         routeProvider={result?.routeProvider ?? "google"}
@@ -2266,6 +2276,7 @@ export default function App() {
   const restoredSessionRef = useRef(false);
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
   const [candidatePreparation, setCandidatePreparation] = useState<CandidatePreparationState>({ status: "idle" });
   const candidatePreparationController = useRef<AbortController | null>(null);
@@ -2755,10 +2766,12 @@ export default function App() {
     if (preferences.origin) prepareCandidates(preferences);
   }, [sessionStorageReady, preferences, prepareCandidates]);
   const navigateTrip = (next: TripJourneyStep) => {
+    if (next === "compare") setSelectedPlanId(null);
     setResumeStep(next);
     navigateTo(next);
   };
   const resetTrip = () => {
+    setSelectedPlanId(null);
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
     setCandidatePreparation({ status: "idle" });
@@ -2914,16 +2927,17 @@ export default function App() {
 
       <main className={"app-main screen-" + screen}>
         {(["location", "shop", "basket", "compare"].includes(screen) || (screen === "checklist" && checklist)) && <ShoppingStepNav
-          current={screen === "compare" && isStoreRoute ? "store" : screen as "location" | "shop" | "basket" | "compare" | "checklist"}
+          current={screen === "compare" && (isStoreRoute || selectedPlanId) ? "store" : screen as "location" | "shop" | "basket" | "compare" | "checklist"}
           locale={locale}
           available={[
             "location",
             ...(preferences.origin ? ["shop" as const, "basket" as const] : []),
             ...(preferences.origin && basket.length > 0 ? ["compare" as const] : []),
-            ...(screen === "compare" && selectedStore && preferences.origin && basket.length > 0 ? ["store" as const] : []),
+            ...(screen === "compare" && (selectedStore || selectedPlanId) && preferences.origin && basket.length > 0 ? ["store" as const] : []),
           ]}
           onNavigate={step => {
-            if (step === "store" && selectedStore) router.push(`/store/${encodeURIComponent(selectedStore.premiseId)}`);
+            if (step === "store" && selectedPlanId) navigateTo("compare");
+            else if (step === "store" && selectedStore) router.push(`/store/${encodeURIComponent(selectedStore.premiseId)}`);
             else if (step !== "store" && step !== "checklist") navigateTrip(step);
           }}
         />}
@@ -3043,6 +3057,8 @@ export default function App() {
         ) : null}
         {screen === "compare" ? (
           <CompareScreen
+            selectedPlanId={selectedPlanId}
+            setSelectedPlanId={setSelectedPlanId}
             basket={basket}
             setBasket={setBasket}
             activeChecklist={checklist}
@@ -3062,8 +3078,13 @@ export default function App() {
             }}
             selectedStore={isStoreRoute ? selectedStore : null}
             onSelectStore={store => {
+              setSelectedPlanId(null);
               setSelectedStore(store);
               router.push(`/store/${encodeURIComponent(store.premiseId)}`);
+            }}
+            onBackToPlans={() => {
+              setSelectedStore(null);
+              navigateTo("compare");
             }}
             preferences={preferences}
             candidateCacheId={candidateCacheId}

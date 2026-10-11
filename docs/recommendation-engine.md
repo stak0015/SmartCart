@@ -95,29 +95,47 @@ Provider pricing and terms can change. Recheck these sources before deployment.
    English label from `item.item_name_en`; the official `item_name` is the
    Malay/original label and fallback.
 
-At the default 25-candidate cap, one recommendation costs no more than 25 route
-matrix elements, so the current 10,000-element free cap supports about 400 full
-comparisons per month. Reducing the cap lowers cost but increases the chance
-that a useful store is not evaluated, particularly for a time-based limit.
+At the default 25-candidate cap, a single-origin recommendation uses up to
+25 route matrix elements. Toll calculations are not requested: Google's
+published supported toll locations do not include Malaysia. Motorcycle routing
+already uses the Enterprise billing tier; car distance/time requests use the
+basic tier unless other advanced features are enabled.
 
 ## Travel-cost assumptions
-
-Routes does not provide a comparable fare or operating cost for every mode, so
-the engine uses transparent, configurable planning assumptions. Defaults are:
 
 | Mode | Default return-trip estimate |
 | --- | --- |
 | Walking | RM0 direct monetary cost |
-| Public transport | Two RM1.00 base fares plus RM0.08 per return-trip kilometre; route estimates include walking to and from transit stops |
-| Motorcycle | RM0.12 per return-trip kilometre |
-| Car | RM0.45 per return-trip kilometre |
+| Public transport | Google's MYR transit fare when available, doubled for the return trip; otherwise two RM1.00 base fares plus RM0.08 per return-trip kilometre |
+| Motorcycle | Return distance × 2.5 L/100 km ÷ 100 × RON95 price per litre |
+| Car | Return distance × 7 L/100 km ÷ 100 × RON95 price per litre |
 
-The formula is `2 x base fare per leg + 2 x one-way route km x per-km rate`.
-These values are product assumptions, not verified Malaysian fares or a full
-vehicle cost model. They exclude parking, tolls, ownership costs, physical
-effort, accessibility barriers, and service reliability. Validate them with
-the target community before presenting the ranking as user-ready. Override
-them with the `TRAVEL_COST_*` environment variables.
+Consumption figures are configurable planning assumptions, not measurements of
+an individual vehicle. Override them using `TRAVEL_CAR_LITRES_PER_100KM` and
+`TRAVEL_MOTORCYCLE_LITRES_PER_100KM`. Previous car/motorcycle RM/km overrides
+are no longer used for pricing.
+
+The official data.gov.my fuel CSV is refreshed on the first petrol-mode request
+of each Malaysian calendar day, once per server process. Only `level` records
+whose effective dates are today or earlier are used. `TRAVEL_FUEL_PRICE_FIELD`
+defaults to `ron95` (general market); `ron95_budi95` explicitly selects the
+subsidised price for eligible users. Subsidy eligibility and remaining monthly
+allowance are not checked by SmartCart. If a refresh fails, retain and label the
+last known price, or use the labelled `TRAVEL_FUEL_PRICE_FALLBACK_RM` (default
+RM2.60/L) when no price is cached. Failed refreshes are retried after an hour.
+This is demand-driven daily refresh, not an independent background scheduler.
+
+Fuel breakdowns expose cost, expected litres, consumption, price basis, price
+source, and effective date. Tolls are null/unavailable and excluded, never a
+verified zero. Parking and ownership costs are also excluded. Single-store
+return costs double the outward distance; multi-store costs sum the three
+journey legs (the return leg reuses the outward home-to-store route estimate).
+Each cost is rounded to cents, and plan totals sum rounded leg costs so the
+breakdown reconciles with ranking and basket-plus-travel totals.
+
+Official references: [fuel dataset](https://data.gov.my/data-catalogue/fuelprice),
+[Google toll calculations](https://developers.google.com/maps/documentation/routes/calculate_toll_fees),
+and [supported toll locations](https://developers.google.com/maps/documentation/routes/reference/rest/v2/RouteModifiers#TollPass).
 
 ## Basket-price calculation
 

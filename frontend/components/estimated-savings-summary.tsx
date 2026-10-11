@@ -36,6 +36,33 @@ function signedAmount(value: number): string {
   return `${value > 0 ? "+" : "−"}${formatRm(Math.abs(value))}`;
 }
 
+/** Uses the same complete single-store baseline as the plan recommendation. */
+export function PlanEstimatedSavingsSummary({ savingRm, locale }: {
+  savingRm: number | null;
+  locale: Locale;
+}) {
+  const text = TEXT[locale];
+  const english = locale === "en";
+  const title = savingRm != null && savingRm < 0 ? text.differenceTitle : text.title;
+  const amount = formatRm(Math.abs(savingRm ?? 0));
+  const headline = savingRm == null
+    ? text.unavailable
+    : english
+      ? savingRm > 0 ? `This plan costs ${amount} less than the cheapest complete single-store plan, including travel.`
+        : savingRm < 0 ? `This plan costs ${amount} more than the cheapest complete single-store plan, including travel.`
+          : "This plan costs the same as the cheapest complete single-store plan, including travel."
+      : savingRm > 0 ? `Pelan ini ${amount} lebih murah daripada pelan satu kedai lengkap termurah, termasuk perjalanan.`
+        : savingRm < 0 ? `Pelan ini ${amount} lebih mahal daripada pelan satu kedai lengkap termurah, termasuk perjalanan.`
+          : "Kos pelan ini sama dengan pelan satu kedai lengkap termurah, termasuk perjalanan.";
+  return <section aria-labelledby="estimated-savings-title" className="rounded-lg border border-[#dce5e0] bg-white p-4">
+    <div className="flex flex-wrap items-baseline justify-between gap-2">
+      <h2 id="estimated-savings-title" className="text-base font-bold text-[#10152e]">{title}</h2>
+      {savingRm != null && savingRm > 0 && <p className="text-base font-bold text-[#007d38]">{amount}</p>}
+    </div>
+    <p className="mt-2 text-xs leading-5 text-[#526078]">{headline}</p>
+  </section>;
+}
+
 export function EstimatedSavingsSummary({
   snapshot,
   locale,

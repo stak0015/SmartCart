@@ -1,6 +1,8 @@
 import pytest
 
 from smartcart.maps import RouteMatrixResult
+from smartcart.config import get_settings
+from smartcart.fuel import FuelPrice
 from smartcart.models import BasketItemPrice
 from smartcart.premises import PremiseCandidate
 from smartcart.recommendation import (
@@ -8,6 +10,8 @@ from smartcart.recommendation import (
     estimate_round_trip_cost_rm,
     rank_reachable_stores,
     straight_line_route_results,
+    get_travel_cost_model,
+    fuel_cost_breakdown,
 )
 
 
@@ -16,6 +20,21 @@ COST_RATE = TravelCostRate(
     per_kilometre_rm=0.5,
     description="test rate",
 )
+
+
+def test_fuel_breakdown_matches_return_total_and_ranking():
+    rate = get_travel_cost_model(get_settings(), FuelPrice(2.60, "ron95", "data.gov.my", "2026-10-08"))["car"]
+    stores = rank_reachable_stores(
+        candidates=[candidate()], route_results=[route(0, 10_000, 600)],
+        limit_type="distance", limit_value=20, cost_rate=rate,
+    )
+    store = stores[0]
+    assert store.estimated_round_trip_cost_rm == 3.64
+    assert store.travel_cost_breakdown.fuel_cost_rm == 3.64
+    assert store.travel_cost_breakdown.fuel_litres == 1.4
+    assert store.travel_cost_breakdown.toll_cost_rm is None
+    assert store.travel_cost_breakdown.toll_status == "unavailable"
+    assert fuel_cost_breakdown(1_000, COST_RATE) is None
 
 
 def candidate(**overrides) -> PremiseCandidate:

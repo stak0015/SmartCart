@@ -50,6 +50,10 @@ class Settings:
     car_per_km_rm: float
     cerebras_api_key: str | None
     cerebras_model: str
+    car_litres_per_100km: float = 7.0
+    motorcycle_litres_per_100km: float = 2.5
+    fuel_price_field: str = "ron95"
+    fuel_price_fallback_rm: float = 2.60
 
 
 @lru_cache
@@ -97,4 +101,8 @@ def get_settings() -> Settings:
         car_per_km_rm=_non_negative_number("TRAVEL_COST_CAR_PER_KM_RM", 0.45),
         cerebras_api_key=(os.getenv("CEREBRAS_API_KEY", "").strip() or None),
         cerebras_model=_bounded_text("CEREBRAS_MODEL", "gpt-oss-120b", 100),
+        car_litres_per_100km=_non_negative_number("TRAVEL_CAR_LITRES_PER_100KM", 7.0),
+        motorcycle_litres_per_100km=_non_negative_number("TRAVEL_MOTORCYCLE_LITRES_PER_100KM", 2.5),
+        fuel_price_field=("ron95_budi95" if os.getenv("TRAVEL_FUEL_PRICE_FIELD") == "ron95_budi95" else "ron95"),
+        fuel_price_fallback_rm=_non_negative_number("TRAVEL_FUEL_PRICE_FALLBACK_RM", 2.60),
     )

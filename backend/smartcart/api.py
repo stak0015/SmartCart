@@ -22,6 +22,7 @@ from .catalogue import (
 )
 from .categories import CATEGORY_SUMMARIES, CATEGORIES_BY_ID
 from .config import get_settings
+from .fuel import get_fuel_price
 from .errors import AppError
 from .report_models import (
     GenerateReportRequest,
@@ -674,7 +675,11 @@ async def _recommend_stores(
         )
         route_limit_type = travel.limit.type
         route_limit_value = travel.limit.value
-    cost_model = get_travel_cost_model(settings)
+    fuel_price = (
+        await run_in_threadpool(get_fuel_price, settings)
+        if travel.transport_mode in {"car", "motorcycle"} else None
+    )
+    cost_model = get_travel_cost_model(settings, fuel_price)
     recommendations = rank_reachable_stores(
         candidates=candidates,
         route_results=route_results,

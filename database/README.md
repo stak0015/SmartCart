@@ -147,6 +147,31 @@ The migration never writes a user's selected origin.
 
 ## Verified SARA store status
 
+SmartCart also uses a user-authorised assumption that all retail branches of
+the eight chains named in the [official SARA 2026 FAQ](https://www.sara.gov.my/documents/sara2026_sus_faqs_final_20260209.pdf)
+participate: Mydin, Giant, Econsave, The Store, Pacific, Milimewa, 99 Speedmart,
+and Lotus's (formerly Tesco). `migrate_sara_chain_partners.py` promotes their
+matching premises to `sara_partner = TRUE`, including branches currently marked
+as candidates. Lotus's, LOTUSS, Lotus Stores, and Tesco share one chain identity.
+Brand prefixes must match whole tokens; unrelated names and food courts are
+excluded. Variants include `99 SPEED MART`, `99SPEEDMART`, `MY MYDIN`, and
+`MILIMEWAH`, with leading `PASAR MINI`/`PASARAYA MINI` descriptors ignored.
+This is chain-level inference under that assumption, rather than
+independent branch verification. It does not verify item eligibility.
+
+Run after ingestion to include newly added branches:
+
+```powershell
+python migrate_sara_chain_partners.py          # Read-only database preview
+python migrate_sara_chain_partners.py --apply  # Promote matching branches
+```
+
+Each run writes a timestamped JSON audit under `data/raw`, recording its source,
+assumption, matched premises, and previous `sara_partner` flags. Applying is
+transactional and repeatable: existing verified flags are preserved and
+`sara_match_candidate` is left unchanged. The database's existing verified-store
+status therefore includes both strict branch matches and this chain assumption.
+
 `migrate_sara_verified.py` marks a PriceCatcher premise as `sara_partner = TRUE`
 when its selected Price place is within 150 metres of a merchant in the local
 MyKasih SARA snapshot, at least 75% of the PriceCatcher premise's meaningful
