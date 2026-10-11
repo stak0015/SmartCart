@@ -142,6 +142,7 @@ import {
   type InboxState,
 } from "@/lib/inbox";
 import { readReportConsent, writeReportConsent, type ReportConsentRead, type ReportConsentStatus } from "@/lib/report-consent";
+import { readReportLanguage, writeReportLanguage } from "@/lib/report-language";
 import { buildGenerateReportRequest, claimAutomaticReportPeriods, getEligibleReportPeriods, getManualReportPeriods, requestGeneratedReport, type ReportCadence, type ReportPeriod } from "@/lib/report-generation";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
@@ -2026,6 +2027,7 @@ export default function App() {
   const [reportConsentLoaded, setReportConsentLoaded] = useState(false);
   const [consentDialogMode, setConsentDialogMode] = useState<ConsentDialogMode>(null);
   const [consentStorageError, setConsentStorageError] = useState(false);
+  const [reportLanguageChoice, setReportLanguageChoice] = useState<Locale | null>(null);
   const automaticReportAttemptedRef = useRef<Set<string>>(new Set());
   const pendingManualReportCadenceRef = useRef<ReportCadence | null>(null);
   const activeReportControllerRef = useRef<AbortController | null>(null);
@@ -2045,6 +2047,24 @@ export default function App() {
   // be restored when the shopper returns to the recommendations (AC 6.4.4).
   const [multiStore, setMultiStore] = useState<MultiStoreConfig>(DEFAULT_MULTI_STORE_CONFIG);
 
+  // Reports follow the app language until the shopper picks a report language.
+  const reportLanguage = reportLanguageChoice ?? locale;
+  useEffect(() => {
+    try {
+      setReportLanguageChoice(readReportLanguage(window.localStorage));
+    } catch {
+      // Storage unavailable: keep following the app language.
+    }
+  }, []);
+  const changeReportLanguage = useCallback((language: Locale) => {
+    setReportLanguageChoice(language);
+    try {
+      writeReportLanguage(window.localStorage, language);
+    } catch {
+      // The choice still applies for this session.
+    }
+  }, []);
+
   const runReportGeneration = useCallback(async (period: ReportPeriod) => {
     if (activeReportControllerRef.current) return;
     const controller = new AbortController();
@@ -2060,7 +2080,7 @@ export default function App() {
       return next;
     });
     try {
-      const request = buildGenerateReportRequest(tripHistory, period, locale);
+      const request = buildGenerateReportRequest(tripHistory, period, reportLanguage);
       let storage: Storage;
       try {
         storage = window.localStorage;
@@ -2103,7 +2123,7 @@ export default function App() {
     } finally {
       if (activeReportControllerRef.current === controller) activeReportControllerRef.current = null;
     }
-  }, [locale, tripHistory]);
+  }, [reportLanguage, tripHistory]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -2734,6 +2754,8 @@ export default function App() {
             onRetry={retryReport}
             onGenerate={generateReportForCadence}
             onOpenSettings={() => { setConsentStorageError(false); setConsentDialogMode("settings"); }}
+            reportLanguage={reportLanguage}
+            onReportLanguage={changeReportLanguage}
           />
         ) : null}
         {screen === "shop" ? (

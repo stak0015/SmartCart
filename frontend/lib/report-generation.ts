@@ -12,12 +12,17 @@ import {
   periodAnalyticsForStart,
   type AnalyticsCadence,
 } from "./period-analytics";
-import { boughtLineQuantity, boughtLineTotalRm, type TripRecord } from "./trip-history";
+import { boughtLineQuantity, boughtLineTotalRm, boughtLineUnitPrice, type TripRecord } from "./trip-history";
 
 export type ReportCadence = AnalyticsCadence;
-export type ReportVisualization = "overview-kpis" | "category-pie" | "savings-breakdown" | "spending-class-bar";
-export type ReportSectionId = "overview" | "categories" | "savings" | "essentials";
 export type ReportCategoryId = ItemCategoryId | "uncategorised";
+export type ReportInsightKind =
+  | "spending_vs_usual" | "price_rises" | "price_drops" | "items_due"
+  | "store_choice" | "top_up_trips" | "repeat_skips" | "store_record" | "category_shift"
+  | "where_money_went" | "savings_result" | "unbought" | "travel_share" | "getting_started";
+
+/** Earlier periods sent as the shopper's own baseline for insight detection. */
+export const REPORT_BASELINE_PERIODS: Readonly<Record<ReportCadence, number>> = { weekly: 8, monthly: 3 };
 
 export interface GenerateReportRequest {
   cadence: ReportCadence;
@@ -33,7 +38,14 @@ export interface GenerateReportRequest {
       sourceCategory: SourceCategory | null;
       quantity: number;
       lineTotalRm: number | null;
+      itemKey: string | null;
+      unitPriceRm: number | null;
     }>;
+    skippedLines: Array<{ name: string; itemKey: string | null }>;
+    storeName: string | null;
+    estimatedRoundTripCostRm: number | null;
+    plannedCombinedTotalRm: number | null;
+    cheapestAlternative: { name: string; estimatedTotalCostRm: number } | null;
     estimatedSavings: {
       storeChoiceImpactRm: number | null;
       itemChangeImpactRm: number | null;
@@ -62,12 +74,19 @@ export interface SpecificCategoryAmount {
   partial: boolean;
 }
 
+export interface ReportInsight {
+  kind: ReportInsightKind;
+  title: string;
+  body: string;
+  action: string | null;
+  evidence: { label: string; value: string } | null;
+}
+
 export interface ReportNewsletter {
   subject: string;
   preview: string;
-  opening: string;
-  insights: Array<{ heading: string; body: string }>;
-  tip: string | null;
+  headline: string;
+  insights: ReportInsight[];
 }
 
 export interface ReportComparison {
@@ -83,13 +102,6 @@ export interface ReportComparison {
   categorySpending: ReportCategoryAmount[];
   specificCategorySpending: SpecificCategoryAmount[];
   spendingClassBreakdown: ReportSpendingClassAmount[];
-}
-
-export interface ReportSection {
-  id: ReportSectionId;
-  heading: string;
-  observation: string;
-  visualization: ReportVisualization;
 }
 
 export interface GeneratedReport {
@@ -109,7 +121,6 @@ export interface GeneratedReport {
   specificCategorySpending: SpecificCategoryAmount[];
   spendingClassBreakdown: ReportSpendingClassAmount[];
   comparison: ReportComparison | null;
-  sections: [ReportSection, ReportSection, ReportSection, ReportSection];
   newsletter: ReportNewsletter;
   disclosures: string[];
   generationSource: "fallback" | "llm";
@@ -138,12 +149,10 @@ export interface SpecificCategoryChartRow extends SpecificCategoryAmount {
   percent: number | null;
 }
 
-const SECTION_BINDINGS: ReadonlyArray<readonly [ReportSectionId, ReportVisualization]> = [
-  ["overview", "overview-kpis"],
-  ["categories", "category-pie"],
-  ["savings", "savings-breakdown"],
-  ["essentials", "spending-class-bar"],
-];
+const INSIGHT_KINDS: ReadonlySet<string> = new Set<ReportInsightKind>([
+  "spending_vs_usual", "price_rises", "price_drops", "items_due", "store_choice", "top_up_trips", "repeat_skips",
+  "store_record", "category_shift", "where_money_went", "savings_result", "unbought", "travel_share", "getting_started",
+]);
 const CLASS_ORDER: readonly ItemCategorySpendingClass[] = ["essential", "discretionary", "mixed_or_unknown"];
 const CATEGORY_ORDER = new Map<string, number>(ITEM_CATEGORY_IDS.map((id, index) => [id, index]));
 
@@ -218,14 +227,24 @@ function isSortedSpecificCategoryAmounts(values: unknown): values is SpecificCat
   return true;
 }
 
+function isText(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isInsight(value: unknown): value is ReportInsight {
+  if (!objectHasExactKeys(value, ["kind", "title", "body", "action", "evidence"])) return false;
+  return typeof value.kind === "string" && INSIGHT_KINDS.has(value.kind)
+    && isText(value.title) && isText(value.body)
+    && (value.action === null || isText(value.action))
+    && (value.evidence === null || (objectHasExactKeys(value.evidence, ["label", "value"])
+      && isText(value.evidence.label) && isText(value.evidence.value)));
+}
+
 function isNewsletter(value: unknown): value is ReportNewsletter {
-  if (!objectHasExactKeys(value, ["subject", "preview", "opening", "insights", "tip"])) return false;
-  return [value.subject, value.preview, value.opening].every(field => typeof field === "string" && field.trim().length > 0)
-    && Array.isArray(value.insights) && value.insights.length <= 3
-    && value.insights.every(insight => objectHasExactKeys(insight, ["heading", "body"])
-      && typeof insight.heading === "string" && insight.heading.trim().length > 0
-      && typeof insight.body === "string" && insight.body.trim().length > 0)
-    && (value.tip === null || (typeof value.tip === "string" && value.tip.trim().length > 0));
+  if (!objectHasExactKeys(value, ["subject", "preview", "headline", "insights"])) return false;
+  return isText(value.subject) && isText(value.preview) && isText(value.headline)
+    && Array.isArray(value.insights) && value.insights.length <= 4
+    && value.insights.every(isInsight);
 }
 
 function isClassBreakdown(values: unknown): values is ReportSpendingClassAmount[] {
@@ -256,14 +275,6 @@ function isComparison(value: unknown): value is ReportComparison {
     && isClassBreakdown(value.spendingClassBreakdown);
 }
 
-function isSection(value: unknown, expectedIndex: number): value is ReportSection {
-  if (!objectHasExactKeys(value, ["id", "heading", "observation", "visualization"])) return false;
-  const [id, visualization] = SECTION_BINDINGS[expectedIndex];
-  return value.id === id && value.visualization === visualization
-    && typeof value.heading === "string" && value.heading.trim().length > 0
-    && typeof value.observation === "string" && value.observation.trim().length > 0;
-}
-
 function expectedRange(cadence: ReportCadence, periodStart: string): { start: string; end: string } | null {
   if (!isInstant(periodStart)) return null;
   try {
@@ -284,7 +295,7 @@ export function isGeneratedReport(value: unknown): value is GeneratedReport {
   return objectHasExactKeys(report, [
     "id", "cadence", "periodStart", "periodEnd", "generatedAt", "tripCount", "actualSpendingRm",
     "spendingIncomplete", "estimatedNetSavingsRm", "storeChoiceImpactRm", "itemChangeImpactRm",
-    "savingsIncomplete", "categorySpending", "spendingClassBreakdown", "comparison", "sections",
+    "savingsIncomplete", "categorySpending", "spendingClassBreakdown", "comparison",
     "specificCategorySpending", "newsletter", "disclosures", "generationSource",
   ])
     && typeof report.id === "string" && report.id === `${report.cadence}:${report.periodStart}`
@@ -301,8 +312,6 @@ export function isGeneratedReport(value: unknown): value is GeneratedReport {
     && isSortedSpecificCategoryAmounts(report.specificCategorySpending)
     && isClassBreakdown(report.spendingClassBreakdown)
     && (report.comparison === null || isComparison(report.comparison))
-    && Array.isArray(report.sections) && report.sections.length === SECTION_BINDINGS.length
-    && report.sections.every(isSection)
     && isNewsletter(report.newsletter)
     && Array.isArray(report.disclosures)
     && report.disclosures.every(disclosure => typeof disclosure === "string" && disclosure.length > 0 && disclosure.length <= 500)
@@ -380,6 +389,20 @@ function nullableFinite(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
+function nullableNonNegative(value: unknown): number | null {
+  const finite = nullableFinite(value);
+  return finite != null && finite >= 0 ? finite : null;
+}
+
+function itemKeyForUpload(line: TripRecord["lines"][number]): string | null {
+  return line.catalogueItemId ? Array.from(line.catalogueItemId).slice(0, 80).join("") : null;
+}
+
+function storeNameForUpload(name: string): string | null {
+  const trimmed = name.trim();
+  return trimmed ? Array.from(trimmed).slice(0, 120).join("") : null;
+}
+
 export function buildGenerateReportRequest(
   records: readonly TripRecord[],
   period: ReportPeriod,
@@ -390,8 +413,13 @@ export function buildGenerateReportRequest(
     || period.id !== `${period.cadence}:${period.periodStart}`) {
     throw new TypeError("Report period does not match a Malaysia calendar period");
   }
-  const previous = periodAnalyticsForStart([], period.cadence, new Date(Date.parse(period.periodStart) - 1));
-  const sliceStart = Date.parse(previous.periodStart);
+  // Send the shopper's baseline periods too, so the backend can tell what is
+  // usual for them. Older trips stay on the device.
+  let baseline = periodAnalyticsForStart([], period.cadence, period.periodStart);
+  for (let step = 0; step < REPORT_BASELINE_PERIODS[period.cadence]; step += 1) {
+    baseline = periodAnalyticsForStart([], period.cadence, new Date(Date.parse(baseline.periodStart) - 1));
+  }
+  const sliceStart = Date.parse(baseline.periodStart);
   const periodEnd = Date.parse(period.periodEnd);
   const trips = records.flatMap(record => {
     const recordedAt = Date.parse(record.recordedAt);
@@ -408,12 +436,32 @@ export function buildGenerateReportRequest(
         sourceCategory: line.sourceCategory ?? null,
         quantity,
         lineTotalRm,
+        itemKey: itemKeyForUpload(line),
+        unitPriceRm: nullableNonNegative(boughtLineUnitPrice(line)),
       };
     });
+    const skippedLines = record.lines.filter(line => line.status === "not_bought").map(line => ({
+      name: nameForUpload(line, locale),
+      itemKey: itemKeyForUpload(line),
+    }));
+    const alternatives = record.alternativeStoreEstimates
+      .filter(estimate => nullableNonNegative(estimate.estimatedTotalCostRm) != null && estimate.name.trim().length > 0);
+    const cheapest = alternatives.reduce<typeof alternatives[number] | null>(
+      (best, estimate) => best == null || estimate.estimatedTotalCostRm! < best.estimatedTotalCostRm! ? estimate : best,
+      null,
+    );
     const snapshot = record.estimatedSavings;
     return [{
       recordedAt: new Date(recordedAt).toISOString(),
       boughtLines,
+      skippedLines,
+      storeName: storeNameForUpload(record.store.name),
+      estimatedRoundTripCostRm: nullableNonNegative(record.estimatedRoundTripCostRm),
+      plannedCombinedTotalRm: nullableNonNegative(record.plannedCombinedTotalRm),
+      cheapestAlternative: cheapest == null ? null : {
+        name: storeNameForUpload(cheapest.name)!,
+        estimatedTotalCostRm: cheapest.estimatedTotalCostRm!,
+      },
       estimatedSavings: snapshot == null ? null : {
         storeChoiceImpactRm: nullableFinite(snapshot.storeChoiceImpactRm),
         itemChangeImpactRm: nullableFinite(snapshot.itemChangeImpactRm),

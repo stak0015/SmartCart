@@ -24,35 +24,40 @@ describe("G6 and G7 report and Statistics surfaces", () => {
     expect(journey).not.toMatch(/export\s+(function|const)\s+InboxScreen/);
   });
 
-  it("keeps the exact three KPI concepts, accessible chart tables, and responsive layout", () => {
-    const reportScreen = readFileSync(new URL("./report-screens.tsx", import.meta.url), "utf8");
-    const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
-    expect(reportScreen.match(/className="stat-metric tone-/g)).toHaveLength(3);
-    expect(reportScreen).toContain("<table className=\"chart-data-table\"");
-    expect(reportScreen).toContain("statistics.comparisonRangeLabel");
-    expect(css).toMatch(/\.statistics-grid \{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-    expect(css).toMatch(/\.statistics-grid \{ grid-template-columns:minmax\(0,1fr\)/);
+  it("lays Statistics out as a KPI row over a card grid with screen-reader-only chart tables", () => {
+    const panel = readFileSync(new URL("./statistics-panel.tsx", import.meta.url), "utf8");
+    const layout = readFileSync(new URL("../app/ui-layout.css", import.meta.url), "utf8");
+    expect(panel.match(/<KpiTile /g)).toHaveLength(4);
+    expect(panel).toContain('className="period-nav"');
+    expect(panel).toContain("className=\"dash-table\"");
+    expect(panel).toContain('<table className="sr-only"');
+    expect(panel).not.toContain("chart-data-table");
+    expect(panel).not.toContain("conic-gradient");
+    expect(layout).toMatch(/\.sr-only \{ position:absolute;/);
+    expect(layout).toContain(".dash-grid { grid-template-columns:minmax(0,1fr); }");
   });
 
-  it("renders report prose and broad category facts, previews reports, and charts broad categories in Statistics", () => {
+  it("renders insight cards under a deterministic headline and previews them in the inbox", () => {
     const reportScreen = readFileSync(new URL("./report-screens.tsx", import.meta.url), "utf8");
     const layout = readFileSync(new URL("../app/ui-layout.css", import.meta.url), "utf8");
-    for (const field of ["newsletter.subject", "newsletter.preview", "newsletter.opening", "newsletter.insights", "newsletter.tip"]) {
+    for (const field of ["newsletter.headline", "newsletter.insights", "insight.evidence", "insight.action", "newsletter.preview"]) {
       expect(reportScreen).toContain(field);
     }
-    expect(reportScreen).toContain("<ReportFacts report={report} locale={locale}/>");
-    expect(reportScreen).toContain("report.categorySpending.map(row");
-    expect(reportScreen).toContain("const currentCategories = statistics.categoryRows");
-    expect(reportScreen).toContain("CategoryPie rows={currentCategories}");
-    expect(reportScreen).not.toContain("statistics.specificCategoryRows");
-    expect(reportScreen).toContain("conic-gradient(from -90deg");
-    expect(reportScreen).toContain("groupPieCategories(rows)");
-    expect(reportScreen).toContain("otherCategories");
+    expect(reportScreen).not.toMatch(/newsletter\.(opening|tip)/);
+    expect(reportScreen).toContain("<ReportNumbers report={report} locale={locale}/>");
+    expect(reportScreen).toContain("report.disclosures");
     expect(reportScreen).toContain("inbox-message-preview");
     expect(reportScreen).toContain("report-reader-content");
     expect(layout).toContain(".inbox-layout.has-selection .inbox-list-panel");
     expect(layout).toContain(".inbox-layout.has-selection .inbox-reading-pane");
-    expect(reportScreen).not.toContain("CategoryBars");
+  });
+
+  it("generates reports from one AI menu instead of stacked buttons", () => {
+    const reportScreen = readFileSync(new URL("./report-screens.tsx", import.meta.url), "utf8");
+    expect(reportScreen).toContain('aria-haspopup="menu"');
+    expect(reportScreen).toContain('UIIcon name="sparkle"');
+    expect(reportScreen).toContain('role="menuitem"');
+    expect(reportScreen).not.toContain("report-generate-panel");
   });
 
   it("includes a bilingual consent disclosure for backend, Cerebras, data fields, retention, and local storage", () => {

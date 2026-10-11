@@ -123,22 +123,47 @@ class ReportBoughtLineInput(ReportModel):
     source_category: ReportSourceCategoryInput | None = None
     quantity: Annotated[float, Field(gt=0, allow_inf_nan=False)]
     line_total_rm: Annotated[float | None, Field(ge=0, allow_inf_nan=False)]
+    # Stable identity for matching the same product across trips: the catalogue
+    # item id, or absent for shopper-typed lines (matched by name instead).
+    item_key: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+    unit_price_rm: Annotated[float | None, Field(ge=0, allow_inf_nan=False)] = None
 
     @field_validator("quantity", mode="before")
     @classmethod
     def validate_finite_quantity(cls, value: object) -> float:
         return _finite_number(value)
 
-    @field_validator("line_total_rm", mode="before")
+    @field_validator("line_total_rm", "unit_price_rm", mode="before")
     @classmethod
     def validate_finite_line_total(cls, value: object) -> float | None:
         return None if value is None else _finite_number(value)
+
+
+class ReportSkippedLineInput(ReportModel):
+    """A planned line the shopper left unbought; it never counts as spending."""
+
+    name: str = Field(max_length=REPORT_MAX_ITEM_NAME_LENGTH)
+    item_key: Annotated[str, Field(min_length=1, max_length=80)] | None = None
+
+
+class ReportAlternativeStoreInput(ReportModel):
+    """The cheapest alternative store's frozen estimate (basket plus travel)."""
+
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    estimated_total_cost_rm: Annotated[float, Field(ge=0, allow_inf_nan=False)]
 
 
 class ReportTripInput(ReportModel):
     recorded_at: str
     bought_lines: list[ReportBoughtLineInput]
     estimated_savings: ReportSavingsInput | None
+    # Optional behaviour context for insight detection. The store name is a
+    # chain branch label only; no origin or route is ever sent.
+    store_name: Annotated[str, Field(min_length=1, max_length=120)] | None = None
+    skipped_lines: list[ReportSkippedLineInput] = Field(default_factory=list)
+    estimated_round_trip_cost_rm: Annotated[float | None, Field(ge=0, allow_inf_nan=False)] = None
+    planned_combined_total_rm: Annotated[float | None, Field(ge=0, allow_inf_nan=False)] = None
+    cheapest_alternative: ReportAlternativeStoreInput | None = None
 
     @field_validator("recorded_at")
     @classmethod
@@ -163,7 +188,7 @@ class GenerateReportRequest(ReportModel):
 
     @model_validator(mode="after")
     def validate_total_line_count(self) -> GenerateReportRequest:
-        if sum(len(trip.bought_lines) for trip in self.trips) > REPORT_MAX_LINES:
+        if sum(len(trip.bought_lines) + len(trip.skipped_lines) for trip in self.trips) > REPORT_MAX_LINES:
             raise ValueError("too many bought lines")
         return self
 
@@ -221,41 +246,44 @@ class ReportComparisonSnapshot(ReportResponseModel):
         return self
 
 
-ReportSectionId = Literal["overview", "categories", "savings", "essentials"]
-ReportVisualization = Literal[
-    "overview-kpis",
-    "category-pie",
-    "savings-breakdown",
-    "spending-class-bar",
-]
-
-_SECTION_BINDINGS: tuple[tuple[str, str], ...] = (
-    ("overview", "overview-kpis"),
-    ("categories", "category-pie"),
-    ("savings", "savings-breakdown"),
-    ("essentials", "spending-class-bar"),
-)
 _SPENDING_CLASS_ORDER = ["essential", "discretionary", "mixed_or_unknown"]
 
+ReportInsightKind = Literal[
+    "spending_vs_usual",
+    "price_rises",
+    "price_drops",
+    "items_due",
+    "store_choice",
+    "top_up_trips",
+    "repeat_skips",
+    "store_record",
+    "category_shift",
+    "where_money_went",
+    "savings_result",
+    "unbought",
+    "travel_share",
+    "getting_started",
+]
 
-class ReportSection(ReportResponseModel):
-    id: ReportSectionId
-    heading: str
-    observation: str
-    visualization: ReportVisualization
+
+class ReportInsightEvidence(ReportResponseModel):
+    label: Annotated[str, Field(min_length=1, max_length=80)]
+    value: Annotated[str, Field(min_length=1, max_length=40)]
 
 
-class ReportNewsletterInsight(ReportResponseModel):
-    heading: Annotated[str, Field(min_length=1, max_length=80)]
-    body: Annotated[str, Field(min_length=1, max_length=600)]
+class ReportInsight(ReportResponseModel):
+    kind: ReportInsightKind
+    title: Annotated[str, Field(min_length=1, max_length=90)]
+    body: Annotated[str, Field(min_length=1, max_length=700)]
+    action: Annotated[str, Field(min_length=1, max_length=300)] | None
+    evidence: ReportInsightEvidence | None
 
 
 class ReportNewsletter(ReportResponseModel):
     subject: Annotated[str, Field(min_length=1, max_length=120)]
     preview: Annotated[str, Field(min_length=1, max_length=220)]
-    opening: Annotated[str, Field(min_length=1, max_length=1200)]
-    insights: list[ReportNewsletterInsight] = Field(max_length=3)
-    tip: Annotated[str, Field(max_length=500)] | None
+    headline: Annotated[str, Field(min_length=1, max_length=300)]
+    insights: list[ReportInsight] = Field(max_length=4)
 
 
 class GeneratedReport(ReportResponseModel):
@@ -276,7 +304,6 @@ class GeneratedReport(ReportResponseModel):
     spending_class_breakdown: list[ReportSpendingClassAmount]
     comparison: ReportComparisonSnapshot | None
     newsletter: ReportNewsletter
-    sections: tuple[ReportSection, ReportSection, ReportSection, ReportSection]
     disclosures: list[str]
     generation_source: Literal["fallback", "llm"]
 
@@ -287,10 +314,7 @@ class GeneratedReport(ReportResponseModel):
         return value
 
     @model_validator(mode="after")
-    def validate_application_owned_sections(self) -> GeneratedReport:
-        actual = tuple((section.id, section.visualization) for section in self.sections)
-        if actual != _SECTION_BINDINGS:
-            raise ValueError("invalid report section bindings")
+    def validate_application_owned_fields(self) -> GeneratedReport:
         if [item.spending_class for item in self.spending_class_breakdown] != _SPENDING_CLASS_ORDER:
             raise ValueError("invalid spending class order")
         _validate_specific_category_order(self.specific_category_spending)

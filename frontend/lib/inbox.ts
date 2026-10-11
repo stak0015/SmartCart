@@ -3,7 +3,7 @@ import { isGeneratedReport, type GeneratedReport, type LocalInboxReport, type Re
 export type { ReportCadence } from "./report-generation";
 
 export const INBOX_STORAGE_KEY = "smartcart.inbox.v1";
-export const INBOX_VERSION = 4 as const;
+export const INBOX_VERSION = 5 as const;
 
 export interface InboxState {
   version: typeof INBOX_VERSION;
@@ -31,9 +31,9 @@ export function parseInboxState(serialized: string | null | undefined): InboxSta
     const value: unknown = JSON.parse(serialized);
     if (!value || typeof value !== "object" || Array.isArray(value)) return EMPTY_INBOX;
     const state = value as Record<string, unknown>;
-    // The v4 newsletter format intentionally clears saved v3 reports while
-    // retaining the shopper's weekly/monthly preference.
-    if (state.version === 3 && (state.cadence === "weekly" || state.cadence === "monthly")) {
+    // Each newsletter format change (v4 prose, v5 insight cards) clears saved
+    // reports while retaining the shopper's weekly/monthly preference.
+    if ((state.version === 3 || state.version === 4) && (state.cadence === "weekly" || state.cadence === "monthly")) {
       return { ...EMPTY_INBOX, cadence: state.cadence };
     }
     if (Object.keys(state).sort().join(",") !== "cadence,messages,version"

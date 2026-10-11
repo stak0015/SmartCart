@@ -7,7 +7,7 @@ import {
   writeReportConsent,
 } from "./report-consent";
 
-const RECORD = { version: 1 as const, status: "accepted" as const, decidedAt: "2026-09-26T12:00:00.000Z" };
+const RECORD = { version: 2 as const, status: "accepted" as const, decidedAt: "2026-09-26T12:00:00.000Z" };
 
 function memoryStorage(initial: string | null = null) {
   let value = initial;
@@ -26,7 +26,7 @@ describe("report consent v1", () => {
 
   it("fails closed for missing, malformed, extra-field, and unknown-version records", () => {
     expect(readReportConsent(memoryStorage()).source).toBe("missing");
-    for (const value of ["{broken", JSON.stringify({ ...RECORD, version: 2 }), JSON.stringify({ ...RECORD, extra: true }), JSON.stringify({ ...RECORD, decidedAt: "not-a-date" })]) {
+    for (const value of ["{broken", JSON.stringify({ ...RECORD, version: 1 }), JSON.stringify({ ...RECORD, extra: true }), JSON.stringify({ ...RECORD, decidedAt: "not-a-date" })]) {
       expect(parseReportConsent(value)).toBeNull();
       expect(readReportConsent(memoryStorage(value))).toMatchObject({ status: "undecided", source: "invalid", record: null });
     }
