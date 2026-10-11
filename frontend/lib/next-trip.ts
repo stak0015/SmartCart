@@ -2,9 +2,11 @@ import { isPlannedWeek, plannedWeekOptions } from "./planned-week";
 import type { BasketItem } from "./basket-state";
 import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory, type PriceSource } from "./contracts";
 import {
+  isSaraItemSnapshot,
   effectiveChecklistQuantity,
   effectiveChecklistUnitPrice,
   type ChecklistItem,
+  type SaraItemSnapshot,
   type ShoppingChecklist,
 } from "./shopping-checklist";
 
@@ -18,10 +20,10 @@ function money(value: number): number {
 // Only item identity and quantity travel between trips. A previous store's
 // price, shopping outcome and location are not a quote for the next trip.
 export type NextTripItem = Pick<ChecklistItem,
-  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "category" | "sourceCategory" | "imageUrl" | "packageSize" | "quantity"
+  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "category" | "sourceCategory" | "imageUrl" | "packageSize" | "quantity" | "saraEligible" | "saraCategoryCandidate"
 > & { plannedWeek?: string | null };
 
-export interface NextTripPriceQuote {
+export interface NextTripPriceQuote extends SaraItemSnapshot {
   itemName?: string | null;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
@@ -47,6 +49,8 @@ export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem, plan
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+    ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
     category: item.category,
     sourceCategory: item.sourceCategory ?? null,
     imageUrl: item.imageUrl,
@@ -81,6 +85,7 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
     return envelope.items.filter((entry): entry is NextTripItem => {
       if (!entry || typeof entry !== "object") return false;
       const item = entry as Record<string, unknown>;
+      if (!isSaraItemSnapshot(item as SaraItemSnapshot)) return false;
       if (typeof item.id !== "string" || !item.id.trim() || seen.has(item.id)
         || typeof item.itemName !== "string" || !item.itemName.trim()
         || ![item.itemNameEn, item.itemNameMs, item.packageSize].every(field => field === null || typeof field === "string")
@@ -105,6 +110,8 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
       itemNameMs: item.itemNameMs,
       category: item.category === undefined ? null : item.category as ItemCategory | null,
       sourceCategory: item.sourceCategory === undefined ? null : item.sourceCategory as SourceCategory | null,
+      ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+      ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
       ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
       packageSize: item.packageSize,
       quantity: item.quantity,
@@ -125,11 +132,13 @@ export function nextTripBasket(basket: BasketItem[], saved: NextTripItem[]): Bas
       ? items.map(line => line.id === id ? { ...line, imageUrl: line.imageUrl ?? item.imageUrl, qty: Math.max(line.qty, item.quantity) } : line)
       : [...items, {
         id, name: item.itemName, itemNameEn: item.itemNameEn, itemNameMs: item.itemNameMs,
-        category: item.category,
+        ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+    ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
+    category: item.category,
         sourceCategory: item.sourceCategory ?? null,
         imageUrl: item.imageUrl,
         size: item.packageSize ?? "—", qty: item.quantity,
-        saraEligible: null, saraCategoryCandidate: false,
+        saraEligible: item.saraEligible ?? null, saraCategoryCandidate: item.saraCategoryCandidate ?? false,
       }];
   }, basket);
 }
@@ -154,6 +163,8 @@ export function addNextTripItem(
   const existingUnitPrice = existing ? effectiveChecklistUnitPrice(existing) : null;
   const restoredItem: ChecklistItem = existing ? {
     ...existing,
+    saraEligible: quote?.saraEligible !== undefined ? quote.saraEligible : existing.saraEligible ?? saved.saraEligible,
+    saraCategoryCandidate: quote?.saraCategoryCandidate ?? existing.saraCategoryCandidate ?? saved.saraCategoryCandidate,
     status: "neutral",
     imageUrl,
     category: quote?.category ?? saved.category,
@@ -185,6 +196,8 @@ export function addNextTripItem(
     itemName,
     itemNameEn,
     itemNameMs,
+    saraEligible: quote?.saraEligible !== undefined ? quote.saraEligible : saved.saraEligible,
+    saraCategoryCandidate: quote?.saraCategoryCandidate ?? saved.saraCategoryCandidate,
     category: quote?.category ?? saved.category,
     sourceCategory: quote?.sourceCategory ?? saved.sourceCategory ?? null,
     imageUrl,

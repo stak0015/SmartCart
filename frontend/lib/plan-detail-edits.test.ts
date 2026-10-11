@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { basket, plan, stores } from "../tests/fixtures/store-plan";
-import { applyBasketReplacement, lowerCostReplacementChoice, undoBasketReplacement } from "./basket-state";
+import { applyBasketReplacement, lowerCostReplacementChoice, packReplacementChoice, undoBasketReplacement } from "./basket-state";
 import { editedPlan, planDetailRows, repriceComparisonOptions } from "./plan-detail-edits";
 import { calculatePlanEstimatedSavings } from "./estimated-savings";
 import { createPlanShoppingChecklist } from "./shopping-checklist";
@@ -16,6 +16,21 @@ const suggestions: BasketAlternativeLine[] = [{
 }];
 
 describe("editable multi-store plans", () => {
+  it("keeps pack changes, quantities, store assignments and undo consistent through checklist creation", () => {
+    const pack = { itemId: "4", itemName: "Rice 10 kg", packageSize: "10 kg", totalPriceRm: 50,
+      pricePerUnitRm: 5, unitKind: "KG", observedDate: "2026-10-08", saraEligible: true,
+      saraCategoryCandidate: true, isSaraCreditCandidate: true, category: null };
+    const changedBasket = applyBasketReplacement(basket, packReplacementChoice(suggestions[0], pack)!, { id: "1", name: stores[0].name });
+    const rows = Object.fromEntries(stores.map(store => [store.premiseId, planDetailRows(plan, store, changedBasket)]));
+    const changed = editedPlan(plan, rows);
+    expect(changed.basketSubtotalRm).toBe(105);
+    expect(changed.combinedTotalRm).toBe(108);
+    expect(changed.assignments[0]).toMatchObject({ itemId: "4", quantity: 2, unit: "10 kg", unitPriceRm: 50, storePremiseId: "1" });
+    const checklist = createPlanShoppingChecklist(changed, stores, changedBasket);
+    expect(checklist.items[0]).toMatchObject({ itemName: "Rice 10 kg", quantity: 2, unitPriceRm: 50, storePremiseId: "1" });
+    const restored = undoBasketReplacement(changedBasket, "db-4");
+    expect(planDetailRows(plan, stores[0], restored)[0].current).toMatchObject({ itemId: "1", quantity: 2, lineTotalRm: 60 });
+  });
   it("recalculates quantities for both stores and preserves route costs and assignments in the checklist", () => {
     const changedBasket = basket.map(item => ({ ...item, qty: item.qty + 1 }));
     const rows = Object.fromEntries(stores.map(store => [store.premiseId, planDetailRows(plan, store, changedBasket)]));

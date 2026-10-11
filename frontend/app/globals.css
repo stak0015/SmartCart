@@ -2547,18 +2547,8 @@ dialog::backdrop {
 .store-detail { position: relative; }
 .back-to-compare { position: absolute; top: 20px; left: 26px; min-height: 40px; font-size: 13px; color: var(--muted); }
 .store-detail-items>div:first-child .edit-basket-link { display: inline-flex; border: 1px solid var(--line); background: white; color: var(--muted); min-height: 38px; padding: 8px 12px; border-radius: 6px; font-size: 12px; }
-.pack-options { border-top: 1px solid var(--line); padding: 8px; display: flex; flex-direction: column; gap: 4px; }
-.pack-option { display: grid; grid-template-columns: 90px 1fr 1.5fr; align-items: center; gap: 8px 16px; padding: 12px; border-radius: 5px; }
-.pack-option>div:first-child { grid-column: 2; grid-row: 1; }
-.pack-option>p:first-of-type { display: none; }
-.pack-option>p:nth-of-type(2) { grid-column: 1; grid-row: 1; font-size: 13px; color: var(--ink); }
-.pack-option>div:last-child { grid-column: 3; grid-row: 1; margin: 0; }
-.pack-option button { min-height: 34px; background: white; color: var(--green); border-radius: 5px; }
 @media(max-width: 700px) {
   .back-to-compare { position: static; margin: 6px 16px 0; font-size: 12px; }
-  .pack-option { grid-template-columns: 64px 1fr; gap: 6px; padding: 10px; }
-  .pack-option>div:first-child { grid-column: 1/-1; grid-row: 2; }
-  .pack-option>div:last-child { grid-column: 2; }
   .store-detail-items>div:first-child .edit-basket-link { font-size: 10px; padding: 6px; }
 }
 

@@ -10,6 +10,7 @@ import { DropdownChevron, TrashIcon, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { ItemPriceHistory } from "./price-history";
+import { TransportModeIcon, IcoWalkFigma, IcoBusFigma, IcoMotoFigma, IcoCarFigma } from "./transport-mode-icon";
 import { StoreChainLogo } from "./store-chain-logo";
 import { ShoppingStepNav } from "./shopping-step-nav";
 import { HealthierAlternativesSection } from "./healthier-alternatives";
@@ -93,6 +94,7 @@ import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-sto
 import {
   SHOPPING_CHECKLIST_STORAGE_KEY,
   addManualChecklistItem,
+  setChecklistTollCost,
   createShoppingChecklist,
   deleteChecklistItem,
   editChecklistValues,
@@ -201,20 +203,6 @@ function IcoLocation({ color = "#00535B" }: { color?: string }) {
     </svg>
   );
 }
-function IcoArrowRight({ color = "white" }: { color?: string }) {
-  return (
-    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
-      <path d={svgPathsBasket.p1a406200} fill={color} />
-    </svg>
-  );
-}
-function IcoStore({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={18} height={16} viewBox="0 0 18 16" fill="none">
-      <path d={svgPathsCompare.p2a93db80} fill={color} />
-    </svg>
-  );
-}
 function IcoWarn({ color = "#93000A" }: { color?: string }) {
   return (
     <svg width={12.833} height={11.083} viewBox="0 0 12.8333 11.0833" fill="none">
@@ -222,57 +210,6 @@ function IcoWarn({ color = "#93000A" }: { color?: string }) {
     </svg>
   );
 }
-function IcoWalkFigma({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={17.333} height={28.667} viewBox="0 0 17.3333 28.6667" fill="none">
-      <path d={svgPathsLocation.p15f7f100} fill={color} />
-    </svg>
-  );
-}
-function IcoBusFigma({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={21.333} height={25.333} viewBox="0 0 21.3333 25.3333" fill="none">
-      <path d={svgPathsLocation.p11d2e580} fill={color} />
-    </svg>
-  );
-}
-function IcoMotoFigma({ color = "white" }: { color?: string }) {
-  return (
-    <svg width={32} height={18.667} viewBox="0 0 32 18.6667" fill="none">
-      <path d={svgPathsLocation.p2da71d00} fill={color} />
-    </svg>
-  );
-}
-function IcoCarFigma({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={24} height={21.333} viewBox="0 0 24 21.3333" fill="none">
-      <path d={svgPathsLocation.p282dfe00} fill={color} />
-    </svg>
-  );
-}
-// ── Transport mode icon (iteration1 feedback: transit includes walking) ────
-function TransportModeIcon({ mode, color = "#3E494A" }: { mode: TransportMode; color?: string }) {
-  if (mode === "public_transport") {
-    return (
-      <span className="flex h-5 items-center gap-1 [&_svg]:h-5 [&_svg]:w-auto">
-        <IcoWalkFigma color={color} />
-        <IcoBusFigma color={color} />
-      </span>
-    );
-  }
-  return (
-    <span className="flex h-5 items-center [&_svg]:h-5 [&_svg]:w-auto">
-      {mode === "walk" ? (
-        <IcoWalkFigma color={color} />
-      ) : mode === "motorcycle" ? (
-        <IcoMotoFigma color={color} />
-      ) : (
-        <IcoCarFigma color={color} />
-      )}
-    </span>
-  );
-}
-
 // ── Header ─────────────────────────────────────────────────────────────────
 function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
   return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
@@ -687,7 +624,7 @@ function BasketScreen({
   const isDesktopBasketRail = view === "shop";
   const basketPanel = (
     <section className={"basket-panel " + (isDesktopBasketRail ? "is-rail" : "is-review")} aria-label={copy.basketItems}>
-      <header className="basket-panel-heading"><UIIcon name="basket"/><h2>{isDesktopBasketRail ? (locale === "en" ? "Your basket" : "Bakul anda") : copy.basketItems}</h2><span>{itemCount}</span></header>
+      <header className="basket-panel-heading"><UIIcon name="basket"/><h2 className="section-title">{isDesktopBasketRail ? (locale === "en" ? "Your basket" : "Bakul anda") : copy.basketItems}</h2><span>{itemCount}</span></header>
       {basket.length === 0 ? <p className="basket-empty">{copy.basketEmpty}</p> : <>
         <div className="basket-columns" aria-hidden="true"><span>{locale === "en" ? "Product" : "Produk"}</span><span>SARA</span><span>{locale === "en" ? "Unit size" : "Saiz unit"}</span><span>{locale === "en" ? "Quantity" : "Kuantiti"}</span><span/></div>
         <ul className="basket-rows">{basket.map(item => {
@@ -702,7 +639,7 @@ function BasketScreen({
         </li>;
         })}</ul>
       </>}
-      {isDesktopBasketRail && <div className="basket-rail-action"><button type="button" className="primary-button" onClick={onViewBasket} disabled={basket.length === 0}>{copy.viewBasket} →</button></div>}
+      {isDesktopBasketRail && <div className="basket-rail-action"><button type="button" className="primary-button" onClick={onViewBasket} disabled={basket.length === 0}>{copy.viewBasket}</button></div>}
     </section>
   );
 
@@ -711,10 +648,9 @@ function BasketScreen({
       {view === "shop" && (
         <div className="catalogue-content">
       {/* Page header */}
-      <div className="px-4 pb-5 pt-0 sm:px-6">
-
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">{copy.shopTitle}</h1>
-        <p className="mt-2 max-w-[580px] text-[16px] leading-6 text-[#526078]">
+      <div className="page-header">
+        <h1 className="page-title">{copy.shopTitle}</h1>
+        <p className="page-intro">
           {copy.shopDescription}
         </p>
       </div>
@@ -798,7 +734,7 @@ function BasketScreen({
       {/* Matching items —— now shows real backend data with prices (Step 7) */}
       <div id="catalogue-results" className="scroll-mt-36 px-4 pb-7 sm:px-6">
         <div className="mb-3 flex items-end justify-between gap-3">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">
+          <h2 className="section-title">
             {search.trim().length >= 2 || activeCategories.length > 0 ? copy.searchResults : copy.allEssentials}
           </h2>
           <span className="text-sm font-medium text-[#718078]">
@@ -845,7 +781,7 @@ function BasketScreen({
               return (
               <article key={item.item_id} className="product-card"><div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={item.image_url}/></div>
                 <div className="flex min-w-0 flex-col gap-1.5">
-                  <h3 className="break-words text-[15px] font-extrabold leading-5 text-[#10152e]">{fields.name}</h3>
+                  <h3 className="item-name-line text-[15px] font-extrabold leading-5 text-[#10152e]" title={fields.name}>{fields.name}</h3>
                   <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-5">
                     <span className="break-words text-[#526078]">{packageSizeForCopy(copy, fields.packageSize)}</span>
                     <span className="break-words text-[#718078]">{categoryLabel(locale, item.category)}</span>
@@ -933,8 +869,8 @@ function BasketScreen({
         alternatives={selectedItem ? onOpenInsights => <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenInsights={onOpenInsights} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/> : undefined}/>
       {view === "basket" && (
         <>
-      <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1><p className="page-description">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p>
+      <div className="page-header">
+        <h1 className="page-title">{copy.basketTitle}</h1><p className="page-intro">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p>
       </div>
 
       {basketPanel}
@@ -961,7 +897,6 @@ function BasketScreen({
               className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#007d38] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
             >
               {copy.viewBasket}
-              <IcoArrowRight />
             </button>
           </div>
         )}
@@ -1246,7 +1181,7 @@ function LocationScreen({
 
       <div className="location-layout">
         <section className="origin-panel">
-          <div className="location-heading"><h1>{copy.locationTitle}</h1><p>{copy === COPY.ms ? "Pilih lokasi dan pilihan perjalanan anda." : "Set your location and travel preferences."}</p></div>
+          <div className="location-heading"><h1 className="page-title">{copy.locationTitle}</h1><p className="page-intro">{copy === COPY.ms ? "Pilih lokasi dan pilihan perjalanan anda." : "Set your location and travel preferences."}</p></div>
           <div className="origin-title">
             <IcoLocation />
             <h2>{copy.startingPoint}</h2>
@@ -1337,7 +1272,7 @@ function LocationScreen({
 
         <div className="preference-bar">
         <section className={"transport-panel preference-panel " + (expandedPreference === "transport" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "transport"} onClick={() => setExpandedPreference(current => current === "transport" ? null : "transport")}><TransportModeIcon mode={transportMode}/> <strong>{copy.transportMode}</strong><span>{transportLabel(copy, transportMode)}</span><DropdownChevron/></button><div className="preference-content">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{copy.transportMode}</h2>
+          <h2 className="section-title">{copy.transportMode}</h2>
           <div className="grid grid-cols-2 gap-3">
             {TRANSPORT_OPTS.map(option => {
               const active = transportMode === option.id;
@@ -1359,7 +1294,7 @@ function LocationScreen({
 
         <section className={"limit-panel preference-panel " + (expandedPreference === "limit" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "limit"} onClick={() => setExpandedPreference(current => current === "limit" ? null : "limit")}><UIIcon name="history" size={20}/> <strong>{copy.travelLimit}</strong><span>{limitType === "both" ? `${distanceKm} km · ${timeMinutes} min` : limitType === "distance" ? `${distanceKm} km` : `${timeMinutes} min`}</span><DropdownChevron/></button><div className="preference-content">
           <div>
-            <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{copy.travelLimit}</h2>
+            <h2 className="section-title">{copy.travelLimit}</h2>
             <p className="mt-1 text-[16px] text-[#3e494a]">{copy.travelLimitDescription}</p>
           </div>
           <div className="grid grid-cols-3 rounded-xl bg-[#e8efeb] p-1" aria-label={copy.travelLimitType}>
@@ -1469,7 +1404,7 @@ export function StoreCard({
     <article className={"store-card " + (isRecommended ? "is-recommended" : "")}>
       <div className="store-card-marker">{isRecommended && <span>★ {copy.recommendedStore}</span>}</div>
       <header className="store-card-header">
-        <div className="store-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
+        <div className="store-symbol" aria-hidden="true"><StoreChainLogo name={store.name} /></div>
         <div className="store-card-identity">
           <h3>{store.name}</h3>
           <SaraStoreTag status={store.saraStatus} copy={copy} />
@@ -1497,7 +1432,7 @@ export function StoreCard({
             {store.missingItems.length > 0 && <p className="store-price-missing">{copy.missingItemPrices(store.missingItems.map(name => localizedName(copy, name, store.basketPrices.find(price => price.itemName === name))).join(", "))}</p>}
           </div>}
         </div>}
-        <button type="button" className="store-select-button" onClick={onSelectStore} aria-label={copy.selectStore + " " + store.name}>{copy.selectStore} <span aria-hidden="true">→</span></button>
+        <button type="button" className="store-select-button" onClick={onSelectStore} aria-label={copy.selectStore + " " + store.name}>{copy.selectStore}</button>
       </div>
     </article>
   );
@@ -1667,7 +1602,7 @@ function RecommendationOverview({
       <div className="store-detail-shell">
         <button type="button" className="plan-back-button" onClick={onBack}>← {copy.planDetailBack}</button>
         <header className="store-detail-header">
-          <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
+          <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={store.name} /></div>
           <div className="store-detail-identity">
             <h1>{store.name}</h1>
             <p>{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
@@ -1699,7 +1634,7 @@ function RecommendationOverview({
               <dl className="store-summary-money"><div><dt>{hasIncompleteBasket ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal) : hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal}</dt><dd>{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</dd></div>{displayedCredit != null && displayedCash != null && <><div><dt>{copy.saraCreditLabel}</dt><dd>{formatRm(displayedCredit)}</dd></div><div><dt>{copy.cashNeededLabel}</dt><dd>{formatRm(displayedCash)}</dd></div></>}</dl>
               {displayedCredit != null && <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>}
               <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3>{!store.travelCostBreakdown && <div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div>}<TravelCostDetails breakdowns={[store.travelCostBreakdown]} locale={locale} roundTrip/><div><span>{totalLabel}</span><strong>{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</strong></div></div>
-              <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={beginChecklistCreation}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist} →</button>
+              <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={beginChecklistCreation}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist}</button>
             </section>
             {!alternativesLoading && <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale}/>}
           </aside>
@@ -1912,12 +1847,12 @@ function CompareScreen({
 
   return (
     <div className="screen-enter compare-screen pb-8">
-      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">
+      <div className="flex flex-col gap-6 px-4 pb-6 pt-4 sm:gap-8 sm:px-6 sm:pt-6">
+        <div className="flex flex-col">
+          <h1 className="page-title">
             {copy.recommendationTitle}
           </h1>
-          <p className="text-sm leading-5 text-[#526078]">
+          <p className="page-intro">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
           {preferences.saraFilter === "candidate" && (
@@ -2004,7 +1939,7 @@ function CompareScreen({
 
             <div className={"store-grid " + (hasSplitPlans ? "mixed-store-grid" : "")}>
               {visibleOptions.map((option, index) => option.kind === "plan" ? (
-                <MultiPlanCard key={option.plan.planId} plan={option.plan}
+                <MultiPlanCard key={option.plan.planId} plan={option.plan} transportMode={preferences.transportMode}
                   routeUrl={preferences.origin ? mapsPlanRouteUrl(preferences.origin, option.plan, result.multiStore?.stores ?? recommendations, preferences.transportMode) : undefined}
                   copy={copy} basket={basket} stores={result.multiStore?.stores ?? recommendations}
                   locale={copy === COPY.ms ? "ms" : "en"} isRecommended={index === 0}
@@ -2656,6 +2591,8 @@ export default function App() {
             itemName: source.itemName,
             itemNameEn: source.itemNameEn,
             itemNameMs: source.itemNameMs,
+            saraEligible: source.saraEligible,
+            saraCategoryCandidate: source.saraCategoryCandidate,
             imageUrl: source.imageUrl,
             packageSize: source.packageSize,
             unitPriceRm: source.unitPriceRm,
@@ -2750,7 +2687,7 @@ export default function App() {
           </>
         ) : null}
         {screen === "checklist" ? checklist ? (
-          <ShoppingChecklistScreen
+          <ShoppingChecklistScreen key={checklist.id}
             checklist={checklist}
             locale={locale}
             copy={copy}
@@ -2767,6 +2704,7 @@ export default function App() {
             onDeleteItem={removeChecklistItem}
             onDeleteChecklist={removeChecklist}
             alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
+            onSetTollCost={amount => setChecklist(current => current ? setChecklistTollCost(current, amount) : current)}
             onRecordTrip={recordTrip}
           />
         ) : (

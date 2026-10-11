@@ -8,7 +8,7 @@ const fs=require('node:fs');const path=require('node:path');
  const browser=await chromium.launch({headless:true,channel:'chrome'});
  const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];
  page.on('pageerror',e=>errors.push(e.message));
- const output=path.resolve(__dirname,'../../docs/evidence/epic4-prices/shared-short');fs.mkdirSync(output,{recursive:true});
+ const output=path.resolve(__dirname,'../../research/evidence/epic4-prices/shared-short');fs.mkdirSync(output,{recursive:true});
  const capture=async name=>{await page.mouse.move(2,2);await page.screenshot({path:path.join(output,name)});};
  try{
   let qualified=0;

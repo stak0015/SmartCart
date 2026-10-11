@@ -63,7 +63,7 @@ const path = require('node:path');
     if(url.pathname.endsWith('/items/categories')) return route.fulfill({json:{categories:[],count:0}});
     return route.fulfill({json:{}});
   });
-  const output=path.resolve(__dirname,`../../docs/evidence/epic4-prices${unified ? '/unified-candidate' : ''}`);
+  const output=path.resolve(__dirname,`../../research/evidence/epic4-prices${unified ? '/unified-candidate' : ''}`);
   fs.mkdirSync(output,{recursive:true});
   const dialog=page.getByRole('dialog');
   const trends=dialog.getByRole('region',{name:'Price trends',exact:true});

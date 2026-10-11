@@ -7,7 +7,7 @@ describe("shopping step navigation", () => {
     const markup = renderToStaticMarkup(<ShoppingStepNav current="compare" locale="en"
       available={["location", "shop", "basket", "compare"]} onNavigate={() => {}}/>);
     expect(markup).toMatch(/<button[^>]*aria-current="step"[^>]*>.*?Recommendations<\/button>/);
-    expect(markup).toMatch(/<button type="button"><span[^>]*>2<\/span>Shop<\/button>/);
+    expect(markup).toMatch(/<button type="button"><span[^>]*><svg[^>]*>.*?<\/svg><\/span>Shop<\/button>/);
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*?Store details<\/button>/);
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>.*?Checklist<\/button>/);
   });

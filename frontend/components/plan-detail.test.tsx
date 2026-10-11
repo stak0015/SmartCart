@@ -1,6 +1,6 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { COPY } from "@/lib/i18n";
 import { basket, plan, stores } from "../tests/fixtures/store-plan";
 import { PlanDetailView } from "./plan-detail";
@@ -8,6 +8,12 @@ import { StorePriceTable } from "./store-basket-row";
 import { MultiPlanCard } from "./plan-comparison";
 import { mapsPlanRouteUrl } from "@/lib/travel";
 import { rankedStorePlanOptions } from "@/lib/multi-store";
+
+// Static rendering cannot run the alternatives effect; exercise settled display here.
+vi.mock("react", async importOriginal => {
+  const react = await importOriginal<typeof import("react")>();
+  return { ...react, useState: (initial: unknown) => react.useState(initial === true ? false : initial) };
+});
 
 function comparisonOptions(cost: number) {
   return [...rankedStorePlanOptions(stores.map(store => ({ ...store, combinedTotalRm: cost }))), { kind: "plan" as const, plan }];
@@ -22,6 +28,23 @@ describe("store plan details", () => {
     expect(markup).toContain('class="store-card-route"');
     expect(markup).toContain("waypoints=");
     expect(markup).not.toContain('class="plan-inter-store-fact"');
+  });
+  it("shares store placeholders and mode icons and labels partially estimated baskets", () => {
+    const unknownStores = stores.map(store => ({ ...store, name: `Local Store ${store.premiseId}` }));
+    const incomplete = { ...plan, storeNames: unknownStores.map(store => store.name), missingItems: ["Bread"] };
+    const markup = renderToStaticMarkup(createElement(MultiPlanCard, {
+      plan: incomplete, stores: unknownStores, basket, copy: COPY.en, locale: "en", transportMode: "public_transport", onSelectPlan: () => {},
+    }));
+    expect(markup.match(/class="store-placeholder"/g)).toHaveLength(2);
+    expect(markup).toContain(COPY.en.estimatedPartialTotal);
+    expect(markup).toContain('viewBox="0 0 17.3333 28.6667"');
+    expect(markup).toContain('viewBox="0 0 21.3333 25.3333"');
+    const detail = renderToStaticMarkup(createElement(PlanDetailView, {
+      plan: incomplete, stores: unknownStores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
+      onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {}, transportMode: "public_transport",
+    }));
+    expect(detail).toContain('class="store-placeholder"');
+    expect(detail).toContain('viewBox="0 0 21.3333 25.3333"');
   });
   it("shows only the active store's image rows while preserving the whole basket total", () => {
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {

@@ -11,10 +11,14 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { SelectedLocation, TransportMode } from "@/lib/contracts";
+import { displayItemName } from "@/lib/item-name";
 import { formatRm } from "@/lib/format-rm";
+import { parseTollCost, tripTravelTotalRm } from "@/lib/trip-travel-cost";
+import { TravelCostDetails } from "./travel-cost-breakdown";
 import { mapsPlanRouteUrl } from "@/lib/travel";
 import { CatalogueItemImage } from "./catalogue-item-image";
-import { categoryLabel } from "@/lib/i18n";
+import { COPY as APP_COPY, categoryLabel } from "@/lib/i18n";
+import { SaraEligibilityFlag } from "./store-tags";
 import { StoreChainLogo } from "./store-chain-logo";
 import { DropdownChevron, TrashIcon, UIIcon } from "./ui-icon";
 import {
@@ -125,6 +129,7 @@ export interface ShoppingChecklistScreenProps {
   onDeleteItem: (itemId: string) => void;
   onDeleteChecklist: () => void;
   alreadyRecorded: boolean;
+  onSetTollCost: (amount: number | null) => void;
   onRecordTrip: () => void;
 }
 
@@ -559,27 +564,23 @@ function ChecklistRow({ item, locale, copy, saved, hideImage = false, onToggleBo
   const quantity = effectiveChecklistQuantity(item);
   const original = item.originalValues;
   const edited = original != null && (item.itemName !== original.itemName || quantity !== original.quantity || effectiveChecklistUnitPrice(item) !== original.unitPriceRm);
-  const estimated = item.actualPriceRm == null && item.priceSource !== "manual";
-
-  const priceLabel = item.priceSource === "median" && item.actualPriceRm == null
-    ? (locale === "en" ? "Median estimate" : "Anggaran median")
-    : estimated ? (locale === "en" ? "Used store price" : "Harga kedai") : (locale === "en" ? "Actual price" : "Harga sebenar");
   return <li className={"checklist-row " + (actionsOpen ? "actions-open " : "") + (item.source === "manual" ? "manual-row" : "")}>
     <label className="checklist-checkbox"><input type="checkbox" checked={bought} onChange={onToggleBought} aria-label={bought ? copy.markNotBought(name) : copy.markBought(name)}/><span aria-hidden="true">{bought && <CheckIcon/>}</span></label>
     <div className="checklist-row-name">
       {!hideImage && <span className="checklist-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={28}/></span>}
       <div className="checklist-item-copy">
-        <h3>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{name}</h3>
+        <h3 className="item-name-line" title={name}>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{displayItemName(name, locale)}</h3>
         <p className="checklist-mobile-package">{item.packageSize || "—"} × {quantity}</p>
         <small>{categoryLabel(locale, item.category)}</small>
+        <SaraEligibilityFlag status={item.saraEligible ?? null} candidate={item.saraCategoryCandidate ?? false} copy={APP_COPY[locale]}/>
         {item.storeName && <small className="checklist-item-store">{item.storeName}</small>}
       </div>
     </div>
     <span className="checklist-package">{item.packageSize || "—"}</span>
     <span className="checklist-quantity">{quantity}</span>
-    <span className="checklist-unit-price">{effectiveChecklistUnitPrice(item) == null ? "—" : effectiveChecklistUnitPrice(item)!.toFixed(2)}</span>
+    <span className="checklist-unit-price">{effectiveChecklistUnitPrice(item) == null ? "—" : formatRm(effectiveChecklistUnitPrice(item)!)}</span>
     <div className="checklist-row-total"><strong>{total == null ? <span title={copy.checklistPriceUnavailable}>—</span> : formatRm(total)}</strong><span className={"mobile-item-status " + (bought ? "is-bought" : "")}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span></div>
-    <div className="checklist-status"><span className={bought ? "status-bought" : "status-unbought"}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span><small>{total == null ? copy.checklistPriceUnavailable : priceLabel}</small></div>
+    <div className="checklist-status"><span className={bought ? "status-bought" : "status-unbought"}>{saved ? copy.savedForNextTrip : bought ? copy.bought : copy.notBought}</span></div>
     <button type="button" className="row-disclosure" aria-label={copy.editChecklistItem + ": " + name} aria-expanded={actionsOpen} onClick={() => setActionsOpen(!actionsOpen)}><DropdownChevron/></button>
     <div className="checklist-row-actions"><div>
       {!bought && <IconButton label={saved ? copy.removeFromNextTrip + ": " + name : copy.saveForNextTrip + ": " + name} aria-pressed={saved} onClick={onToggleNotBought} className={saved ? "text-[#007d38] bg-[#ecf8f0]" : ""}><ActionIcon name="bookmark"/></IconButton>}
@@ -639,7 +640,7 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
   return <section aria-labelledby={headingId} data-has-selection={selectedItems.length > 0} className={"next-trip-panel" + (variant === "week" ? " weekly-planned-panel" : " planned-items-panel")}>
     <div className="flex items-center justify-between gap-3">
       <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{title ?? copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
-      {variant === "list" && onUse && items.length > 0 && <button type="button" className="secondary-button saved-use planned-use-action" data-ready={selectedItems.length > 0} disabled={selectedItems.length === 0} aria-hidden={selectedItems.length === 0} onClick={() => onUse(selectedItems)}>{copy.useSavedItems} →</button>}
+      {variant === "list" && onUse && items.length > 0 && <button type="button" className="secondary-button saved-use planned-use-action" data-ready={selectedItems.length > 0} disabled={selectedItems.length === 0} aria-hidden={selectedItems.length === 0} onClick={() => onUse(selectedItems)}>{copy.useSavedItems}</button>}
     </div>
     <p className="planned-list-hint">{variant === "week" ? plannedWeekLabel(items[0]?.plannedWeek, locale) : items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
     {items.length > 0 && <ul className="next-trip-list">
@@ -651,7 +652,7 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
           <div className="next-trip-item-identity">
           {onUse && <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#007d38]" aria-label={(locale === "en" ? "Select for trip: " : "Pilih untuk perjalanan: ") + name} checked={selectedIds.includes(item.id)} onChange={event => setSelectedIds(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))}/>}
           <span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span>
-          <div className="next-trip-item-copy"><p className="next-trip-item-name">{name}</p><p className="next-trip-item-meta">{`${copy.checklistQuantity}: ${item.quantity}${item.packageSize ? " · " + item.packageSize : ""}`}</p></div>
+          <div className="next-trip-item-copy"><p className="next-trip-item-name item-name-line" title={name}>{displayItemName(name, locale)}</p><p className="next-trip-item-meta">{`${copy.checklistQuantity}: ${item.quantity}${item.packageSize ? " · " + item.packageSize : ""}`}</p></div>
           </div>
           {variant === "list" && <div className="planned-card-footer">
             {onSchedule ? <button type="button" className="planned-card-week" title={week} aria-label={(locale === "en" ? "Change planned week: " : "Tukar minggu dirancang: ") + name} onClick={() => onSchedule(item)}>{weekContent}</button> : <div className="planned-card-week" title={week}>{weekContent}</div>}
@@ -662,7 +663,7 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
         </li>;
       })}
     </ul>}
-    {variant === "week" && onUse && selectedItems.length > 0 && <button type="button" className="primary-button weekly-plan-action" onClick={() => onUse(selectedItems)}>{copy.useSavedItems} →</button>}
+    {variant === "week" && onUse && selectedItems.length > 0 && <button type="button" className="primary-button weekly-plan-action" onClick={() => onUse(selectedItems)}>{copy.useSavedItems}</button>}
   </section>;
 }
 
@@ -677,7 +678,7 @@ export function EmptyChecklistScreen({
   return (
     <div className="screen-enter empty-checklist">
       <div className="empty-checklist-layout">
-        <h1>{copy.checklistTitle}</h1><section className="empty-checklist-intro"><div className="empty-checklist-icon" aria-hidden="true"><ActionIcon name="list"/></div>
+        <h1 className="page-title">{copy.checklistTitle}</h1><section className="empty-checklist-intro"><div className="empty-checklist-icon" aria-hidden="true"><ActionIcon name="list"/></div>
 
           <h2>{copy.noActiveChecklist}</h2>
           <p className="mt-2 text-sm leading-6 text-[#526078]">{copy.noActiveChecklistHint}</p>
@@ -778,6 +779,7 @@ export function ShoppingChecklistScreen({
   onDeleteChecklist,
   alreadyRecorded,
   onRecordTrip,
+  onSetTollCost,
 }: ShoppingChecklistScreenProps) {
   const [manualDialog, setManualDialog] = useState<{ open: boolean; item: ChecklistItem | null }>({
     open: false,
@@ -787,20 +789,31 @@ export function ShoppingChecklistScreen({
   const [deleteChecklistOpen, setDeleteChecklistOpen] = useState(false);
   const [recordTripOpen, setRecordTripOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [tollText, setTollText] = useState(() => checklist.actualTollCostRm == null ? "" : checklist.actualTollCostRm.toFixed(2));
+  const tollValue = parseTollCost(tollText);
+  const tollInvalid = tollValue === undefined;
+  const changeTollCost = (value: string) => {
+    setTollText(value);
+    const amount = parseTollCost(value);
+    if (amount !== undefined) onSetTollCost(amount);
+  };
   const progress = checklistProgress(checklist);
   // AC 5.7.1: an empty checklist disables the export action and explains why.
   const isEmpty = checklist.items.length === 0;
   const totals = checklist.items.map(effectiveChecklistLineTotal).filter((value): value is number => value != null);
   const subtotal = totals.length ? totals.reduce((sum, value) => sum + value, 0) : null;
+  const travelTotal = tripTravelTotalRm(checklist);
   const unavailableCount = checklist.items.length - totals.length;
   const containsEstimate = checklist.items.some(item => item.actualPriceRm == null && item.priceSource !== "manual" && item.unitPriceRm != null);
   const routeOrigin = checklist.routeOrigin ?? origin;
-  const planRouteUrl = checklist.stores && checklist.stores.length > 1
+  const routeStores = checklist.stores?.length ? checklist.stores : [checklist.store];
+  const planRouteUrl = routeOrigin || routeStores.length > 1
     ? mapsPlanRouteUrl(routeOrigin, {
-      storePremiseIds: checklist.stores.map(store => store.premiseId),
-      storeNames: checklist.stores.map(store => store.name),
-    }, checklist.stores, transportMode)
-    : null;
+      storePremiseIds: routeStores.map(store => store.premiseId),
+      storeNames: routeStores.map(store => store.name),
+    }, routeStores, transportMode)
+    : `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query: [checklist.store.name, checklist.store.address].filter(Boolean).join(", ") })}`;
+
 
   const [storeFilter, setStoreFilter] = useState<string>("all");
   const selectedStoreFilter = checklist.stores?.some(store => store.premiseId === storeFilter) ? storeFilter : "all";
@@ -870,14 +883,10 @@ export function ShoppingChecklistScreen({
       <div className="flex flex-col gap-3 px-4 pb-6 pt-4 sm:gap-4 sm:px-6 sm:pt-6">
         <section className="checklist-overview">
           <div className="checklist-overview-top">
-            <h1 className="break-words text-[26px] font-extrabold leading-8 tracking-[-0.5px] text-[#10152e] sm:text-[30px] sm:leading-9">
+            <h1 className="page-title">
               {copy.checklistTitle}
             </h1>
-            {planRouteUrl && (
-              <a className="store-detail-route checklist-map-route" href={planRouteUrl} target="_blank" rel="noopener noreferrer">
-                {copy.openInGoogleMaps} <span aria-hidden="true">↗</span>
-              </a>
-            )}
+
           </div>
           <div className="checklist-overview-stores">
             {checklist.stores && checklist.stores.length > 1 ? (
@@ -885,7 +894,7 @@ export function ShoppingChecklistScreen({
                 {checklist.stores.map(store => (
                   <div className="store-card-header checklist-plan-store" key={store.premiseId}>
                     <div className="store-symbol" aria-hidden="true">
-                      <StoreChainLogo name={store.name} fallback={<UIIcon name="bag" size={30}/>} />
+                      <StoreChainLogo name={store.name} />
                     </div>
                     <div className="store-card-identity">
                       <h3>{store.name}</h3>
@@ -897,7 +906,7 @@ export function ShoppingChecklistScreen({
               </div>
             ) : (
               <div className="checklist-store-identity">
-                <span className="checklist-store-symbol" aria-hidden="true"><StoreChainLogo name={checklist.store.name} fallback={<UIIcon name="bag" size={34}/>} /></span>
+                <span className="checklist-store-symbol" aria-hidden="true"><StoreChainLogo name={checklist.store.name} /></span>
                 <span>
                   <span className="checklist-store-name">{checklist.store.name}</span>
                   <span className="checklist-store-address">{checklist.store.address}</span>
@@ -905,11 +914,15 @@ export function ShoppingChecklistScreen({
                 </span>
               </div>
             )}
+            {planRouteUrl && (
+              <a className="store-detail-route checklist-map-route" href={planRouteUrl} target="_blank" rel="noopener noreferrer">
+                {copy.openInGoogleMaps} <span aria-hidden="true">↗</span>
+              </a>
+            )}
           </div>
         </section>
 
-        <section aria-labelledby="checklist-items-heading" className="checklist-items">
-          <div className="checklist-filter-bar">
+          <div className="checklist-filter-bar checklist-workspace-filters">
             {checklist.stores && checklist.stores.length > 1 && (
               <ChecklistStoreFilter value={selectedStoreFilter} onChange={setStoreFilter} locale={locale} options={[
                 { value: "all", label: `${locale === "en" ? "All stores" : "Semua kedai"} (${checklist.items.length})` },
@@ -923,8 +936,11 @@ export function ShoppingChecklistScreen({
                 </button>
               ))}
             </div>
+            <button type="button" className="secondary-button checklist-add-button" onClick={() => setManualDialog({ open: true, item: null })}><AddIcon/>{copy.addChecklistItem}</button>
           </div>
-          <div className="mt-2 overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
+        <div className="checklist-workspace">
+        <section aria-labelledby="checklist-items-heading" className="checklist-items">
+          <div className="checklist-table overflow-hidden rounded-xl border border-[#dce5e0] bg-white">
             <div className="checklist-items-heading flex items-center justify-between gap-2 border-b border-[#dce5e0] bg-[#e7f7f0] px-3 py-2.5 sm:px-4">
               <h2 id="checklist-items-heading" className="text-[20px] font-extrabold leading-7 text-[#10152e]">
                 {copy.checklistItems}
@@ -951,12 +967,11 @@ export function ShoppingChecklistScreen({
               </div>
             </div>
             {checklist.items.length > 0 ? (
-              <><div className="checklist-columns" aria-hidden="true"><span/><span>{locale === "en" ? "Item" : "Item"}</span><span>{locale === "en" ? "Package" : "Pakej"}</span><span>{locale === "en" ? "Qty" : "Kuantiti"}</span><span>{locale === "en" ? "Price (RM)" : "Harga (RM)"}</span><span>{locale === "en" ? "Total (RM)" : "Jumlah (RM)"}</span><span>Status</span><span>{locale === "en" ? "Actions" : "Tindakan"}</span></div><ul>
+              <><div className="checklist-columns" aria-hidden="true"><span/><span>{locale === "en" ? "Item" : "Item"}</span><span>{locale === "en" ? "Package" : "Pakej"}</span><span>{locale === "en" ? "Qty" : "Kuantiti"}</span><span>{locale === "en" ? "Price" : "Harga"}</span><span>{locale === "en" ? "Total" : "Jumlah"}</span><span>Status</span><span/></div><ul>
                 {storeItems.filter(item => itemFilter === "all" || (itemFilter === "bought" ? item.status === "bought" : item.status !== "bought")).map(item => (
                   <ChecklistRow
                     key={item.id}
                     item={item}
-                    hideImage={Boolean(checklist.planId)}
                     locale={locale}
                     copy={copy}
                     saved={savedItems.some(saved => saved.id === nextTripItemId(item))}
@@ -974,34 +989,29 @@ export function ShoppingChecklistScreen({
               </div>
             )}
           </div>
+          <div className="checklist-secondary-actions">
+            <button type="button" className="secondary-button" disabled={isEmpty} onClick={() => setExportOpen(true)}><DownloadIcon/>{copy.exportChecklist}</button>
+            <button type="button" className="checklist-delete-button" onClick={() => setDeleteChecklistOpen(true)}><TrashIcon/>{copy.deleteChecklist}</button>
+          </div>
         </section>
 
-        <div className="checklist-toolbar">
-          <button type="button" className="secondary-button" onClick={() => setManualDialog({ open: true, item: null })}><AddIcon/>{copy.addChecklistItem}</button>
-          <button
-            type="button"
-            disabled={isEmpty}
-            onClick={() => setRecordTripOpen(true)}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#007d38] px-4 text-sm font-extrabold text-white hover:bg-[#066c4d] disabled:cursor-not-allowed disabled:bg-[#a8bbb1]"
-          >
-            <ActionIcon name="history" />
-            {copy.recordTrip}
-          </button>
-          <button
-            type="button"
-            disabled={isEmpty}
-            onClick={() => setExportOpen(true)}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#007d38] bg-white px-4 text-sm font-bold text-[#007d38] hover:bg-[#edf7f2] disabled:cursor-not-allowed disabled:border-[#c4d2ca] disabled:text-[#8a9891]"
-          >
-            <DownloadIcon /> {copy.exportChecklist}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDeleteChecklistOpen(true)}
-            className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#ba1a1a] bg-white px-4 text-sm font-bold text-[#ba1a1a] hover:bg-[#fff2f2]"
-          >
-            <TrashIcon /> {copy.deleteChecklist}
-          </button>
+        <aside className="checklist-side-panel">
+        <section className="store-detail-summary checklist-travel-summary" aria-label={locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}>
+          <h2><UIIcon name="route"/>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h2>
+          {checklist.travelCostBreakdowns?.length ? <TravelCostDetails breakdowns={checklist.travelCostBreakdowns} locale={locale}
+            roundTrip={(checklist.stores?.length ?? 1) === 1} recordedTollCostRm={checklist.actualTollCostRm}
+            tollControl={<TollCostInput value={tollText} invalid={tollInvalid} locale={locale} onChange={changeTollCost}/>} />
+            : <div className="travel-cost-breakdown"><div className="travel-cost-row"><span>{locale === "en" ? "Travel estimate" : "Anggaran perjalanan"}</span><strong>{checklist.estimatedRoundTripCostRm == null ? "—" : formatRm(checklist.estimatedRoundTripCostRm)}</strong></div><div className="travel-cost-row"><span>{locale === "en" ? "Tolls" : "Tol"}</span><TollCostInput value={tollText} invalid={tollInvalid} locale={locale} onChange={changeTollCost}/></div></div>}
+          <p className="store-summary-note">{locale === "en" ? "Enter the toll total for the whole trip, including the return journey. Fuel remains an estimate." : "Masukkan jumlah tol untuk seluruh perjalanan, termasuk perjalanan balik. Bahan api kekal sebagai anggaran."}</p>
+          {tollInvalid && <p id="checklist-toll-error" role="alert" className="toll-cost-error">{locale === "en" ? "Enter a non-negative amount with up to two decimal places." : "Masukkan amaun bukan negatif dengan sehingga dua tempat perpuluhan."}</p>}
+          <div className="store-summary-travel"><div><span>{locale === "en" ? "Travel total" : "Jumlah perjalanan"}</span><strong>{travelTotal == null ? "—" : formatRm(travelTotal)}</strong></div><div><span>{locale === "en" ? "Items + travel" : "Item + perjalanan"}</span><strong>{subtotal == null || travelTotal == null ? "—" : formatRm(subtotal + travelTotal)}</strong></div></div>
+        </section>
+
+          <section className="checklist-record-panel">
+            <div><h2>{locale === "en" ? "Finish this trip" : "Selesaikan perjalanan ini"}</h2><p>{locale === "en" ? "Save purchases and travel costs to history." : "Simpan pembelian dan kos perjalanan ke sejarah."}</p></div>
+            <button type="button" className="primary-button checklist-record-button" disabled={isEmpty || tollInvalid} onClick={() => setRecordTripOpen(true)}><ActionIcon name="history"/>{copy.recordTrip}</button>
+          </section>
+        </aside>
         </div>
         <NextTripList items={savedItems} locale={locale} copy={copy} onUse={onUseSavedItems} onRestore={onRestoreSavedItem} onRemove={onRemoveSavedItem} />
       </div>
@@ -1083,4 +1093,10 @@ export function ShoppingChecklistScreen({
       )}
     </div>
   );
+}
+
+function TollCostInput({ value, invalid, locale, onChange }: { value: string; invalid: boolean; locale: "en" | "ms"; onChange: (value: string) => void }) {
+  return <label className="toll-cost-input"><span>RM</span><input type="text" inputMode="decimal" value={value} onChange={event => onChange(event.target.value)}
+    aria-label={locale === "en" ? "Recorded toll cost (RM)" : "Kos tol direkodkan (RM)"} aria-invalid={invalid} aria-describedby={invalid ? "checklist-toll-error" : undefined}
+    placeholder={locale === "en" ? "Not recorded" : "Belum direkod"}/></label>;
 }

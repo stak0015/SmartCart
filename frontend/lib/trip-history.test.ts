@@ -182,6 +182,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       premiseCode: "P10",
       name: "Test Store",
       address: "1 Test Street",
+      saraStatus: store.saraStatus,
     });
     expect(record.lines.map(line => line.itemName)).toEqual([
       "Cooking oil",

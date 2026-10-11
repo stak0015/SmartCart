@@ -1,6 +1,8 @@
+import { isTripTravelSnapshot, type TripTravelSnapshot } from "./trip-travel-cost";
 import type {
   AlternativeStoreEstimate,
   ChecklistItem,
+  SaraItemSnapshot,
   ChecklistItemSource,
   ChecklistPriceSource,
   ChecklistQuantitySource,
@@ -8,7 +10,7 @@ import type {
   ChecklistStore,
   ShoppingChecklist,
 } from "./shopping-checklist";
-import { effectiveChecklistLineTotal } from "./shopping-checklist";
+import { effectiveChecklistLineTotal, isSaraItemSnapshot } from "./shopping-checklist";
 import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory } from "./contracts";
 import {
   isEstimatedSavingsSnapshot,
@@ -24,7 +26,7 @@ export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
  * and stay marked source="manual" (shopper-added) — they are never matched to
  * an official catalogue item (catalogueItemId stays null).
  */
-export interface TripRecordLine {
+export interface TripRecordLine extends SaraItemSnapshot {
   storePremiseId?: string;
   storeName?: string;
   id: string;
@@ -54,7 +56,7 @@ export interface TripRecordLine {
   status: ChecklistStatus;
 }
 
-export interface TripRecord {
+export interface TripRecord extends TripTravelSnapshot {
   version: typeof TRIP_HISTORY_VERSION;
   id: string;
   // AC 5.4.1: date and time of the save.
@@ -135,6 +137,17 @@ export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
     : null;
 }
 
+/** Estimated SARA allocation for priced bought items; travel remains a cash expense. */
+export function tripPaymentBreakdown(lines: TripRecordLine[]) {
+  const priced = lines.filter(line => line.status === "bought" && boughtLineTotalRm(line) != null);
+  const subtotal = actualExpenseTotal(lines);
+  const unknown = priced.some(line => line.source !== "manual" && line.saraEligible !== true
+    && line.saraCategoryCandidate !== true && (line.saraEligible === undefined || line.saraCategoryCandidate === undefined));
+  if (subtotal == null || unknown) return { saraCreditRm: null, cashNeededRm: null };
+  const saraCreditRm = money(priced.reduce((sum, line) => sum + (line.saraEligible === true || line.saraCategoryCandidate === true ? boughtLineTotalRm(line)! : 0), 0));
+  return { saraCreditRm, cashNeededRm: money(Math.max(0, subtotal - saraCreditRm)) };
+}
+
 function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
   return {
     id: item.id,
@@ -144,6 +157,8 @@ function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+    ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
     category: item.category,
     sourceCategory: item.sourceCategory ?? null,
     ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
@@ -176,6 +191,8 @@ export function buildTripRecord(
     checklistId: checklist.id,
     store: { ...checklist.store },
     ...(checklist.stores ? { stores: checklist.stores.map(store => ({ ...store })), planId: checklist.planId } : {}),
+    ...(checklist.travelCostBreakdowns ? { travelCostBreakdowns: checklist.travelCostBreakdowns.map(cost => ({ ...cost })) } : {}),
+    ...(checklist.actualTollCostRm !== undefined ? { actualTollCostRm: checklist.actualTollCostRm } : {}),
     plannedSubtotalRm: checklist.plannedSubtotalRm,
     estimatedRoundTripCostRm: checklist.estimatedRoundTripCostRm,
     plannedCombinedTotalRm: checklist.plannedCombinedTotalRm,
@@ -243,6 +260,7 @@ function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEs
 function isTripRecordLine(value: unknown): value is TripRecordLine {
   if (!value || typeof value !== "object") return false;
   const line = value as Record<string, unknown>;
+  if (!isSaraItemSnapshot(line as SaraItemSnapshot)) return false;
   if ((line.storePremiseId !== undefined && typeof line.storePremiseId !== "string")
     || (line.storeName !== undefined && typeof line.storeName !== "string")) return false;
   const sourceIsValid = line.source === "catalogue" || line.source === "manual";
@@ -293,6 +311,7 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
 export function isTripRecord(value: unknown): value is TripRecord {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
+  if (!isTripTravelSnapshot(record)) return false;
   if (record.version !== TRIP_HISTORY_VERSION
     || typeof record.id !== "string"
     || record.id.length === 0

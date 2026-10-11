@@ -14,6 +14,7 @@ import { legRoleKey, secondStoreLimitLabel, type StorePlanOption } from "@/lib/m
 import { calculatePlanEstimatedSavings } from "@/lib/estimated-savings";
 import { createPlanShoppingChecklist, type ShoppingChecklist } from "@/lib/shopping-checklist";
 import { SaraStoreTag } from "./store-tags";
+import { TransportModeIcon } from "./transport-mode-icon";
 import { StoreChainLogo } from "./store-chain-logo";
 import { TripFactsItems } from "./trip-facts";
 import { EstimatedSavingsSummary } from "./estimated-savings-summary";
@@ -71,7 +72,7 @@ export function PlanDetailView({ plan: originalPlan, stores, basket, onSetBasket
   const store = stores.find(store => store.premiseId === activeStoreId);
   const lines = rowsByStore[activeStoreId] ?? [];
   const medianCount = plan.assignments.filter(line => line.priceSource === "median").length;
-  const credit = plan.assignments.reduce((total, line) => total + (line.saraEligible || line.saraCategoryCandidate ? line.lineTotalRm ?? 0 : 0), 0);
+  const credit = totals.saraCreditRm ?? 0;
   const hasFuelBreakdown = plan.storeCount === 1 ? !!store?.travelCostBreakdown : plan.legs.length > 0 && plan.legs.every(leg => !!leg.travelCostBreakdown);
   const modeLabel = transportMode === "public_transport" ? copy.publicTransport : transportMode === "walk" ? copy.walking : copy[transportMode];
   const applyAlternative = (line: BasketAlternativeLine) => {
@@ -98,11 +99,11 @@ export function PlanDetailView({ plan: originalPlan, stores, basket, onSetBasket
       <button type="button" className="plan-back-button" onClick={onBack}>← {copy.planDetailBack}</button>
       <nav className="plan-store-tabs" aria-label={copy.basketItems}>{plan.storePremiseIds.map((id, index) => <button type="button" key={id} aria-pressed={activeStoreId === id} onClick={() => setActiveStoreId(id)}><span>{locale === "en" ? `Store ${index + 1}` : `Kedai ${index + 1}`}</span><strong>{plan.storeNames[index]}</strong></button>)}</nav>
       <header className="store-detail-header">
-        <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={plan.storeNames[activeIndex]} fallback={<UIIcon name="bag" size={28}/>}/></div>
+        <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={plan.storeNames[activeIndex]}/></div>
         <div className="store-detail-identity"><h1>{plan.storeNames[activeIndex]}</h1><p>{store ? [store.address, store.district, store.state].filter(Boolean).join(", ") : copy.planDetailAddressUnavailable}</p>{store && <SaraStoreTag status={store.saraStatus} copy={copy}/>}</div>
         <div className="store-detail-facts"><TripFactsItems facts={[
           {icon: <UIIcon name="home"/>, label: locale === "en" ? "From" : "Dari", value: origin?.label || "—"},
-          {icon: <UIIcon name="route" size={20}/>, label: copy.transportMode, value: modeLabel},
+          {icon: <TransportModeIcon mode={transportMode} color="#526078"/>, label: copy.transportMode, value: modeLabel},
           {icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: `${plan.totalRouteDistanceKm.toFixed(1)} km`},
           {icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${plan.totalTravelMinutes} ${copy.minutes}`},
         ]}/></div>
@@ -126,14 +127,14 @@ export function PlanDetailView({ plan: originalPlan, stores, basket, onSetBasket
           <section className="store-detail-summary">
             <h2><UIIcon name="basket" size={22}/>{locale === "en" ? "Basket summary" : "Ringkasan bakul"}</h2>
             <p className="store-summary-note">{plan.storeNames.join(" → ")} · {copy.itemCount(plan.basketLineCount)}</p>
-            <dl className="store-summary-money"><div><dt>{plan.missingItems.length ? copy.partialTotal : medianCount ? copy.estimatedSubtotal : copy.basketSubtotal}</dt><dd>{plan.basketSubtotalRm == null ? "—" : formatRm(plan.basketSubtotalRm)}</dd></div>{plan.basketSubtotalRm != null && <><div><dt>{copy.saraCreditLabel}</dt><dd>{formatRm(credit)}</dd></div><div><dt>{copy.cashNeededLabel}</dt><dd>{formatRm(plan.basketSubtotalRm - credit)}</dd></div></>}</dl>
+            <dl className="store-summary-money"><div><dt>{plan.missingItems.length ? (medianCount ? copy.estimatedPartialTotal : copy.partialTotal) : medianCount ? copy.estimatedSubtotal : copy.basketSubtotal}</dt><dd>{plan.basketSubtotalRm == null ? "—" : formatRm(plan.basketSubtotalRm)}</dd></div>{plan.basketSubtotalRm != null && <><div><dt>{copy.saraCreditLabel}</dt><dd>{formatRm(credit)}</dd></div><div><dt>{copy.cashNeededLabel}</dt><dd>{formatRm(plan.basketSubtotalRm - credit)}</dd></div></>}</dl>
             {medianCount > 0 && <p className="store-summary-note">{medianCount} · {copy.medianPriceEstimate}</p>}
             {plan.missingItems.length > 0 && <p className="store-summary-note">{copy.missingItemPrices(plan.missingItems.join(", "))}</p>}
             <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>
             <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3>{!hasFuelBreakdown && <div><span>{copy.returnTravel}</span><strong>{formatRm(plan.transportCostRm)}</strong></div>}<TravelCostDetails breakdowns={plan.storeCount === 1 ? [store?.travelCostBreakdown] : plan.legs.map(leg => leg.travelCostBreakdown)} locale={locale} roundTrip/><div><span>{plan.missingItems.length ? copy.partialEstimatedTotal : medianCount ? copy.estimatedCombinedTotal : copy.combinedTotal}</span><strong>{plan.combinedTotalRm == null ? "—" : formatRm(plan.combinedTotalRm)}</strong></div></div>
-            <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={() => activeChecklist ? setReplaceOpen(true) : createChecklist()}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist} →</button>
+            <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={() => activeChecklist ? setReplaceOpen(true) : createChecklist()}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist}</button>
           </section>
-          <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale}/>
+          {!alternativesLoading && <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale}/>}
         </aside>
       </div>
     </div>

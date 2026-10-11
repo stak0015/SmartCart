@@ -11,6 +11,7 @@ import { localizedPackageSize } from "@/lib/package-size";
 import { QuantitySelector } from "./quantity-selector";
 import { StoreBasketRow } from "./store-basket-row";
 import { SaraEligibilityFlag } from "./store-tags";
+import { CatalogueItemImage } from "./catalogue-item-image";
 import { DropdownChevron } from "./ui-icon";
 
 function localizedName(copy: AppCopy, name: string | null | undefined, translations?: { itemNameEn?: string | null; itemNameMs?: string | null }): string {
@@ -25,6 +26,14 @@ function replacementImpactText(copy: AppCopy, impactRm: number | null): string {
   if (impactRm < 0) return copy.moreNow(formatRm(Math.abs(impactRm)));
   return copy.sameCostNow;
 }
+type RecommendationRowProps = {
+  row: RecommendationDetailRow; basket: BasketItem[]; copy: AppCopy; locale: Locale;
+  onApplyAlternative: (line: BasketAlternativeLine) => void;
+  onApplyPack: (row: RecommendationDetailRow, packItemId: string) => void;
+  onUndo: (row: RecommendationDetailRow) => void;
+  onChangeQuantity: (id: string, quantity: number) => void;
+};
+
 export function RecommendationBasketRow({
   row,
   basket,
@@ -34,17 +43,32 @@ export function RecommendationBasketRow({
   onApplyPack,
   onUndo,
   onChangeQuantity,
-}: {
-  row: RecommendationDetailRow;
-  basket: BasketItem[];
-  copy: AppCopy;
-  locale: Locale;
-  onApplyAlternative: (line: BasketAlternativeLine) => void;
-  onApplyPack: (row: RecommendationDetailRow, packItemId: string) => void;
-  onUndo: (row: RecommendationDetailRow) => void;
-  onChangeQuantity: (id: string, quantity: number) => void;
-}) {
+}: RecommendationRowProps) {
   const [expanded, setExpanded] = useState(false);
+  const hasMedianBaseline = row.source.priceSource === "median" || row.current.priceSource === "median";
+  const hasOptions = Boolean(row.replacement || (!hasMedianBaseline && (
+    (row.alternatives.alternative && (row.alternatives.savingsRm ?? 0) > 0 && row.alternatives.alternative.itemId !== row.current.itemId)
+    || row.alternatives.packOptions?.some(pack => pack.itemId !== row.current.itemId)
+  )));
+  const currentImageUrl = row.current.imageUrl ?? (
+    row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined
+  );
+
+  return (
+    <li className="recommendation-item">
+      <StoreBasketRow price={row.current} imageUrl={currentImageUrl} copy={copy} locale={locale}
+        originalNote={row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}
+        replacementNote={row.replacement ? (row.replacement.kind === "pack" ? copy.packChanged : copy.swapped) : null}
+        quantityControl={row.basketItem ? <QuantitySelector value={String(row.current.quantity)} onChange={raw => { const quantity = parseQty(raw); if (quantity != null) onChangeQuantity(row.basketItem!.id, quantity); }} onStep={delta => onChangeQuantity(row.basketItem!.id, stepQty(row.current.quantity, delta))} decreaseLabel={copy.decreaseQuantity(row.current.itemName)} increaseLabel={copy.increaseQuantity(row.current.itemName)} quantityLabel={copy.quantityFor(row.current.itemName)} errorId={`store-quantity-${row.source.itemId}`} errorText={copy.quantityError}/> : row.current.quantity}
+        disclosure={hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>} />
+      {hasOptions && expanded && <RecommendationItemOptions row={row} basket={basket} copy={copy} locale={locale}
+        onApplyAlternative={onApplyAlternative} onApplyPack={onApplyPack} onUndo={onUndo}/>}
+
+    </li>
+  );
+}
+
+export function RecommendationItemOptions({ row, basket, copy, locale, onApplyAlternative, onApplyPack, onUndo }: Omit<RecommendationRowProps, "onChangeQuantity">) {
   const suggestion = row.alternatives;
   const alternative = suggestion.alternative;
   // A median baseline is useful for an estimate, but it is not a store price
@@ -69,45 +93,36 @@ export function RecommendationBasketRow({
   const bestPack = packOptions.find(pack => pack.isBestValue) ?? packOptions[0];
   const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
   const hasOtherPacks = packOptions.some(pack => pack.itemId !== row.current.itemId);
-  const hasOptions = Boolean(row.replacement || lowerCostAvailable || hasOtherPacks);
-  const currentImageUrl = row.current.imageUrl ?? (
-    row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined
-  );
-
   return (
-    <li className="recommendation-item">
-      <StoreBasketRow price={row.current} imageUrl={currentImageUrl} copy={copy} locale={locale}
-        originalNote={row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}
-        replacementNote={row.replacement ? (row.replacement.kind === "pack" ? copy.packChanged : copy.swapped) : null}
-        quantityControl={row.basketItem ? <QuantitySelector value={String(row.current.quantity)} onChange={raw => { const quantity = parseQty(raw); if (quantity != null) onChangeQuantity(row.basketItem!.id, quantity); }} onStep={delta => onChangeQuantity(row.basketItem!.id, stepQty(row.current.quantity, delta))} decreaseLabel={copy.decreaseQuantity(row.current.itemName)} increaseLabel={copy.increaseQuantity(row.current.itemName)} quantityLabel={copy.quantityFor(row.current.itemName)} errorId={`store-quantity-${row.source.itemId}`} errorText={copy.quantityError}/> : row.current.quantity}
-        disclosure={hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>} />
-      {hasOptions && expanded && <div className="store-item-options">
+    <div className="store-item-options">
 
       {row.replacement && row.basketItem && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#f3faf7] px-3 py-2 text-xs text-[#286d67]">
+        <div className="alternative-impact">
           <span className="font-semibold">{replacementImpactText(copy, impactRm)}</span>
-          <button type="button" onClick={() => onUndo(row)} className="min-h-9 font-extrabold text-[#007d38] underline underline-offset-2">{copy.undoSwap}</button>
+          <button type="button" onClick={() => onUndo(row)} className="alternative-undo">{copy.undoSwap}</button>
         </div>
       )}
 
       {lowerCostAvailable && alternative && suggestion.savingsRm != null && (
-        <div className="mt-2 flex flex-col gap-2 rounded-xl bg-[#f3faf7] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
-            <p className="mt-0.5 break-words text-xs font-semibold text-[#10152e]">{localizedName(copy, alternative.itemName, alternative)}</p>
-            <p className="text-[11px] text-[#526078]">{categoryLabel(locale, alternative.category)}</p>
-            <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
-            <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
+        <div className="alternative-option cheaper-option">
+          <span className="alternative-image" aria-hidden="true"><CatalogueItemImage imageUrl={alternative.imageUrl} fallbackSize={26}/></span>
+          <div className="alternative-identity">
+            <span className="alternative-badge">{copy.lowerPriceNow}</span>
+            <p className="alternative-name">{localizedName(copy, alternative.itemName, alternative)}</p>
+            <p className="alternative-category">{categoryLabel(locale, alternative.category)}</p>
+            <p className="alternative-size">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
+
             {eligibilityChanges && (
               <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} candidate={alternative.saraCategoryCandidate} copy={copy} /></div>
             )}
           </div>
+          <div className="alternative-pricing"><strong>{alternative.unitPriceRm == null ? "—" : formatRm(alternative.unitPriceRm)}</strong><small>{copy.saveAmount(formatRm(suggestion.savingsRm))}</small></div>
           <button
             type="button"
             disabled={lowerCostDuplicate}
             onClick={() => onApplyAlternative(suggestion)}
             aria-label={`${copy.swapAndSave}: ${localizedName(copy, alternative.itemName, alternative)}`}
-            className="min-h-11 shrink-0 rounded-lg bg-[#007d38] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]"
+            className="alternative-action"
           >
             {lowerCostDuplicate ? copy.alreadyInBasket : copy.swapAndSave}
           </button>
@@ -115,12 +130,12 @@ export function RecommendationBasketRow({
       )}
 
       {hasOtherPacks && bestPack && (
-        <details className="pack-comparison mt-2 rounded-xl border border-[#dce5e0] bg-white">
-          <summary className="dropdown-summary cursor-pointer list-none px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-            <div className="flex items-center justify-between gap-3">
+        <details className="pack-comparison">
+          <summary className="dropdown-summary pack-comparison-summary">
+            <div className="pack-comparison-heading">
               <div className="min-w-0">
-                <p className="text-xs font-extrabold text-[#10152e]">{copy.comparePackSizes(packOptions.length)}</p>
-                <p className="mt-0.5 break-words text-[11px] text-[#526078]">
+                <p className="pack-comparison-title">{copy.comparePackSizes(packOptions.length)}</p>
+                <p className="pack-comparison-note">
                   {bestPack.itemId === row.current.itemId
                     ? copy.currentPackBestValue
                     : `${copy.bestUnitValue}: ${packageSizeForCopy(copy, bestPack.packageSize) ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
@@ -144,39 +159,40 @@ export function RecommendationBasketRow({
                     ? copy.lessNow(formatRm(Math.abs(unitDifference)))
                     : copy.sameCostNow;
               return (
-                <div key={pack.itemId} className={`pack-option ${isCurrent ? "bg-[#e7f7f0] ring-1 ring-[#007d38]" : "bg-[#f4f8f9]"}`}>
-                  <div className="flex flex-wrap gap-1">
-                    {pack.isBestValue && <span className="rounded-md bg-[#007d38] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestUnitValue}</span>}
-                    {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#526078]">{copy.currentPack}</span>}
-                  </div>
-                  <p className="mt-1 break-words text-xs font-bold leading-4 text-[#10152e]">{localizedName(copy, pack.itemName, pack)}</p>
-                  <p className="text-[11px] text-[#526078]">{categoryLabel(locale, pack.category)}</p>
-                  <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, pack.packageSize) ?? "—"}</p>
-                  <div className="mt-2 flex items-end justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-extrabold text-[#10152e]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
-                      <p className="text-[10px] text-[#526078]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
-                      {upfrontText && !isCurrent && <p className="mt-0.5 text-[10px] font-semibold text-[#526078]">{upfrontText}</p>}
+                <div key={pack.itemId} className={`alternative-option pack-option${isCurrent ? " is-current" : ""}`}>
+                  <span className="alternative-image" aria-hidden="true"><CatalogueItemImage imageUrl={pack.imageUrl} fallbackSize={26}/></span>
+                  <div className="alternative-identity">
+                    <div className="alternative-badges">
+                      {pack.isBestValue && <span className="alternative-badge">{copy.bestUnitValue}</span>}
+                      {isCurrent && <span className="alternative-badge is-current">{copy.currentPack}</span>}
                     </div>
-                    {!isCurrent && (
-                      <button
-                        type="button"
-                        disabled={duplicate}
-                        onClick={() => onApplyPack(row, pack.itemId)}
-                        aria-label={`${copy.choosePack}: ${localizedName(copy, pack.itemName, pack)}`}
-                        className="min-h-11 shrink-0 rounded-lg border border-[#007d38] bg-[#007d38] px-2.5 text-[11px] font-extrabold text-white disabled:cursor-not-allowed disabled:border-[#b8d3c6] disabled:bg-[#e8f4ee] disabled:text-[#245d4b]"
-                      >
-                        {duplicate ? copy.alreadyInBasket : copy.choosePack}
-                      </button>
-                    )}
+                    <p className="alternative-name">{localizedName(copy, pack.itemName, pack)}</p>
+                    <p className="alternative-category">{categoryLabel(locale, pack.category)}</p>
+                    <p className="alternative-size">{packageSizeForCopy(copy, pack.packageSize) ?? "—"}</p>
+                    <SaraEligibilityFlag status={pack.saraEligible} candidate={pack.saraCategoryCandidate} copy={copy}/>
                   </div>
+                  <div className="alternative-pricing">
+                    <p className="alternative-price">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
+                    <p className="alternative-unit-price">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
+                    {upfrontText && !isCurrent && <p className="alternative-tradeoff">{upfrontText}</p>}
+                  </div>
+                  {!isCurrent && (
+                    <button
+                      type="button"
+                      disabled={duplicate}
+                      onClick={() => onApplyPack(row, pack.itemId)}
+                      aria-label={`${copy.choosePack}: ${localizedName(copy, pack.itemName, pack)}`}
+                      className="alternative-action is-secondary"
+                    >
+                      {duplicate ? copy.alreadyInBasket : copy.choosePack}
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
         </details>
       )}
-      </div>}
-    </li>
+    </div>
   );
 }

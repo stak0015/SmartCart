@@ -3,6 +3,7 @@ import type { RecommendationDetailPrice } from "@/lib/recommendation-detail";
 import { categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import { localizedPackageSize } from "@/lib/package-size";
 import { formatRm } from "@/lib/format-rm";
+import { displayItemName } from "@/lib/item-name";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { SaraEligibilityFlag } from "./store-tags";
 
@@ -15,7 +16,7 @@ export function StoreBasketRow({price, imageUrl, copy, locale, originalNote, rep
       <div className={`store-item-row${quantityControl ? " has-quantity-controls" : ""}`}>
         <span className="store-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={imageUrl} fallbackSize={27}/></span>
         <div className="store-item-name">
-          <strong>{name}</strong>
+          <strong className="item-name-line" title={name}>{displayItemName(name, locale)}</strong>
           <small>{categoryLabel(locale, price.category)}</small>
           <small>{localizedPackageSize(price.packageSize, locale) ?? "—"}<span className="store-item-mobile-quantity"> × {price.quantity}</span>{originalNote}</small>
           {replacementNote && <small className="store-item-replaced">{replacementNote}</small>}

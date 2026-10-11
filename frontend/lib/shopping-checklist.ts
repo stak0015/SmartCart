@@ -1,3 +1,4 @@
+import { isTripTravelSnapshot, type TripTravelSnapshot } from "./trip-travel-cost";
 import type { BasketItem } from "./basket-state";
 import { isItemCategory, isSourceCategory, type PricedPlan, type BasketItemPrice, type ItemCategory, type SelectedLocation, type SourceCategory, type StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
@@ -37,7 +38,18 @@ export interface ChecklistStore {
 
 export type ChecklistRouteOrigin = Pick<SelectedLocation, "latitude" | "longitude">;
 
-export interface ChecklistItem {
+export interface SaraItemSnapshot {
+  /** Absent on older snapshots that did not preserve item eligibility. */
+  saraEligible?: boolean | null;
+  saraCategoryCandidate?: boolean;
+}
+
+export function isSaraItemSnapshot(value: SaraItemSnapshot): boolean {
+  return (value.saraEligible === undefined || value.saraEligible === null || typeof value.saraEligible === "boolean")
+    && (value.saraCategoryCandidate === undefined || typeof value.saraCategoryCandidate === "boolean");
+}
+
+export interface ChecklistItem extends SaraItemSnapshot {
   storePremiseId?: string;
   storeName?: string;
   id: string;
@@ -92,7 +104,7 @@ function withOriginalValues(item: ChecklistItem): ChecklistItem {
   return { ...item, originalValues: originalValues(item) };
 }
 
-export interface ShoppingChecklist {
+export interface ShoppingChecklist extends TripTravelSnapshot {
   version: typeof SHOPPING_CHECKLIST_VERSION;
   id: string;
   store: ChecklistStore;
@@ -212,6 +224,8 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     itemName: current.itemName,
     itemNameEn: current.itemNameEn ?? null,
     itemNameMs: current.itemNameMs ?? null,
+    saraEligible: current.saraEligible,
+    saraCategoryCandidate: current.saraCategoryCandidate,
     category: current.category,
     sourceCategory: current.sourceCategory ?? null,
     imageUrl: current.imageUrl || row.basketItem?.imageUrl || row.source.imageUrl || null,
@@ -238,6 +252,8 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     itemName: price.itemName,
     itemNameEn: price.itemNameEn ?? null,
     itemNameMs: price.itemNameMs ?? null,
+    ...(price.saraEligible !== undefined ? { saraEligible: price.saraEligible } : {}),
+    ...(price.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: price.saraCategoryCandidate } : {}),
     category: price.category,
     sourceCategory: price.sourceCategory ?? null,
     packageSize: price.packageSize,
@@ -300,6 +316,8 @@ export function createShoppingChecklist(
       ? null
       : money(store.estimatedTotalCostRm),
     alternativeStoreEstimates,
+    ...(store.travelCostBreakdown ? { travelCostBreakdowns: [{ ...store.travelCostBreakdown }] } : {}),
+    actualTollCostRm: null,
     estimatedSavings: options.estimatedSavings ?? null,
     // AC 8.2.3: frozen only when the caller knows it, mirroring the pattern
     // used for estimatedSavings so serialised output is unchanged for callers
@@ -333,6 +351,8 @@ export function createPlanShoppingChecklist(
         packageSize: line.unit ?? basketItem?.size ?? null, quantity: line.quantity,
         unitPriceRm: line.unitPriceRm, lineTotalRm: line.lineTotalRm,
         priceObservedDate: line.observedDate, priceSource: line.priceSource,
+        saraEligible: line.saraEligible ?? basketItem?.saraEligible,
+        saraCategoryCandidate: line.saraCategoryCandidate ?? basketItem?.saraCategoryCandidate,
         category: line.category ?? basketItem?.category ?? null,
         sourceCategory: line.sourceCategory ?? basketItem?.sourceCategory ?? null,
       }, index),
@@ -350,6 +370,9 @@ export function createPlanShoppingChecklist(
       address: planStores.map(store => store.address).filter(Boolean).join(" · ") || null },
     createdAt, updatedAt: createdAt, plannedSubtotalRm: plan.basketSubtotalRm == null ? null : money(plan.basketSubtotalRm),
     estimatedRoundTripCostRm: money(plan.transportCostRm), plannedCombinedTotalRm: plan.combinedTotalRm == null ? null : money(plan.combinedTotalRm),
+    ...(plan.legs.length > 0 && plan.legs.every(leg => leg.travelCostBreakdown)
+      ? { travelCostBreakdowns: plan.legs.map(leg => ({ ...leg.travelCostBreakdown! })) } : {}),
+    actualTollCostRm: null,
     alternativeStoreEstimates: [], estimatedSavings: options.estimatedSavings ?? null,
     ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}), items,
   };
@@ -425,6 +448,8 @@ export function addManualChecklistItem(
   const item: ChecklistItem = withOriginalValues({
     id: options.itemId ?? generatedId("manual"),
     source: "manual",
+    saraEligible: null,
+    saraCategoryCandidate: false,
     catalogueItemId: null,
     itemName,
     itemNameEn: null,
@@ -465,6 +490,8 @@ export function editChecklistItem(
     items: checklist.items.map((item, itemIndex) => itemIndex === index ? {
       ...item,
       source: "manual",
+      saraEligible: null,
+      saraCategoryCandidate: false,
       catalogueItemId: null,
       itemName,
       itemNameEn: null,
@@ -739,6 +766,7 @@ function isIsoDate(value: unknown): value is string {
 function isChecklistItem(value: unknown): value is ChecklistItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
+  if (!isSaraItemSnapshot(item as SaraItemSnapshot)) return false;
   if ((item.storePremiseId !== undefined && typeof item.storePremiseId !== "string")
     || (item.storeName !== undefined && typeof item.storeName !== "string")) return false;
   const sourceIsValid = item.source === "catalogue" || item.source === "manual";
@@ -828,6 +856,7 @@ function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEs
 export function isShoppingChecklist(value: unknown): value is ShoppingChecklist {
   if (!value || typeof value !== "object") return false;
   const checklist = value as Record<string, unknown>;
+  if (!isTripTravelSnapshot(checklist)) return false;
   if (checklist.version !== SHOPPING_CHECKLIST_VERSION
     || typeof checklist.id !== "string"
     || checklist.id.length === 0
@@ -966,4 +995,9 @@ export function parseShoppingChecklist(serialized: string | null | undefined): S
   } catch {
     return null;
   }
+}
+
+export function setChecklistTollCost(checklist: ShoppingChecklist, amount: number | null): ShoppingChecklist {
+  if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return checklist;
+  return { ...checklist, actualTollCostRm: amount == null ? null : money(amount), updatedAt: nowIso() };
 }

@@ -16,10 +16,13 @@ function CostInfo({ label, explanation }: { label: string; explanation: ReactNod
   </span>;
 }
 
-export function TravelCostDetails({ breakdowns, locale, roundTrip }: {
+export function TravelCostDetails({ breakdowns, locale, roundTrip, recordedTollCostRm, tollControl, showTollInfo = true }: {
   breakdowns: (TravelCostBreakdown | null | undefined)[];
   locale: Locale;
   roundTrip: boolean;
+  recordedTollCostRm?: number | null;
+  tollControl?: ReactNode;
+  showTollInfo?: boolean;
 }) {
   const fuel = breakdowns[0];
   // Old saved recommendations and non-petrol modes have no fuel breakdown.
@@ -41,13 +44,16 @@ export function TravelCostDetails({ breakdowns, locale, roundTrip }: {
     <span className="travel-cost-tooltip-calculation"><b>{english ? "Calculation" : "Pengiraan"}</b><span>{litres.toFixed(3)} L × RM{fuel.fuelPricePerLitreRm.toFixed(2)}/L = {formatRm(fuelCost)}</span></span>
     {returnNote && <span className="travel-cost-tooltip-note">{returnNote}</span>}
   </>;
-  const tollExplanation = <>
+  const tollExplanation = recordedTollCostRm != null ? <>
+    <strong className="travel-cost-tooltip-title">{english ? "Recorded toll costs" : "Kos tol direkodkan"}</strong>
+    <span className="travel-cost-tooltip-note">{english ? "The shopper recorded this toll total for the whole trip. It is included in the total; fuel remains an estimate." : "Pembeli merekodkan jumlah tol untuk seluruh perjalanan. Ia termasuk dalam jumlah; bahan api kekal sebagai anggaran."}</span>
+  </> : <>
     <strong className="travel-cost-tooltip-title">{english ? "Toll costs" : "Kos tol"}</strong>
     <span className="travel-cost-tooltip-line"><b>{english ? "Availability" : "Ketersediaan"}</b><span>{english ? "Toll prices are unavailable for Malaysia from the routing provider." : "Harga tol untuk Malaysia tidak tersedia daripada penyedia laluan."}</span></span>
     <span className="travel-cost-tooltip-note">{english ? "Tolls and parking are excluded from the total." : "Tol dan parkir tidak termasuk dalam jumlah."}</span>
   </>;
   return <section aria-label={english ? "Travel cost breakdown" : "Pecahan kos perjalanan"} className="travel-cost-breakdown">
     <div className="travel-cost-row"><span>{english ? "Expected fuel cost" : "Anggaran kos bahan api"} <CostInfo label={english ? "How fuel cost is estimated" : "Cara kos bahan api dianggarkan"} explanation={fuelExplanation}/></span><strong>{formatRm(fuelCost)}</strong></div>
-    <div className="travel-cost-row"><span>{english ? "Tolls" : "Tol"} <CostInfo label={english ? "About toll costs" : "Tentang kos tol"} explanation={tollExplanation}/></span><strong>{english ? "Unavailable" : "Tidak tersedia"}</strong></div>
+    <div className="travel-cost-row"><span>{english ? "Tolls" : "Tol"}{showTollInfo && <> <CostInfo label={english ? "About toll costs" : "Tentang kos tol"} explanation={tollExplanation}/></>}</span>{tollControl ?? <strong>{recordedTollCostRm == null ? (english ? "Unavailable" : "Tidak tersedia") : formatRm(recordedTollCostRm)}</strong>}</div>
   </section>;
 }

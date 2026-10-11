@@ -311,14 +311,14 @@ export function ReportScreen({
 
   return (
     <div className="screen-enter reports-screen">
-      <header className="reports-heading"><div><h1>{copy.report}</h1><p className="page-description">{tab === "inbox" ? copy.inboxDescription : copy.statisticsDescription}</p></div><div className="reports-heading-actions"><button type="button" className="secondary-button" onClick={onOpenSettings}>{copy.settings}</button></div></header>
+      <header className="reports-heading"><div><h1 className="page-title">{copy.report}</h1><p className="page-intro">{tab === "inbox" ? copy.inboxDescription : copy.statisticsDescription}</p></div><div className="reports-heading-actions"><button type="button" className="secondary-button" onClick={onOpenSettings}>{copy.settings}</button></div></header>
       <div role="tablist" aria-label={copy.report} className="report-tabs">
         {(["inbox", "statistics"] as const).map(option => <button key={option} id={`report-tab-${option}`} type="button" role="tab" aria-selected={tab === option} aria-controls={`report-panel-${option}`} tabIndex={tab === option ? 0 : -1} onClick={() => setTab(option)} onKeyDown={event => onTabKeyDown(event, option)}><span aria-hidden="true"><UIIcon name={option === "inbox" ? "document" : "reports"}/></span>{copy[option]}{option === "inbox" && countUnread > 0 ? <span className="report-unread-count" aria-label={`${countUnread} ${copy.unreadCount}`}>{countUnread}</span> : null}</button>)}
       </div>
       {tab === "inbox" ? <section id="report-panel-inbox" role="tabpanel" aria-labelledby="report-tab-inbox" className="report-inbox">
         <div className={`inbox-layout ${selectedMessage ? "has-selection" : ""}`}>
           <aside className="inbox-list-panel" aria-label={copy.inbox}>
-            <div className="inbox-list-toolbar"><h2 ref={inboxHeadingRef} tabIndex={-1}>{copy.inbox}</h2><span>{state.messages.length}</span></div>
+            <div className="inbox-list-toolbar"><h2 ref={inboxHeadingRef} tabIndex={-1} className="section-title">{copy.inbox}</h2><span>{state.messages.length}</span></div>
             <div className="inbox-status-line" role="status">{consentStatus === "accepted" ? copy.aiEnabled : copy.aiDisabled}</div>
             <div className="report-generate-panel">
               <div role="group" aria-label={copy.generateGroup} className="report-generate-actions">

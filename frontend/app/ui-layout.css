@@ -81,14 +81,6 @@
   .plan-card-grid { grid-template-columns: minmax(0, 1fr); }
   .plan-detail > .plan-detail-layout, .plan-detail-legs { grid-template-columns: minmax(0, 1fr); }
 }
-.shopping-step-nav { margin: 16px var(--page-gutter) 0; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.shopping-step-nav ol { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 0; padding: 0; list-style: none; }
-.shopping-step-nav button { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 4px 6px; border: 0; border-radius: 6px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 600; }
-.shopping-step-nav button:not(:disabled):hover { background: #eaf5ee; color: var(--green); }
-.shopping-step-nav button[aria-current="step"] { background: #eaf5ee; color: var(--green); }
-.shopping-step-nav button:disabled { opacity: .45; }
-.shopping-step-nav button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
-.shopping-step-number { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; }
 .smartcart-app :where(button, input, select, textarea) { min-width: 0; }
 .smartcart-app :where(button, a) > svg { flex-shrink: 0; }
 .smartcart-app :where(h1, h2, h3, p, strong, small) { overflow-wrap: anywhere; }
@@ -160,7 +152,6 @@
 .catalogue-sara-control input { flex-shrink: 0; }
 #catalogue-results > div:first-child { align-items: center; }
 #catalogue-results > div:first-child > span { flex-shrink: 0; font-size: 13px; }
-#catalogue-results h2 { font-size: 20px; }
 .catalogue-price-context { margin: -2px 0 16px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: stretch; }
 .product-card { display: flex; flex-direction: column; padding: 16px; min-height: 0; gap: 12px; border-radius: 10px; }
@@ -248,7 +239,8 @@
 .store-item-quantity .quantity-selector input { width: 36px; height: 36px; min-height: 36px; font-size: 14px; }
 .store-item-columns, .store-item-row { padding-inline: 12px; }
 .store-item-row:not(:has(.store-item-toggle)) { padding-right: 12px; }
-.store-item-toggle { min-height: 44px; }
+.store-item-toggle { min-height: 44px; color: var(--green); }
+.store-item-toggle .dropdown-chevron { color: var(--green); }
 .store-item-list { max-height: none; overflow: visible; scrollbar-gutter: auto; }
 .store-item-name strong { font-size: 13px; line-height: 1.5; }
 .store-item-total, .store-item-unit-price { font-variant-numeric: tabular-nums; }
@@ -459,7 +451,9 @@
 .receipt-store-icon { position: relative; overflow: hidden; padding: 4px; }
 .checklist-overview-top { display: flex; width: 100%; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; }
 .checklist-overview .checklist-overview-top h1 { order: 0; flex: 1 1 auto; min-width: 0; margin: 0; }
-.checklist-overview-stores { width: 100%; margin-top: 10px; }
+.checklist-overview { padding-top: 0; }
+.checklist-overview-stores { display: flex; width: 100%; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 16px; margin-top: 10px; }
+.checklist-overview-stores > .checklist-store-identity { flex: 1; min-width: 0; margin-bottom: 0; }
 .checklist-map-route { display: inline-flex; flex: 0 0 auto; align-self: center; align-items: center; gap: 6px; }
 .checklist-store-identity { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: center; gap: 12px; margin-bottom: 8px; }
 .checklist-store-identity.is-multi-store { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
@@ -1052,7 +1046,7 @@ button.planned-card-week:focus-visible { outline: 2px solid var(--green); outlin
 .history-store-purchases > ul { list-style: none; padding: 0; margin: 0; }
 .history-purchase { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #edf1ef; }
 .history-purchase:last-child { border-bottom: 0; }
-.history-product-image { position: relative; display: grid; place-items: center; flex: 0 0 80px; width: 80px; height: 88px; overflow: hidden; border-radius: 5px; background: #f6f9f8; color: var(--muted); }
+.history-product-image { position: relative; display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 52px; overflow: hidden; border-radius: 5px; background: #f6f9f8; color: var(--muted); }
 .history-product-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
 .history-product-copy strong { color: var(--ink); font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
 .history-product-copy small { color: var(--muted); font-size: 11px; line-height: 1.4; }
@@ -1093,4 +1087,162 @@ button.planned-card-week:focus-visible { outline: 2px solid var(--green); outlin
   .history-trip-heading { padding: 12px 16px; }
   .history-trip-body { padding: 16px; }
   .history-group-heading { flex-wrap: wrap; gap: 6px; }
+}
+
+/* Shared cheaper-item and pack-size comparisons in every store plan. */
+.store-item-options { display: grid; gap: 10px; padding: 12px; border-color: var(--line); border-radius: 8px; background: #f7faf8; }
+.alternative-option { display: grid; grid-template-columns: 48px minmax(0, 1fr) minmax(100px, auto) auto; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.alternative-image { position: relative; display: grid; place-items: center; width: 48px; height: 56px; border-radius: 6px; background: white; overflow: hidden; }
+.alternative-identity { display: grid; gap: 3px; min-width: 0; }
+.alternative-identity > p, .alternative-pricing > p { margin: 0; }
+.alternative-name { display: block; color: var(--ink); font-size: 13px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.alternative-category, .alternative-size { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.alternative-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.alternative-badge { width: fit-content; padding: 3px 6px; border-radius: 4px; background: #e5f4eb; color: var(--green); font-size: 10px; font-weight: 600; }
+.alternative-badge.is-current { background: #eef1ef; color: var(--muted); }
+.alternative-pricing { display: grid; gap: 4px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.alternative-pricing > strong, .alternative-price { font-size: 14px; font-weight: 700; }
+.alternative-pricing > small { color: var(--green); font-size: 11px; font-weight: 600; }
+.alternative-unit-price, .alternative-tradeoff { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.alternative-action { min-height: 44px; padding: 8px 12px; border: 1px solid var(--green); border-radius: 6px; background: var(--green); color: white; font-size: 12px; font-weight: 600; }
+.alternative-action.is-secondary { background: white; color: var(--green); }
+.alternative-action:disabled { border-color: var(--line); background: #eef1ef; color: var(--muted); cursor: not-allowed; }
+.alternative-action:focus-visible, .alternative-undo:focus-visible, .pack-comparison-summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.alternative-impact { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--green); font-size: 12px; }
+.alternative-undo { min-height: 44px; color: var(--green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.pack-comparison { border: 1px solid var(--line); border-radius: 8px; background: white; overflow: hidden; }
+.pack-comparison-summary { display: block; width: 100%; padding: 12px 14px; cursor: pointer; list-style: none; }
+.pack-comparison-summary::-webkit-details-marker { display: none; }
+.pack-comparison-heading { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; }
+.pack-comparison-heading > div { flex: 1; min-width: 0; }
+.pack-comparison-heading > .dropdown-chevron { flex: 0 0 24px; margin-left: auto; color: var(--green); }
+.pack-comparison-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.pack-comparison-note { margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+.pack-options { display: grid; gap: 8px; padding: 10px; border-top: 1px solid var(--line); background: #f7faf8; }
+.pack-option.is-current { border-color: #9acbae; background: #f0f8f3; }
+.store-placeholder { color: #3e494a; }
+@media (max-width: 1100px) {
+  .alternative-option { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 10px; }
+  .alternative-image { width: 44px; }
+  .alternative-pricing { grid-column: 2; }
+  .alternative-action { grid-column: 3; grid-row: 2; }
+}
+@media (max-width: 480px) {
+  .store-item-options { padding: 8px; }
+  .alternative-option { grid-template-columns: 36px minmax(0, 1fr); padding: 10px; }
+  .alternative-image { width: 36px; height: 48px; }
+  .alternative-pricing { grid-column: 2; }
+  .alternative-action { grid-column: 1 / -1; grid-row: auto; width: 100%; }
+}
+
+.history-product-copy > .sara-item-status { align-self: flex-start; }
+
+.checklist-travel-summary { max-width: 520px; width: 100%; }
+.toll-cost-input { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 6px; padding: 0 10px; background: white; color: var(--muted); font-size: 12px; }
+.toll-cost-input input { width: 88px;min-height: 40px; border: 0; background: transparent; color: var(--ink); font-size: 13px; text-align: right; }
+.toll-cost-input:focus-within { outline: 2px solid var(--green); outline-offset: 2px; }
+.toll-cost-input input:focus { outline: 0; }
+.toll-cost-error { margin-top: 8px; color: #ba1a1a; font-size: 12px; }
+
+/* Compact checklist workspace, with recording given the strongest action. */
+.active-checklist > div:first-child { gap: 14px; }
+.checklist-workspace { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.checklist-items, .checklist-side-panel { min-width: 0; }
+.checklist-side-panel { display: grid; gap: 12px; }
+.checklist-travel-summary { order: 0; max-width: none; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.checklist-record-panel { display: grid; gap: 12px; padding: 14px; border: 1px solid #b9dcc8; border-radius: 8px; background: #ecf8f0; }
+.checklist-record-panel h2 { margin: 0; color: var(--ink); font-size: 15px; font-weight: 650; }
+.checklist-record-panel p { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.checklist-record-button { display: flex; justify-content: center; align-items: center; gap: 8px; width: 100%; min-height: 48px; font-size: 14px; font-weight: 650; }
+.checklist-secondary-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 20px; padding-top: 4px; }
+.checklist-secondary-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; width: auto; padding: 8px 10px; border-radius: 6px; font-size: 12px; }
+.checklist-delete-button { color: #ba1a1a; background: #fff; border: 1px solid #cbd5df; }
+.checklist-overview-stores .checklist-store-symbol { width: 48px; height: 48px; }
+.checklist-overview-stores .checklist-store-identity { grid-template-columns: 48px minmax(0, 1fr); gap: 10px; }
+.checklist-store-name { font-size: 17px; }
+.checklist-plan-store.store-card-header { grid-template-columns: 44px minmax(0, 1fr); min-height: 44px; gap: 10px; }
+.checklist-plan-store .store-symbol { width: 44px; height: 44px; }
+.checklist-overview-stores .checklist-map-route { margin: 0; }
+.checklist-row { min-height: 72px; }
+@media (max-width: 1150px) {
+  .checklist-workspace { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .checklist-side-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
+@media (max-width: 640px) {
+  .checklist-side-panel { grid-template-columns: minmax(0, 1fr); }
+  .checklist-overview-stores { gap: 8px; }
+  .checklist-overview-stores > .checklist-store-identity { flex-basis: 100%; }
+  .checklist-overview-stores .checklist-map-route { align-self: flex-start; max-width: none; padding: 0; }
+  .checklist-secondary-actions button { flex: 1 1 auto; }
+}
+
+.checklist-workspace-filters { max-width: calc(100% - 336px); margin: 0; }
+@media (max-width: 1150px) { .checklist-workspace-filters { max-width: none; } }
+
+.checklist-add-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 0 0 auto; min-height: 44px; padding: 8px 10px; margin-left: auto; border-radius: 6px; font-size: 12px; white-space: nowrap; }
+.checklist-workspace-filters .checklist-filter-button { min-height: 36px; }
+.checklist-add-button svg, .checklist-secondary-actions svg { flex-shrink: 0; width: 18px; height: 18px; }
+.checklist-record-button svg { flex-shrink: 0; width: 22px; height: 22px; }
+.checklist-workspace-filters .checklist-item-filter-group { flex: 0 1 auto; width: auto; }
+@media (max-width: 640px) {
+  .checklist-workspace-filters .checklist-item-filter-group { flex: 1; width: auto; }
+  .checklist-workspace-filters .checklist-filter-button { padding-inline: 4px; font-size: 10px; }
+  .checklist-add-button { margin-left: 0; padding-inline: 8px; }
+}
+
+.checklist-travel-summary > .store-summary-travel { padding: 10px 0 0; margin-top: 10px; }
+
+.checklist-workspace-filters .checklist-store-select { flex: 1 1 180px; }
+@media (max-width: 640px) { .checklist-workspace-filters .checklist-store-select { flex: 1 1 100%; } }
+
+/* Standard screen heading: every top-level page title and its short intro share one size, spacing and colour.
+   Pages set the gutter and top padding with .page-header; the title and intro take these classes. */
+.page-header { padding: 16px 16px 20px; }
+@media (min-width: 640px) { .page-header { padding: 24px 24px 20px; } }
+.smartcart-app .page-title { margin: 0; color: var(--ink); font-size: 30px; line-height: 38px; font-weight: 800; letter-spacing: -.6px; overflow-wrap: anywhere; }
+.smartcart-app .page-intro { max-width: 600px; margin: 6px 0 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+@media (max-width: 639px) {
+  .smartcart-app .page-title { font-size: 24px; line-height: 32px; letter-spacing: -.4px; }
+  .smartcart-app .page-intro { font-size: 14px; line-height: 21px; }
+}
+
+/* Checklist typography: one size per text role across desktop and mobile rows, and one size for section titles. */
+.smartcart-app .checklist-row-name h3 { font-size: 14px; line-height: 20px; font-weight: 650; }
+.smartcart-app .checklist-item-copy small { font-size: 12px; line-height: 18px; }
+.smartcart-app .checklist-package, .smartcart-app .checklist-quantity, .smartcart-app .checklist-unit-price, .smartcart-app .checklist-mobile-package { font-size: 13px; line-height: 20px; }
+.smartcart-app .checklist-row-total strong { font-size: 14px; line-height: 20px; font-weight: 700; }
+.smartcart-app .checklist-status > span, .smartcart-app .checklist-row-total .mobile-item-status { font-size: 12px; line-height: 16px; }
+.smartcart-app .checklist-workspace h2, .smartcart-app .checklist-items h2, .smartcart-app .checklist-travel-summary h2, .smartcart-app .checklist-record-panel h2 { font-size: 18px; line-height: 26px; font-weight: 750; }
+.smartcart-app .store-summary-note { font-size: 12px; line-height: 18px; }
+
+/* Section titles inside a screen (shop, basket, location, reports) share the checklist section size. */
+.smartcart-app .section-title { margin: 0; color: var(--ink); font-size: 18px; line-height: 26px; font-weight: 750; }
+
+/* Item names stay on one line and end with an ellipsis; the full name is kept in a title tooltip. */
+.smartcart-app .item-name-line { display: block; min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; overflow-wrap: normal; }
+
+/* Basket review rows use the checklist item-row type roles: name 14px/650, package and size 13px muted, captions 12px. */
+.smartcart-app .basket-review .basket-row h3 { font-size: 14px; line-height: 20px; font-weight: 650; }
+.smartcart-app .basket-review .basket-package, .smartcart-app .basket-review .basket-mobile-size { font-size: 13px; line-height: 20px; color: var(--muted); }
+.smartcart-app .basket-review .basket-row small, .smartcart-app .basket-review .basket-compact-size { font-size: 12px; line-height: 18px; }
+
+/* Shopping steps: a segmented track with one row of steps. Phones scroll the row sideways instead of wrapping. */
+.shopping-step-nav { margin: 16px var(--page-gutter) 0; padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 1px 2px #10231d0d; }
+.shopping-step-nav ol { position: relative; display: flex; flex-wrap: nowrap; gap: 4px; margin: 0; padding: 0; list-style: none; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.shopping-step-nav ol::-webkit-scrollbar { display: none; }
+.shopping-step-nav li { display: flex; flex: 1 0 auto; min-width: 0; }
+.shopping-step-nav button { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 6px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 13px; font-weight: 650; line-height: 1.2; white-space: nowrap; }
+.shopping-step-nav button:not(:disabled):hover { background: #f1f6f3; color: var(--ink); }
+.shopping-step-nav button[aria-current="step"] { background: var(--green); color: #fff; box-shadow: 0 2px 6px #007d3833; }
+.shopping-step-nav button:disabled { opacity: .45; cursor: not-allowed; }
+.shopping-step-nav button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.shopping-step-number { display: grid; place-items: center; flex: 0 0 22px; width: 22px; height: 22px; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; line-height: 1; }
+.shopping-step-nav li[data-state="done"] button:not(:disabled) { color: var(--ink); }
+.shopping-step-nav li[data-state="done"] .shopping-step-number { border-color: transparent; background: #d9efe2; color: var(--green); }
+.shopping-step-nav button[aria-current="step"] .shopping-step-number { border-color: transparent; background: #fff; color: var(--green); }
+@media (max-width: 639px) {
+  .shopping-step-nav { margin: 12px 16px 0; padding: 4px; }
+  .shopping-step-nav ol { scroll-snap-type: x proximity; scroll-padding-inline: 4px; }
+  .shopping-step-nav li { scroll-snap-align: start; }
+  .shopping-step-nav button { min-height: 38px; padding: 6px 12px; font-size: 12px; }
 }

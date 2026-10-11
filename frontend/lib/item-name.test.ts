@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { uppercaseItemName } from "./item-name";
+import { displayItemName, uppercaseItemName } from "./item-name";
 
 describe("uppercaseItemName", () => {
   it("renders mixed-case item names in capital letters", () => {
@@ -9,5 +9,15 @@ describe("uppercaseItemName", () => {
 
   it("preserves numbers and punctuation", () => {
     expect(uppercaseItemName("Susu 2-in-1 (500g)")).toBe("SUSU 2-IN-1 (500G)");
+  });
+});
+
+describe("displayItemName", () => {
+  it("capitalises English item names", () => {
+    expect(displayItemName("Firm tofu", "en")).toBe("FIRM TOFU");
+  });
+
+  it("leaves Malay item names unchanged", () => {
+    expect(displayItemName("Tauhu keras", "ms")).toBe("Tauhu keras");
   });
 });
