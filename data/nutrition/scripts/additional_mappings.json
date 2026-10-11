@@ -1,0 +1,16 @@
+[
+  {
+    "item_code": "867",
+    "food_id": "MFC-97-104004",
+    "match_type": "generic",
+    "status": "approved",
+    "rationale": "Buah keras is candlenut (Aleurites moluccana), matching the MyFCD candlenut reference. Per 100 g edible nut; cooking and recipe quantities are not represented."
+  },
+  {
+    "item_code": "202",
+    "food_id": "MFC-97-107003",
+    "match_type": "generic",
+    "status": "approved",
+    "rationale": "Seri kaya is an egg-based coconut jam and matches MyFCD's egg jam (Seri kaya) reference. Generic spread; Yeo's formulation and sweetness can differ from this reference."
+  }
+]

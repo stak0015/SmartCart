@@ -18,7 +18,7 @@ from .premises import PremiseCandidate
 from .pricing import StoreBasketSummary
 
 
-# Used only when Google Routes is not configured. These are deliberately
+# Used when Google Routes is not configured or unavailable. These are deliberately
 # labelled as planning estimates in the API response; they are not route or
 # traffic data and do not prove that a store is reachable within the user's
 # selected travel limit.
@@ -124,8 +124,9 @@ def straight_line_route_results(
     speed_kmh = FALLBACK_TRAVEL_SPEED_KMH[mode]
     results = []
     for destination_index, premise in enumerate(candidates):
-        distance_meters = max(0.0, premise.straight_line_distance_km) * 1000
-        duration_seconds = distance_meters / speed_kmh * 3600
+        distance_km = max(0.0, premise.straight_line_distance_km)
+        distance_meters = distance_km * 1000
+        duration_seconds = distance_km / speed_kmh * 3600
         results.append(
             RouteMatrixResult(
                 destination_index=destination_index,

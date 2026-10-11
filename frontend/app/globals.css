@@ -308,9 +308,8 @@ html,body {
   position:relative;
   display:grid;
   grid-template-columns:100px 1fr;
-  grid-template-rows:auto 1fr auto;
+  grid-template-rows:auto 1fr;
   column-gap:20px;
-  min-height:205px;
   text-align:left;
   padding:24px;
   background:white;
@@ -318,7 +317,7 @@ html,body {
   border-radius:12px
 }
 .home-card-icon {
-  grid-row:1/4;
+  grid-row:1/3;
   display:grid;
   place-items:center;
   background:#e0f1ff;
@@ -596,8 +595,7 @@ html,body {
     display:flex;
     flex-direction:column;
     gap:0;
-    padding:14px 10px;
-    min-height:224px
+    padding:14px 10px
   }
   .home-card-icon {
     height:55px;
@@ -1999,18 +1997,17 @@ dialog::backdrop {
   color:var(--muted)
 }
 .report-empty {
-  padding:50px 24px;
-  text-align:center;
-  border:1px solid var(--line);
-  border-radius:10px;
-  background:white;
+  padding:20px 18px;
+  text-align:left;
+  font-size:12px;
+  line-height:1.5;
   color:var(--muted)
 }
 .report-empty p:first-child {
-  font-size:20px;
+  font-size:14px;
   font-weight:650;
   color:var(--ink);
-  margin-bottom:10px
+  margin-bottom:6px
 }
 .statistics-controls {
   display:flex;
@@ -2558,7 +2555,7 @@ dialog::backdrop {
   .basket-panel-heading { padding: 12px; }
   .basket-panel-heading h2 { font-size: 16px; }
 }
-.checklist-columns,.checklist-row { display: grid; grid-template-columns: 30px minmax(170px,2.4fr) 95px 45px 95px 100px 135px 180px; align-items: center; gap: 12px; }
+.checklist-columns,.checklist-row { display: grid; grid-template-columns: 30px minmax(170px,2.4fr) 95px 45px 95px 100px 135px 180px; align-items: center; gap: 12px; text-align: left; }
 .checklist-columns { padding: 13px 16px; font-size: 12px; color: var(--muted); background: #f8fafc; }
 .checklist-row { padding: 12px 16px; min-height: 78px; border-bottom: 1px solid var(--line); }
 .checklist-row:last-child { border: 0; }
@@ -2575,8 +2572,8 @@ dialog::backdrop {
 .checklist-package,.checklist-quantity { color: var(--muted); font-size: 12px; }
 .checklist-mobile-package { display: none; }
 .manual-item-label { font-size: 9px; display: inline-block; background: #64708a; color: white; border-radius: 3px; padding: 1px 4px; margin-right: 6px; }
-.checklist-unit-price { display: block; min-height: 0; border: 0; padding: 0; font-size: 12px; background: transparent; text-align: right; font-variant-numeric: tabular-nums; }
-.checklist-row-total { grid-column: 6; font-size: 14px; text-align: right; }
+.checklist-unit-price { display: block; min-height: 0; border: 0; padding: 0; font-size: 12px; background: transparent; text-align: left; font-variant-numeric: tabular-nums; }
+.checklist-row-total { grid-column: 6; font-size: 14px; text-align: left; }
 .checklist-status { font-size: 11px; }
 .checklist-status>span { display: inline-block; border-radius: 3px; padding: 3px 7px; }
 .status-bought { color: #00682e; background: #e0f6e8; }
@@ -2670,12 +2667,12 @@ dialog::backdrop {
 .store-price-popover { position: absolute; z-index: 50; left: -4px; right: -4px; bottom: calc(100% + 7px); max-height: min(350px, 60vh); overflow-y: auto; border: 1px solid #b7d9c6; border-radius: 7px; background: #fff; box-shadow: 0 15px 36px #1020303d; font-size: 11px; }
 .store-price-popover-heading { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; color: var(--ink); }
 .store-card .store-price-popover-heading button { width: 28px; height: 28px; font-size: 18px; color: var(--muted); }
-.store-price-table-head, .store-price-table-row { display: grid; grid-template-columns: minmax(0, 1.8fr) .7fr 30px .8fr .9fr; gap: 5px; align-items: center; padding: 7px 8px; }
+.store-price-table-head, .store-price-table-row { display: grid; grid-template-columns: minmax(0, 1.8fr) .7fr 30px .8fr .9fr; gap: 5px; align-items: center; padding: 7px 8px; text-align: left; }
 .store-price-table-head { background: #f6f9fb; color: var(--muted); font-size: 10px; }
 .store-price-table-row { border-top: 1px solid var(--line); color: var(--ink); }
 .store-price-table-row span:first-child { overflow-wrap: anywhere; }
 .store-price-table-row small { display: block; color: #7a5b00; }
-.store-price-table-row > :last-child { text-align: right; }
+.store-price-table-row > :last-child { text-align: left; }
 .store-price-missing { padding: 8px; border-top: 1px solid var(--line); color: var(--muted); }
 
 /* Selected premise: store facts, price table, and one summary column. */
@@ -2701,7 +2698,7 @@ dialog::backdrop {
 .store-detail-items-heading h2 { color: var(--ink); font-size: 18px; font-weight: 750; }
 .store-detail-items-heading p { color: var(--muted); font-size: 12px; }
 .store-detail-items > div:first-child .edit-basket-link { display: inline-flex; min-height: 36px; white-space: nowrap; }
-.store-item-columns, .store-item-row { display: grid; grid-template-columns: 46px minmax(130px, 2fr) minmax(82px, 1fr) 67px 100px 76px 78px 24px; gap: 7px; align-items: center; }
+.store-item-columns, .store-item-row { display: grid; grid-template-columns: 46px minmax(130px, 2fr) minmax(82px, 1fr) 67px 100px 76px 78px 24px; gap: 7px; align-items: center; text-align: left; }
 .store-item-columns { min-height: 34px; padding: 6px 9px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 10px; }
 .store-item-columns span:first-child { grid-column: 1/3; }
 .store-item-row { min-height: 84px; padding: 10px 9px; }
@@ -2719,9 +2716,10 @@ dialog::backdrop {
 .store-item-package { color: var(--muted); font-size: 11px; }
 .store-item-quantity .quantity-selector { gap: 0; }
 .store-item-quantity .quantity-selector > div { gap: 0; }
+.store-item-quantity .quantity-selector input { text-align: center; }
 .store-item-quantity .quantity-selector button, .store-item-quantity .quantity-selector input { width: 30px; height: 30px; min-height: 30px; }
-.store-item-unit-price { font-size: 11px; text-align: right; }
-.store-item-total { font-size: 12px; text-align: right; overflow-wrap: anywhere; }
+.store-item-unit-price { font-size: 11px; text-align: left; }
+.store-item-total { font-size: 12px; text-align: left; overflow-wrap: anywhere; }
 .store-item-toggle { width: 24px; min-height: 38px; border: 0; background: transparent; color: var(--ink); font-size: 18px; }
 .store-item-list .recommendation-item { border-bottom: 1px solid var(--line); padding: 0; }
 .store-item-list .recommendation-item:last-child { border: 0; }

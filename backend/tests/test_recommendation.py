@@ -1,3 +1,5 @@
+import pytest
+
 from smartcart.maps import RouteMatrixResult
 from smartcart.models import BasketItemPrice
 from smartcart.premises import PremiseCandidate
@@ -5,6 +7,7 @@ from smartcart.recommendation import (
     TravelCostRate,
     estimate_round_trip_cost_rm,
     rank_reachable_stores,
+    straight_line_route_results,
 )
 
 
@@ -37,6 +40,21 @@ def route(index: int, distance: float, duration: float) -> RouteMatrixResult:
         distance_meters=distance,
         duration_seconds=duration,
     )
+
+
+@pytest.mark.parametrize("mode, expected_minutes", [
+    ("walk", 60), ("public_transport", 12), ("motorcycle", 10), ("car", 10),
+])
+def test_fallback_travel_time_uses_kilometres_for_speed(mode, expected_minutes):
+    candidates = [candidate(straight_line_distance_km=5)]
+    routes = straight_line_route_results(candidates, mode)
+    assert routes[0].distance_meters == 5_000
+    assert routes[0].duration_seconds == expected_minutes * 60
+    stores = rank_reachable_stores(
+        candidates=candidates, route_results=routes, limit_type="distance",
+        limit_value=float("inf"), cost_rate=COST_RATE,
+    )
+    assert stores[0].estimated_travel_minutes == expected_minutes
 
 
 def priced_line(item_id: str, unit_price: float, quantity: int = 1) -> BasketItemPrice:

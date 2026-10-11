@@ -132,9 +132,7 @@ function HomeCard({
   detail,
   badge,
   onClick,
-  actionLabel,
 }: {
-  actionLabel: string;
   icon: "checklist" | "history" | "inbox";
   title: string;
   detail: string;
@@ -146,7 +144,6 @@ function HomeCard({
       <span className="home-card-icon"><Icon kind={icon}/></span>
       {badge && badge > 0 ? <span className="unread-badge">{badge}</span> : null}
       <strong>{title}</strong><span className="home-card-detail">{detail}</span>
-      <span className="home-card-action">{actionLabel} <span aria-hidden="true">→</span></span>
     </button>
   );
 }
@@ -185,9 +182,9 @@ export function SmartCartHomeScreen({
       <section className="home-trip"><span className="home-trip-icon"><Icon kind="trip"/></span><div><h2>{hasTripInProgress ? text.resumeTrip : text.startTrip}</h2><p>{hasTripInProgress ? text.resumeAt(journeyStepLabel(locale, resumeStep)) : (locale === "en" ? "Choose your location and travel preferences to begin." : text.travelStep)}</p></div>
       <div className="home-trip-actions"><button type="button" className="primary-button" onClick={onStartOrResume}>{hasTripInProgress ? text.resumeTrip : text.startTrip} <span aria-hidden="true">→</span></button>{hasTripInProgress && <button type="button" className="secondary-button" onClick={onStartNew}>{text.startNew}</button>}</div></section>
       <section className="home-tools" aria-label="SmartCart tools">
-        <HomeCard actionLabel={locale === "en" ? "View checklist" : "Lihat senarai"} icon="checklist" title={text.checklist} detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist} onClick={onChecklist}/>
-        <HomeCard actionLabel={locale === "en" ? "View history" : "Lihat sejarah"} icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory}/>
-        <HomeCard actionLabel={locale === "en" ? "View reports" : "Lihat laporan"} icon="inbox" title={locale === "en" ? "Reports" : text.inbox} detail={text.unreadReports(unreadReports)} badge={unreadReports} onClick={onInbox}/>
+        <HomeCard icon="checklist" title={text.checklist} detail={progress ? text.checklistProgress(progress.bought, progress.total) : text.noChecklist} onClick={onChecklist}/>
+        <HomeCard icon="history" title={text.history} detail={text.tripsRecorded(history.length)} onClick={onHistory}/>
+        <HomeCard icon="inbox" title={locale === "en" ? "Reports" : text.inbox} detail={text.unreadReports(unreadReports)} badge={unreadReports} onClick={onInbox}/>
       </section>
     </div>
   );

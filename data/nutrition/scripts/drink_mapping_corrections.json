@@ -1,0 +1,736 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-09",
+  "purpose": "Audit and source-backed correction inputs for packaged drink recommendations. This file is intentionally separate from item_nutrition.json, mappings.json, and backend code.",
+  "scope": {
+    "included_categories": [
+      "TERSEDIA MINUM",
+      "BAHAN-BAHAN MINUMAN"
+    ],
+    "excluded_categories": [
+      "MINUMAN",
+      "LAUK",
+      "NASI",
+      "LAIN-LAIN",
+      "MEE / BIHUN / KUEY TEOW"
+    ],
+    "included_row_count": 46,
+    "source_families": [
+      "USDA-FDC",
+      "AFCD",
+      "MyFCD"
+    ],
+    "max_source_families": 3,
+    "basis_policy": "Use the publisher record on its stated per_100g or per_100ml basis. Do not infer density or equate dry powder/tea with a prepared drink.",
+    "explicit_prepared_exceptions": [
+      {
+        "item_code": "1322",
+        "item_name": "AIR KOSONG",
+        "reason": "Plain unprepared drinking water; its MINUMAN category must not be treated as a cooked/recipe dish for nutrition coverage."
+      }
+    ],
+    "deferred_prepared_rule": "MINUMAN remains deferred except explicit basic-water item 1322. No prepared recipe rows are restored.",
+    "explicit_exception_count": 1,
+    "effective_profile_scope_count": 47
+  },
+  "audit": {
+    "nutrition_profile_present": 33,
+    "nutrition_profile_missing": 13,
+    "missing_nutrition_rows": [
+      {
+        "item_code": "1084",
+        "item_name": "TEH BOH (SERBUK)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1638",
+        "item_name": "MILO 3 IN 1 (PAKET) - ORIGINAL",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1645",
+        "item_name": "SERBUK KOPI CAP KAPAL API (KASAR) (BERBUNGKUS)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1646",
+        "item_name": "SERBUK KOPI HANG TUAH ROBUSTA",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1647",
+        "item_name": "TEH LIPTON (SERBUK)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1650",
+        "item_name": "TEH LIPTON (UNCANG)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "180",
+        "item_name": "TEH BOH (UNCANG)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1851",
+        "item_name": "TENOM COFFEE WANG EMAS (SERBUK)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1856",
+        "item_name": "SERBUK KOPIMAS COFFEE (BOLD TRADITIONS)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1877",
+        "item_name": "NESCAFE BLEND & BREW 3 IN 1 (PAKET ) - ORIGINAL",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1960",
+        "item_name": "SUSU SEGAR KURMA FARM FRESH",
+        "category": "TERSEDIA MINUM",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "1962",
+        "item_name": "NESTUM (ORIGINAL)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      },
+      {
+        "item_code": "2019",
+        "item_name": "NESCAFE 3 IN 1 ORIGINAL (AROMATIC & BALANCED)",
+        "category": "BAHAN-BAHAN MINUMAN",
+        "reason": "no approved nutrition mapping"
+      }
+    ],
+    "approved_recommendation_rows": 22,
+    "approved_recommendation_items": 20,
+    "current_actionable_recommendation_rows": 4,
+    "current_actionable_note": "Only H2 rows 1852, 1506, 224 and 1959 have both approved profiles, matching bases, and a valid lower-fat comparison.",
+    "dead_alternative_targets": {
+      "1322": {
+        "mapping_rows": 14,
+        "original_item_codes": [
+          "1507",
+          "1547",
+          "228",
+          "1879",
+          "1355",
+          "239",
+          "240",
+          "1651",
+          "221",
+          "229",
+          "230",
+          "232",
+          "171",
+          "910"
+        ],
+        "reason": "AIR KOSONG is a prepared MINUMAN row and has no approved profile in the shared item_nutrition dataset.",
+        "resolution": "Resolved by profile_additions for explicit plain-water item 1322; preserve basis-specific variant selection."
+      },
+      "180": {
+        "mapping_rows": 2,
+        "original_item_codes": [
+          "239",
+          "240"
+        ],
+        "reason": "TEH BOH (UNCANG) is a dry tea product with no approved dry-tea profile; brewed-tea data would be a formulation mismatch."
+      }
+    },
+    "missing_original_profile_rows": [
+      "1960"
+    ],
+    "missing_comparison_nutrient_rows": [
+      {
+        "rule": "P6",
+        "original_item_code": "1505",
+        "alternative_item_code": "225",
+        "comparison_nutrient": "sugars_g"
+      }
+    ],
+    "basis_mismatch_rows": [],
+    "basis_mismatch_after_water_candidate": [],
+    "basis_mismatch_after_water_candidate_note": "No mismatch remains when 1322 uses AFCD-F009527-per_100g for per_100g originals and AFCD-F009527-per_100ml for item 1355.",
+    "optional_nutrient_gaps": {
+      "sugars_g": [
+        {
+          "item_code": "1505",
+          "item_name": "DUTCH LADY UHT COKLAT (KOTAK)",
+          "food_id": "MFC-97-111016"
+        },
+        {
+          "item_code": "1506",
+          "item_name": "DUTCH LADY UHT FULL CREAM (KOTAK)",
+          "food_id": "MFC-97-111017"
+        },
+        {
+          "item_code": "1852",
+          "item_name": "DESA FRESH MILK (KOTAK)",
+          "food_id": "MFC-97-111007"
+        },
+        {
+          "item_code": "1959",
+          "item_name": "SUSU SEGAR FARM FRESH",
+          "food_id": "MFC-97-111007"
+        },
+        {
+          "item_code": "224",
+          "item_name": "SUSU SEGAR DUTCH LADY",
+          "food_id": "MFC-97-111007"
+        },
+        {
+          "item_code": "229",
+          "item_name": "F&N OREN (TIN)",
+          "food_id": "USDA-174854"
+        },
+        {
+          "item_code": "230",
+          "item_name": "F&N OREN (BOTOL)",
+          "food_id": "USDA-174854"
+        },
+        {
+          "item_code": "232",
+          "item_name": "MIRINDA OREN (BOTOL)",
+          "food_id": "USDA-174854"
+        }
+      ],
+      "saturated_fat_g": [
+        {
+          "item_code": "1355",
+          "item_name": "100 PLUS (ORIGINAL)",
+          "food_id": "MFC-CUR-R113024"
+        },
+        {
+          "item_code": "1505",
+          "item_name": "DUTCH LADY UHT COKLAT (KOTAK)",
+          "food_id": "MFC-97-111016"
+        },
+        {
+          "item_code": "1506",
+          "item_name": "DUTCH LADY UHT FULL CREAM (KOTAK)",
+          "food_id": "MFC-97-111017"
+        },
+        {
+          "item_code": "1852",
+          "item_name": "DESA FRESH MILK (KOTAK)",
+          "food_id": "MFC-97-111007"
+        },
+        {
+          "item_code": "1880",
+          "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+          "food_id": "MFC-CUR-R111061"
+        },
+        {
+          "item_code": "1955",
+          "item_name": "YOGURT MARIGOLD (LOW FAT) (STRAWBERRY)",
+          "food_id": "MFC-CUR-R111061"
+        },
+        {
+          "item_code": "1959",
+          "item_name": "SUSU SEGAR FARM FRESH",
+          "food_id": "MFC-97-111007"
+        },
+        {
+          "item_code": "2020",
+          "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+          "food_id": "MFC-CUR-R111061"
+        },
+        {
+          "item_code": "224",
+          "item_name": "SUSU SEGAR DUTCH LADY",
+          "food_id": "MFC-97-111007"
+        }
+      ],
+      "sodium_mg": [
+        {
+          "item_code": "1355",
+          "item_name": "100 PLUS (ORIGINAL)",
+          "food_id": "MFC-CUR-R113024"
+        },
+        {
+          "item_code": "1880",
+          "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+          "food_id": "MFC-CUR-R111061"
+        },
+        {
+          "item_code": "1955",
+          "item_name": "YOGURT MARIGOLD (LOW FAT) (STRAWBERRY)",
+          "food_id": "MFC-CUR-R111061"
+        },
+        {
+          "item_code": "2020",
+          "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+          "food_id": "MFC-CUR-R111061"
+        }
+      ]
+    },
+    "nutrition_present_without_any_recommendation": [
+      {
+        "item_code": "1402",
+        "item_name": "HORLICKS (PAKET)",
+        "food_id": "USDA-173220"
+      },
+      {
+        "item_code": "1635",
+        "item_name": "NESTLE COFFEE-MATE",
+        "food_id": "FNDDS-12210400"
+      },
+      {
+        "item_code": "1636",
+        "item_name": "MILO (PAKET)",
+        "food_id": "AFCD-F001029-per_100g"
+      },
+      {
+        "item_code": "1637",
+        "item_name": "MILO (PAKET)",
+        "food_id": "AFCD-F001029-per_100g"
+      },
+      {
+        "item_code": "1854",
+        "item_name": "KORDIAL F&N SUN VALLEY (GRENADINE)",
+        "food_id": "USDA-168088"
+      },
+      {
+        "item_code": "1880",
+        "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+        "food_id": "MFC-CUR-R111061"
+      },
+      {
+        "item_code": "1955",
+        "item_name": "YOGURT MARIGOLD (LOW FAT) (STRAWBERRY)",
+        "food_id": "MFC-CUR-R111061"
+      },
+      {
+        "item_code": "1964",
+        "item_name": "QUAKER OATS INSTANT OATMEALS",
+        "food_id": "USDA-171661"
+      },
+      {
+        "item_code": "2020",
+        "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+        "food_id": "MFC-CUR-R111061"
+      },
+      {
+        "item_code": "225",
+        "item_name": "SUSU MARIGOLD HL",
+        "food_id": "AFCD-F005614-per_100g"
+      },
+      {
+        "item_code": "226",
+        "item_name": "YEO'S LAICI (KOTAK)",
+        "food_id": "AFCD-F008438-per_100g"
+      },
+      {
+        "item_code": "235",
+        "item_name": "JUS OREN PEEL FRESH (MARIGOLD)",
+        "food_id": "AFCD-F004114-per_100g"
+      },
+      {
+        "item_code": "236",
+        "item_name": "JUS OREN SUNKIST",
+        "food_id": "AFCD-F004114-per_100g"
+      },
+      {
+        "item_code": "929",
+        "item_name": "NESCAFE CLASSIC (PAKET)",
+        "food_id": "USDA-171893"
+      }
+    ],
+    "h11_targeted_rows": [
+      "919",
+      "2008",
+      "1619",
+      "344",
+      "1954",
+      "332",
+      "345"
+    ],
+    "current_per_100ml_profiles": [
+      {
+        "item_code": "1355",
+        "item_name": "100 PLUS (ORIGINAL)",
+        "food_id": "MFC-CUR-R113024",
+        "source": "MyFCD",
+        "basis": "per_100ml",
+        "afcd_exact_counterpart": null,
+        "result": "Retain the MyFCD per_100ml record. AFCD has no exact isotonic-drink counterpart in the imported records, and no per_100g conversion is inferred."
+      }
+    ],
+    "paired_basis_policy_note": "AFCD explicitly publishes per_100g and per_100ml records for the paired source codes listed below. The correction uses per_100g where comparisons are per_100g and keeps 1355 per_100ml unresolved unless a basis-specific alternative is supported.",
+    "plain_water_item_1322": {
+      "catalogue_row": {
+        "item_code": "1322",
+        "item_name": "AIR KOSONG",
+        "unit": "gelas besar",
+        "category": "MINUMAN"
+      },
+      "profile_currently_present": false,
+      "profile_variants_proposed": [
+        "AFCD-F009527-per_100g",
+        "AFCD-F009527-per_100ml"
+      ],
+      "basis_policy": "Use per_100g for per_100g comparisons and per_100ml for the per_100ml 1355 comparison; both are publisher records from the same AFCD source code."
+    },
+    "unresolved_corrections": [
+      {
+        "item_code": "1505",
+        "rule": "P6",
+        "reason": "No exact unspecified-fat UHT chocolate-milk profile with sugars_g; reduced-fat AFCD record rejected."
+      },
+      {
+        "item_code": "345",
+        "rule": "H11",
+        "reason": "No exact reduced-fat filled milk-powder profile; remove current regular-fat mapping and leave unmatched."
+      }
+    ],
+    "projected_actionable_recommendation_rows_after_corrections": 18,
+    "projected_actionable_note": "Four existing H2 rows plus 14 P3/P4/P17/P18 rows once 1322 variants are added and USDA sugar refreshes are applied where required. P6 and H11 remain unresolved."
+  },
+  "profile_replacements": [],
+  "packaged_water_candidate": {
+    "status": "approved_profile_addition_for_explicit_item_1322",
+    "item_code": "1322",
+    "item_name": "AIR KOSONG",
+    "food_ids": [
+      "AFCD-F009527-per_100g",
+      "AFCD-F009527-per_100ml"
+    ],
+    "source": "AFCD",
+    "source_record_id": "F009527",
+    "source_description": "Water, tap",
+    "rationale": "Item 1322 is basic unprepared plain water. Use AFCD tap-water records on the exact comparison basis; no density conversion is needed.",
+    "fallback_generic_bottled_water_food_id": "USDA-174158",
+    "fallback_note": "USDA bottled generic water remains a source reference only; AFCD tap water is the canonical profile for this catalogue row."
+  },
+  "blocked_water_pair_replacements": [
+    {
+      "rule_family": "P3/P4/P17/P18",
+      "old_alternative_item_code": "1322",
+      "status": "approved_with_profile_addition",
+      "alternative_item_code": "1322",
+      "reason": "Use the explicit plain-water catalogue row 1322 with AFCD tap-water profile variants. This is basic water, not a cooked recipe.",
+      "profile_food_ids": [
+        "AFCD-F009527-per_100g",
+        "AFCD-F009527-per_100ml"
+      ],
+      "basis_specific_originals": {
+        "per_100g": [
+          "1507",
+          "1547",
+          "228",
+          "1879",
+          "239",
+          "240",
+          "1651",
+          "221",
+          "229",
+          "230",
+          "232",
+          "171",
+          "910"
+        ],
+        "per_100ml": [
+          "1355"
+        ]
+      }
+    },
+    {
+      "rule": "P5",
+      "old_alternative_item_code": "180",
+      "original_item_codes": [
+        "239",
+        "240"
+      ],
+      "status": "blocked",
+      "reason": "Item 180 is a dry tea-bag product with no nutrition profile. A brewed-tea record would not represent a dry tea bag, and no exact packaged lower-energy alternative is present in the active catalogue."
+    }
+  ],
+  "paired_basis_evidence": [
+    {
+      "source_record_id": "F009516",
+      "description": "Water, bottled, still",
+      "per_100g_food_id": "AFCD-F009516-per_100g",
+      "per_100ml_food_id": "AFCD-F009516-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F009516"
+    },
+    {
+      "source_record_id": "F005587",
+      "description": "Milk, cow, fluid, flavoured, chocolate, reduced fat",
+      "per_100g_food_id": "AFCD-F005587-per_100g",
+      "per_100ml_food_id": "AFCD-F005587-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F005587"
+    },
+    {
+      "source_record_id": "F008721",
+      "description": "Soy beverage, regular fat (~3%), unfortified",
+      "per_100g_food_id": "AFCD-F008721-per_100g",
+      "per_100ml_food_id": "AFCD-F008721-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F008721"
+    },
+    {
+      "source_record_id": "F005614",
+      "description": "Milk, cow, fluid, reduced fat (~1%)",
+      "per_100g_food_id": "AFCD-F005614-per_100g",
+      "per_100ml_food_id": "AFCD-F005614-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F005614"
+    },
+    {
+      "source_record_id": "F008438",
+      "description": "Soft drink, fruit flavours",
+      "per_100g_food_id": "AFCD-F008438-per_100g",
+      "per_100ml_food_id": "AFCD-F008438-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F008438"
+    },
+    {
+      "source_record_id": "F008421",
+      "description": "Soft drink, energy drink, Red Bull",
+      "per_100g_food_id": "AFCD-F008421-per_100g",
+      "per_100ml_food_id": "AFCD-F008421-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F008421"
+    },
+    {
+      "source_record_id": "F004114",
+      "description": "Fruit drink, orange juice",
+      "per_100g_food_id": "AFCD-F004114-per_100g",
+      "per_100ml_food_id": "AFCD-F004114-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F004114"
+    },
+    {
+      "source_record_id": "F003130",
+      "description": "Cordial base, 25% citrus fruit juice, regular",
+      "per_100g_food_id": "AFCD-F003130-per_100g",
+      "per_100ml_food_id": "AFCD-F003130-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F003130"
+    },
+    {
+      "source_record_id": "F008402",
+      "description": "Soft drink, cola flavour",
+      "per_100g_food_id": "AFCD-F008402-per_100g",
+      "per_100ml_food_id": "AFCD-F008402-per_100ml",
+      "url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F008402"
+    }
+  ],
+  "integration_notes": [
+    "Explicitly exempt item 1322 AIR KOSONG from the deferred MINUMAN category because it is plain unprepared water.",
+    "Add both AFCD-F009527-per_100g and AFCD-F009527-per_100ml variants for item 1322; choose the variant matching the original food basis.",
+    "Apply authoritative_refreshes from the USDA import before evaluating sugar comparisons. Keep USDA-174854 sugars_g null because its publisher record is null.",
+    "Do not use AFCD reduced-fat chocolate milk for item 1505 without a declared reduced-fat formulation.",
+    "Remove item 345 current regular-fat mapping; do not substitute skim powder or non-powder filled milk for low-fat filled powder.",
+    "Keep missing sugars_g and saturated_fat_g unavailable; do not copy carbohydrate or total fat into them.",
+    "Prepared MINUMAN rows remain outside this correction file except explicit basic-water item 1322."
+  ],
+  "rejected_profile_candidates": [
+    {
+      "item_code": "1505",
+      "item_name": "DUTCH LADY UHT COKLAT (KOTAK)",
+      "candidate_food_id": "AFCD-F005587-per_100g",
+      "candidate_description": "Milk, cow, fluid, flavoured, chocolate, reduced fat",
+      "status": "rejected_formulation_assumption",
+      "reason": "The catalogue label says UHT chocolate milk but does not declare reduced-fat. AFCD only supplies this chocolate-milk profile as reduced fat; do not use it to fabricate sugars_g for an unspecified-fat product. MyFCD MFC-97-111016 remains core-complete but sugars_g unavailable, so P6 remains unresolved.",
+      "source_url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F005587"
+    },
+    {
+      "item_code": "345",
+      "item_name": "SUSU TEPUNG ISIAN KURANG LEMAK 'OMEGA PLUS'",
+      "old_food_id": "AFCD-F005648-per_100g",
+      "candidate_food_ids": [
+        "MFC-97-111013",
+        "AFCD-F005652-per_100g",
+        "MFC-97-111009"
+      ],
+      "status": "unmatched_required",
+      "reason": "No imported record matches low-fat filled milk powder. MFC-97-111013 and AFCD-F005652 are skim powder, MFC-97-111009 is filled milk but not powder, and AFCD-F005648 is regular-fat powder. Remove the current full-fat mapping and leave 345 unmatched until a true reduced-fat filled-powder record is sourced.",
+      "source_urls": [
+        "https://myfcd.moh.gov.my/myfcd97/index.php/site/detail_product/111013/0/10/-1/0/0/",
+        "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F005652",
+        "https://myfcd.moh.gov.my/myfcd97/index.php/site/detail_product/111009/0/10/-1/0/0/"
+      ]
+    }
+  ],
+  "profile_additions": [
+    {
+      "action": "add_item_profile_variants",
+      "item_code": "1322",
+      "item_name": "AIR KOSONG",
+      "match_type": "generic",
+      "status": "approved",
+      "rationale": "AIR KOSONG is plain unprepared drinking water. AFCD publishes tap-water nutrition on both explicit per_100g and per_100ml bases; retain the catalogue unit while selecting the variant matching the comparison basis.",
+      "variants": [
+        {
+          "food_id": "AFCD-F009527-per_100g",
+          "source": "AFCD",
+          "source_record_id": "F009527",
+          "source_description": "Water, tap",
+          "source_url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F009527",
+          "basis": "per_100g",
+          "nutrients": {
+            "energy_kcal": 0.0,
+            "protein_g": 0.0,
+            "fat_g": 0.0,
+            "carbohydrate_g": 0.0,
+            "fibre_g": 0.0,
+            "sodium_mg": 3.0,
+            "calcium_mg": 2.0,
+            "saturated_fat_g": 0.0,
+            "monounsaturated_fat_g": 0.0,
+            "polyunsaturated_fat_g": 0.0,
+            "sugars_g": 0.0
+          }
+        },
+        {
+          "food_id": "AFCD-F009527-per_100ml",
+          "source": "AFCD",
+          "source_record_id": "F009527",
+          "source_description": "Water, tap",
+          "source_url": "https://afcd.foodstandards.gov.au/fooddetails.aspx?PFKID=F009527",
+          "basis": "per_100ml",
+          "nutrients": {
+            "energy_kcal": 0.0,
+            "protein_g": 0.0,
+            "fat_g": 0.0,
+            "carbohydrate_g": 0.0,
+            "fibre_g": 0.0,
+            "sodium_mg": 3.0,
+            "calcium_mg": 2.0,
+            "saturated_fat_g": 0.0,
+            "monounsaturated_fat_g": 0.0,
+            "polyunsaturated_fat_g": 0.0,
+            "sugars_g": 0.0
+          }
+        }
+      ],
+      "basis_specific_comparisons": {
+        "per_100g": {
+          "original_item_codes": [
+            "1507",
+            "1547",
+            "228",
+            "1879",
+            "239",
+            "240",
+            "1651",
+            "221",
+            "229",
+            "230",
+            "232",
+            "171",
+            "910"
+          ]
+        },
+        "per_100ml": {
+          "original_item_codes": [
+            "1355"
+          ]
+        }
+      }
+    }
+  ],
+  "authoritative_refreshes": [
+    {
+      "food_id": "USDA-174852",
+      "source_record_id": 174852,
+      "item_codes": [
+        "1507",
+        "1547",
+        "228"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 9.94
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import; enables P3 sugar comparison."
+    },
+    {
+      "food_id": "USDA-173205",
+      "source_record_id": 173205,
+      "item_codes": [
+        "1879"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 10.4
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import."
+    },
+    {
+      "food_id": "USDA-167957",
+      "source_record_id": 167957,
+      "item_codes": [
+        "910"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 65.0
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import."
+    },
+    {
+      "food_id": "USDA-168088",
+      "source_record_id": 168088,
+      "item_codes": [
+        "1854"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 46.6
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import."
+    },
+    {
+      "food_id": "USDA-171893",
+      "source_record_id": 171893,
+      "item_codes": [
+        "929"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 0.0
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import."
+    },
+    {
+      "food_id": "USDA-171661",
+      "source_record_id": 171661,
+      "item_codes": [
+        "1964"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 1.5
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import."
+    },
+    {
+      "food_id": "USDA-173220",
+      "source_record_id": 173220,
+      "item_codes": [
+        "1402"
+      ],
+      "nutrient_updates": {
+        "sugars_g": 47.6
+      },
+      "reason": "USDA nutrient 269 is present in the refreshed SR Legacy import."
+    },
+    {
+      "food_id": "USDA-174854",
+      "source_record_id": 174854,
+      "item_codes": [
+        "229",
+        "230",
+        "232"
+      ],
+      "nutrient_updates": {
+        "sugars_g": null
+      },
+      "reason": "The refreshed publisher record still has no sugar value; retain unavailable rather than copying carbohydrate."
+    }
+  ]
+}

@@ -1,0 +1,2123 @@
+{
+  "reviewed_at": "2026-10-09",
+  "basis": "Use-specific candidate review, not a binary healthy/unhealthy classifier. Portion, preparation, formulation and dietary needs matter.",
+  "guidance_source": "https://hq.moh.gov.my/nutrition/wp-content/uploads/2024/03/latest-01.Buku-MDG-2020_12Mac2024.pdf",
+  "no_catalogue_matches": [
+    "explicit processed meats such as sausages, nuggets, ham or bacon",
+    "explicit ice cream, pizza or burger products"
+  ],
+  "excluded_from_blanket_classification": [
+    "sugar-free cola (1896)",
+    "tea O: not assumed unsweetened or sugar-added from its name",
+    "infant/pregnancy nutrition products",
+    "household products and medicines",
+    "unprocessed meat, ordinary milk and vegetables as inherently unhealthy"
+  ],
+  "items": [
+    {
+      "item_code": "103",
+      "item_name": "Fresh Coconut Milk (Regular)",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P20"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "148",
+      "item_name": "Anchovies Grade B (KOPEK)",
+      "category": "salted_preserved_foods",
+      "status": "mapped",
+      "rules": [
+        "H6",
+        "H9"
+      ],
+      "alternative_item_codes": [
+        "1476",
+        "119"
+      ]
+    },
+    {
+      "item_code": "171",
+      "item_name": "Cordial SUNQUICK (OREN)",
+      "category": "cordial_concentrates",
+      "status": "mapped",
+      "rules": [
+        "P17"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "201",
+      "item_name": "JEM STRAWBERI LADY'S CHOICE",
+      "category": "sweet_spreads",
+      "status": "mapped",
+      "rules": [
+        "P15"
+      ],
+      "alternative_item_codes": [
+        "18"
+      ]
+    },
+    {
+      "item_code": "202",
+      "item_name": "SERI KAYA YEO'S",
+      "category": "sweet_spreads",
+      "status": "mapped",
+      "rules": [
+        "P15"
+      ],
+      "alternative_item_codes": [
+        "18"
+      ]
+    },
+    {
+      "item_code": "212",
+      "item_name": "Soy Sauce TAMIN (DARK SOY SAUCE)",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "214",
+      "item_name": "Sweet Thick Soy Sauce Brand KIPAS Prawns",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "215",
+      "item_name": "Sweet Thick Soy Sauce Brand JALEN",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "217",
+      "item_name": "Maggi Tomato Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "218",
+      "item_name": "Life Chili Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "221",
+      "item_name": "Drinho Soya Drink (Box)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "228",
+      "item_name": "COCA COLA (Bottle)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "229",
+      "item_name": "F&N OREN (Tin)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P4"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "230",
+      "item_name": "F&N OREN (Bottle)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P4"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "232",
+      "item_name": "MIRINDA OREN (Bottle)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P4"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "239",
+      "item_name": "RED BULL (Bottle)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3",
+        "P5"
+      ],
+      "alternative_item_codes": [
+        "1322",
+        "180"
+      ]
+    },
+    {
+      "item_code": "240",
+      "item_name": "LIVITA WITH HONEY (Bottle)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3",
+        "P5"
+      ],
+      "alternative_item_codes": [
+        "1322",
+        "180"
+      ]
+    },
+    {
+      "item_code": "910",
+      "item_name": "F&N Cordial (Rose Syrup)",
+      "category": "cordial_concentrates",
+      "status": "mapped",
+      "rules": [
+        "P18"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "957",
+      "item_name": "Kimball Chili Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1050",
+      "item_name": "MAGGI Noodles CURRY",
+      "category": "instant_noodles",
+      "status": "mapped",
+      "rules": [
+        "P7"
+      ],
+      "alternative_item_codes": [
+        "1964"
+      ]
+    },
+    {
+      "item_code": "1063",
+      "item_name": "KINDER BUENO - MILK & HAZELNUT",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1070",
+      "item_name": "Maggi Chili Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1097",
+      "item_name": "Maggi Chili Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1114",
+      "item_name": "Oyster Sauce KIMBALL",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1115",
+      "item_name": "Salty Thick Soy Sauce Brand KIPAS Prawns",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1116",
+      "item_name": "Oyster Sauce NONA",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1117",
+      "item_name": "Oyster Sauce ADABI",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1135",
+      "item_name": "Sweet Soy Sauce ADABI",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1136",
+      "item_name": "Salty Soy Sauce ADABI",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1137",
+      "item_name": "Life Thai Chili Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1138",
+      "item_name": "Oyster Sauce MAGGI",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1139",
+      "item_name": "Life Tomato Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1151",
+      "item_name": "Ayam Brand Coconut Milk",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P20"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1167",
+      "item_name": "Village-Style Fried Rice",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1168",
+      "item_name": "NASI Fried PAPRIK",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1169",
+      "item_name": "Chinese Fried Rice",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1170",
+      "item_name": "NASI Fried PATAYA",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1172",
+      "item_name": "NASI Fried Chili PADI",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1173",
+      "item_name": "NASI Fried Meat Red",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1174",
+      "item_name": "NASI Fried USA",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1175",
+      "item_name": "Chicken Fried Rice",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1183",
+      "item_name": "Fried Rice Vermicelli",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1198",
+      "item_name": "Chicken Fried",
+      "category": "fried_protein_dishes",
+      "status": "mapped",
+      "rules": [
+        "P11"
+      ],
+      "alternative_item_codes": [
+        "1236"
+      ]
+    },
+    {
+      "item_code": "1237",
+      "item_name": "Salted Eggs",
+      "category": "salted_preserved_foods",
+      "status": "mapped",
+      "rules": [
+        "H7",
+        "H10"
+      ],
+      "alternative_item_codes": [
+        "119",
+        "1476"
+      ]
+    },
+    {
+      "item_code": "1247",
+      "item_name": "MAGGI Fried",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1252",
+      "item_name": "Kuih Lapis",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P8",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1254",
+      "item_name": "Steamed Bun Red Beans",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P8",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1291",
+      "item_name": "Banana Bread",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1299",
+      "item_name": "Chicken Murtabak",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1300",
+      "item_name": "Meat Murtabak",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1301",
+      "item_name": "Mutton Murtabak",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1319",
+      "item_name": "Hot Milo",
+      "category": "sweetened_milk_drinks",
+      "status": "mapped",
+      "rules": [
+        "P6"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1355",
+      "item_name": "100 PLUS (ORIGINAL)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1505",
+      "item_name": "DUTCH LADY UHT Chocolate (Box)",
+      "category": "sweetened_milk_drinks",
+      "status": "mapped",
+      "rules": [
+        "P6"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1507",
+      "item_name": "COCA COLA (Tin)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1547",
+      "item_name": "PEPSI COLA (Tin)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1562",
+      "item_name": "Dried Prawns",
+      "category": "salted_preserved_foods",
+      "status": "mapped",
+      "rules": [
+        "H6",
+        "H9"
+      ],
+      "alternative_item_codes": [
+        "1476",
+        "119"
+      ]
+    },
+    {
+      "item_code": "1563",
+      "item_name": "Dried Squid (Size SERDAHANA)",
+      "category": "salted_preserved_foods",
+      "status": "mapped",
+      "rules": [
+        "H6",
+        "H9"
+      ],
+      "alternative_item_codes": [
+        "1476",
+        "119"
+      ]
+    },
+    {
+      "item_code": "1609",
+      "item_name": "Butter SCS (SALTED)",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P19"
+      ],
+      "alternative_item_codes": [
+        "1086"
+      ]
+    },
+    {
+      "item_code": "1610",
+      "item_name": "M&S Coconut Milk",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P20"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1611",
+      "item_name": "Kara Coconut Milk",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P20"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1612",
+      "item_name": "Harmuni Coconut Milk",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P20"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1615",
+      "item_name": "Butter ANCHOR (SALTED)",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P19"
+      ],
+      "alternative_item_codes": [
+        "1086"
+      ]
+    },
+    {
+      "item_code": "1618",
+      "item_name": "F&N Sweetened Condensed Milk",
+      "category": "sweetened_milk_ingredients",
+      "status": "mapped",
+      "rules": [
+        "H1"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1651",
+      "item_name": "Yeo's Soya Drink (Box)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1683",
+      "item_name": "MISTER POTATO CRISPS (Assorted Flavours) - Bottle",
+      "category": "salty_snacks",
+      "status": "mapped",
+      "rules": [
+        "P1",
+        "N1"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1684",
+      "item_name": "PRINGLES POTATO CRISPS (Assorted Flavours) - Bottle",
+      "category": "salty_snacks",
+      "status": "mapped",
+      "rules": [
+        "P1",
+        "N1"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1685",
+      "item_name": "MISTER POTATO CHIPS (Assorted Flavours) - Packet",
+      "category": "salty_snacks",
+      "status": "mapped",
+      "rules": [
+        "P1",
+        "N1"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1691",
+      "item_name": "OREO Biscuits SANDWICH Chocolate Brand KRAFT (Assorted Flavours)",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1692",
+      "item_name": "CREAM O Biscuits SANDWICH Brand JACK N JILL (Assorted Flavours)",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1693",
+      "item_name": "CHIPSMORE ORIGINAL",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1696",
+      "item_name": "CHIPSMORE MINI HAZELNUTS",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1697",
+      "item_name": "TIGER Biscuits Milk",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1699",
+      "item_name": "CADBURY DAIRY MILK HAZELNUT",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1700",
+      "item_name": "KINDER JOY FOR BOYS/FOR GIRLS",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1701",
+      "item_name": "TOBLERONE (MILK CHOCOLATE)",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1704",
+      "item_name": "NIPS CHOCOLATE COATED ROASTED PEANUT",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1710",
+      "item_name": "MAGGI HOT CUP (CURRY)",
+      "category": "instant_noodles",
+      "status": "mapped",
+      "rules": [
+        "P7"
+      ],
+      "alternative_item_codes": [
+        "1964"
+      ]
+    },
+    {
+      "item_code": "1718",
+      "item_name": "LIVITA WITH HONEY (Tin)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3",
+        "P5"
+      ],
+      "alternative_item_codes": [
+        "1322",
+        "180"
+      ]
+    },
+    {
+      "item_code": "1719",
+      "item_name": "SEVEN UP LEMON & LIME",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1728",
+      "item_name": "Plain Fried Rice",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1729",
+      "item_name": "Seafood Fried Rice",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1730",
+      "item_name": "Noodles Fried Regular",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1731",
+      "item_name": "Noodles Fried MAMAK",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1739",
+      "item_name": "Flat Rice Noodles Fried Regular",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1746",
+      "item_name": "CHAR Flat Rice Noodles",
+      "category": "fried_main_meals",
+      "status": "mapped",
+      "rules": [
+        "P10"
+      ],
+      "alternative_item_codes": [
+        "1733"
+      ]
+    },
+    {
+      "item_code": "1765",
+      "item_name": "Black Pomfret Fried (Size Medium)",
+      "category": "fried_protein_dishes",
+      "status": "mapped",
+      "rules": [
+        "P12"
+      ],
+      "alternative_item_codes": [
+        "1236"
+      ]
+    },
+    {
+      "item_code": "1772",
+      "item_name": "Indian Mackerel Fried (Size Medium)",
+      "category": "fried_protein_dishes",
+      "status": "mapped",
+      "rules": [
+        "P12"
+      ],
+      "alternative_item_codes": [
+        "1236"
+      ]
+    },
+    {
+      "item_code": "1775",
+      "item_name": "Spanish Mackerel Fried",
+      "category": "fried_protein_dishes",
+      "status": "mapped",
+      "rules": [
+        "P12"
+      ],
+      "alternative_item_codes": [
+        "1236"
+      ]
+    },
+    {
+      "item_code": "1783",
+      "item_name": "Plain Roti Canai",
+      "category": "fried_breakfast",
+      "status": "mapped",
+      "rules": [
+        "P13"
+      ],
+      "alternative_item_codes": [
+        "1949"
+      ]
+    },
+    {
+      "item_code": "1784",
+      "item_name": "Kuih KARIPAP (KENTANG)",
+      "category": "fried_snacks",
+      "status": "mapped",
+      "rules": [
+        "P9",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1255",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1785",
+      "item_name": "VADAI MASALA",
+      "category": "fried_snacks",
+      "status": "mapped",
+      "rules": [
+        "P9",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1255",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1786",
+      "item_name": "VADAI ULUNDHU",
+      "category": "fried_snacks",
+      "status": "mapped",
+      "rules": [
+        "P9",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1255",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1808",
+      "item_name": "MENTOS (Assorted Flavours)",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P8",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1820",
+      "item_name": "Salted Eggs",
+      "category": "salted_preserved_foods",
+      "status": "mapped",
+      "rules": [
+        "H7",
+        "H10"
+      ],
+      "alternative_item_codes": [
+        "119",
+        "1476"
+      ]
+    },
+    {
+      "item_code": "1821",
+      "item_name": "Salted Eggs",
+      "category": "salted_preserved_foods",
+      "status": "mapped",
+      "rules": [
+        "H7",
+        "H10"
+      ],
+      "alternative_item_codes": [
+        "119",
+        "1476"
+      ]
+    },
+    {
+      "item_code": "1828",
+      "item_name": "Ayam Brand Thick Sweet Soy Sauce",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1837",
+      "item_name": "Soy Sauce TONG NAM (DARK SOY SAUCE)",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1865",
+      "item_name": "MILO Iced",
+      "category": "sweetened_milk_drinks",
+      "status": "mapped",
+      "rules": [
+        "P6"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1869",
+      "item_name": "Iced Bandung Syrup Drink",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1872",
+      "item_name": "MAYONIS SEBENAR LADY'S CHOICE",
+      "category": "rich_condiments",
+      "status": "mapped",
+      "rules": [
+        "P16"
+      ],
+      "alternative_item_codes": [
+        "1236"
+      ]
+    },
+    {
+      "item_code": "1879",
+      "item_name": "SEVEN UP LEMON & LIME (Tin)",
+      "category": "sweetened_drinks",
+      "status": "mapped",
+      "rules": [
+        "P3"
+      ],
+      "alternative_item_codes": [
+        "1322"
+      ]
+    },
+    {
+      "item_code": "1891",
+      "item_name": "SUPER RING SNACKS CHEESE",
+      "category": "salty_snacks",
+      "status": "mapped",
+      "rules": [
+        "P1",
+        "N1"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1893",
+      "item_name": "MUNCHY'S MUZIC WAFER VANILLA CUBE",
+      "category": "sweet_snacks",
+      "status": "mapped",
+      "rules": [
+        "P2",
+        "N2"
+      ],
+      "alternative_item_codes": [
+        "1485",
+        "18",
+        "368"
+      ]
+    },
+    {
+      "item_code": "1894",
+      "item_name": "CALPIS (Assorted Flavours)",
+      "category": "sweetened_milk_drinks",
+      "status": "mapped",
+      "rules": [
+        "P6"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1905",
+      "item_name": "MAGGI 2 MINUTE NOODLE CURRY FLAVOUR (5X79G)",
+      "category": "instant_noodles",
+      "status": "mapped",
+      "rules": [
+        "P7"
+      ],
+      "alternative_item_codes": [
+        "1964"
+      ]
+    },
+    {
+      "item_code": "1929",
+      "item_name": "Fresh Coconut Milk (Concentrated)",
+      "category": "rich_cooking_ingredients",
+      "status": "mapped",
+      "rules": [
+        "P20"
+      ],
+      "alternative_item_codes": [
+        "225"
+      ]
+    },
+    {
+      "item_code": "1976",
+      "item_name": "MAGGI Noodles Instant Flavour Curry",
+      "category": "instant_noodles",
+      "status": "mapped",
+      "rules": [
+        "P7"
+      ],
+      "alternative_item_codes": [
+        "1964"
+      ]
+    },
+    {
+      "item_code": "1977",
+      "item_name": "CINTAN Noodles Instant Flavour Chicken",
+      "category": "instant_noodles",
+      "status": "mapped",
+      "rules": [
+        "P7"
+      ],
+      "alternative_item_codes": [
+        "1964"
+      ]
+    },
+    {
+      "item_code": "1978",
+      "item_name": "Noodles SEDAP Noodles Fried Flavour Original",
+      "category": "instant_noodles",
+      "status": "mapped",
+      "rules": [
+        "P7"
+      ],
+      "alternative_item_codes": [
+        "1964"
+      ]
+    },
+    {
+      "item_code": "2012",
+      "item_name": "Soy Sauce TAMIN (DARK SOY SAUCE)",
+      "category": "salty_condiments",
+      "status": "mapped",
+      "rules": [
+        "P14"
+      ],
+      "alternative_item_codes": [
+        "1132"
+      ]
+    },
+    {
+      "item_code": "1854",
+      "item_name": "Cordial F&N SUN VALLEY (GRENADINE)",
+      "category": "sweetened_drinks",
+      "status": "needs_evidence",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Need the correct fruit/cordial formulation or a ready-to-drink recipe. An undiluted syrup entry cannot describe an iced drink."
+    },
+    {
+      "item_code": "1867",
+      "item_name": "Iced Syrup Drink",
+      "category": "sweetened_drinks",
+      "status": "needs_evidence",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Need the correct fruit/cordial formulation or a ready-to-drink recipe. An undiluted syrup entry cannot describe an iced drink."
+    },
+    {
+      "item_code": "1868",
+      "item_name": "Iced Lime Syrup Drink",
+      "category": "sweetened_drinks",
+      "status": "needs_evidence",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Need the correct fruit/cordial formulation or a ready-to-drink recipe. An undiluted syrup entry cannot describe an iced drink."
+    },
+    {
+      "item_code": "226",
+      "item_name": "YEO'S LAICI (Box)",
+      "category": "sweetened_drinks",
+      "status": "needs_evidence",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Need the correct fruit/cordial formulation or a ready-to-drink recipe. An undiluted syrup entry cannot describe an iced drink."
+    },
+    {
+      "item_code": "1339",
+      "item_name": "Apple Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "1340",
+      "item_name": "Mango Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "1341",
+      "item_name": "Watermelon Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "1343",
+      "item_name": "Starfruit Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "1344",
+      "item_name": "Lychee Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "1795",
+      "item_name": "Orange Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "235",
+      "item_name": "Juice OREN PEEL FRESH (MARIGOLD)",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "236",
+      "item_name": "Sunkist Orange Juice",
+      "category": "juice",
+      "status": "needs_label_check",
+      "intention": "a drink for thirst",
+      "proposed_alternative_item_codes": [
+        "1322"
+      ],
+      "reason": "Verify the juice formulation and sugar content; added sugar is not inferred from the word juice."
+    },
+    {
+      "item_code": "1789",
+      "item_name": "Hot Teh Tarik",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1791",
+      "item_name": "Iced Coffee",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1792",
+      "item_name": "Iced Tea",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1793",
+      "item_name": "Iced Nescafe",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1863",
+      "item_name": "NESLO Iced",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1864",
+      "item_name": "HORLICKS Iced",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1317",
+      "item_name": "NESLO Hot",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1318",
+      "item_name": "HORLICKS Hot",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1309",
+      "item_name": "Coffee Hot",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1312",
+      "item_name": "Tea Hot",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1314",
+      "item_name": "Hot Ginger Tea",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1861",
+      "item_name": "Tea Ginger Iced",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a hot or iced drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "1322"
+      ],
+      "reason": "Need a matching prepared recipe and sugar values. Brewed tea data does not describe tea with milk/sugar or instant powder."
+    },
+    {
+      "item_code": "1321",
+      "item_name": "MILO 'O' Hot",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a chocolate-malt drink",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "These O variants may omit milk; the current milk-based malted-drink reference does not establish their recipe."
+    },
+    {
+      "item_code": "1866",
+      "item_name": "MILO \"O\" Iced",
+      "category": "prepared_mixed_drinks",
+      "status": "needs_evidence",
+      "intention": "a chocolate-malt drink",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "These O variants may omit milk; the current milk-based malted-drink reference does not establish their recipe."
+    },
+    {
+      "item_code": "1712",
+      "item_name": "YAKULT (ACE/ACE LIGHT)",
+      "category": "cultured_milk_drinks",
+      "status": "needs_label_check",
+      "intention": "a milk drink or cultured dairy snack",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "The catalogue combines Yakult ACE and ACE Light. Do not apply regular-drink sugar values to a light variant or promise equivalent probiotic properties."
+    },
+    {
+      "item_code": "1880",
+      "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+      "category": "flavoured_yogurt",
+      "status": "needs_label_check",
+      "intention": "a sweet snack or breakfast component",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485"
+      ],
+      "reason": "Verify sugar in the strawberry yogurt. Fat-free/low-fat does not establish sugar content; fruit does not reproduce dairy properties."
+    },
+    {
+      "item_code": "1955",
+      "item_name": "YOGURT MARIGOLD (LOW FAT) (STRAWBERRY)",
+      "category": "flavoured_yogurt",
+      "status": "needs_label_check",
+      "intention": "a sweet snack or breakfast component",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485"
+      ],
+      "reason": "Verify sugar in the strawberry yogurt. Fat-free/low-fat does not establish sugar content; fruit does not reproduce dairy properties."
+    },
+    {
+      "item_code": "2020",
+      "item_name": "YOGURT LACTEL (FAT FREE) (STRAWBERRY)",
+      "category": "flavoured_yogurt",
+      "status": "needs_label_check",
+      "intention": "a sweet snack or breakfast component",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485"
+      ],
+      "reason": "Verify sugar in the strawberry yogurt. Fat-free/low-fat does not establish sugar content; fruit does not reproduce dairy properties."
+    },
+    {
+      "item_code": "1638",
+      "item_name": "MILO 3 IN 1 (Packet) - ORIGINAL",
+      "category": "sweetened_instant_mixes",
+      "status": "needs_evidence",
+      "intention": "preparing a hot drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "225"
+      ],
+      "reason": "Need dry mix nutrition and pack preparation instructions; a ready-to-drink record is not a dry powder reference."
+    },
+    {
+      "item_code": "1877",
+      "item_name": "NESCAFE BLEND & BREW 3 IN 1 (Packet ) - ORIGINAL",
+      "category": "sweetened_instant_mixes",
+      "status": "needs_evidence",
+      "intention": "preparing a hot drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "225"
+      ],
+      "reason": "Need dry mix nutrition and pack preparation instructions; a ready-to-drink record is not a dry powder reference."
+    },
+    {
+      "item_code": "2019",
+      "item_name": "NESCAFE 3 IN 1 ORIGINAL (AROMATIC & BALANCED)",
+      "category": "sweetened_instant_mixes",
+      "status": "needs_evidence",
+      "intention": "preparing a hot drink",
+      "proposed_alternative_item_codes": [
+        "180",
+        "225"
+      ],
+      "reason": "Need dry mix nutrition and pack preparation instructions; a ready-to-drink record is not a dry powder reference."
+    },
+    {
+      "item_code": "1636",
+      "item_name": "MILO (Packet)",
+      "category": "breakfast_mixes",
+      "status": "needs_label_check",
+      "intention": "a breakfast drink or quick breakfast",
+      "proposed_alternative_item_codes": [
+        "1964",
+        "225"
+      ],
+      "reason": "Check the formulation, added sugar and whether the item is powder or liquid before classifying and comparing it."
+    },
+    {
+      "item_code": "1637",
+      "item_name": "MILO (Packet)",
+      "category": "breakfast_mixes",
+      "status": "needs_label_check",
+      "intention": "a breakfast drink or quick breakfast",
+      "proposed_alternative_item_codes": [
+        "1964",
+        "225"
+      ],
+      "reason": "Check the formulation, added sugar and whether the item is powder or liquid before classifying and comparing it."
+    },
+    {
+      "item_code": "1962",
+      "item_name": "NESTUM (ORIGINAL)",
+      "category": "breakfast_mixes",
+      "status": "needs_label_check",
+      "intention": "a breakfast drink or quick breakfast",
+      "proposed_alternative_item_codes": [
+        "1964",
+        "225"
+      ],
+      "reason": "Check the formulation, added sugar and whether the item is powder or liquid before classifying and comparing it."
+    },
+    {
+      "item_code": "1402",
+      "item_name": "HORLICKS (Packet)",
+      "category": "breakfast_mixes",
+      "status": "needs_label_check",
+      "intention": "a breakfast drink or quick breakfast",
+      "proposed_alternative_item_codes": [
+        "1964",
+        "225"
+      ],
+      "reason": "Check the formulation, added sugar and whether the item is powder or liquid before classifying and comparing it."
+    },
+    {
+      "item_code": "1105",
+      "item_name": "Milk ANLENE ACTIFIT 3X Chocolate",
+      "category": "breakfast_mixes",
+      "status": "needs_label_check",
+      "intention": "a breakfast drink or quick breakfast",
+      "proposed_alternative_item_codes": [
+        "1964",
+        "225"
+      ],
+      "reason": "Check the formulation, added sugar and whether the item is powder or liquid before classifying and comparing it."
+    },
+    {
+      "item_code": "883",
+      "item_name": "Sweetened Creamer BERVITAMIN Brand F&N",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "884",
+      "item_name": "Sweetened Creamer Brand GOLD COIN",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "388",
+      "item_name": "Sweetened Creamer Brand JUNJUNG",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "1873",
+      "item_name": "Sweetened Creamer Brand TEAPOT",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "1953",
+      "item_name": "Sweetened Creamer Concentrated Brand SAJI",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "1463",
+      "item_name": "Evaporated Creamer CARNATION",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "1871",
+      "item_name": "Evaporated Creamer CAIR SAJI",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "1952",
+      "item_name": "Evaporated Creamer Brand F&N",
+      "category": "creamers",
+      "status": "needs_evidence",
+      "intention": "adding a milky component to tea or coffee",
+      "proposed_alternative_item_codes": [
+        "225"
+      ],
+      "reason": "Need creamer-specific evidence; dairy milk composition is not evidence for these creamer formulations."
+    },
+    {
+      "item_code": "1253",
+      "item_name": "Kuih Seri Muka",
+      "category": "sweet_pastries",
+      "status": "needs_evidence",
+      "intention": "a sweet snack or breakfast",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485",
+        "1949"
+      ],
+      "reason": "Need the actual seri muka, kaya bun, roti boom or roti tisu reference. Plain roti canai is not evidence for added butter/sugar variants."
+    },
+    {
+      "item_code": "1256",
+      "item_name": "Steamed Bun KAYA",
+      "category": "sweet_pastries",
+      "status": "needs_evidence",
+      "intention": "a sweet snack or breakfast",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485",
+        "1949"
+      ],
+      "reason": "Need the actual seri muka, kaya bun, roti boom or roti tisu reference. Plain roti canai is not evidence for added butter/sugar variants."
+    },
+    {
+      "item_code": "1293",
+      "item_name": "Roti Boom",
+      "category": "sweet_pastries",
+      "status": "needs_evidence",
+      "intention": "a sweet snack or breakfast",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485",
+        "1949"
+      ],
+      "reason": "Need the actual seri muka, kaya bun, roti boom or roti tisu reference. Plain roti canai is not evidence for added butter/sugar variants."
+    },
+    {
+      "item_code": "1295",
+      "item_name": "Roti Tisu",
+      "category": "sweet_pastries",
+      "status": "needs_evidence",
+      "intention": "a sweet snack or breakfast",
+      "proposed_alternative_item_codes": [
+        "18",
+        "1485",
+        "1949"
+      ],
+      "reason": "Need the actual seri muka, kaya bun, roti boom or roti tisu reference. Plain roti canai is not evidence for added butter/sugar variants."
+    },
+    {
+      "item_code": "1206",
+      "item_name": "Squid Fried",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1210",
+      "item_name": "Prawns Fried",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1265",
+      "item_name": "Squid Fried ASAM",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1266",
+      "item_name": "Butter Prawns",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1755",
+      "item_name": "Fried Pork (PORK)",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1757",
+      "item_name": "Sea Bass Fried (Size Medium)",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1761",
+      "item_name": "Grouper Fried (Size Medium)",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1769",
+      "item_name": "White Pomfret Fried (Size Medium)",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1777",
+      "item_name": "Tilapia Fried Regular (Size Medium)",
+      "category": "fried_protein_dishes",
+      "status": "needs_evidence",
+      "intention": "a cooked protein side dish",
+      "proposed_alternative_item_codes": [
+        "1236"
+      ],
+      "reason": "Need matching cooked species/dish references, including batter or sauces. Raw meat/fish records are not used for fried-food claims."
+    },
+    {
+      "item_code": "1216",
+      "item_name": "Vegetables Water Spinach Fried BELACAN",
+      "category": "fried_vegetable_dishes",
+      "status": "needs_evidence",
+      "intention": "a vegetable side dish",
+      "proposed_alternative_item_codes": [
+        "1214",
+        "1754"
+      ],
+      "reason": "Review the belacan/oil recipe and the cooked alternative; vegetables as a food group are not classified as unhealthy."
+    }
+  ]
+}

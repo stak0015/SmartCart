@@ -1,0 +1,70 @@
+============================================================
+US 7.2 README — Open, explore and add a healthier alternative
+                打开、探索并加入更健康替代项
+============================================================
+
+1. What this commit does / 本次提交内容
+------------------------------------------------------------
+[zh]
+在物品详情弹窗内为 "Healthier alternatives" 卡片加上完整的浏览与加入流程：
+- 点击卡片主区域会在同一个弹窗内打开该替代项的详情，带它自己的数量输入与
+  加入按钮；此时购物篮不变。
+- 新增 "Back to [previous item]" 控件：点击后退一级，回到上一件物品，并保留
+  该物品尚未提交的数量；连续点击可逐层退回最初打开的目录物品。
+- 加入按钮永远只加入"当前正在查看的那一件"，不会自动移除或替换原物品；
+  数量校验、重复项合并与加入提示沿用既有购物篮规则。
+
+[en]
+Adds the full browse-and-add flow for the "Healthier alternatives" cards inside
+the item details dialog:
+- Selecting a card's main area opens that alternative's details in the same
+  dialog, with its own quantity input and Add button; the basket is unchanged.
+- A new "Back to [previous item]" control steps back one level to the previous
+  item and keeps that item's unsubmitted quantity; repeated presses walk back
+  through the explored items to the original catalogue item.
+- Add always adds only the item currently on screen; it never removes or
+  replaces the original. Quantity validation, duplicate merging and the add
+  confirmation reuse the existing basket rules.
+
+2. How to verify / 验证方式
+------------------------------------------------------------
+[zh]
+1) 打开 Shop 页，搜索 "krimer"，点开 "SWEETENED CREAMER BERVITAMIN BRAND F&N"。
+2) 把数量改成 3，然后点击 "Healthier alternatives" 里的替代卡片。
+   预期：弹窗切换为 "LOW-FAT MILK POWDER (OMEGA PLUS)" 的详情，带数量与加入按钮，
+   并出现 "Back to SWEETENED CREAMER BERVITAMIN BRAND F&N"；购物篮数量不变。
+3) 点击该 Back 控件。
+   预期：回到原物品，数量仍为 3；Back 控件消失。
+4) 再次进入替代项并点击 "Add to basket"。
+   预期：购物篮中只有该替代项，原物品未被加入。
+
+[en]
+1) Open the Shop page, search "krimer" and open
+   "SWEETENED CREAMER BERVITAMIN BRAND F&N".
+2) Set the quantity to 3, then select the alternative card under
+   "Healthier alternatives".
+   Expected: the dialog switches to "LOW-FAT MILK POWDER (OMEGA PLUS)" with its
+   own quantity and Add controls, plus a
+   "Back to SWEETENED CREAMER BERVITAMIN BRAND F&N" control; the basket count
+   is unchanged.
+3) Select that Back control.
+   Expected: the original item returns with the quantity still at 3, and the
+   Back control is gone.
+4) Open the alternative again and select "Add to basket".
+   Expected: the basket contains only the alternative; the original item was
+   not added.
+
+3. Files changed / 变更文件清单
+------------------------------------------------------------
+前端 Frontend
+  frontend/lib/item-stack.ts                              (new)
+  frontend/lib/item-stack.test.ts                         (new)
+  frontend/components/healthier-alternatives.tsx          (modified)
+  frontend/components/catalogue-item-dialog.tsx           (modified)
+  frontend/components/smartcart-app.tsx                   (modified)
+  frontend/lib/i18n.ts                                    (modified)
+  frontend/app/ui-layout.css                              (modified)
+证据 Evidence
+  docs/evidence/epic7.2screenshot-Zhihao/ac7.2.1-7.2.2-alternative-opened-with-back.png
+  docs/evidence/epic7.2screenshot-Zhihao/ac7.2.2-back-restores-original-item.png
+  docs/evidence/epic7.2screenshot-Zhihao/ac7.2.4-adds-only-displayed-item.png

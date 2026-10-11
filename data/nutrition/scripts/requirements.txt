@@ -1,0 +1,4 @@
+# Optional offline nutrition import tools; not required by the running API.
+requests>=2.32,<3
+pandas>=2.2,<3
+openpyxl>=3.1,<4
