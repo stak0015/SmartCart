@@ -7,6 +7,11 @@ import { PlanDetailView } from "./plan-detail";
 import { StorePriceTable } from "./store-basket-row";
 import { MultiPlanCard } from "./plan-comparison";
 import { mapsPlanRouteUrl } from "@/lib/travel";
+import { rankedStorePlanOptions } from "@/lib/multi-store";
+
+function comparisonOptions(cost: number) {
+  return [...rankedStorePlanOptions(stores.map(store => ({ ...store, combinedTotalRm: cost }))), { kind: "plan" as const, plan }];
+}
 
 describe("store plan details", () => {
   it("shows the complete Google Maps route on the recommendation card", () => {
@@ -21,7 +26,7 @@ describe("store plan details", () => {
   it("shows only the active store's image rows while preserving the whole basket total", () => {
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
       plan, stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
-      activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},
+      onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},
       origin: {latitude: 6, longitude: 102, label: "Home", source: "device"}, transportMode: "car",
     }));
     expect(markup).toContain("store-item-image");
@@ -56,8 +61,9 @@ describe("store plan details", () => {
       tollCostRm: null, tollStatus: "unavailable" as const };
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
       plan: { ...plan, savingVsSingleRm: 5, legs: plan.legs.map(leg => ({ ...leg, travelCostBreakdown: fuel })) },
+      comparisonOptions: comparisonOptions(73),
       stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
-      activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {}, transportMode: "motorcycle",
+      onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {}, transportMode: "motorcycle",
     }));
     expect(markup).toContain(COPY.en.transportMode);
     expect(markup).toContain(COPY.en.motorcycle);
@@ -66,18 +72,20 @@ describe("store plan details", () => {
     expect(markup).toContain("Expected fuel cost");
     expect(markup).toContain("RM3.00");
     expect(markup).toContain("Estimated savings");
-    expect(markup).toContain("RM5.00 less than the cheapest complete single-store plan");
+    expect(markup).toContain("Estimated RM5.00 savings vs the median plan");
+    expect(markup).toContain("Plan choice");
   });
 
   it.each([
-    [null, "A like-for-like savings estimate is not available yet."],
-    [-3, "RM3.00 more than the cheapest complete single-store plan"],
-    [0, "costs the same as the cheapest complete single-store plan"],
+    [null, "A comparable median plan cost is not available yet."],
+    [-3, "Estimated RM3.00 above the median plan"],
+    [0, "About the same cost as the median plan"],
   ])("discloses unavailable and signed multi-store savings (%s)", (saving, expected) => {
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
       plan: { ...plan, savingVsSingleRm: saving as number | null },
+      comparisonOptions: saving == null ? [] : comparisonOptions(68 + Number(saving)),
       stores, basket, copy: COPY.en, locale: "en", secondStoreLimit: null,
-      activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},
+      onSetBasket: () => {}, activeChecklist: null, onCreateChecklist: () => {}, onBack: () => {},
     }));
     expect(markup).toContain(expected);
   });

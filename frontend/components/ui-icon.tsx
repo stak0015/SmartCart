@@ -24,8 +24,16 @@ const paths: Record<string, string> = {
 
 /** Small shared line icons; decorative by default because controls carry labels. */
 export function UIIcon({ name, size = 22, style }: { name: string; size?: number; style?: CSSProperties }) {
+  if (name === "trash") return <TrashIcon size={size} style={style}/>;
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <path d={paths[name] ?? paths.document}/>
+  </svg>;
+}
+
+/** Shared delete icon, matching the shopping checklist. */
+export function TrashIcon({ size = 20, className, style }: { size?: number; className?: string; style?: CSSProperties }) {
+  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 20 20" fill="none" className={className} style={style}>
+    <path d="M4.5 6.5h11M8 3.5h4l1 3H7l1-3ZM6 6.5l.7 10h6.6l.7-10M8.5 9v4.5M11.5 9v4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>;
 }
 

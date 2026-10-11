@@ -98,7 +98,7 @@ function detailFromPack(pack: PackSizeOption, quantity: number): RecommendationD
 }
 
 function fallbackCurrentPrice(
-  store: StoreRecommendation,
+  store: Pick<StoreRecommendation, "basketLines" | "basketPrices">,
   basketItem: BasketItem,
 ): RecommendationDetailPrice | null {
   const itemId = basketItem.id.replace(/^db-/, "");
@@ -136,7 +136,7 @@ function findBasketItem(basket: BasketItem[], sourceItemId: string): BasketItem 
 
 export function buildRecommendationDetailRows(
   basket: BasketItem[],
-  store: StoreRecommendation,
+  store: Pick<StoreRecommendation, "basketLines" | "basketPrices">,
   alternatives: BasketAlternativeLine[],
 ): RecommendationDetailRow[] {
   return alternatives.map(line => {

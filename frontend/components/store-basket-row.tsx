@@ -12,7 +12,7 @@ export function StoreBasketRow({price, imageUrl, copy, locale, originalNote, rep
 }) {
   const name = (locale === "ms" ? price.itemNameMs : price.itemNameEn) || price.itemName;
   return (
-      <div className="store-item-row">
+      <div className={`store-item-row${quantityControl ? " has-quantity-controls" : ""}`}>
         <span className="store-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={imageUrl} fallbackSize={27}/></span>
         <div className="store-item-name">
           <strong>{name}</strong>

@@ -16,7 +16,7 @@ import { mapsPlanRouteUrl } from "@/lib/travel";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { categoryLabel } from "@/lib/i18n";
 import { StoreChainLogo } from "./store-chain-logo";
-import { DropdownChevron, UIIcon } from "./ui-icon";
+import { DropdownChevron, TrashIcon, UIIcon } from "./ui-icon";
 import {
   buildChecklistExportModel,
   type ChecklistExportModel,
@@ -488,6 +488,7 @@ function ChecklistItemDialog({ open, item, locale, copy, onSave, onCancel }: Che
 }
 
 function ActionIcon({ name }: { name: "check" | "close" | "revert" | "bookmark" | "calendar" | "history" | "list" | "trash" | "image" | "pdf" }) {
+  if (name === "trash") return <TrashIcon className="h-5 w-5 shrink-0"/>;
   const paths = {
     check: "m4 10.5 3.6 3.6L16 5.8",
     close: "m5 5 10 10M15 5 5 15",
@@ -496,7 +497,6 @@ function ActionIcon({ name }: { name: "check" | "close" | "revert" | "bookmark" 
     calendar: "M3 5h14v13H3V5ZM6 2v5M14 2v5M3 9h14M6 12h2M12 12h2",
     history: "M10 5v5l3 2M3 3v5h5M3 8a7 7 0 1 1 0 5",
     list: "m3 5 1 1 2-2M9 5h8m-14 6 1 1 2-2M9 11h8M9 17h8",
-    trash: "M4 6h12M7 6V3h6v3M6 6l1 11h6l1-11M9 9v5M11 9v5",
     image: "M3 3h14v14H3V3Zm0 11 4-4 4 4 3-3 3 3M12 6h1",
     pdf: "M5 2h7l4 4v12H5V2Zm7 0v5h4M8 11h5M8 14h5",
   };
@@ -515,14 +515,6 @@ function CheckIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0">
       <path d="m4 10.5 3.6 3.6L16 5.8" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" className="h-5 w-5 shrink-0">
-      <path d="M4.5 6.5h11M8 3.5h4l1 3H7l1-3ZM6 6.5l.7 10h6.6l.7-10M8.5 9v4.5M11.5 9v4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -644,10 +636,10 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
     }
   };
 
-  return <section aria-labelledby={headingId} className={"next-trip-panel" + (variant === "week" ? " weekly-planned-panel" : " planned-items-panel")}>
+  return <section aria-labelledby={headingId} data-has-selection={selectedItems.length > 0} className={"next-trip-panel" + (variant === "week" ? " weekly-planned-panel" : " planned-items-panel")}>
     <div className="flex items-center justify-between gap-3">
       <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{title ?? copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
-      {variant === "list" && onUse && selectedItems.length > 0 && <button type="button" className="secondary-button saved-use" onClick={() => onUse?.(selectedItems)}>{copy.useSavedItems} →</button>}
+      {variant === "list" && onUse && items.length > 0 && <button type="button" className="secondary-button saved-use planned-use-action" data-ready={selectedItems.length > 0} disabled={selectedItems.length === 0} aria-hidden={selectedItems.length === 0} onClick={() => onUse(selectedItems)}>{copy.useSavedItems} →</button>}
     </div>
     <p className="planned-list-hint">{variant === "week" ? plannedWeekLabel(items[0]?.plannedWeek, locale) : items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
     {items.length > 0 && <ul className="next-trip-list">

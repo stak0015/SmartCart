@@ -1,20 +1,17 @@
 "use client";
 
 import { DropdownChevron, UIIcon } from "./ui-icon";
-import { StoreChainLogo } from "./store-chain-logo";
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { formatRm } from "@/lib/format-rm";
 import type { InboxState } from "@/lib/inbox";
-import { categoryLabel, type Locale } from "@/lib/i18n";
+import { type Locale } from "@/lib/i18n";
 import { formatInclusiveDateRange } from "@/lib/report-format";
 import { groupPieCategories } from "@/lib/report-pie";
 import { ITEM_CATEGORY_LABELS } from "@/lib/contracts";
 import { getManualReportPeriods, type GeneratedReport, type LocalInboxReport, type ReportCadence, type ReportPeriod } from "@/lib/report-generation";
 import { buildStatisticsView } from "@/lib/statistics-view";
-import { tripTravelSavingsInsight } from "@/lib/savings-insights";
-import { boughtLineQuantity, boughtLineTotalRm, boughtLineUnitPrice, listTripRecords, type TripRecord } from "@/lib/trip-history";
-import { CatalogueItemImage } from "./catalogue-item-image";
+import type { TripRecord } from "@/lib/trip-history";
 
 const COPY = {
   en: {
@@ -107,68 +104,12 @@ const COPY = {
   },
 } as const;
 
-function localDate(value: string, locale: Locale) {
-  return new Intl.DateTimeFormat(locale === "ms" ? "ms-MY" : "en-MY", {
-    day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kuala_Lumpur",
-  }).format(new Date(value));
-}
-
 function signedRm(value: number | null) {
   if (value == null) return "—";
   return `${value > 0 ? "+" : value < 0 ? "−" : ""}${formatRm(Math.abs(value))}`;
 }
 
-function receiptTotals(record: TripRecord) {
-  const items = record.actualTotalRm;
-  const travel = record.estimatedRoundTripCostRm;
-  const total = items == null
-    ? null
-    : Math.round((items + (travel ?? 0) + Number.EPSILON) * 100) / 100;
-  return { items, travel, total };
-}
-
-export function ReceiptHistoryScreen({ history, locale, onDeleteTrip }: { history: TripRecord[]; locale: Locale; onDeleteTrip: (recordId: string) => void }) {
-  const copy = COPY[locale];
-  const records = listTripRecords(history);
-  return (
-    <div className="screen-enter history-screen">
-      <h1 className="text-3xl font-extrabold text-[#10152e]">{copy.history}</h1><p className="page-description">{locale === "en" ? "Your recorded shopping trips and receipts." : "Perjalanan membeli-belah dan resit anda."}</p>
-      {records.length === 0 ? <div className="mt-6 rounded-2xl border border-dashed border-[#becdc6] bg-white p-7 text-center"><p className="font-bold">{copy.emptyHistory}</p><p className="mt-1 text-sm text-[#526078]">{copy.emptyHistoryHint}</p></div> : (
-        <ol className="mt-5 space-y-3">{records.map((record, index) => {
-          const bought = record.lines.filter(line => line.status === "bought");
-          const incomplete = bought.some(line => boughtLineTotalRm(line) == null);
-          const travel = tripTravelSavingsInsight(record);
-          const receipt = receiptTotals(record);
-          return (
-            <li key={record.id} className="receipt-card">
-              <details open={index === 0 ? true : undefined}>
-                <summary className="receipt-heading cursor-pointer list-none p-4 marker:hidden sm:p-5">
-                  <span className="receipt-heading-content"><span className="receipt-store-icon" aria-hidden="true"><StoreChainLogo name={record.store.name} fallback={<UIIcon name="bag" size={32}/>} /></span><span><span className="block text-lg font-extrabold text-[#10152e]">{record.store.name}</span><span className="mt-1 block text-xs text-[#526078]">{localDate(record.recordedAt, locale)} · {bought.length} {copy.bought.toLowerCase()}</span></span><span className="text-right"><span className="block text-xs text-[#526078]">{copy.tripTotal}</span><span className="block text-xl font-extrabold text-[#007d38]">{receipt.total == null ? "—" : formatRm(receipt.total)}</span></span><DropdownChevron/></span>
-                </summary>
-                <div className="receipt-body">
-                  {bought.length === 0 ? <p className="py-3 text-sm text-[#526078]">{copy.noBought}</p> : (
-                    <ul className="receipt-lines">{bought.map(line => {
-                      const quantity = boughtLineQuantity(line);
-                      const unitPrice = boughtLineUnitPrice(line);
-                      const lineTotal = boughtLineTotalRm(line);
-                      const name = (locale === "ms" ? line.itemNameMs : line.itemNameEn) || line.itemName;
-                      return <li key={line.id} className="receipt-line flex justify-between gap-3 py-2 text-sm"><span className="receipt-line-image" aria-hidden="true"><CatalogueItemImage imageUrl={line.imageUrl} fallbackSize={26}/></span><div className="min-w-0 flex-1"><p className="font-bold text-[#10152e]">{name}</p><p className="text-xs text-[#526078]">{categoryLabel(locale, line.category)}</p><p className="text-xs text-[#526078]">{quantity} × {unitPrice == null ? "—" : formatRm(unitPrice)}</p></div><span className="shrink-0 font-bold tabular-nums text-[#10152e]">{lineTotal == null ? "—" : formatRm(lineTotal)}</span></li>;
-                    })}</ul>
-                  )}
-                  <div className="receipt-totals"><h2>{locale === "en" ? "Trip summary" : "Ringkasan perjalanan"}</h2><p className="flex justify-between gap-3"><span>{copy.itemsTotal}</span><span>{receipt.items == null ? "—" : formatRm(receipt.items)}</span></p><p className="flex justify-between gap-3"><span>{copy.travelCost}</span><span>{receipt.travel == null ? "—" : formatRm(receipt.travel)}</span></p></div>
-                  <div className="receipt-grand-total"><span>{copy.tripTotal}</span><span>{receipt.total == null ? "—" : formatRm(receipt.total)}</span></div>
-                  {incomplete && <p className="mt-2 text-xs text-[#526078]">{copy.incomplete}</p>}
-                  <details className="receipt-planning"><summary className="dropdown-summary cursor-pointer font-bold text-[#007d38]">{copy.planDetails}<DropdownChevron/></summary><div className="mt-2 space-y-1"><p>{copy.planned}: {record.plannedCombinedTotalRm == null ? "—" : formatRm(record.plannedCombinedTotalRm)}</p>{record.estimatedSavings?.netSavingRm != null && <p>{copy.savings}: {signedRm(record.estimatedSavings.netSavingRm)}</p>}{travel.available && travel.savingsRm != null && <p>{copy.travel}: {formatRm(travel.savingsRm)}</p>}{record.routeProvider === "straight_line" && <p>{copy.routeEstimate}</p>}</div></details>
-                  <button type="button" className="receipt-delete-button" aria-label={locale === "en" ? `Delete trip to ${record.store.name}` : `Padam perjalanan ke ${record.store.name}`} onClick={() => onDeleteTrip(record.id)}>{copy.deleteTrip}</button>
-                </div>
-              </details>
-            </li>
-          );
-        })}</ol>
-      )}
-    </div>
-  );
-}
+export { ReceiptHistoryScreen } from "./shopping-history";
 
 export interface ReportGenerationUiState extends ReportPeriod {
   status: "generating" | "failed";

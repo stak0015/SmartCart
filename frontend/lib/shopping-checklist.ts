@@ -350,7 +350,7 @@ export function createPlanShoppingChecklist(
       address: planStores.map(store => store.address).filter(Boolean).join(" · ") || null },
     createdAt, updatedAt: createdAt, plannedSubtotalRm: plan.basketSubtotalRm == null ? null : money(plan.basketSubtotalRm),
     estimatedRoundTripCostRm: money(plan.transportCostRm), plannedCombinedTotalRm: plan.combinedTotalRm == null ? null : money(plan.combinedTotalRm),
-    alternativeStoreEstimates: [], estimatedSavings: null,
+    alternativeStoreEstimates: [], estimatedSavings: options.estimatedSavings ?? null,
     ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}), items,
   };
 }

@@ -1,4 +1,5 @@
-import type { StoreRecommendation } from "./contracts";
+import type { PricedPlan, StoreRecommendation } from "./contracts";
+import type { StorePlanOption } from "./multi-store";
 
 export interface EstimatedSavingsSnapshot {
   medianCombinedCostRm: number | null;
@@ -17,7 +18,7 @@ function money(value: number): number {
 }
 
 function pricedLineSignature(store: StoreRecommendation): string {
-  return store.basketLines
+  return (store.basketLines.length ? store.basketLines : store.basketPrices)
     .filter(line => line.lineTotalRm != null)
     .map(line => line.itemId)
     .sort()
@@ -36,12 +37,41 @@ function median(values: number[]): number {
     : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+/** Compare the same priced basket across the single/multi options shown to the shopper. */
+function comparisonCosts(options: StorePlanOption[], signature: string): number[] {
+  return options.flatMap(option => {
+    const lines = option.kind === "store" ? (option.store.basketLines.length ? option.store.basketLines : option.store.basketPrices) : option.plan.assignments;
+    const cost = option.kind === "store" ? combinedTotal(option.store) : option.plan.combinedTotalRm;
+    const candidateSignature = lines.filter(line => line.lineTotalRm != null).map(line => line.itemId).sort().join("|");
+    if (!signature || candidateSignature !== signature || cost == null || !Number.isFinite(cost)
+      || (option.kind === "store" && option.store.exceedsLimit)) return [];
+    return [cost];
+  });
+}
+
+export function calculatePlanEstimatedSavings(plan: PricedPlan, options: StorePlanOption[], routeProvider: "google" | "straight_line", currentPlan = plan): EstimatedSavingsSnapshot {
+  const signature = plan.assignments.filter(line => line.lineTotalRm != null).map(line => line.itemId).sort().join("|");
+  const costs = comparisonCosts(options, signature);
+  const baseline = costs.length >= 2 ? money(median(costs)) : null;
+  const impact = baseline != null && plan.combinedTotalRm != null ? money(baseline - plan.combinedTotalRm) : null;
+  const itemImpact = plan.combinedTotalRm != null && currentPlan.combinedTotalRm != null ? money(plan.combinedTotalRm - currentPlan.combinedTotalRm) : null;
+  const net = baseline != null && currentPlan.combinedTotalRm != null ? money(baseline - currentPlan.combinedTotalRm) : itemImpact;
+  return {
+    medianCombinedCostRm: baseline, selectedBaselineCombinedCostRm: plan.combinedTotalRm,
+    selectedCurrentCombinedCostRm: currentPlan.combinedTotalRm, storeChoiceImpactRm: impact,
+    itemChangeImpactRm: itemImpact, netSavingRm: net, comparableStoreCount: costs.length,
+    estimatedPriceCount: plan.assignments.filter(line => line.priceSource === "median").length,
+    routeEstimated: routeProvider === "straight_line",
+  };
+}
+
 export function calculateEstimatedSavings(
   selectedStore: StoreRecommendation,
   recommendations: StoreRecommendation[],
   originalSubtotalRm: number | null,
   currentSubtotalRm: number | null,
   routeProvider: "google" | "straight_line",
+  comparisonOptions?: StorePlanOption[],
 ): EstimatedSavingsSnapshot {
   const selectedBaselineCombinedCostRm = originalSubtotalRm == null
     ? combinedTotal(selectedStore)
@@ -59,7 +89,7 @@ export function calculateEstimatedSavings(
     && combinedTotal(store) != null
     && pricedLineSignature(store) === selectedSignature
   ));
-  const comparableTotals = comparableStores
+  const comparableTotals = comparisonOptions ? comparisonCosts(comparisonOptions, selectedSignature) : comparableStores
     .map(combinedTotal)
     .filter((value): value is number => value != null);
   const medianCombinedCostRm = comparableTotals.length >= 2

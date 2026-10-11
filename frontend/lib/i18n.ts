@@ -5,7 +5,7 @@ export type Locale = "en" | "ms";
 export const COPY = {
   en: {
     nearbyStores: "Nearby stores",
-    selectStore: "Select store",
+    selectStore: "View store",
     moreStores: "See more (+6)",
     clearSearch: "Clear search",
     dismiss: "Dismiss",
@@ -149,7 +149,7 @@ export const COPY = {
     planMissingItems: (items: string) => `No official price: ${items}`,
     // US 6.4: inspecting one two-store plan.
     planDetailBack: "Back to plans",
-    planDetailViewButton: "View plan detail",
+    planDetailViewButton: "View stores",
     planDetailJourneyTitle: "Journey",
     legOriginToFirst: "Home to first store",
     legFirstToSecond: "First store to second store",
@@ -439,7 +439,7 @@ export const COPY = {
   },
   ms: {
     nearbyStores: "Kedai berdekatan",
-    selectStore: "Pilih kedai",
+    selectStore: "Lihat kedai",
     moreStores: "Lihat lagi (+6)",
     clearSearch: "Kosongkan carian",
     dismiss: "Tutup",
@@ -581,7 +581,7 @@ export const COPY = {
     planMissingItems: (items: string) => `Tiada harga rasmi: ${items}`,
     // US 6.4: melihat satu pelan dua kedai.
     planDetailBack: "Kembali ke pelan",
-    planDetailViewButton: "Lihat butiran pelan",
+    planDetailViewButton: "Lihat kedai-kedai",
     planDetailJourneyTitle: "Perjalanan",
     legOriginToFirst: "Rumah ke kedai pertama",
     legFirstToSecond: "Kedai pertama ke kedai kedua",

@@ -3,10 +3,10 @@ import type { CatalogueSort } from "@/lib/api";
 
 import { TripFactsItems } from "./trip-facts";
 import { TravelCostDetails } from "./travel-cost-breakdown";
-import { StoreBasketRow, StorePriceTable } from "./store-basket-row";
+import { StorePriceTable } from "./store-basket-row";
 
 import { usePathname, useRouter } from "next/navigation";
-import { DropdownChevron, UIIcon } from "./ui-icon";
+import { DropdownChevron, TrashIcon, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { ItemPriceHistory } from "./price-history";
@@ -17,9 +17,9 @@ import { ItemNutritionSection } from "./item-nutrition";
 import { SHOPPING_SESSION_STORAGE_KEY, parseShoppingSession, serializeShoppingSession, type TravelPreferences } from "@/lib/shopping-session";
 import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useId, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useId, type Dispatch, type SetStateAction } from "react";
 import { fetchHealthierAlternatives, fetchItemNutrition, listCategories, searchItems, type Item, type HealthierAlternativesResult, type ItemNutritionResult } from "@/lib/api";
-import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
+import { DEFAULT_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
 import { NearbyPriceStatus, type CandidatePreparationState } from "./nearby-price-status";
 import {
@@ -53,12 +53,14 @@ import {
 } from "@/lib/multi-store";
 import { MultiStorePanel } from "./multi-store-panel";
 import { MultiPlanCard } from "./plan-comparison";
-import { rankedStorePlanOptions } from "@/lib/multi-store";
+import { rankedStorePlanOptions, type StorePlanOption } from "@/lib/multi-store";
 import { PlanDetailView } from "./plan-detail";
+import { QuantitySelector } from "./quantity-selector";
+import { RecommendationBasketRow } from "./recommendation-basket-row";
+import { repriceComparisonOptions } from "@/lib/plan-detail-edits";
 import { SaraEligibilityFlag, SaraStoreTag } from "./store-tags";
 import {
   applyBasketReplacement,
-  currentReplacementImpactRm,
   lowerCostReplacementChoice,
   packReplacementChoice,
   undoBasketReplacement,
@@ -67,7 +69,6 @@ import {
 import {
   buildRecommendationDetailRows,
   recommendationDetailTotals,
-  targetAlreadyInBasket,
   type RecommendationDetailRow,
 } from "@/lib/recommendation-detail";
 import {
@@ -200,13 +201,6 @@ function IcoLocation({ color = "#00535B" }: { color?: string }) {
     </svg>
   );
 }
-function IcoTrash({ color = "#BA1A1A" }: { color?: string }) {
-  return (
-    <svg width={13.333} height={15} viewBox="0 0 13.3333 15" fill="none">
-      <path d={svgPathsBasket.pd83d200} fill={color} />
-    </svg>
-  );
-}
 function IcoArrowRight({ color = "white" }: { color?: string }) {
   return (
     <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
@@ -315,12 +309,7 @@ function CompactBasketPriceList({ prices, basket = [], copy, locale }: { prices:
   );
 }
 
-function replacementImpactText(copy: AppCopy, impactRm: number | null): string {
-  if (impactRm == null) return copy.savingsUnavailable;
-  if (impactRm > 0) return copy.saveAmount(formatRm(impactRm));
-  if (impactRm < 0) return copy.moreNow(formatRm(Math.abs(impactRm)));
-  return copy.sameCostNow;
-}
+
 
 type PaginationEntry = number | `ellipsis-${number}`;
 
@@ -365,54 +354,6 @@ function Header({ basketCount, onBasket, basketActive, onHome, locale, onToggleL
   </div></header>;
 }
 
-function QuantitySelector({
-  value,
-  onChange,
-  onStep,
-  decreaseLabel,
-  increaseLabel,
-  quantityLabel,
-  errorId,
-  errorText,
-  action,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onStep: (delta: number) => void;
-  decreaseLabel: string;
-  increaseLabel: string;
-  quantityLabel: string;
-  errorId?: string;
-  errorText?: string;
-  action?: ReactNode;
-}) {
-  const qty = parseQty(value);
-
-  return (
-    <div className="quantity-selector flex min-w-0 flex-col gap-2 sm:items-start">
-      <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
-        <button type="button" aria-label={decreaseLabel} disabled={qty === DEFAULT_QTY} onClick={() => onStep(-1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#007d38] disabled:opacity-40">−</button>
-        <input
-          type="text"
-          inputMode="numeric"
-          aria-label={quantityLabel}
-          aria-invalid={qty === null}
-          aria-describedby={qty === null && errorId ? errorId : undefined}
-          value={value}
-          onChange={event => onChange(event.target.value)}
-          className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10152e] focus:border-[#007d38]"}`}
-        />
-        <button type="button" aria-label={increaseLabel} disabled={qty === MAX_QTY} onClick={() => onStep(1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#007d38] text-lg text-white disabled:opacity-40">+</button>
-        {action}
-      </div>
-      {qty === null && errorId && errorText && (
-        <p id={errorId} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{errorText}</p>
-      )}
-    </div>
-  );
-}
-
-// ── Screen 1: Build Your Basket ───────────────────────────────────────────────
 function CatalogueSortControl({ value, locale, onChange, onOpen }: {
   value: CatalogueSort; locale: Locale; onChange: (value: CatalogueSort) => void; onOpen: () => void;
 }) {
@@ -756,7 +697,7 @@ function BasketScreen({
           <div className="basket-sara"><small className="basket-compact-size">{packageSizeForCopy(copy, item.size)}</small><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
           <span className="basket-package">{packageSizeForCopy(copy, item.size)}</span>
           <div className="basket-quantity"><QuantitySelector value={basketQtyById[item.id] ?? String(item.qty)} onChange={raw => typeBasketQty(item.id, raw)} onStep={delta => stepBasketQty(item.id, delta)} decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))} increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))} quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))} errorId={`basket-quantity-error-${item.id}`} errorText={copy.quantityError}/></div>
-          <button type="button" className="basket-remove" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)}><IcoTrash color="#526078"/></button>
+          <button type="button" className="basket-remove" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)}><TrashIcon style={{ color: "#526078" }}/></button>
           {replacement && <div className="basket-replacement"><span>{replacement.kind === "pack" ? copy.packChanged : copy.swapped} · {copy.originally(localizedName(copy, replacement.original.name, replacement.original))} ({packageSizeForCopy(copy, replacement.original.size)})</span><button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))}>{copy.undoSwap}</button></div>}
         </li>;
         })}</ul>
@@ -1562,168 +1503,13 @@ export function StoreCard({
   );
 }
 
-function RecommendationBasketRow({
-  row,
-  basket,
-  copy,
-  locale,
-  onApplyAlternative,
-  onApplyPack,
-  onUndo,
-  onChangeQuantity,
-}: {
-  row: RecommendationDetailRow;
-  basket: BasketItem[];
-  copy: AppCopy;
-  locale: Locale;
-  onApplyAlternative: (line: BasketAlternativeLine) => void;
-  onApplyPack: (row: RecommendationDetailRow, packItemId: string) => void;
-  onUndo: (row: RecommendationDetailRow) => void;
-  onChangeQuantity: (id: string, quantity: number) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const suggestion = row.alternatives;
-  const alternative = suggestion.alternative;
-  // A median baseline is useful for an estimate, but it is not a store price
-  // against which savings or pack-value recommendations can be claimed.
-  const hasMedianBaseline = row.source.priceSource === "median" || row.current.priceSource === "median";
-  const lowerCostAvailable = Boolean(
-    !hasMedianBaseline
-    &&
-    alternative
-    && suggestion.savingsRm != null
-    && suggestion.savingsRm > 0
-    && alternative.itemId !== row.current.itemId,
-  );
-  const lowerCostDuplicate = alternative
-    ? targetAlreadyInBasket(basket, row.source.itemId, alternative.itemId)
-    : false;
-  const eligibilityChanges = alternative ? (
-    alternative.saraEligible !== row.current.saraEligible
-    || alternative.saraCategoryCandidate !== row.current.saraCategoryCandidate
-  ) : false;
-  const packOptions = hasMedianBaseline ? [] : suggestion.packOptions ?? [];
-  const bestPack = packOptions.find(pack => pack.isBestValue) ?? packOptions[0];
-  const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
-  const hasOtherPacks = packOptions.some(pack => pack.itemId !== row.current.itemId);
-  const hasOptions = Boolean(row.replacement || lowerCostAvailable || hasOtherPacks);
-  const currentImageUrl = row.current.imageUrl ?? (
-    row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined
-  );
-
-  return (
-    <li className="recommendation-item">
-      <StoreBasketRow price={row.current} imageUrl={currentImageUrl} copy={copy} locale={locale}
-        originalNote={row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}
-        replacementNote={row.replacement ? (row.replacement.kind === "pack" ? copy.packChanged : copy.swapped) : null}
-        quantityControl={row.basketItem ? <QuantitySelector value={String(row.current.quantity)} onChange={raw => { const quantity = parseQty(raw); if (quantity != null) onChangeQuantity(row.basketItem!.id, quantity); }} onStep={delta => onChangeQuantity(row.basketItem!.id, stepQty(row.current.quantity, delta))} decreaseLabel={copy.decreaseQuantity(row.current.itemName)} increaseLabel={copy.increaseQuantity(row.current.itemName)} quantityLabel={copy.quantityFor(row.current.itemName)} errorId={`store-quantity-${row.source.itemId}`} errorText={copy.quantityError}/> : row.current.quantity}
-        disclosure={hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>} />
-      {hasOptions && expanded && <div className="store-item-options">
-
-      {row.replacement && row.basketItem && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#f3faf7] px-3 py-2 text-xs text-[#286d67]">
-          <span className="font-semibold">{replacementImpactText(copy, impactRm)}</span>
-          <button type="button" onClick={() => onUndo(row)} className="min-h-9 font-extrabold text-[#007d38] underline underline-offset-2">{copy.undoSwap}</button>
-        </div>
-      )}
-
-      {lowerCostAvailable && alternative && suggestion.savingsRm != null && (
-        <div className="mt-2 flex flex-col gap-2 rounded-xl bg-[#f3faf7] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
-            <p className="mt-0.5 break-words text-xs font-semibold text-[#10152e]">{localizedName(copy, alternative.itemName, alternative)}</p>
-            <p className="text-[11px] text-[#526078]">{categoryLabel(locale, alternative.category)}</p>
-            <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
-            <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
-            {eligibilityChanges && (
-              <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} candidate={alternative.saraCategoryCandidate} copy={copy} /></div>
-            )}
-          </div>
-          <button
-            type="button"
-            disabled={lowerCostDuplicate}
-            onClick={() => onApplyAlternative(suggestion)}
-            aria-label={`${copy.swapAndSave}: ${localizedName(copy, alternative.itemName, alternative)}`}
-            className="min-h-11 shrink-0 rounded-lg bg-[#007d38] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]"
-          >
-            {lowerCostDuplicate ? copy.alreadyInBasket : copy.swapAndSave}
-          </button>
-        </div>
-      )}
-
-      {hasOtherPacks && bestPack && (
-        <details className="pack-comparison mt-2 rounded-xl border border-[#dce5e0] bg-white">
-          <summary className="dropdown-summary cursor-pointer list-none px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-extrabold text-[#10152e]">{copy.comparePackSizes(packOptions.length)}</p>
-                <p className="mt-0.5 break-words text-[11px] text-[#526078]">
-                  {bestPack.itemId === row.current.itemId
-                    ? copy.currentPackBestValue
-                    : `${copy.bestUnitValue}: ${packageSizeForCopy(copy, bestPack.packageSize) ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
-                </p>
-              </div>
-              <DropdownChevron className="text-[#007d38]"/>
-            </div>
-          </summary>
-          <div className="pack-options">
-            {packOptions.map(pack => {
-              const isCurrent = pack.itemId === row.current.itemId;
-              const duplicate = targetAlreadyInBasket(basket, row.source.itemId, pack.itemId);
-              const unitDifference = pack.totalPriceRm != null && row.current.unitPriceRm != null
-                ? Number(((pack.totalPriceRm - row.current.unitPriceRm) * row.current.quantity).toFixed(2))
-                : null;
-              const upfrontText = unitDifference == null
-                ? null
-                : unitDifference > 0
-                  ? copy.moreNow(formatRm(unitDifference))
-                  : unitDifference < 0
-                    ? copy.lessNow(formatRm(Math.abs(unitDifference)))
-                    : copy.sameCostNow;
-              return (
-                <div key={pack.itemId} className={`pack-option ${isCurrent ? "bg-[#e7f7f0] ring-1 ring-[#007d38]" : "bg-[#f4f8f9]"}`}>
-                  <div className="flex flex-wrap gap-1">
-                    {pack.isBestValue && <span className="rounded-md bg-[#007d38] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestUnitValue}</span>}
-                    {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#526078]">{copy.currentPack}</span>}
-                  </div>
-                  <p className="mt-1 break-words text-xs font-bold leading-4 text-[#10152e]">{localizedName(copy, pack.itemName, pack)}</p>
-                  <p className="text-[11px] text-[#526078]">{categoryLabel(locale, pack.category)}</p>
-                  <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, pack.packageSize) ?? "—"}</p>
-                  <div className="mt-2 flex items-end justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-extrabold text-[#10152e]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
-                      <p className="text-[10px] text-[#526078]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
-                      {upfrontText && !isCurrent && <p className="mt-0.5 text-[10px] font-semibold text-[#526078]">{upfrontText}</p>}
-                    </div>
-                    {!isCurrent && (
-                      <button
-                        type="button"
-                        disabled={duplicate}
-                        onClick={() => onApplyPack(row, pack.itemId)}
-                        aria-label={`${copy.choosePack}: ${localizedName(copy, pack.itemName, pack)}`}
-                        className="min-h-11 shrink-0 rounded-lg border border-[#007d38] bg-[#007d38] px-2.5 text-[11px] font-extrabold text-white disabled:cursor-not-allowed disabled:border-[#b8d3c6] disabled:bg-[#e8f4ee] disabled:text-[#245d4b]"
-                      >
-                        {duplicate ? copy.alreadyInBasket : copy.choosePack}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
-      </div>}
-    </li>
-  );
-}
-
 // AC 2.4.1: Recommendation overview for the selected premise. The detail
 // view keeps store identity, totals, item prices and savings actions together
 // so the shopper can compare and swap without jumping between sections.
 function RecommendationOverview({
   store,
   recommendations,
+  comparisonOptions,
   basket,
   activeChecklist,
   preferences,
@@ -1736,6 +1522,7 @@ function RecommendationOverview({
 }: {
   store: StoreRecommendation;
   recommendations: StoreRecommendation[];
+  comparisonOptions: StorePlanOption[];
   basket: BasketItem[];
   activeChecklist: ShoppingChecklist | null;
   preferences: TravelPreferences;
@@ -1829,8 +1616,9 @@ function RecommendationOverview({
       detailTotals.originalSubtotalRm,
       detailTotals.currentSubtotalRm,
       routeProvider,
+      repriceComparisonOptions(comparisonOptions, basket),
     ),
-    [detailTotals.currentSubtotalRm, detailTotals.originalSubtotalRm, recommendations, routeProvider, store],
+    [detailTotals.currentSubtotalRm, detailTotals.originalSubtotalRm, recommendations, routeProvider, store, comparisonOptions, basket],
   );
 
   const applyAlternative = (line: BasketAlternativeLine) => {
@@ -1985,6 +1773,7 @@ function CompareScreen({
   const [requestSecondStoreLimit, setRequestSecondStoreLimit] = useState(() => multiStore.applied);
   const hasBasket = requestBasketLines.length > 0;
   const previousSelectedStore = useRef(selectedStore);
+  const previousSelectedPlan = useRef(selectedPlanId);
   const previousAppliedLimit = useRef(multiStore.applied);
 
   useEffect(() => {
@@ -1998,7 +1787,7 @@ function CompareScreen({
   }, [multiStore.applied]);
 
   useEffect(() => {
-    if (previousSelectedStore.current && !selectedStore) {
+    if ((previousSelectedStore.current && !selectedStore) || (previousSelectedPlan.current && !selectedPlanId)) {
       const nextBasketLines = toBasketLineRequests(basket);
       const basketChanged = JSON.stringify(nextBasketLines) !== JSON.stringify(requestBasketLines);
       // Returning without changing the basket can reuse the existing list;
@@ -2009,7 +1798,8 @@ function CompareScreen({
       }
     }
     previousSelectedStore.current = selectedStore;
-  }, [basket, requestBasketLines, selectedStore]);
+    previousSelectedPlan.current = selectedPlanId;
+  }, [basket, requestBasketLines, selectedStore, selectedPlanId]);
 
   useEffect(() => {
     if (!preferences.origin) {
@@ -2070,6 +1860,7 @@ function CompareScreen({
       <RecommendationOverview
         store={selectedStore}
         recommendations={recommendations}
+        comparisonOptions={storePlanOptions}
         basket={basket}
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}
@@ -2103,8 +1894,10 @@ function CompareScreen({
           origin={preferences.origin}
           transportMode={preferences.transportMode}
           plan={selectedPlan}
+          comparisonOptions={storePlanOptions}
           key={selectedPlan.planId}
           basket={basket}
+          onSetBasket={setBasket}
           activeChecklist={activeChecklist}
           onCreateChecklist={onCreateChecklist}
           stores={result?.multiStore?.stores ?? recommendations}
@@ -2207,13 +2000,7 @@ function CompareScreen({
                 </button>
               </div>
             )}
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{hasSplitPlans ? copy.planComparisonTitle : result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
-                <p className="mt-1 text-sm text-[#526078]">{result.routeProvider === "straight_line" ? `${recommendations.length} / ${result.totalCandidatesEvaluated}` : copy.reachableSummary(recommendations.length, result.totalCandidatesEvaluated)}</p>
-              </div>
-              <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</span>
-            </div>
+            <p className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</p>
 
             <div className={"store-grid " + (hasSplitPlans ? "mixed-store-grid" : "")}>
               {visibleOptions.map((option, index) => option.kind === "plan" ? (
