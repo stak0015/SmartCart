@@ -9,7 +9,7 @@
 | [PriceCatcher premise lookup](https://data.gov.my/data-catalogue/lookup_premise) | `premise` names and addresses | With each ingestion | CC BY 4.0 |
 | Premise enrichment snapshot (2026-08-23, committed parquet + provenance) | Candidate Google Place IDs, SARA candidate flags | Manual | Derived |
 | Premise status CSV + Place cache (`database/data/raw/`, not committed) | `open_closed_status`, Place coordinates | Manual | Google terms |
-| Google Places (via `sync-premise-locations.mjs`) | Refresh missing or stale premise coordinates | On demand | Google terms, 30-day cache |
+| Google Places (via `sync-premise-locations.mjs`) | Refresh missing or stale premise coordinates | Daily 03:00 MYT (GitHub Actions) and on demand | Google terms, 30-day cache |
 | [data.gov.my fuel prices](https://data.gov.my/data-catalogue/fuelprice) | Car/motorcycle travel cost | First request each day (backend) | data.gov.my terms |
 | MyKasih SARA merchant list + official partner directory | `premise.sara_partner` | Manual | Authorised collection; not committed |
 | USDA FoodData Central, AFCD, MyFCD | `nutrition_food` | Manual import | See [Security and privacy](../03-architecture/security-and-privacy.md#data-licences-and-attribution) |
@@ -69,7 +69,7 @@ Production runs daily through `.github/workflows/pricecatcher.yml` (cron `0 18 *
 - The committed snapshot holds 3,803 top-candidate Place IDs; its SHA-256 is checked against the provenance file before any database write. 1,407 premises share their top Place ID one-to-one with a SARA merchant and are stored as `sara_match_candidate = TRUE`.
 - `migrate_premise_open_status.py` imports the maintained status CSV and its `.cache.json` Place coordinates. Only the selected Place's coordinates are used (never postcode geocodes). Rows whose match decision is `rejected` or `needs_review` have Place ID, status and coordinates cleared. It never calls Google and is safe to rerun.
 - New PriceCatcher premises stay hidden (status NULL) until a refreshed CSV is imported.
-- `pnpm sync:premise-locations -- --limit=100` (or `--all`) refreshes missing or stale coordinates for `open` premises through Google Places, paced at 300 requests/minute by default. `pnpm cleanup:premise-locations` deletes Google coordinates older than 30 days and **must be scheduled daily** wherever Google coordinates are cached.
+- `pnpm sync:premise-locations -- --limit=100` (or `--all`) refreshes missing or stale coordinates for `open` premises through Google Places, paced at 300 requests/minute by default. `pnpm cleanup:premise-locations` deletes Google coordinates older than 30 days. Both run daily in `.github/workflows/premise-locations.yml`; any other database that caches Google coordinates needs the same schedule. The backend ignores Google coordinates older than 30 days, so a missed run removes stores from results rather than breaking the terms.
 
 For the production (Vercel-managed Neon) database, run migrations from the repository root so the injected production URL is used, e.g.:
 

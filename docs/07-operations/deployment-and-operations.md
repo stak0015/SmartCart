@@ -70,8 +70,8 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | Task | Frequency | How | Status |
 | --- | --- | --- | --- |
 | Ingest current PriceCatcher month + verify | Daily 02:00 MYT | GitHub Actions | Automated |
-| Delete Google coordinates older than 30 days | Daily | `pnpm cleanup:premise-locations` | **Not automated** — required by Google terms whenever coordinates are cached |
-| Refresh premise coordinates | As needed | `pnpm sync:premise-locations` | Manual |
+| Delete Google coordinates older than 30 days, then refresh those older than 29 days | Daily 03:00 MYT | `.github/workflows/premise-locations.yml` (uses the `NEON_DATABASE_URL` and `GOOGLE_PLACES_API_KEY` secrets) | Automated — required by Google terms; the backend also ignores Google coordinates older than 30 days |
+| Refresh premise coordinates outside the schedule | As needed | `pnpm sync:premise-locations` | Manual |
 | Regenerate premise status CSV + import | When stores open/close | Enrichment workflow + `migrate_premise_open_status.py` | Manual |
 | Promote SARA chain branches for new premises | After ingestion adds premises | `migrate_sara_chain_partners.py --apply` | Manual |
 | Refresh forecasts from newer official observations | Weekly Monday 04:00 MYT | `.github/workflows/forecasts.yml` (uses the `NEON_DATABASE_URL` secret) | Automated — check each run; forecasts are withdrawn once the latest observation is more than 28 days old |
@@ -87,6 +87,7 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | Cerebras failure or timeout | Report uses fallback text (`generationSource = fallback`) | `report_generation` log events (counts, timings, outcome) |
 | Weekly forecast job fails | Previous batch stays active; forecasts withdrawn once observations are over 28 days old; history remains | GitHub Actions failure email (only to maintainers watching the workflow); status `rejected` with "Historical observations are too old." |
 | Forecast tables empty or unreachable (`postgres` source) | Price trends show "could not be loaded" | `HISTORY_UNAVAILABLE` (503) from price history |
+| Premise location job fails | Stores whose coordinates pass 30 days drop out of recommendations until refreshed | GitHub Actions failure email (only to maintainers watching the workflow); fewer stores in results |
 | Database unreachable | API returns 500/503 errors | `/api/health` |
 
 The backend logs unexpected errors with the request path only; report requests log metadata, never bodies.
