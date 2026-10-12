@@ -1,4 +1,7 @@
-"""HTTP endpoints for catalogue, location, and store recommendation features."""
+"""HTTP endpoints for catalogue, location, and store recommendation features.
+
+Owners: Shun, Randy, Zhihao
+"""
 
 from collections import OrderedDict
 from copy import deepcopy
@@ -7,7 +10,9 @@ from hashlib import sha256
 import json
 import logging
 from time import monotonic, perf_counter
+from threading import RLock
 from uuid import uuid4
+from typing import Literal
 
 from fastapi import APIRouter, Path, Query, Request
 from pydantic import ValidationError
@@ -21,6 +26,8 @@ from .catalogue import (
 )
 from .categories import CATEGORY_SUMMARIES, CATEGORIES_BY_ID
 from .config import get_settings
+from .shared_candidates import load_snapshot, save_snapshot
+from .fuel import get_fuel_price
 from .errors import AppError
 from .report_models import (
     GenerateReportRequest,
@@ -38,9 +45,11 @@ from .alternatives import (
     get_basket_alternatives_with_pack_options,
     premise_exists,
 )
-from .maps import get_maps_provider
+from .maps import RouteMatrixResult, get_maps_provider
 from .models import (
+    HealthierAlternativesResponse,
     LocationResolveRequest,
+    MultiStorePlans,
     ReverseLocationRequest,
     ReverseLocationResponse,
     LocationSearchResponse,
@@ -48,6 +57,7 @@ from .models import (
     RecommendationResponse,
     CandidatePreparationRequest,
     CandidatePreparationResponse,
+    StoreRecommendation,
     TravelPreferences,
     ResolvedLocation,
     BasketAlternativesRequest,
@@ -57,10 +67,25 @@ from .models import (
     AlternativePriceItem,
     PackSizeOption,
 )
+from .nutrition import healthier_alternatives
+from .item_nutrition import get_item_nutrition
 from .pack_ratios import get_pack_options
-from .premises import find_nearest_premises, get_premise_location_coverage
+from .premises import (
+    PremiseCandidate,
+    find_nearest_premises,
+    get_premise_coordinates,
+    get_premise_location_coverage,
+)
 from .pricing import get_basket_pricing
+from .multi_store import (
+    MAX_INTER_STORE_PAIRS, MAX_RETURNED_PLANS,
+    haversine_km, pair_passes_second_limit, plan_multi_store_trips,
+    resolve_limit, select_pairs_for_routing,
+)
+from .multi_store_pricing import build_plan_comparison
 from .recommendation import (
+    FALLBACK_TRAVEL_SPEED_KMH,
+    TravelCostRate,
     apply_basket_pricing,
     get_travel_cost_model,
     rank_reachable_stores,
@@ -68,6 +93,14 @@ from .recommendation import (
 )
 
 router = APIRouter(prefix="/api")
+
+
+@router.get('/items/{item_code}/price-history')
+def price_history(item_code: str = Path(pattern=r'^\d{1,10}$'), region: str | None = Query(default=None, max_length=150)):
+    from .price_history import item_history
+    return item_history(item_code, region)
+
+
 logger = logging.getLogger(__name__)
 ROUTE_WARNING_MODES = {"walk", "motorcycle"}
 CATALOGUE_PAGE_SIZE = 25
@@ -75,10 +108,11 @@ FALLBACK_NEAREST_LIMIT = 25
 CANDIDATE_CACHE_TTL_SECONDS = 30 * 60
 CANDIDATE_CACHE_MAX_ENTRIES = 128
 
-# Process-local and deliberately short-lived. Entries contain the routed store
+# Process-local hot cache backed by short-lived PostgreSQL snapshots. Entries contain the routed store
 # snapshot, not the selected origin; only a SHA-256 travel fingerprint is kept
 # to prevent an opaque token being reused with changed travel settings.
 _candidate_cache: OrderedDict[str, tuple[float, str, RecommendationResponse]] = OrderedDict()
+_candidate_cache_lock = RLock()
 
 # Keep the historical helper imports as an intentionally small compatibility
 # seam for callers/tests that override the old endpoint dependencies. The
@@ -98,68 +132,95 @@ def _travel_fingerprint(travel: TravelPreferences) -> str:
 
 
 def _prune_candidate_cache(now: float) -> None:
-    expired = [key for key, (expires_at, _, _) in _candidate_cache.items() if expires_at <= now]
-    for key in expired:
-        _candidate_cache.pop(key, None)
-    while len(_candidate_cache) > CANDIDATE_CACHE_MAX_ENTRIES:
-        _candidate_cache.popitem(last=False)
+    with _candidate_cache_lock:
+        expired = [key for key, (expires_at, _, _) in _candidate_cache.items() if expires_at <= now]
+        for key in expired:
+            _candidate_cache.pop(key, None)
+        while len(_candidate_cache) > CANDIDATE_CACHE_MAX_ENTRIES:
+            _candidate_cache.popitem(last=False)
 
 
 def _store_candidate_snapshot(
     travel: TravelPreferences,
     response: RecommendationResponse,
 ) -> tuple[str, datetime]:
+    """Cache a routed result for 30 minutes and return its opaque ID and expiry. Only a
+    SHA-256 fingerprint of the travel settings is stored with it, so the ID cannot be
+    reused after the shopper changes origin, mode or limits.
+    """
     now = monotonic()
     _prune_candidate_cache(now)
     cache_id = uuid4().hex
-    _candidate_cache[cache_id] = (
-        now + CANDIDATE_CACHE_TTL_SECONDS,
-        _travel_fingerprint(travel),
-        deepcopy(response),
-    )
-    _prune_candidate_cache(now)
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=CANDIDATE_CACHE_TTL_SECONDS)
+    save_snapshot(cache_id, _travel_fingerprint(travel), response, expires_at)
+    with _candidate_cache_lock:
+        _candidate_cache[cache_id] = (
+            now + CANDIDATE_CACHE_TTL_SECONDS,
+            _travel_fingerprint(travel),
+            deepcopy(response),
+        )
+    _prune_candidate_cache(now)
     return cache_id, expires_at
+
+
+def _candidate_snapshot(cache_id: str | None):
+    if not cache_id:
+        return None
+    _prune_candidate_cache(monotonic())
+    entry = _candidate_cache.get(cache_id)
+    if entry is None:
+        stored = load_snapshot(cache_id)
+        if stored is not None:
+            remaining, fingerprint, response = stored
+            entry = (monotonic() + remaining, fingerprint, response)
+            with _candidate_cache_lock:
+                _candidate_cache[cache_id] = entry
+            _prune_candidate_cache(monotonic())
+    return entry
 
 
 def _get_candidate_snapshot(
     cache_id: str | None,
     travel: TravelPreferences,
 ) -> RecommendationResponse | None:
+    """Return a copy of a cached snapshot, or None when the ID is unknown, expired or was
+    prepared for different travel settings.
+    """
     if not cache_id:
         return None
     now = monotonic()
     _prune_candidate_cache(now)
-    entry = _candidate_cache.get(cache_id)
+    entry = _candidate_snapshot(cache_id)
     if not entry:
         return None
     _, fingerprint, response = entry
     if fingerprint != _travel_fingerprint(travel):
         return None
-    _candidate_cache.move_to_end(cache_id)
+    with _candidate_cache_lock:
+        if cache_id in _candidate_cache:
+            _candidate_cache.move_to_end(cache_id)
     return deepcopy(response)
 
 
 def _priced_ranking_method(route_provider: str, expanded_search: bool) -> str:
+    """Shopper-facing explanation of the ranking used when a cached snapshot is re-priced
+    with a basket.
+    """
     if expanded_search:
         return (
             "No store matched your travel limit, so the nearest stores are shown instead. "
-            "They are ranked by exact store-price coverage, then effective coverage "
-            "including cached median estimates, then lowest combined cost (effective "
+            "They are ranked by lowest combined cost, including cached median estimates (effective "
             "basket subtotal plus estimated return transport cost); these stores exceed "
             "your chosen limit."
         )
     if route_provider == "straight_line":
         return (
-            "Nearest 25 premises by straight-line distance; stores are ranked by exact "
-            "store-price coverage, then effective coverage including cached median "
-            "estimates, then estimated combined cost using rough travel estimates. "
-            "Google Routes is not configured, so travel limits and route feasibility "
+            "Nearest 25 premises by straight-line distance; stores are ranked by estimated combined cost, including cached median estimates, using rough travel estimates. "
+            "Google Routes is unavailable, so travel limits and route feasibility "
             "are not verified."
         )
     return (
-        "Stores ranked by exact store-price coverage, then effective coverage including "
-        "cached median estimates, then lowest combined cost: effective basket subtotal "
+        "Stores ranked by lowest combined cost, including cached median estimates: effective basket subtotal "
         "plus estimated return transport cost; ties by shortest travel time, route "
         "distance, store name, then premise ID."
     )
@@ -201,7 +262,15 @@ def search_items(
     page_size: int = Query(default=CATALOGUE_PAGE_SIZE, ge=1, le=CATALOGUE_PAGE_SIZE),
     category: list[str] = Query(default=[]),
     candidate_cache_id: str | None = None,
+    sara_category_only: bool = False,
+    sort: Literal["price_asc", "price_desc", "name_asc", "name_desc"] = "price_asc",
+    locale: Literal["en", "ms"] = "en",
 ) -> dict[str, object]:
+    """Catalogue search (US 1.1, 1.2, 2.5). Validates broad category IDs, then filters,
+    sorts and pages the catalogue. With a valid candidate_cache_id, price sorting and
+    price ranges use the 25 nearest cached stores. Without one, price sorting uses each
+    item's cached median and no price ranges are returned.
+    """
     selected_categories = [value.strip() for value in category if value.strip()]
     if any(category_id not in CATEGORIES_BY_ID for category_id in selected_categories):
         raise AppError(
@@ -209,16 +278,15 @@ def search_items(
             "Select a valid SmartCart catalogue category.",
             400,
         )
-    items, total = search_catalogue(q, page, page_size, selected_categories)
     _prune_candidate_cache(monotonic())
-    snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
+    snapshot = _candidate_snapshot(candidate_cache_id)
     stores = (
         sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
         if snapshot else []
     )
-    ranges = catalogue_price_ranges(
-        [item["item_id"] for item in items], [store.premise_id for store in stores]
-    )
+    premise_ids = [store.premise_id for store in stores]
+    items, total = search_catalogue(q, page, page_size, selected_categories, sara_category_only, sort, premise_ids, locale)
+    ranges = catalogue_price_ranges([item["item_id"] for item in items], premise_ids)
     items = [{**item, "price_range": ranges.get(item["item_id"])} for item in items]
     total_pages = (total + page_size - 1) // page_size
     return {
@@ -234,6 +302,48 @@ def search_items(
     }
 
 
+@router.get(
+    "/items/{item_code}/healthier-alternatives",
+    response_model=HealthierAlternativesResponse,
+    # The payload carries catalogue item fields and must match the /items/search
+    # row shape, which uses field names rather than camelCase aliases.
+    response_model_by_alias=False,
+)
+def healthier_alternatives_endpoint(
+    item_code: str = Path(min_length=1, max_length=64),
+    candidate_cache_id: str | None = None,
+) -> HealthierAlternativesResponse:
+    """Approved healthier alternatives for one item (US 7.1). An optional
+    candidate_cache_id adds nearby price ranges to each alternative card.
+
+    Owners: Shun, Zhihao
+    """
+    # AC 7.1.5: if this lookup fails the client hides the section; the
+    # endpoint itself only ever returns approved mappings.
+    _prune_candidate_cache(monotonic())
+    snapshot = _candidate_snapshot(candidate_cache_id)
+    stores = (
+        sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
+        if snapshot else []
+    )
+    return healthier_alternatives(item_code, [store.premise_id for store in stores])
+
+
+@router.get("/items/{item_code}/nutrition")
+def item_nutrition_endpoint(
+    item_code: str = Path(min_length=1, max_length=64),
+    basis: str | None = None,
+) -> dict[str, object]:
+    """Return independently reviewed nutrition data for one catalogue item.
+
+    The lookup is intentionally independent of healthier-alternative rules:
+    an item can have nutrition data even when it has no recommendation, and
+    an item with no match receives a normal ``available: false`` response.
+    """
+
+    return get_item_nutrition(item_code, basis=basis)
+
+
 @router.get("/items/categories")
 def list_categories() -> dict[str, object]:
     categories = [
@@ -246,6 +356,9 @@ def list_categories() -> dict[str, object]:
 async def autocomplete_location(
     query: str = "", sessionToken: str = ""  # noqa: N803 - public API is camelCase
 ) -> LocationSearchResponse:
+    """Malaysia-restricted Google Places suggestions. The key stays server-side; the
+    session token groups calls for Google billing.
+    """
     query = query.strip()
     session_token = sessionToken.strip()
     if not 3 <= len(query) <= 160:
@@ -293,6 +406,9 @@ async def basket_alternatives(
     payload: BasketAlternativesRequest,
     premise_id: int = Path(ge=1, le=2**63 - 1),
 ) -> BasketAlternativesResponse:
+    """Cheaper equivalents and pack-size options for every basket line at one open store
+    (Epic 3). Returns 404 when the store is unknown or not open.
+    """
     premise_found, lines, pack_options = await run_in_threadpool(
         _load_basket_alternatives,
         str(premise_id),
@@ -334,7 +450,7 @@ async def prepare_recommendation_candidates(
 ) -> CandidatePreparationResponse:
     """Warm one short-lived route snapshot before the shopper builds a basket."""
     response = await recommend_stores(RecommendationRequest(travel=payload.travel))
-    cache_id, expires_at = _store_candidate_snapshot(payload.travel, response)
+    cache_id, expires_at = await run_in_threadpool(_store_candidate_snapshot, payload.travel, response)
     return CandidatePreparationResponse(
         candidate_cache_id=cache_id,
         candidate_count=response.total_candidates_evaluated,
@@ -347,11 +463,215 @@ async def prepare_recommendation_candidates(
     )
 
 
+async def _build_multi_store_plans(
+    *,
+    payload: RecommendationRequest,
+    travel: TravelPreferences,
+    candidates: list[PremiseCandidate],
+    recommendations: list[StoreRecommendation],
+    route_results: list[RouteMatrixResult],
+    cost_rate: TravelCostRate,
+    use_straight_line_fallback: bool,
+) -> MultiStorePlans | None:
+    """Compute two-store plans for US 6.2, or None when not requested.
+
+    Returns None whenever the client sent no second-store limit, so the response
+    shape is byte-identical for every pre-Epic-6 caller.
+
+    When Routes is unavailable, use explicitly labelled straight-line estimates
+    with the same speed and cost model as single-store recommendations.
+    Both travel limits still apply to these estimates.
+
+    Owners: Randy, Shun
+    """
+    if payload.second_store_limit is None:
+        return None
+
+    second_store_limit = payload.second_store_limit
+    reachable_first_store_ids = [
+        store.premise_id for store in recommendations if not store.exceeds_limit
+    ]
+    if len(candidates) < 2 or not reachable_first_store_ids:
+        return MultiStorePlans(
+            second_store_limit=second_store_limit,
+            empty_reason="insufficient_reachable_stores",
+        )
+
+    coordinates = await run_in_threadpool(
+        get_premise_coordinates,
+        [candidate.premise_id for candidate in candidates],
+    )
+    if use_straight_line_fallback:
+        home_limit = resolve_limit(travel.limit)
+        reachable_first_store_ids = [
+            candidates[route.destination_index].premise_id
+            for route in route_results
+            if 0 <= route.destination_index < len(candidates)
+            and pair_passes_second_limit(route, home_limit)
+        ]
+        # A missing coordinate cannot produce a meaningful inter-store estimate.
+        candidates_with_coordinates = [c for c in candidates if c.premise_id in coordinates]
+    else:
+        candidates_with_coordinates = candidates
+    first_stores = [
+        candidate
+        for candidate in candidates_with_coordinates
+        if candidate.premise_id in set(reachable_first_store_ids)
+    ]
+    pairs = select_pairs_for_routing(
+        first_stores=first_stores,
+        candidates=candidates_with_coordinates,
+        coordinates=coordinates,
+        second_store_limit=second_store_limit,
+    )
+    if not pairs:
+        return MultiStorePlans(
+            second_store_limit=second_store_limit,
+            empty_reason="no_pairs_within_limit",
+        )
+
+    # Existing single-store routes, re-keyed by premise ID for the home legs of
+    # the loop (AC 6.2.6). No additional API call is needed for these.
+    origin_routes: dict[str, RouteMatrixResult] = {}
+    for route in route_results:
+        if 0 <= route.destination_index < len(candidates):
+            premise = candidates[route.destination_index]
+            origin_routes[premise.premise_id] = route
+
+    by_id = {candidate.premise_id: candidate for candidate in candidates}
+    # Deterministic order: first stores in candidate-rank order, second stores in
+    # the same order, so response ordering is reproducible for tests.
+    first_ids: list[str] = []
+    for candidate in candidates:
+        if candidate.premise_id in {first_id for first_id, _ in pairs}:
+            first_ids.append(candidate.premise_id)
+    second_ids: list[str] = []
+    for candidate in candidates:
+        if candidate.premise_id in {second_id for _, second_id in pairs}:
+            second_ids.append(candidate.premise_id)
+
+    inter_store_routes: dict[tuple[str, str], RouteMatrixResult] = {}
+    if use_straight_line_fallback:
+        speed_kmh = FALLBACK_TRAVEL_SPEED_KMH[travel.transport_mode]
+        for first_id, second_id in pairs:
+            distance_km = haversine_km(coordinates[first_id], coordinates[second_id])
+            inter_store_routes[first_id, second_id] = RouteMatrixResult(
+                destination_index=0,
+                distance_meters=distance_km * 1000,
+                duration_seconds=distance_km / speed_kmh * 3600,
+            )
+    else:
+        inter_store_results = await get_maps_provider().compute_route_matrix_multi_origin(
+            [by_id[premise_id].google_place_id for premise_id in first_ids],
+            [by_id[premise_id].google_place_id for premise_id in second_ids],
+            travel.transport_mode,
+        )
+        for route in inter_store_results:
+            if (
+                0 <= route.origin_index < len(first_ids)
+                and 0 <= route.destination_index < len(second_ids)
+            ):
+                inter_store_routes[
+                    (
+                        first_ids[route.origin_index],
+                        second_ids[route.destination_index],
+                    )
+                ] = route
+
+    plans = plan_multi_store_trips(
+        candidates=candidates,
+        reachable_first_store_ids=reachable_first_store_ids,
+        pairs=pairs,
+        origin_routes=origin_routes,
+        inter_store_routes=inter_store_routes,
+        second_store_limit=second_store_limit,
+        cost_rate=cost_rate,
+        home_name=travel.origin.label,
+        route_provider="straight_line" if use_straight_line_fallback else "google",
+        max_returned_plans=MAX_INTER_STORE_PAIRS if payload.basket else MAX_RETURNED_PLANS,
+    )
+
+    # US 6.3: price the plans against single-store alternatives. Needs per-store
+    # pricing for every store that could take part — single-store baselines come
+    # from ``recommendations`` and two-store legs reference ``candidates`` — so
+    # fetch the union rather than reuse the endpoint's recommendations-only
+    # pricing, which would leave a second store's lines unpriced. This is a local
+    # database read; it spends no additional Google quota.
+    if payload.basket and plans.plans:
+        participating_ids = {store.premise_id for store in recommendations}
+        for plan in plans.plans:
+            participating_ids.add(plan.first_store_premise_id)
+            participating_ids.add(plan.second_store_premise_id)
+        comparison_pricing = await run_in_threadpool(
+            get_basket_pricing,
+            sorted(participating_ids),
+            payload.basket,
+        )
+        plans.stores = apply_basket_pricing(
+            rank_reachable_stores(
+                candidates=candidates, route_results=route_results,
+                limit_type="distance", limit_value=float("inf"), cost_rate=cost_rate,
+            ), comparison_pricing,
+        )
+        plans.comparison = build_plan_comparison(
+            recommendations=recommendations,
+            two_store_plans=plans.plans,
+            pricing=comparison_pricing,
+            basket=payload.basket,
+        )
+        comparison = plans.comparison
+        if comparison is not None:
+            eligible = [p for p in comparison.complete_plans + comparison.incomplete_plans if p.store_count == 2]
+            eligible.sort(key=lambda p: (
+                p.combined_total_rm if p.combined_total_rm is not None else float("inf"),
+                p.total_travel_minutes, p.total_route_distance_km, p.plan_id,
+            ))
+            selected_ids = {p.plan_id for p in eligible[:MAX_RETURNED_PLANS]}
+            comparison.complete_plans = [p for p in comparison.complete_plans if p.store_count == 1 or p.plan_id in selected_ids]
+            comparison.incomplete_plans = [p for p in comparison.incomplete_plans if p.store_count == 1 or p.plan_id in selected_ids]
+            plans.plans = [p for p in plans.plans if f"two:{p.first_store_premise_id}:{p.second_store_premise_id}" in selected_ids]
+
+    return plans
+
+
 @router.post("/recommendations", response_model=RecommendationResponse)
 async def recommend_stores(payload: RecommendationRequest) -> RecommendationResponse:
+    """Public entry point for store ranking. Any Google Maps failure is retried once with
+    the straight-line fallback so the shopper still gets results.
+    """
+    try:
+        return await _recommend_stores(payload)
+    except AppError as error:
+        if error.code not in {"MAPS_NOT_CONFIGURED", "MAPS_UNAVAILABLE"}:
+            raise
+        # Retry with an unrestricted nearest-25 query, including failures from
+        # the expanded route search. Do not reuse the routed candidate limit.
+        return await _recommend_stores(payload, routes_unavailable=True)
+
+
+async def _recommend_stores(
+    payload: RecommendationRequest, *, routes_unavailable: bool = False,
+) -> RecommendationResponse:
+    """Rank stores for one request (Epics 2 and 6). Reuses a prepared snapshot when
+    possible; otherwise finds open candidates, routes them (or uses the straight-line
+    fallback), costs travel, prices the basket and ranks by combined total. If no store
+    is inside the travel limit, the nearest stores are returned flagged exceedsLimit.
+    Two-store plans are added when a second-store limit is sent. See
+    docs/04-backend/store-recommendation.md.
+
+    Owners: Shun, Zhihao
+    """
     settings = get_settings()
     travel = payload.travel
-    cached = _get_candidate_snapshot(payload.candidate_cache_id, travel)
+    # A cached snapshot is prepared without a second-store limit, so its
+    # multi_store field is always None. Serving it here would silently drop
+    # two-store plans after the shopper presses Apply (AC 6.1.9), so the cache is
+    # bypassed whenever multi-store planning is requested.
+    cached = (
+        None
+        if payload.second_store_limit is not None
+        else await run_in_threadpool(_get_candidate_snapshot, payload.candidate_cache_id, travel)
+    )
     if cached is not None and payload.basket:
         recommendations = cached.recommendations
         pricing = await run_in_threadpool(
@@ -368,7 +688,8 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
                 cached.expanded_search,
             ),
         })
-    use_straight_line_fallback = not settings.google_routes_api_key
+    use_straight_line_fallback = routes_unavailable or not settings.google_routes_api_key
+    routes_status = "unavailable" if routes_unavailable else "not configured"
     maximum_straight_line_km = (
         travel.limit.value
         if travel.limit.type == "distance"
@@ -379,7 +700,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     if use_straight_line_fallback:
         # Without Routes there is no reliable way to apply a distance/time
         # route limit. Keep the fallback intentionally simple and bounded:
-        # return the nearest 25 fresh premises and explain the approximation
+        # return the nearest 25 located premises and explain the approximation
         # in the response warning.
         maximum_straight_line_km = None
     candidates = await run_in_threadpool(
@@ -389,7 +710,6 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         sara_filter=travel.sara_filter,
         maximum_straight_line_km=maximum_straight_line_km,
         limit=(FALLBACK_NEAREST_LIMIT if use_straight_line_fallback else settings.route_matrix_candidate_limit),
-        maximum_coordinate_age_days=settings.premise_location_max_age_days,
     )
 
     if use_straight_line_fallback:
@@ -399,11 +719,8 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         candidates = candidates[:FALLBACK_NEAREST_LIMIT]
 
     if not candidates:
-        routable, fresh = await run_in_threadpool(
-            get_premise_location_coverage,
-            settings.premise_location_max_age_days,
-        )
-        if routable > 0 and fresh == 0:
+        routable, located = await run_in_threadpool(get_premise_location_coverage)
+        if routable > 0 and located == 0:
             raise AppError(
                 "PREMISE_LOCATIONS_NOT_READY",
                 "Store locations need to be prepared before recommendations can run.",
@@ -425,7 +742,11 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         )
         route_limit_type = travel.limit.type
         route_limit_value = travel.limit.value
-    cost_model = get_travel_cost_model(settings)
+    fuel_price = (
+        await run_in_threadpool(get_fuel_price, settings)
+        if travel.transport_mode in {"car", "motorcycle"} else None
+    )
+    cost_model = get_travel_cost_model(settings, fuel_price)
     recommendations = rank_reachable_stores(
         candidates=candidates,
         route_results=route_results,
@@ -437,7 +758,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     )
     ranking_method = (
         "Nearest premises by straight-line distance; travel times and costs "
-        "are rough planning estimates because Google Routes is not configured."
+        f"are rough planning estimates because Google Routes is {routes_status}."
         if use_straight_line_fallback
         else "Lowest estimated return transport cost, then shortest travel time "
         "and route distance."
@@ -451,13 +772,11 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         recommendations = apply_basket_pricing(recommendations, pricing)
         ranking_method = (
             "Nearest 25 premises by straight-line distance; stores are ranked by "
-            "exact store-price coverage, then effective coverage including cached "
-            "median estimates, then estimated combined cost using rough travel estimates. "
-            "Google Routes is not configured, so travel limits and route feasibility "
+            "estimated combined cost including cached median estimates using rough travel estimates. "
+            f"Google Routes is {routes_status}, so travel limits and route feasibility "
             "are not verified."
             if use_straight_line_fallback
-            else "Stores ranked by exact store-price coverage, then effective "
-            "coverage including cached median estimates, then lowest combined cost: "
+            else "Stores ranked by lowest combined cost, including cached median estimates: "
             "effective basket subtotal plus estimated return transport cost; ties by "
             "shortest travel time, route distance, store name, then premise ID."
         )
@@ -477,7 +796,6 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             sara_filter=travel.sara_filter,
             maximum_straight_line_km=None,
             limit=settings.route_matrix_candidate_limit,
-            maximum_coordinate_age_days=settings.premise_location_max_age_days,
         )
         if expanded_candidates:
             expanded_route_results = await get_maps_provider().compute_route_matrix(
@@ -512,9 +830,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             expanded_search = True
             ranking_method = (
                 "No store matched your travel limit, so the nearest stores are "
-                "shown instead. They are ranked by exact store-price coverage, "
-                "then effective coverage including cached median estimates, then "
-                "lowest combined cost (effective basket subtotal plus estimated "
+                "shown instead. They are ranked by lowest combined cost, including cached median estimates (effective basket subtotal plus estimated "
                 "return transport cost); these stores exceed your chosen limit."
             )
             route_warning_parts.append(
@@ -524,7 +840,7 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
             )
     if use_straight_line_fallback:
         route_warning_parts.append(
-            "Google Routes is not configured. Showing the 25 nearest stores by "
+            f"Google Routes is {routes_status}. Showing the 25 nearest stores by "
             "straight-line distance with approximate travel times; the selected "
             "travel limit and route feasibility are not verified."
         )
@@ -547,6 +863,21 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
         route_provider="straight_line" if use_straight_line_fallback else "google",
         route_warning=" ".join(route_warning_parts) if route_warning_parts else None,
         expanded_search=expanded_search,
+        multi_store=await _build_multi_store_plans(
+            payload=payload,
+            travel=travel,
+            # The expanded-search branch rebinds its results to locals, so pick
+            # whichever candidate set actually produced ``recommendations``.
+            # ``expanded_search`` is only True once that branch has run, so the
+            # names are always defined when they are read.
+            candidates=expanded_candidates if expanded_search else candidates,
+            recommendations=recommendations,
+            route_results=(
+                expanded_route_results if expanded_search else route_results
+            ),
+            cost_rate=cost_model[travel.transport_mode],
+            use_straight_line_fallback=use_straight_line_fallback,
+        ),
     )
 
 
@@ -577,6 +908,11 @@ async def _read_report_body(request: Request) -> tuple[bytes | None, int]:
     },
 )
 async def generate_report_endpoint(request: Request) -> GeneratedReport:
+    """Generate one weekly or monthly report (US 8.5). The body is size-checked before
+    parsing, validated, passed through the injected rate-limit hook and built by
+    reporting.generate_report. Only metadata (counts, timings, outcome) is logged; the
+    request and the report are never stored.
+    """
     request_id = uuid4().hex
     started = perf_counter()
     outcome = "invalid_request"

@@ -2,6 +2,8 @@
 
 Run from ``backend`` with:
     uvicorn main:app --reload --port 8000
+
+Owners: Shun, Randy
 """
 
 from datetime import datetime
@@ -33,6 +35,11 @@ def create_app(
     report_clock: Callable[[], datetime] | None = None,
     report_rate_limit_hook: ReportRateLimitHook | None = None,
 ) -> FastAPI:
+    """Build the FastAPI application. The report narrator, clock and rate-limit hook are
+    injectable so tests can replace Cerebras, time and throttling. Production defaults:
+    Cerebras narrator (deterministic fallback without a key), UTC clock, allow-all rate-
+    limit hook.
+    """
     settings = get_settings()
     application = FastAPI(title="SmartCart API", version="0.2.0")
     application.state.report_narrator = (

@@ -1,3 +1,4 @@
+// Owner: Shun | Contributors: Randy, Zhihao
 import type {
   AlternativePriceItem,
   BasketAlternativeLine,
@@ -98,7 +99,7 @@ function detailFromPack(pack: PackSizeOption, quantity: number): RecommendationD
 }
 
 function fallbackCurrentPrice(
-  store: StoreRecommendation,
+  store: Pick<StoreRecommendation, "basketLines" | "basketPrices">,
   basketItem: BasketItem,
 ): RecommendationDetailPrice | null {
   const itemId = basketItem.id.replace(/^db-/, "");
@@ -134,9 +135,13 @@ function findBasketItem(basket: BasketItem[], sourceItemId: string): BasketItem 
   )) ?? null;
 }
 
+/**
+ * Rows for the store details page: each basket line's original price at this store and its current
+ * price after any applied swap (cheaper equivalent or pack size).
+ */
 export function buildRecommendationDetailRows(
   basket: BasketItem[],
-  store: StoreRecommendation,
+  store: Pick<StoreRecommendation, "basketLines" | "basketPrices">,
   alternatives: BasketAlternativeLine[],
 ): RecommendationDetailRow[] {
   return alternatives.map(line => {
@@ -169,6 +174,10 @@ export function buildRecommendationDetailRows(
   });
 }
 
+/**
+ * Totals for the store details page: original and current subtotals, coverage counts, SARA
+ * credit/cash split and net saving from swaps (only when every line is priced before and after).
+ */
 export function recommendationDetailTotals(
   rows: RecommendationDetailRow[],
 ): RecommendationDetailTotals {
@@ -217,6 +226,10 @@ export function recommendationDetailTotals(
   };
 }
 
+/**
+ * True when a suggested item is already in the basket as a different line, so its button shows
+ * 'Already in basket'.
+ */
 export function targetAlreadyInBasket(
   basket: BasketItem[],
   sourceItemId: string,

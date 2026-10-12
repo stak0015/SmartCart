@@ -9,6 +9,8 @@ A basket line counts toward SARA Credit when either:
 
 Everything else (``sara_eligible`` false/NULL and category not listed) counts
 toward Cash Needed.
+
+Owner: Zhihao
 """
 
 # Official SARA 2026 categories, matched verbatim against the item_category

@@ -15,7 +15,7 @@ describe("toBasketLineRequests", () => {
     ]);
   });
 
-  it("filters out demo/mock rows so they cannot pollute basket totals", () => {
+  it("ignores non-catalogue ids so they cannot pollute basket totals", () => {
     expect(
       toBasketLineRequests([
         { id: "1", qty: 1 },

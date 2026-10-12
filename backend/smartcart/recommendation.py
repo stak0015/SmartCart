@@ -1,10 +1,14 @@
-"""Pure recommendation ranking and transparent travel-cost calculations."""
+"""Pure recommendation ranking and transparent travel-cost calculations.
+
+Owners: Shun, Zhihao | Contributors: Randy
+"""
 
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 
 from .config import Settings
+from .fuel import FuelPrice
 from .catalogue import display_package_size
 from .maps import RouteMatrixResult
 from .models import (
@@ -13,12 +17,13 @@ from .models import (
     StoreRecommendation,
     TransportMode,
     TravelLimitType,
+    TravelCostBreakdown,
 )
 from .premises import PremiseCandidate
 from .pricing import StoreBasketSummary
 
 
-# Used only when Google Routes is not configured. These are deliberately
+# Used when Google Routes is not configured or unavailable. These are deliberately
 # labelled as planning estimates in the API response; they are not route or
 # traffic data and do not prove that a store is reachable within the user's
 # selected travel limit.
@@ -35,13 +40,20 @@ class TravelCostRate:
     base_fare_per_leg_rm: float
     per_kilometre_rm: float
     description: str
+    litres_per_100km: float | None = None
+    fuel_price: FuelPrice | None = None
 
 
-def get_travel_cost_model(settings: Settings) -> dict[TransportMode, TravelCostRate]:
+def get_travel_cost_model(settings: Settings, fuel_price: FuelPrice | None = None) -> dict[TransportMode, TravelCostRate]:
+    """Per-mode travel cost rates. Car and motorcycle: litres/100 km x the current fuel
+    price (or the configured fallback). Public transport: base fare per leg plus a per-
+    km rate. Walking: free. The descriptions are shown to shoppers.
+    """
     public_base = settings.public_transport_base_per_leg_rm
     public_rate = settings.public_transport_per_km_rm
-    motorcycle_rate = settings.motorcycle_per_km_rm
-    car_rate = settings.car_per_km_rm
+    fuel_price = fuel_price or FuelPrice(settings.fuel_price_fallback_rm, settings.fuel_price_field, "fallback")
+    motorcycle_rate = settings.motorcycle_litres_per_100km / 100 * fuel_price.per_litre_rm
+    car_rate = settings.car_litres_per_100km / 100 * fuel_price.per_litre_rm
     return {
         "walk": TravelCostRate(
             0,
@@ -58,14 +70,18 @@ def get_travel_cost_model(settings: Settings) -> dict[TransportMode, TravelCostR
         "motorcycle": TravelCostRate(
             0,
             motorcycle_rate,
-            f"Planning estimate: RM{motorcycle_rate:.2f}/km. Parking, tolls and "
+            f"Fuel estimate: {settings.motorcycle_litres_per_100km:g} L/100 km at RM{fuel_price.per_litre_rm:.2f}/L. Parking, tolls and "
             "ownership costs are excluded.",
+            settings.motorcycle_litres_per_100km,
+            fuel_price,
         ),
         "car": TravelCostRate(
             0,
             car_rate,
-            f"Planning estimate: RM{car_rate:.2f}/km. Parking, tolls and "
+            f"Fuel estimate: {settings.car_litres_per_100km:g} L/100 km at RM{fuel_price.per_litre_rm:.2f}/L. Parking, tolls and "
             "ownership costs are excluded.",
+            settings.car_litres_per_100km,
+            fuel_price,
         ),
     }
 
@@ -81,11 +97,58 @@ def estimate_round_trip_cost_rm(
     *,
     one_way_transit_fare_rm: float | None = None,
 ) -> float:
+    """Single-store return-trip cost: twice Google's transit fare when available, otherwise
+    two base fares plus the per-km rate over the return distance; rounded half-up to
+    cents.
+    """
     if one_way_transit_fare_rm is not None:
         return _round(max(0, one_way_transit_fare_rm) * 2, 2)
     return_distance_km = max(0, one_way_distance_meters) * 2 / 1000
     value = rate.base_fare_per_leg_rm * 2 + return_distance_km * rate.per_kilometre_rm
     return _round(value, 2)
+
+
+def estimate_one_way_leg_cost_rm(
+    distance_meters: float,
+    rate: TravelCostRate,
+    *,
+    transit_fare_rm: float | None = None,
+) -> float:
+    """Cost of a single journey leg, for multi-leg (two-store) totals.
+
+    Added for US 6.2: a two-store plan is home -> first -> second -> home, so
+    its total is a sum of one-way legs rather than one doubled leg. Uses the
+    same cost model and the same rounding as ``estimate_round_trip_cost_rm``,
+    which stays untouched for single-store callers.
+
+    Owner: Randy
+    """
+    if transit_fare_rm is not None:
+        return _round(max(0, transit_fare_rm), 2)
+    distance_km = max(0, distance_meters) / 1000
+    return _round(
+        rate.base_fare_per_leg_rm + distance_km * rate.per_kilometre_rm,
+        2,
+    )
+
+
+def fuel_cost_breakdown(distance_meters: float, rate: TravelCostRate) -> TravelCostBreakdown | None:
+    """Fuel litres and cost for a distance with price basis, source and effective date;
+    None for walking and public transport.
+    """
+    if rate.fuel_price is None or rate.litres_per_100km is None:
+        return None
+    distance_km = max(0, distance_meters) / 1000
+    litres = distance_km * rate.litres_per_100km / 100
+    return TravelCostBreakdown(
+        fuel_cost_rm=_round(distance_km * rate.per_kilometre_rm, 2),
+        fuel_litres=_round(litres, 3),
+        litres_per_100km=rate.litres_per_100km,
+        fuel_price_per_litre_rm=rate.fuel_price.per_litre_rm,
+        fuel_price_basis=rate.fuel_price.basis,
+        fuel_price_source=rate.fuel_price.source,
+        fuel_price_effective_date=rate.fuel_price.effective_date,
+    )
 
 
 def straight_line_route_results(
@@ -102,8 +165,9 @@ def straight_line_route_results(
     speed_kmh = FALLBACK_TRAVEL_SPEED_KMH[mode]
     results = []
     for destination_index, premise in enumerate(candidates):
-        distance_meters = max(0.0, premise.straight_line_distance_km) * 1000
-        duration_seconds = distance_meters / speed_kmh * 3600
+        distance_km = max(0.0, premise.straight_line_distance_km)
+        distance_meters = distance_km * 1000
+        duration_seconds = distance_km / speed_kmh * 3600
         results.append(
             RouteMatrixResult(
                 destination_index=destination_index,
@@ -121,7 +185,6 @@ def rank_reachable_stores(
     limit_type: TravelLimitType,
     limit_value: float | None,
     cost_rate: TravelCostRate,
-    basket_prices_by_premise: dict[str, list[BasketItemPrice]] | None = None,
     limit_distance_km: float | None = None,
     limit_time_minutes: float | None = None,
 ) -> list[StoreRecommendation]:
@@ -132,9 +195,8 @@ def rank_reachable_stores(
     fallback that shows the nearest stores when none match the shopper's
     chosen limit (the caller flags those stores via ``exceeds_limit``).
     """
-    # This optional argument is retained for E2 callers. The API's richer path
-    # first ranks by transport, then applies StoreBasketSummary below.
-    basket_prices_by_premise = basket_prices_by_premise or {}
+    # Ranks by transport only; the API then prices the basket and re-ranks
+    # with apply_basket_pricing.
     recommendations = []
     for route in route_results:
         if not 0 <= route.destination_index < len(candidates):
@@ -150,14 +212,9 @@ def rank_reachable_stores(
                 and route.duration_seconds <= limit_value * 60
             )
         else:
-            # Callers using the combined mode pass the explicit values. The
-            # fallback also accepts a mapping in ``limit_value`` for older
-            # integrations that forwarded the request object directly.
+            # The combined mode uses the explicit distance and time values.
             distance_km = limit_distance_km
             time_minutes = limit_time_minutes
-            if isinstance(limit_value, dict):
-                distance_km = distance_km or limit_value.get("distance_km")
-                time_minutes = time_minutes or limit_value.get("time_minutes")
             within_limit = (
                 distance_km is not None
                 and time_minutes is not None
@@ -167,32 +224,11 @@ def rank_reachable_stores(
         if not within_limit:
             continue
         premise = candidates[route.destination_index]
-        basket_prices = basket_prices_by_premise.get(premise.premise_id, [])
-        basket_cost_rm = _round(
-            sum(
-                line.line_total_rm
-                for line in basket_prices
-                if line.line_total_rm is not None
-            ),
-            2,
-        )
         travel_cost_rm = estimate_round_trip_cost_rm(
             route.distance_meters,
             cost_rate,
             one_way_transit_fare_rm=route.transit_fare_rm,
         )
-        priced_item_count = sum(
-            line.unit_price_rm is not None for line in basket_prices
-        )
-        store_price_count = sum(
-            line.unit_price_rm is not None and line.price_source != "median"
-            for line in basket_prices
-        )
-        median_price_count = sum(
-            line.unit_price_rm is not None and line.price_source == "median"
-            for line in basket_prices
-        )
-        basket_item_count = len(basket_prices)
         recommendations.append(
             StoreRecommendation(
                 premise_id=premise.premise_id,
@@ -208,44 +244,30 @@ def rank_reachable_stores(
                 route_distance_km=_round(route.distance_meters / 1000, 2),
                 estimated_travel_minutes=max(1, ceil(route.duration_seconds / 60)),
                 estimated_round_trip_cost_rm=travel_cost_rm,
+                travel_cost_breakdown=fuel_cost_breakdown(route.distance_meters * 2, cost_rate),
                 sara_status=premise.sara_status,
-                basket_cost_rm=basket_cost_rm,
-                estimated_total_cost_rm=_round(basket_cost_rm + travel_cost_rm, 2),
-                priced_item_count=priced_item_count,
-                basket_item_count=basket_item_count,
-                is_complete_basket=priced_item_count == basket_item_count,
-                basket_prices=basket_prices,
-                store_price_count=store_price_count,
-                median_price_count=median_price_count,
+                basket_cost_rm=0.0,
+                estimated_total_cost_rm=travel_cost_rm,
+                priced_item_count=0,
+                basket_item_count=0,
+                is_complete_basket=True,
+                basket_prices=[],
+                store_price_count=0,
+                median_price_count=0,
             )
         )
 
-    if basket_prices_by_premise:
-        recommendations.sort(
-            key=lambda store: (
-                -store.store_price_count,
-                -store.priced_item_count,
-                store.estimated_total_cost_rm
-                if store.estimated_total_cost_rm is not None
-                else float("inf"),
-                store.estimated_travel_minutes,
-                store.route_distance_km,
-                store.name.casefold(),
-                _premise_id_sort_key(store.premise_id),
-            )
+    recommendations.sort(
+        key=lambda store: (
+            store.estimated_total_cost_rm
+            if store.estimated_total_cost_rm is not None
+            else float("inf"),
+            store.estimated_travel_minutes,
+            store.route_distance_km,
+            store.name.casefold(),
+            _premise_id_sort_key(store.premise_id),
         )
-    else:
-        recommendations.sort(
-            key=lambda store: (
-                store.estimated_total_cost_rm
-                if store.estimated_total_cost_rm is not None
-                else float("inf"),
-                store.estimated_travel_minutes,
-                store.route_distance_km,
-                store.name.casefold(),
-                _premise_id_sort_key(store.premise_id),
-            )
-        )
+    )
     return recommendations
 
 
@@ -255,12 +277,14 @@ def apply_basket_pricing(
 ) -> list[StoreRecommendation]:
     """Attach per-store basket subtotals with their SARA Credit / Cash
     Needed split, combined total and per-line detail, then re-rank
-    (AC 2.3.4): stores sort by exact store-price coverage (descending), then
-    effective coverage including cached median estimates (descending), then
-    effective combined basket-plus-transport cost (ascending), ties by shortest
+    stores sort by combined basket-plus-transport cost (ascending), including
+    labelled median estimates, with ties by shortest
     travel time, shortest route distance, store name, then premise ID. Missing
     prices remain explicit and stores with no effective priced lines have null
-    totals."""
+    totals.
+
+    Owners: Shun, Zhihao
+    """
     ranked = []
     for store in recommendations:
         summary = pricing.get(store.premise_id)
@@ -368,8 +392,6 @@ def apply_basket_pricing(
             else float("inf")
         )
         return (
-            -int(store.store_price_count or 0),
-            -int(store.priced_count or 0),
             combined,
             store.estimated_travel_minutes,
             store.route_distance_km,

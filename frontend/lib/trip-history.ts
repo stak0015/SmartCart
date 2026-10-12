@@ -1,6 +1,9 @@
+// Owners: Zhihao, Shun | Contributors: Randy
+import { isTripTravelSnapshot, type TripTravelSnapshot } from "./trip-travel-cost";
 import type {
   AlternativeStoreEstimate,
   ChecklistItem,
+  SaraItemSnapshot,
   ChecklistItemSource,
   ChecklistPriceSource,
   ChecklistQuantitySource,
@@ -8,7 +11,7 @@ import type {
   ChecklistStore,
   ShoppingChecklist,
 } from "./shopping-checklist";
-import { effectiveChecklistLineTotal } from "./shopping-checklist";
+import { effectiveChecklistLineTotal, isSaraItemSnapshot } from "./shopping-checklist";
 import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory } from "./contracts";
 import {
   isEstimatedSavingsSnapshot,
@@ -24,7 +27,9 @@ export const TRIP_HISTORY_STORAGE_KEY = "smartcart.trip-history.v1";
  * and stay marked source="manual" (shopper-added) — they are never matched to
  * an official catalogue item (catalogueItemId stays null).
  */
-export interface TripRecordLine {
+export interface TripRecordLine extends SaraItemSnapshot {
+  storePremiseId?: string;
+  storeName?: string;
   id: string;
   source: ChecklistItemSource;
   catalogueItemId: string | null;
@@ -35,7 +40,7 @@ export interface TripRecordLine {
   sourceCategory?: SourceCategory | null;
   imageUrl?: string | null;
   packageSize: string | null;
-  // Planned quantity plus the shopper-recorded actual quantity (AC 5.3.4);
+  // Planned quantity plus any shopper-recorded actual quantity (older records);
   // quantitySource says which one the spending figure used.
   quantity: number;
   actualQuantity: number | null;
@@ -47,18 +52,20 @@ export interface TripRecordLine {
   actualPriceRm: number | null;
   // Frozen bought-line total; null for unbought or unpriced lines.
   actualLineTotalRm: number | null;
-  // AC 5.2.3: "neutral" lines were still unfinished when the trip was
+  // AC 5.2.4: "neutral" lines were still unfinished when the trip was
   // recorded; they stay in the record labelled with their outcome.
   status: ChecklistStatus;
 }
 
-export interface TripRecord {
+export interface TripRecord extends TripTravelSnapshot {
   version: typeof TRIP_HISTORY_VERSION;
   id: string;
   // AC 5.4.1: date and time of the save.
   recordedAt: string;
   checklistId: string;
   store: ChecklistStore;
+  stores?: ChecklistStore[];
+  planId?: string;
   // Planned metadata (AC 5.4.2): the estimated return transport is kept here
   // as planned data only — it is never counted as money the shopper spent.
   plannedSubtotalRm: number | null;
@@ -107,6 +114,7 @@ export type BoughtLineTotalInput = Pick<
   "actualQuantity" | "quantity" | "actualPriceRm" | "unitPriceRm"
 >;
 
+// Owner: Shun
 export function boughtLineQuantity(line: Pick<TripRecordLine, "actualQuantity" | "quantity">): number {
   return line.actualQuantity ?? line.quantity;
 }
@@ -115,12 +123,17 @@ export function boughtLineUnitPrice(line: Pick<TripRecordLine, "actualPriceRm" |
   return line.actualPriceRm ?? line.unitPriceRm;
 }
 
+// Owner: Shun
 export function boughtLineTotalRm(line: BoughtLineTotalInput): number | null {
   const unitPrice = boughtLineUnitPrice(line);
   return unitPrice == null ? null : money(unitPrice * boughtLineQuantity(line));
 }
 
-/** Sum priced bought lines, regardless of whether the shopper edited a price. */
+/**
+ * Sum priced bought lines, regardless of whether the shopper edited a price.
+ *
+ * Owners: Zhihao, Shun
+ */
 export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
   const knownTotals = lines
     .filter(line => line.status === "bought")
@@ -131,14 +144,32 @@ export function actualExpenseTotal(lines: TripRecordLine[]): number | null {
     : null;
 }
 
+/**
+ * Estimated SARA allocation for priced bought items; travel remains a cash expense.
+ *
+ * Owner: Shun
+ */
+export function tripPaymentBreakdown(lines: TripRecordLine[]) {
+  const priced = lines.filter(line => line.status === "bought" && boughtLineTotalRm(line) != null);
+  const subtotal = actualExpenseTotal(lines);
+  const unknown = priced.some(line => line.source !== "manual" && line.saraEligible !== true
+    && line.saraCategoryCandidate !== true && (line.saraEligible === undefined || line.saraCategoryCandidate === undefined));
+  if (subtotal == null || unknown) return { saraCreditRm: null, cashNeededRm: null };
+  const saraCreditRm = money(priced.reduce((sum, line) => sum + (line.saraEligible === true || line.saraCategoryCandidate === true ? boughtLineTotalRm(line)! : 0), 0));
+  return { saraCreditRm, cashNeededRm: money(Math.max(0, subtotal - saraCreditRm)) };
+}
+
 function tripRecordLineFromChecklistItem(item: ChecklistItem): TripRecordLine {
   return {
     id: item.id,
+    ...(item.storePremiseId ? { storePremiseId: item.storePremiseId, storeName: item.storeName } : {}),
     source: item.source,
     catalogueItemId: item.source === "manual" ? null : item.catalogueItemId,
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+    ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
     category: item.category,
     sourceCategory: item.sourceCategory ?? null,
     ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
@@ -170,6 +201,9 @@ export function buildTripRecord(
     recordedAt: options.recordedAt ?? nowIso(),
     checklistId: checklist.id,
     store: { ...checklist.store },
+    ...(checklist.stores ? { stores: checklist.stores.map(store => ({ ...store })), planId: checklist.planId } : {}),
+    ...(checklist.travelCostBreakdowns ? { travelCostBreakdowns: checklist.travelCostBreakdowns.map(cost => ({ ...cost })) } : {}),
+    ...(checklist.actualTollCostRm !== undefined ? { actualTollCostRm: checklist.actualTollCostRm } : {}),
     plannedSubtotalRm: checklist.plannedSubtotalRm,
     estimatedRoundTripCostRm: checklist.estimatedRoundTripCostRm,
     plannedCombinedTotalRm: checklist.plannedCombinedTotalRm,
@@ -193,7 +227,11 @@ export function addTripRecord(records: TripRecord[], record: TripRecord): TripRe
   return [record, ...records];
 }
 
-/** Remove one saved trip while preserving the order of all remaining records. */
+/**
+ * Remove one saved trip while preserving the order of all remaining records.
+ *
+ * Owner: Shun
+ */
 export function removeTripRecord(records: TripRecord[], recordId: string): TripRecord[] {
   return records.filter(record => record.id !== recordId);
 }
@@ -237,6 +275,9 @@ function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEs
 function isTripRecordLine(value: unknown): value is TripRecordLine {
   if (!value || typeof value !== "object") return false;
   const line = value as Record<string, unknown>;
+  if (!isSaraItemSnapshot(line as SaraItemSnapshot)) return false;
+  if ((line.storePremiseId !== undefined && typeof line.storePremiseId !== "string")
+    || (line.storeName !== undefined && typeof line.storeName !== "string")) return false;
   const sourceIsValid = line.source === "catalogue" || line.source === "manual";
   const statusIsValid = line.status === "neutral" || line.status === "bought"
     || line.status === "not_bought";
@@ -272,7 +313,7 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
     && isFiniteMoneyOrNull(line.actualLineTotalRm)
     && statusIsValid;
   if (!commonFieldsAreValid) return false;
-  // The quantity source label must agree with the actual quantity (AC 5.3.4).
+  // The quantity source label must agree with the actual quantity.
   if ((line.actualQuantity === null) !== (line.quantitySource === "planned")) return false;
   if (line.source === "manual") {
     // Shopper-added lines are never matched to an official item (AC 5.4.1).
@@ -282,9 +323,15 @@ function isTripRecordLine(value: unknown): value is TripRecordLine {
   return typeof line.catalogueItemId === "string" && line.catalogueItemId.length > 0;
 }
 
+/**
+ * Runtime validation of a stored trip record; invalid records are dropped when history is read.
+ *
+ * Owners: Zhihao, Shun
+ */
 export function isTripRecord(value: unknown): value is TripRecord {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
+  if (!isTripTravelSnapshot(record)) return false;
   if (record.version !== TRIP_HISTORY_VERSION
     || typeof record.id !== "string"
     || record.id.length === 0
@@ -304,6 +351,11 @@ export function isTripRecord(value: unknown): value is TripRecord {
     || !record.lines.every(isTripRecordLine)) return false;
 
   if (!record.store || typeof record.store !== "object") return false;
+  if (record.planId !== undefined && typeof record.planId !== "string") return false;
+  if (record.stores !== undefined && (!Array.isArray(record.stores)
+    || !record.stores.every(value => value && typeof value === "object"
+      && typeof value.premiseId === "string" && typeof value.premiseCode === "string"
+      && typeof value.name === "string" && isNullableString(value.address)))) return false;
   const store = record.store as Record<string, unknown>;
   return typeof store.premiseId === "string"
     && store.premiseId.length > 0
@@ -314,9 +366,11 @@ export function isTripRecord(value: unknown): value is TripRecord {
 }
 
 /**
- * AC 5.5.4: the record format is versioned. Records whose version or shape is
+ * The record format is versioned. Records whose version or shape is
  * unknown are ignored individually — one bad record never crashes the app or
  * hides the healthy ones, and totals are never invented.
+ *
+ * Owners: Shun, Zhihao
  */
 export function migrateTripHistory(raw: unknown): TripRecord[] {
   if (!raw || typeof raw !== "object") return [];
@@ -363,6 +417,10 @@ export function serializeTripHistory(records: TripRecord[]): string {
   return JSON.stringify(envelope);
 }
 
+/**
+ * Read trip history from device storage, migrating older versions; returns an empty list on any
+ * error.
+ */
 export function parseTripHistory(serialized: string | null | undefined): TripRecord[] {
   if (!serialized) return [];
   try {

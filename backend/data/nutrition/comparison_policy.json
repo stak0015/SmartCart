@@ -1,0 +1,259 @@
+{
+  "version": 1,
+  "relative_improvement": 0.25,
+  "relative_worsening": 0.25,
+  "nutrients": {
+    "energy_kcal": {
+      "direction": "lower_is_better",
+      "absolute_delta": 20
+    },
+    "sugars_g": {
+      "direction": "lower_is_better",
+      "absolute_delta": 1
+    },
+    "saturated_fat_g": {
+      "direction": "lower_is_better",
+      "absolute_delta": 0.5
+    },
+    "fat_g": {
+      "direction": "lower_is_better",
+      "absolute_delta": 1
+    },
+    "sodium_mg": {
+      "direction": "lower_is_better",
+      "absolute_delta": 40
+    },
+    "fibre_g": {
+      "direction": "higher_is_better",
+      "absolute_delta": 1
+    },
+    "protein_g": {
+      "direction": "higher_is_better",
+      "absolute_delta": 1
+    },
+    "calcium_mg": {
+      "direction": "higher_is_better",
+      "absolute_delta": 30
+    }
+  },
+  "categories": {
+    "milk": {
+      "rules": [
+        "H1",
+        "H2",
+        "H11",
+        "P6",
+        "P20"
+      ],
+      "priorities": [
+        "saturated_fat_g",
+        "fat_g",
+        "sugars_g"
+      ],
+      "required": [
+        "energy_kcal",
+        "fat_g",
+        "protein_g",
+        "calcium_mg"
+      ],
+      "guards": [
+        "energy_kcal",
+        "saturated_fat_g",
+        "sugars_g",
+        "sodium_mg",
+        "protein_g",
+        "calcium_mg"
+      ]
+    },
+    "grains": {
+      "rules": [
+        "H3",
+        "P7",
+        "P13"
+      ],
+      "priorities": [
+        "fibre_g",
+        "sodium_mg",
+        "sugars_g",
+        "saturated_fat_g"
+      ],
+      "required": [
+        "energy_kcal",
+        "fibre_g",
+        "sodium_mg"
+      ],
+      "guards": [
+        "energy_kcal",
+        "saturated_fat_g",
+        "sugars_g",
+        "sodium_mg"
+      ]
+    },
+    "cooking_fats": {
+      "rules": [
+        "H4",
+        "P19"
+      ],
+      "priorities": [
+        "saturated_fat_g"
+      ],
+      "required": [
+        "energy_kcal",
+        "saturated_fat_g"
+      ],
+      "guards": [
+        "energy_kcal",
+        "sodium_mg"
+      ]
+    },
+    "meal_protein": {
+      "rules": [
+        "H5",
+        "H8",
+        "P11",
+        "P12"
+      ],
+      "priorities": [
+        "saturated_fat_g",
+        "fat_g",
+        "sodium_mg",
+        "protein_g"
+      ],
+      "required": [
+        "energy_kcal",
+        "protein_g",
+        "fat_g",
+        "sodium_mg"
+      ],
+      "guards": [
+        "energy_kcal",
+        "saturated_fat_g",
+        "sodium_mg",
+        "protein_g"
+      ]
+    },
+    "salted_protein": {
+      "rules": [
+        "H6",
+        "H7",
+        "H9",
+        "H10"
+      ],
+      "priorities": [
+        "sodium_mg",
+        "saturated_fat_g",
+        "protein_g"
+      ],
+      "required": [
+        "energy_kcal",
+        "sodium_mg",
+        "protein_g"
+      ],
+      "guards": [
+        "energy_kcal",
+        "saturated_fat_g",
+        "protein_g"
+      ]
+    },
+    "drinks": {
+      "rules": [
+        "P3",
+        "P4",
+        "P5"
+      ],
+      "priorities": [
+        "sugars_g",
+        "energy_kcal"
+      ],
+      "required": [
+        "energy_kcal",
+        "sugars_g",
+        "fat_g"
+      ],
+      "guards": [
+        "energy_kcal",
+        "sugars_g",
+        "fat_g",
+        "saturated_fat_g",
+        "sodium_mg"
+      ]
+    },
+    "snacks": {
+      "rules": [
+        "P1",
+        "P2",
+        "P8",
+        "P9",
+        "P10",
+        "N1",
+        "N2"
+      ],
+      "priorities": [
+        "sugars_g",
+        "sodium_mg",
+        "fibre_g",
+        "protein_g",
+        "saturated_fat_g"
+      ],
+      "required": [
+        "energy_kcal",
+        "sodium_mg",
+        "fibre_g",
+        "protein_g"
+      ],
+      "guards": [
+        "energy_kcal",
+        "sugars_g",
+        "saturated_fat_g",
+        "sodium_mg"
+      ]
+    },
+    "condiments": {
+      "rules": [
+        "P14",
+        "P15",
+        "P16"
+      ],
+      "priorities": [
+        "sodium_mg",
+        "sugars_g",
+        "saturated_fat_g",
+        "energy_kcal"
+      ],
+      "required": [
+        "energy_kcal",
+        "sodium_mg"
+      ],
+      "guards": [
+        "energy_kcal",
+        "sugars_g",
+        "saturated_fat_g",
+        "sodium_mg"
+      ]
+    },
+    "concentrates": {
+      "rules": [
+        "P17",
+        "P18"
+      ],
+      "priorities": [
+        "sugars_g",
+        "energy_kcal"
+      ],
+      "required": [
+        "energy_kcal",
+        "sugars_g",
+        "saturated_fat_g"
+      ],
+      "guards": [
+        "energy_kcal",
+        "sugars_g",
+        "saturated_fat_g",
+        "sodium_mg"
+      ],
+      "enabled": false
+    }
+  },
+  "reference_url": "https://myhcl.moh.gov.my/assets/doc/nutrient_criteria.pdf",
+  "notes": "App comparison heuristic, not HCL certification or a validated overall health score. Category priorities are informed by published nutrient profiling guidance. Relative and absolute pairwise thresholds are explicit engineering defaults. Missing required values reject a pair; missing optional guard values are disclosed. Concentrates cannot compare against ready-to-drink products without evidenced preparation/dilution. Curated item pairs retain intended-use compatibility."
+}

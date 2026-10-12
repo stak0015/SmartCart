@@ -4,6 +4,8 @@ This creates approximate postcode-area coordinates for search biasing. It does
 not create premise coordinates and does not write to PostgreSQL. The output is
 raw Google-derived data and must remain outside Git and be expired according to
 the project's temporary-coordinate policy.
+
+Owner: Shun
 """
 
 from __future__ import annotations

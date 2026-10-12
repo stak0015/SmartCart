@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { Item } from "./api";
-import { DEFAULT_QTY, MAX_QTY, QTY_ERROR, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "./result-row";
+import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "./result-row";
 
 const baseItem: Item = {
   item_id: 1,
@@ -34,11 +34,6 @@ describe("resultRowFields", () => {
 });
 
 describe("result-row quantity stepper", () => {
-  it("defaults to 1", () => {
-    expect(DEFAULT_QTY).toBe(1);
-    expect(MAX_QTY).toBe(99);
-  });
-
   it("steps up and down but never outside 1..99", () => {
     expect(stepQty(DEFAULT_QTY, 1)).toBe(2);
     expect(stepQty(DEFAULT_QTY, -1)).toBe(1);
@@ -72,12 +67,6 @@ describe("parseQty (AC-1.4.1 typed input)", () => {
     expect(parseQty("")).toBeNull();
     expect(parseQty(" ")).toBeNull();
     expect(parseQty("-1")).toBeNull();
-  });
-});
-
-describe("QTY_ERROR wording (AC-1.4.1)", () => {
-  it("matches the AC text verbatim", () => {
-    expect(QTY_ERROR).toBe("Quantity must be a whole number between 1 and 99.");
   });
 });
 

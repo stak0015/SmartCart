@@ -3,6 +3,8 @@
 Fresh databases populate these columns during PriceCatcher ingestion. This
 one-off, repeatable migration upgrades older databases without downloading
 the source files again.
+
+Owner: Shun
 """
 
 from __future__ import annotations

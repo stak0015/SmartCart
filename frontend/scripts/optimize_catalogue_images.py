@@ -7,6 +7,8 @@ optimizer transform every product image on the first request.
 Usage:
     python scripts/optimize_catalogue_images.py
     python scripts/optimize_catalogue_images.py --refresh-links-through 589
+
+Owner: Shun
 """
 
 from __future__ import annotations

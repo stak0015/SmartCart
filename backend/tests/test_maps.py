@@ -1,6 +1,19 @@
 import asyncio
+import pytest
 
 from smartcart.maps import GoogleMapsProvider
+
+
+@pytest.mark.parametrize("mode", ["car", "motorcycle", "walk", "public_transport"])
+def test_malaysian_routes_do_not_request_toll_prices(monkeypatch, mode):
+    provider = GoogleMapsProvider()
+    async def fake_request(method, url, field_mask, service, *, json):
+        assert "tollInfo" not in field_mask
+        assert "extraComputations" not in json
+        return []
+    monkeypatch.setattr(provider, "_request", fake_request)
+    asyncio.run(provider.compute_route_matrix({"latitude": 3.14, "longitude": 101.69}, ["place-1"], mode))
+    asyncio.run(provider.compute_route_matrix_multi_origin(["place-1"], ["place-2"], mode))
 
 
 def test_transit_matrix_requests_and_parses_myr_fare(monkeypatch) -> None:

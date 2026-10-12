@@ -1,3 +1,4 @@
+// Owners: Zhihao, Shun
 // AC 2.3.2: the compare list grows in fixed steps of six stores.
 export const VISIBLE_STEP = 6;
 

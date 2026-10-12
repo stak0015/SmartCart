@@ -22,3 +22,7 @@ Thumbs.db
 .codex/
 AGENTS.md
 design-reference/
+/raw/
+.tmp/
+# Local research, experimental outputs and development evidence
+/research/

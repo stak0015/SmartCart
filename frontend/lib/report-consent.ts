@@ -1,9 +1,15 @@
+// Owner: Shun
 export const REPORT_CONSENT_STORAGE_KEY = "smartcart.report-consent.v1";
 
 export type ReportConsentStatus = "accepted" | "declined";
 
+// Version 2 covers the insight reports' wider upload (baseline trips, store names,
+// unit prices, unbought items, travel estimates). Version 1 choices were made
+// under the narrower disclosure, so they read as undecided and are asked again.
+export const REPORT_CONSENT_VERSION = 2 as const;
+
 export interface ReportConsentV1 {
-  version: 1;
+  version: typeof REPORT_CONSENT_VERSION;
   status: ReportConsentStatus;
   decidedAt: string;
 }
@@ -23,6 +29,10 @@ function isIsoInstant(value: unknown): value is string {
   return typeof value === "string" && ISO_INSTANT.test(value) && Number.isFinite(Date.parse(value));
 }
 
+/**
+ * Parse a stored consent record; anything other than an exact version-2 record is treated as
+ * undecided.
+ */
 export function parseReportConsent(serialized: string | null | undefined): ReportConsentV1 | null {
   if (typeof serialized !== "string") return null;
   try {
@@ -30,10 +40,10 @@ export function parseReportConsent(serialized: string | null | undefined): Repor
     if (!value || typeof value !== "object" || Array.isArray(value)) return null;
     const record = value as Record<string, unknown>;
     if (Object.keys(record).sort().join(",") !== "decidedAt,status,version"
-      || record.version !== 1
+      || record.version !== REPORT_CONSENT_VERSION
       || (record.status !== "accepted" && record.status !== "declined")
       || !isIsoInstant(record.decidedAt)) return null;
-    return { version: 1, status: record.status, decidedAt: record.decidedAt };
+    return { version: REPORT_CONSENT_VERSION, status: record.status, decidedAt: record.decidedAt };
   } catch {
     return null;
   }
@@ -44,6 +54,7 @@ export function serializeReportConsent(record: ReportConsentV1): string {
   return JSON.stringify(record);
 }
 
+/** Current consent state from device storage, with the reason when undecided. */
 export function readReportConsent(storage: Pick<ConsentStorage, "getItem">): ReportConsentRead {
   try {
     const serialized = storage.getItem(REPORT_CONSENT_STORAGE_KEY);
@@ -63,7 +74,7 @@ export function writeReportConsent(
   status: ReportConsentStatus,
   decidedAt = new Date().toISOString(),
 ): ReportConsentV1 | null {
-  const record: ReportConsentV1 = { version: 1, status, decidedAt };
+  const record: ReportConsentV1 = { version: REPORT_CONSENT_VERSION, status, decidedAt };
   const serialized = serializeReportConsent(record);
   try {
     storage.setItem(REPORT_CONSENT_STORAGE_KEY, serialized);

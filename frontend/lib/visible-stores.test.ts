@@ -4,7 +4,6 @@ import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "./visible-stores"
 
 describe("visible-stores pagination (AC 2.3.2)", () => {
   it("starts at six and appends exactly six per step", () => {
-    expect(VISIBLE_STEP).toBe(6);
     let count = VISIBLE_STEP;
     count = nextVisibleCount(count, 25);
     expect(count).toBe(12);

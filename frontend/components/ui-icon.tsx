@@ -1,7 +1,12 @@
+// Owner: Shun
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  check: "m5 12 4 4L19 6",
+  calendar: "M4 5h16v16H4V5ZM8 2v6M16 2v6M4 10h16M8 14h2M14 14h2",
   close: "M6 6l12 12M6 18 18 6",
+  lightbulb: "M9 18h6M9 21h6M8 14a6 6 0 1 1 8 0c-1 1-1 2-1 4H9c0-2 0-3-1-4Z",
+  priceTrends: "M4 3v17h17M7 14l4-4 4 3 6-8M17 5h4v4",
   plus: "M12 5v14M5 12h14",
   home: "m3 10 9-7 9 7M5 9v12h5v-7h4v7h5V9",
   checklist: "M9 4H5v17h14V4h-4M9 3h6v4H9zM8 12l2 2 5-5M8 18h7",
@@ -9,6 +14,9 @@ const paths: Record<string, string> = {
   reports: "M4 21V11h4v10M10 21V7h4v14M16 21V3h4v18",
   basket: "M2 3h2l2.2 11h12.2l2-8H5M8 17h9M9 20h.01M16 20h.01",
   chevronDown: "M4 9l8 6 8-6",
+  chevronLeft: "M15 4l-7 8 7 8",
+  chevronRight: "M9 4l7 8-7 8",
+  sparkle: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 16l.7 1.8 1.8.7-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7L19 16Z",
   wallet: "M3 6h16a2 2 0 0 1 2 2v13H5a3 3 0 0 1-3-3V6Zm0 0V4h14a2 2 0 0 1 2 2m-3 7h.01",
   bag: "M5 7h14l1 14H4L5 7ZM9 8V5a3 3 0 0 1 6 0v3",
   savings: "M20 3C8 2 2 7 6 15c8 4 13-2 14-12ZM4 21 16 9",
@@ -20,8 +28,16 @@ const paths: Record<string, string> = {
 
 /** Small shared line icons; decorative by default because controls carry labels. */
 export function UIIcon({ name, size = 22, style }: { name: string; size?: number; style?: CSSProperties }) {
+  if (name === "trash") return <TrashIcon size={size} style={style}/>;
   return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={style}>
     <path d={paths[name] ?? paths.document}/>
+  </svg>;
+}
+
+/** Shared delete icon, matching the shopping checklist. */
+export function TrashIcon({ size = 20, className, style }: { size?: number; className?: string; style?: CSSProperties }) {
+  return <svg aria-hidden="true" width={size} height={size} viewBox="0 0 20 20" fill="none" className={className} style={style}>
+    <path d="M4.5 6.5h11M8 3.5h4l1 3H7l1-3ZM6 6.5l.7 10h6.6l.7-10M8.5 9v4.5M11.5 9v4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>;
 }
 

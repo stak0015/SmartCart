@@ -1,4 +1,7 @@
-"""Create a recurring-chain catalog from the local SARA merchant snapshot."""
+"""Create a recurring-chain catalog from the local SARA merchant snapshot.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

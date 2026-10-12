@@ -1,4 +1,7 @@
-"""Create small, versioned WebP copies of the collected retailer logos."""
+"""Create small, versioned WebP copies of the collected retailer logos.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

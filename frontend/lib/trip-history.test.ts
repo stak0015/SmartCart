@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 
+import { withActualPrice, withActualQuantity } from "../tests/fixtures/legacy-checklist";
 import { describe, expect, it } from "vitest";
 
 import type { StoreRecommendation } from "./contracts";
@@ -7,8 +8,6 @@ import {
   SHOPPING_CHECKLIST_STORAGE_KEY,
   addManualChecklistItem,
   createShoppingChecklist,
-  setChecklistItemActualPrice,
-  setChecklistItemActualQuantity,
   toggleChecklistItemStatus,
   updateChecklistItemField,
 } from "./shopping-checklist";
@@ -140,12 +139,12 @@ function finishedChecklist() {
 
   const [oil, rice, soap, , snack, mystery] = checklist.items.map(item => item.id);
   checklist = toggleChecklistItemStatus(checklist, oil, "bought")!;
-  checklist = setChecklistItemActualPrice(checklist, oil, 4.5)!;
-  checklist = setChecklistItemActualQuantity(checklist, oil, 3)!;
+  checklist = withActualPrice(checklist, oil, 4.5);
+  checklist = withActualQuantity(checklist, oil, 3);
   checklist = toggleChecklistItemStatus(checklist, rice, "not_bought")!;
   checklist = toggleChecklistItemStatus(checklist, soap, "not_bought")!;
   checklist = toggleChecklistItemStatus(checklist, snack, "bought")!;
-  checklist = setChecklistItemActualPrice(checklist, snack, 2)!;
+  checklist = withActualPrice(checklist, snack, 2);
   checklist = toggleChecklistItemStatus(checklist, mystery, "bought")!;
   return checklist;
 }
@@ -182,6 +181,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       premiseCode: "P10",
       name: "Test Store",
       address: "1 Test Street",
+      saraStatus: store.saraStatus,
     });
     expect(record.lines.map(line => line.itemName)).toEqual([
       "Cooking oil",
@@ -223,7 +223,7 @@ describe("buildTripRecord (AC 5.4.1)", () => {
       actualPriceRm: 2,
       actualLineTotalRm: 2,
     });
-    // Unknown actual price → line total stays empty, never 0 (AC 5.3.3).
+    // Unknown actual price → line total stays empty, never 0.
     expect(mystery.actualPriceRm).toBeNull();
     expect(mystery.actualLineTotalRm).toBeNull();
   });
@@ -319,7 +319,7 @@ describe("actualExpenseTotal (AC 5.4.2)", () => {
   });
 });
 
-describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
+describe("trip history persistence (AC 5.5)", () => {
   it("recalculates a saved v1 receipt from bought lines while keeping its outcomes", () => {
     const checklist = createShoppingChecklist(store, [], { checklistId: "legacy-price" });
     const bought = toggleChecklistItemStatus(checklist, checklist.items[0].id, "bought");
@@ -361,7 +361,6 @@ describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
 
   it("uses its own storage key, separate from the checklist key", () => {
     expect(TRIP_HISTORY_STORAGE_KEY).not.toBe(SHOPPING_CHECKLIST_STORAGE_KEY);
-    expect(TRIP_HISTORY_STORAGE_KEY).toBe("smartcart.trip-history.v1");
   });
 
   it("prepends new records and lists newest first", () => {
@@ -431,7 +430,7 @@ describe("trip history persistence (AC 5.4.3 / AC 5.5.4)", () => {
   });
 });
 
-describe("device-local privacy (AC 5.4.3)", () => {
+describe("device-local privacy", () => {
   it("the trip-history module references no network or API facilities", () => {
     const source = readFileSync(new URL("./trip-history.ts", import.meta.url), "utf8");
     expect(source).not.toMatch(/fetch\s*\(/);

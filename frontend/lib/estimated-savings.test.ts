@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { StoreRecommendation } from "./contracts";
-import { calculateEstimatedSavings, isEstimatedSavingsSnapshot } from "./estimated-savings";
+import { calculateEstimatedSavings, calculatePlanEstimatedSavings, isEstimatedSavingsSnapshot } from "./estimated-savings";
+import { plan } from "../tests/fixtures/store-plan";
+import type { StorePlanOption } from "./multi-store";
 
 function store(
   premiseId: string,
@@ -53,6 +55,31 @@ function store(
 }
 
 describe("calculateEstimatedSavings", () => {
+  it("uses the same combined single/multi median for either selected plan", () => {
+    const selected = store("a", 50);
+    const split = { ...plan, combinedTotalRm: 40 };
+    const options: StorePlanOption[] = [
+      { kind: "store", store: selected }, { kind: "store", store: store("b", 80) },
+      { kind: "plan", plan: split },
+    ];
+    const single = calculateEstimatedSavings(selected, [selected], 46, 46, "google", options);
+    const multi = calculatePlanEstimatedSavings(split, options, "google");
+    expect(single.medianCombinedCostRm).toBe(50);
+    expect(multi.medianCombinedCostRm).toBe(50);
+    expect(single.netSavingRm).toBe(0);
+    expect(multi.netSavingRm).toBe(10);
+    expect(multi.comparableStoreCount).toBe(3);
+  });
+
+  it("averages the middle two plan costs and excludes incompatible baskets", () => {
+    const selected = store("a", 50);
+    const options: StorePlanOption[] = [
+      { kind: "store", store: selected }, { kind: "plan", plan: { ...plan, combinedTotalRm: 40 } },
+      { kind: "store", store: store("b", 10, ["1"]) },
+      { kind: "store", store: store("c", 5, ["1", "2"], { exceedsLimit: true }) },
+    ];
+    expect(calculateEstimatedSavings(selected, [selected], 46, 46, "google", options).medianCombinedCostRm).toBe(45);
+  });
   it("combines median store choice and item changes without double-counting", () => {
     const selected = store("a", 50);
     const result = calculateEstimatedSavings(

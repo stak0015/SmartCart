@@ -1,13 +1,10 @@
-from contextlib import contextmanager
 from datetime import date
 from decimal import Decimal
 
 from smartcart.categories import category_for_raw
 from smartcart.models import BasketLineRequest, StoreRecommendation
 from smartcart.pricing import (
-    PRICE_FRESHNESS_THRESHOLD_DAYS,
     StoreBasketSummary,
-    get_basket_prices_for_premises,
     summarize_basket_prices,
 )
 from smartcart.recommendation import apply_basket_pricing
@@ -182,20 +179,6 @@ def test_days_ago_uses_oldest_priced_basket_line() -> None:
     assert summary.price_observed_days_ago == 241
 
 
-def test_days_ago_threshold_boundary() -> None:
-    assert PRICE_FRESHNESS_THRESHOLD_DAYS == 7
-    for observed, expected in (
-        (date(2026, 8, 23), 7),  # exactly at the threshold: no warning
-        (date(2026, 8, 22), 8),  # one day past it: warning shows
-    ):
-        rows = [(1, 10, 1, "Beras", "5kg", Decimal("5.00"), None, "BERAS", observed)]
-        summary = summarize_basket_prices(rows, today=TODAY)["1"]
-        assert summary.price_observed_days_ago == expected
-        assert (summary.price_observed_days_ago > PRICE_FRESHNESS_THRESHOLD_DAYS) is (
-            expected > 7
-        )
-
-
 def test_incomplete_store_still_reports_price_age() -> None:
     rows = [
         (1, 10, 1, "Beras", "5kg", Decimal("5.00"), None, "BERAS", STALE),
@@ -206,71 +189,29 @@ def test_incomplete_store_still_reports_price_age() -> None:
     assert summary.price_observed_days_ago == 241
 
 
-def test_stores_sort_by_coverage_then_combined_cost() -> None:
-    recommendations = [
-        store("1", cost=1.0),
-        store("2", cost=0.5),
-        store("3", cost=0.2),
-    ]
+def test_stores_sort_by_combined_cost_regardless_of_coverage() -> None:
+    recommendations = [store("1", cost=1.0), store("2", cost=0.5), store("3", cost=0.2)]
     pricing = {
-        # subtotal 10.0 + transport 1.0 = combined 11.0
-        "1": StoreBasketSummary(
-            subtotal_rm=10.0, priced_count=2, basket_line_count=2,
-            sara_credit_rm=4.0, cash_needed_rm=6.0, price_observed_days_ago=3,
-        ),
-        "2": StoreBasketSummary(
-            subtotal_rm=4.0, priced_count=1, basket_line_count=2,
-            missing_items=["Beras"],
-        ),
-        # subtotal 10.5 + transport 0.2 = combined 10.7 beats store 1
-        "3": StoreBasketSummary(
-            subtotal_rm=10.5, priced_count=2, basket_line_count=2,
-            sara_credit_rm=0.0, cash_needed_rm=10.5, price_observed_days_ago=30,
-        ),
+        "1": StoreBasketSummary(subtotal_rm=10.0, priced_count=2, basket_line_count=2),
+        "2": StoreBasketSummary(subtotal_rm=4.0, priced_count=1, basket_line_count=2, missing_items=["Beras"]),
+        "3": StoreBasketSummary(subtotal_rm=10.5, priced_count=2, basket_line_count=2),
     }
     ordered = apply_basket_pricing(recommendations, pricing)
-    assert [s.premise_id for s in ordered] == ["3", "1", "2"]
-    assert ordered[0].combined_total_rm == 10.7
-    assert ordered[1].combined_total_rm == 11.0
-    assert ordered[0].basket_subtotal_rm == 10.5
-    assert ordered[1].sara_credit_rm == 4.0
-    assert ordered[1].price_observed_days_ago == 3
-    # Partial stores keep their subtotal and coverage and participate in the
-    # combined-cost tie-break after stores with more priced lines.
-    assert ordered[2].basket_subtotal_rm == 4.0
-    assert ordered[2].combined_total_rm == 4.5
-    assert ordered[2].priced_count == 1
-    assert ordered[2].basket_line_count == 2
-    assert ordered[2].missing_items == ["Beras"]
+    assert [s.premise_id for s in ordered] == ["2", "3", "1"]
+    assert [s.combined_total_rm for s in ordered] == [4.5, 10.7, 11.0]
+    assert ordered[0].missing_items == ["Beras"]
 
 
-def test_ranking_prioritizes_exact_store_coverage_before_median_coverage() -> None:
-    recommendations = [store("1", cost=0.1), store("2", cost=0.1)]
+def test_cheaper_median_estimates_rank_before_more_observed_prices() -> None:
     pricing = {
-        # Both stores cover two effective lines; exact store coverage wins.
-        "1": StoreBasketSummary(
-            subtotal_rm=4.0,
-            priced_count=2,
-            basket_line_count=2,
-            store_price_count=1,
-            median_price_count=1,
-        ),
-        "2": StoreBasketSummary(
-            subtotal_rm=3.0,
-            priced_count=2,
-            basket_line_count=2,
-            store_price_count=2,
-            median_price_count=0,
-        ),
+        "1": StoreBasketSummary(subtotal_rm=2.0, priced_count=2, basket_line_count=2,
+                               store_price_count=1, median_price_count=1),
+        "2": StoreBasketSummary(subtotal_rm=3.0, priced_count=2, basket_line_count=2,
+                               store_price_count=2, median_price_count=0),
     }
-
-    ordered = apply_basket_pricing(recommendations, pricing)
-
-    assert [entry.premise_id for entry in ordered] == ["2", "1"]
-    assert ordered[0].store_price_count == 2
-    assert ordered[0].median_price_count == 0
-    assert ordered[1].store_price_count == 1
-    assert ordered[1].median_price_count == 1
+    ordered = apply_basket_pricing([store("1", cost=0.1), store("2", cost=0.1)], pricing)
+    assert [entry.premise_id for entry in ordered] == ["1", "2"]
+    assert ordered[0].median_price_count == 1
 
 
 def test_combined_ranking_tie_breaks_by_time_distance_name_id() -> None:
@@ -349,102 +290,6 @@ class FakeCursor:
         ]
 
 
-def test_e2_item_price_adapter_preserves_priced_and_missing_lines(monkeypatch) -> None:
-    cursor = FakeCursor()
-
-    @contextmanager
-    def fake_database_cursor():
-        yield cursor
-
-    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
-    result = get_basket_prices_for_premises(
-        premise_ids=["1"],
-        basket=[
-            BasketLineRequest(item_id=10, quantity=2),
-            BasketLineRequest(item_id=11, quantity=1),
-        ],
-    )
-
-    assert cursor.parameters == ([10, 11], [2, 1], [1])
-    assert result["1"][0].unit_price_rm == 3.25
-    assert result["1"][0].line_total_rm == 6.5
-    assert result["1"][0].price_observed_date == date(2026, 8, 20)
-    assert result["1"][1].unit_price_rm is None
-    assert result["1"][1].line_total_rm is None
-
-
-def test_e2_item_price_adapter_uses_median_without_store_observation(monkeypatch) -> None:
-    class MedianCursor:
-        def __init__(self) -> None:
-            self.parameters = None
-
-        def execute(self, _query, parameters) -> None:
-            self.parameters = parameters
-
-        def fetchall(self):
-            return [
-                (
-                    1,
-                    10,
-                    "Item with median",
-                    "Item EN",
-                    "1kg",
-                    2,
-                    None,
-                    Decimal("3.25"),
-                    None,
-                )
-            ]
-
-    cursor = MedianCursor()
-
-    @contextmanager
-    def fake_database_cursor():
-        yield cursor
-
-    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
-    result = get_basket_prices_for_premises(
-        premise_ids=["1"],
-        basket=[BasketLineRequest(item_id=10, quantity=2)],
-    )
-
-    assert result["1"][0].unit_price_rm == 3.25
-    assert result["1"][0].line_total_rm == 6.5
-    assert result["1"][0].price_source == "median"
-    assert result["1"][0].price_observed_date is None
-
-
-def test_current_item_price_query_carries_broad_category(monkeypatch) -> None:
-    class CurrentCursor:
-        def execute(self, query, _parameters) -> None:
-            assert "item.item_category" in query
-
-        def fetchall(self):
-            return [(
-                1, 10, "Stationery", "Stationery EN", "1 pack", 2,
-                Decimal("4.00"), None, FRESH, "ALAT TULIS DAN BAHAN BACAAN",
-                "Stationery", "Alat Tulis",
-            )]
-
-    cursor = CurrentCursor()
-
-    @contextmanager
-    def fake_database_cursor():
-        yield cursor
-
-    monkeypatch.setattr("smartcart.pricing.database_cursor", fake_database_cursor)
-    prices = get_basket_prices_for_premises(
-        premise_ids=["1"], basket=[BasketLineRequest(item_id=10, quantity=2)],
-    )
-
-    assert prices["1"][0].category == category_for_raw("ALAT TULIS DAN BAHAN BACAAN")
-    assert prices["1"][0].source_category.model_dump(by_alias=True) == {
-        "id": "ALAT TULIS DAN BAHAN BACAAN",
-        "labelEn": "Stationery",
-        "labelMs": "Alat Tulis",
-    }
-
-
 def test_category_propagates_without_changing_raw_sara_candidacy() -> None:
     raw_category = "ALAT TULIS DAN BAHAN BACAAN"
     summary = summarize_basket_prices([(
@@ -471,8 +316,8 @@ def test_category_propagates_without_changing_raw_sara_candidacy() -> None:
     assert wire["basketLines"][0]["sourceCategory"] == expected_source
 
 
-def test_unified_ranking_prioritizes_coverage_then_all_tie_breakers() -> None:
-    # All stores are partial; low prices cannot outrank better coverage.
+def test_unified_ranking_prioritizes_cost_then_all_tie_breakers() -> None:
+    # Coverage does not override cost; unknown totals stay last.
     entries = [
         ("9", 1, 1.0, 1, 0.1, "Cheap"),
         ("8", 2, 12.0, 1, 0.1, "Costlier"),
@@ -495,6 +340,6 @@ def test_unified_ranking_prioritizes_coverage_then_all_tie_breakers() -> None:
             subtotal_rm=subtotal, priced_count=coverage, basket_line_count=3
         )
     ranked = apply_basket_pricing(stores, pricing)
-    assert [entry.premise_id for entry in ranked] == ["3", "4", "5", "6", "7", "8", "9", "2"]
+    assert [entry.premise_id for entry in ranked] == ["9", "3", "4", "5", "6", "7", "8", "2"]
     assert ranked[-1].combined_total_rm is None
     assert ranked[-1].basket_subtotal_rm is None

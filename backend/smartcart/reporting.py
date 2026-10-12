@@ -1,4 +1,7 @@
-"""Stateless deterministic report assembly and the async narrator seam."""
+"""Stateless deterministic report assembly and the async narrator seam.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 
@@ -11,16 +14,23 @@ from typing import Mapping, Protocol
 
 from fastapi import Request
 
-from .categories import CATEGORIES_BY_ID
 from .period_analytics import period_analytics
+from .report_insights import (
+    Finding,
+    baseline_start,
+    build_findings,
+    default_headline,
+    render,
+)
 from .report_models import (
     GenerateReportRequest,
     GeneratedReport,
     ReportCategorySpending,
     ReportComparisonSnapshot,
+    ReportInsight,
+    ReportInsightEvidence,
     ReportNewsletter,
     ReportSpecificCategorySpending,
-    ReportSection,
     ReportSpendingClassAmount,
     format_report_instant,
     parse_report_instant,
@@ -28,12 +38,6 @@ from .report_models import (
 
 
 SPENDING_CLASS_ORDER = ("essential", "discretionary", "mixed_or_unknown")
-SECTION_BINDINGS = (
-    ("overview", "overview-kpis"),
-    ("categories", "category-pie"),
-    ("savings", "savings-breakdown"),
-    ("essentials", "spending-class-bar"),
-)
 
 report_request_id: ContextVar[str | None] = ContextVar(
     "report_request_id", default=None
@@ -67,63 +71,34 @@ def utc_now() -> datetime:
 
 
 class FallbackReportNarrator:
-    """Localized, fact-grounded copy for periods without accepted LLM prose."""
-
-    _COPY = {
-        "en": {
-            "overview": (
-                "Spending overview",
-                "Confirmed spending includes bought items with known line totals.",
-            ),
-            "categories": (
-                "Category spending",
-                "Priced bought items are grouped by their broad shopping category.",
-            ),
-            "savings": (
-                "Estimated savings",
-                "Savings figures are estimates based on saved comparison snapshots.",
-            ),
-            "essentials": (
-                "Spending classes",
-                "Items are grouped using SmartCart’s broad category classifications.",
-            ),
-        },
-        "ms": {
-            "overview": (
-                "Ringkasan perbelanjaan",
-                "Perbelanjaan disahkan merangkumi item dibeli yang mempunyai jumlah baris.",
-            ),
-            "categories": (
-                "Perbelanjaan mengikut kategori",
-                "Item dibeli yang berharga dikumpulkan mengikut kategori umum membeli-belah.",
-            ),
-            "savings": (
-                "Anggaran penjimatan",
-                "Angka penjimatan ialah anggaran berdasarkan rekod perbandingan tersimpan.",
-            ),
-            "essentials": (
-                "Kelas perbelanjaan",
-                "Item dikumpulkan menggunakan pengelasan kategori umum SmartCart.",
-            ),
-        },
-    }
+    """Deterministic copy: each finding's own localized template, unchanged."""
 
     async def narrate(
         self, facts: Mapping[str, object]
     ) -> Mapping[str, object]:
-        locale = facts.get("locale")
-        language = locale if locale in self._COPY else "en"
-        result: dict[str, object] = {
-            key: {"heading": pair[0], "observation": pair[1]}
-            for key, pair in self._COPY[language].items()
+        findings = facts.get("findings")
+        rows = findings if isinstance(findings, list) else []
+        return {
+            "insights": [
+                {
+                    "id": row["id"],
+                    "title": row["fallback"]["title"],
+                    "body": row["fallback"]["body"],
+                    "action": row["fallback"]["action"],
+                }
+                for row in rows
+                if isinstance(row, Mapping)
+            ],
         }
-        result["newsletter"] = _fallback_newsletter(facts, language)
-        return result
 
 
 def _validate_range_and_trips(
     payload: GenerateReportRequest, now: datetime
 ) -> tuple[datetime, datetime]:
+    """Accept only the current or previous period for the cadence, and only trips between
+    the baseline start and the period end that are not in the future. Anything else is
+    rejected without detail.
+    """
     current_period = period_analytics([], payload.cadence, now)
     submitted_start = parse_report_instant(payload.period_start)
     submitted_end = parse_report_instant(payload.period_end)
@@ -144,13 +119,10 @@ def _validate_range_and_trips(
 
     expected_start = parse_report_instant(expected_report["periodStart"])
     expected_end = parse_report_instant(expected_report["periodEnd"])
-    comparison_period = period_analytics(
-        [], payload.cadence, expected_report["periodStart"]
-    )["previous"]
-    comparison_start = parse_report_instant(comparison_period["periodStart"])
+    history_start = baseline_start(payload.cadence, expected_start)
     for trip in payload.trips:
         recorded_at = parse_report_instant(trip.recorded_at)
-        if not comparison_start <= recorded_at < expected_end or recorded_at > now:
+        if not history_start <= recorded_at < expected_end or recorded_at > now:
             raise ReportRequestRejected()
     return expected_start, expected_end
 
@@ -170,7 +142,7 @@ def _adapt_trips(payload: GenerateReportRequest) -> list[dict[str, object]]:
                         "category": {"id": line.category_id}
                         if line.category_id is not None
                         else None,
-                        # G3's line calculator consumes unit price × actual
+                        # The period-analytics line calculator consumes unit price × actual
                         # quantity. The request's total is already authoritative,
                         # so adapt it as a single known total while retaining the
                         # submitted quantity snapshot in `quantity`.
@@ -252,163 +224,6 @@ def _specific_category_spending(
     return values
 
 
-def _broad_category_label(row: Mapping[str, object] | None, locale: str) -> str | None:
-    if row is None:
-        return None
-    category_id = row.get("categoryId")
-    if category_id == "uncategorised":
-        return "Tidak berkategori" if locale == "ms" else "Uncategorised"
-    category = CATEGORIES_BY_ID.get(category_id) if isinstance(category_id, str) else None
-    if category is None:
-        return None
-    return category.label_ms if locale == "ms" else category.label_en
-
-
-def _fallback_newsletter(
-    facts: Mapping[str, object], locale: str
-) -> dict[str, object]:
-    """Describe recorded behaviour when the provider cannot supply prose."""
-    categories = facts.get("categorySpending")
-    rows = categories if isinstance(categories, list) else []
-    leading = rows[0] if rows and isinstance(rows[0], Mapping) else None
-    runner_up = rows[1] if len(rows) > 1 and isinstance(rows[1], Mapping) else None
-    leading_label = _broad_category_label(leading, locale)
-    runner_up_label = _broad_category_label(runner_up, locale)
-    has_activity = bool(facts.get("tripCount"))
-    has_missing_prices = bool(facts.get("spendingIncomplete"))
-    comparison = facts.get("comparison")
-    previous = comparison if isinstance(comparison, Mapping) else None
-    current_amount = facts.get("actualSpendingRm")
-    previous_amount = previous.get("actualSpendingRm") if previous else None
-    savings = facts.get("estimatedNetSavingsRm")
-    savings_incomplete = bool(facts.get("savingsIncomplete"))
-
-    if locale == "ms":
-        if not has_activity:
-            return {
-                "subject": "Nota membeli-belah anda",
-                "preview": "Tiada perjalanan direkodkan dalam tempoh ini.",
-                "opening": "Tiada perjalanan membeli-belah direkodkan dalam tempoh ini. Oleh itu, tiada corak perbelanjaan atau anggaran penjimatan yang boleh dihuraikan dengan yakin.",
-                "insights": [],
-                "tip": None,
-            }
-        opening = (
-            f"Perbelanjaan disahkan anda paling tertumpu pada {leading_label}. "
-            "Huraian ini berdasarkan item dibeli yang mempunyai harga tersimpan."
-            if isinstance(leading_label, str)
-            else "Perjalanan anda direkodkan, tetapi belum ada jumlah kategori berharga untuk menunjukkan tumpuan perbelanjaan."
-        )
-        insights: list[dict[str, str]] = []
-        if isinstance(leading_label, str):
-            next_category = (
-                f" {runner_up_label} ialah kategori seterusnya mengikut jumlah yang disahkan."
-                if isinstance(runner_up_label, str) else ""
-            )
-            price_limit = (
-                " Item tanpa harga tidak termasuk dalam jumlah ini, jadi bahagian sebenar mungkin berbeza."
-                if has_missing_prices else ""
-            )
-            insights.append({
-                "heading": "Tumpuan perbelanjaan",
-                "body": f"{leading_label} mencatat jumlah tertinggi antara kategori dalam rekod anda.{next_category}{price_limit} Pecahan kategori dalam laporan ini menunjukkan jumlah yang disahkan bagi setiap kumpulan.",
-            })
-        if isinstance(current_amount, (int, float)) and isinstance(previous_amount, (int, float)):
-            direction = (
-                "lebih tinggi" if current_amount > previous_amount
-                else "lebih rendah" if current_amount < previous_amount
-                else "sama"
-            )
-            insights.append({
-                "heading": "Perubahan dari tempoh sebelumnya",
-                "body": f"Perbelanjaan disahkan adalah {direction} berbanding tempoh setara sebelumnya. Perubahan ini menggambarkan jumlah yang direkodkan sahaja; rekod tidak menunjukkan sebab anda membeli lebih atau kurang.",
-            })
-        if isinstance(savings, (int, float)):
-            result = (
-                "penjimatan bersih yang positif" if savings > 0
-                else "anggaran penjimatan bersih yang negatif" if savings < 0
-                else "anggaran penjimatan bersih yang seimbang"
-            )
-            limit = " Sebahagian nilai perjalanan tidak lengkap." if savings_incomplete else ""
-            insights.append({
-                "heading": "Hasil perbandingan tersimpan",
-                "body": f"Perbandingan yang anda simpan menunjukkan {result}. Ini ialah anggaran berdasarkan pilihan kedai dan perubahan item, berasingan daripada perbelanjaan disahkan.{limit}",
-            })
-        tip = (
-            f"Oleh sebab {leading_label} mempunyai jumlah disahkan tertinggi, membandingkan harga item dalam kategori ini mungkin paling berguna untuk perjalanan seterusnya."
-            if isinstance(leading_label, str) and leading and leading.get("categoryId") != "uncategorised"
-            else None
-        )
-        return {
-            "subject": "Nota membeli-belah mingguan anda" if facts.get("cadence") == "weekly" else "Nota membeli-belah bulanan anda",
-            "preview": "Corak pembelian dan perbelanjaan yang direkodkan.",
-            "opening": opening,
-            "insights": insights[:3],
-            "tip": tip,
-        }
-
-    if not has_activity:
-        return {
-            "subject": "Your shopping note",
-            "preview": "No trips were recorded for this period.",
-            "opening": "No shopping trips were recorded this period, so there is no spending pattern or savings estimate to describe with confidence.",
-            "insights": [],
-            "tip": None,
-        }
-    opening = (
-        f"Your confirmed spending was concentrated most in {leading_label}. "
-        "That view comes from bought items with saved prices."
-        if isinstance(leading_label, str)
-        else "Your trips were recorded, but there are no priced category totals to show where spending was concentrated."
-    )
-    insights = []
-    if isinstance(leading_label, str):
-        next_category = (
-            f" {runner_up_label} followed by confirmed amount."
-            if isinstance(runner_up_label, str) else ""
-        )
-        price_limit = (
-            " Unpriced bought items are outside these totals, so the full mix may differ."
-            if has_missing_prices else ""
-        )
-        insights.append({
-            "heading": "Where spending concentrated",
-            "body": f"{leading_label} had the largest confirmed total among your recorded categories.{next_category}{price_limit} The category breakdown in this report shows the confirmed amount for each group.",
-        })
-    if isinstance(current_amount, (int, float)) and isinstance(previous_amount, (int, float)):
-        direction = (
-            "higher" if current_amount > previous_amount
-            else "lower" if current_amount < previous_amount
-            else "the same"
-        )
-        insights.append({
-            "heading": "Change from the previous period",
-            "body": f"Confirmed spending was {direction} than in the previous equivalent period. This describes the recorded amounts; the trips do not establish why your shopping changed.",
-        })
-    if isinstance(savings, (int, float)):
-        result = (
-            "positive estimated net savings" if savings > 0
-            else "negative estimated net savings" if savings < 0
-            else "an estimated net result of zero"
-        )
-        limit = " Some trip estimates are incomplete." if savings_incomplete else ""
-        insights.append({
-            "heading": "What the saved comparisons suggest",
-            "body": f"Your saved comparisons point to {result}. These are estimates connected to store choice and item changes, separate from confirmed spending.{limit}",
-        })
-    tip = (
-        f"Because {leading_label} had your largest confirmed category total, comparing prices for those items may have the most impact on your next trip."
-        if isinstance(leading_label, str) and leading and leading.get("categoryId") != "uncategorised"
-        else None
-    )
-    return {
-        "subject": "Your weekly shopping note" if facts.get("cadence") == "weekly" else "Your monthly shopping note",
-        "preview": "The shopping and spending patterns in your records.",
-        "opening": opening,
-        "insights": insights[:3],
-        "tip": tip,
-    }
-
-
 def _class_breakdown(
     metrics: Mapping[str, object],
 ) -> list[ReportSpendingClassAmount]:
@@ -437,6 +252,9 @@ def _disclosures(
     locale: str,
     metrics: Mapping[str, object],
 ) -> list[str]:
+    """Localised notes attached to a report when spending excludes unpriced lines or
+    savings are incomplete or unavailable.
+    """
     disclosures: list[str] = []
     missing_prices = int(metrics["missingPriceCount"])
     savings = metrics["savings"]  # type: ignore[index]
@@ -496,202 +314,130 @@ def _comparison_snapshot(
     )
 
 
+def _finding_facts(finding: Finding, locale: str) -> dict[str, object]:
+    copy = finding.copy[locale]
+    return {
+        "id": finding.id,
+        "kind": finding.kind,
+        "direction": finding.direction,
+        "estimate": finding.estimate,
+        "values": dict(finding.values),
+        "fallback": {"title": copy.title, "body": copy.body, "action": copy.action},
+    }
+
+
 def _narrative_facts(
     payload: GenerateReportRequest,
     current: Mapping[str, object],
-    comparison: ReportComparisonSnapshot | None,
-    disclosures: list[str],
-    specific_category_spending: list[ReportSpecificCategorySpending],
+    findings: list[Finding],
+    default_headline_text: str,
+    in_progress: bool,
 ) -> dict[str, object]:
-    """Return copied deterministic facts and current-period bought snapshots."""
-    current_start = parse_report_instant(current["periodStart"])
-    current_end = parse_report_instant(current["periodEnd"])
-    bought_items: list[dict[str, object]] = []
-    for trip in payload.trips:
-        recorded_at = parse_report_instant(trip.recorded_at)
-        if not current_start <= recorded_at < current_end:
-            continue
-        for line in trip.bought_lines:
-            bought_items.append(
-                {
-                    "name": line.name,
-                    "categoryId": line.category_id,
-                    "sourceCategory": line.source_category.model_dump(by_alias=True)
-                    if line.source_category is not None
-                    else None,
-                    "quantity": line.quantity,
-                    "lineTotalRm": line.line_total_rm,
-                    "missingPrice": line.line_total_rm is None,
-                }
-            )
+    """Findings and headline totals: the complete source of facts for prose."""
     return deepcopy(
         {
             "locale": payload.locale,
             "cadence": payload.cadence,
             "periodStart": current["periodStart"],
             "periodEnd": current["periodEnd"],
+            "periodInProgress": in_progress,
             "tripCount": current["tripCount"],
-            "boughtItems": bought_items,
-            "actualSpendingRm": current["actualSpendingRm"],
-            "spendingIncomplete": current["spendingIncomplete"],
-            "estimatedNetSavingsRm": _savings_amount(current, "netSaving"),
-            "storeChoiceImpactRm": _savings_amount(current, "storeChoiceImpact"),
-            "itemChangeImpactRm": _savings_amount(current, "itemChangeImpact"),
-            "savingsIncomplete": _savings_incomplete(current),
-            "categorySpending": [
-                item.model_dump(by_alias=True)
-                for item in _category_spending(current)
-            ],
-            "specificCategorySpending": [
-                item.model_dump(by_alias=True)
-                for item in specific_category_spending
-            ],
-            "spendingClassBreakdown": [
-                item.model_dump(by_alias=True)
-                for item in _class_breakdown(current)
-            ],
-            "comparison": comparison.model_dump(by_alias=True)
-            if comparison is not None
-            else None,
-            "disclosures": list(disclosures),
+            "findings": [_finding_facts(finding, payload.locale) for finding in findings],
+            "defaultHeadline": default_headline_text,
         }
     )
 
 
-def _narrative_sections(
-    pairs: Mapping[str, object],
-) -> tuple[ReportSection, ReportSection, ReportSection, ReportSection]:
-    expected_keys = {key for key, _ in SECTION_BINDINGS}
-    if set(pairs) != expected_keys | {"newsletter"}:
-        raise ValueError("invalid narrative keys")
-    sections: list[ReportSection] = []
-    for section_id, visualization in SECTION_BINDINGS:
-        pair = pairs[section_id]
-        if not isinstance(pair, Mapping) or set(pair) != {"heading", "observation"}:
-            raise ValueError("invalid narrative pair")
-        if not all(isinstance(pair[key], str) for key in ("heading", "observation")):
-            raise ValueError("invalid narrative prose")
-        sections.append(
-            ReportSection(
-                id=section_id,
-                heading=pair["heading"],
-                observation=pair["observation"],
-                visualization=visualization,
-            )
+_LEFTOVER_BRACES = re.compile(r"\{\{|\}\}")
+
+
+def _render_text(value: object, values: Mapping[str, str], limit: int) -> str | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        text = " ".join(render(value, values).split())
+    except KeyError:
+        return None
+    if _LEFTOVER_BRACES.search(text) or len(text) > limit:
+        return None
+    return text
+
+
+def _insight(
+    finding: Finding, candidate: Mapping[str, object] | None, locale: str
+) -> tuple[ReportInsight, bool]:
+    """Render the narrator's copy for one finding, or that finding's own copy."""
+    fallback = finding.copy[locale]
+    title = body = None
+    action: str | None = None
+    used_candidate = False
+    if candidate is not None:
+        title = _render_text(candidate.get("title"), finding.values, 90)
+        body = _render_text(candidate.get("body"), finding.values, 700)
+        raw_action = candidate.get("action")
+        action = None if raw_action is None else _render_text(raw_action, finding.values, 300)
+        used_candidate = (
+            title is not None
+            and body is not None
+            and (raw_action is None or action is not None)
         )
-    return tuple(sections)  # type: ignore[return-value]
-
-
-def _activity_summary(facts: Mapping[str, object], locale: str) -> str | None:
-    """Select recorded purchases for app-owned prose, including numbered product names."""
-    source_items = facts.get("boughtItems")
-    items = source_items if isinstance(source_items, list) else []
-    ranked = sorted(
-        (item for item in items if isinstance(item, Mapping)),
-        key=lambda item: (
-            item.get("lineTotalRm") is not None,
-            item.get("lineTotalRm") or 0,
-        ),
-        reverse=True,
+    if not used_candidate:
+        title = render(fallback.title, finding.values)
+        body = render(fallback.body, finding.values)
+        action = None if fallback.action is None else render(fallback.action, finding.values)
+    evidence = (
+        ReportInsightEvidence(
+            label=finding.evidence_label[locale], value=finding.evidence_value
+        )
+        if finding.evidence_label is not None and finding.evidence_value is not None
+        else None
     )
-    names: list[str] = []
-    seen: set[str] = set()
-    for item in ranked:
-        raw_name = item.get("name")
-        if not isinstance(raw_name, str):
-            continue
-        name = " ".join(raw_name.split()).strip()
-        if len(name) > 60:
-            name = name[:57].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
-        if not name or name.casefold() in seen:
-            continue
-        names.append(name)
-        seen.add(name.casefold())
-        if len(names) == 4:
-            break
-    if names:
-        connector = " dan " if locale == "ms" else " and "
-        joined = names[0] if len(names) == 1 else ", ".join(names[:-1]) + connector + names[-1]
-        return (
-            f"Antara item yang anda beli ialah {joined}."
-            if locale == "ms"
-            else f"Your recorded purchases included {joined}."
+    return ReportInsight(
+        kind=finding.kind,  # type: ignore[arg-type]
+        title=title,  # type: ignore[arg-type]
+        body=body,  # type: ignore[arg-type]
+        action=action,
+        evidence=evidence,
+    ), used_candidate
+
+
+def _newsletter(
+    narrated: Mapping[str, object],
+    findings: list[Finding],
+    payload: GenerateReportRequest,
+    default_headline_text: str,
+) -> tuple[ReportNewsletter, bool]:
+    """Merge narrator output finding by finding; one bad insight never sinks the rest."""
+    locale = payload.locale
+    raw_insights = narrated.get("insights")
+    candidates = {
+        item.get("id"): item
+        for item in (raw_insights if isinstance(raw_insights, list) else [])
+        if isinstance(item, Mapping)
+    }
+    insights: list[ReportInsight] = []
+    any_candidate = False
+    for finding in findings:
+        candidate = candidates.get(finding.id)
+        insight, used = _insight(
+            finding, candidate if isinstance(candidate, Mapping) else None, locale
         )
-    if facts.get("tripCount"):
-        return (
-            "Perjalanan direkodkan, tetapi tiada item dibeli yang disimpan."
-            if locale == "ms"
-            else "You recorded a shopping trip, but no bought items were saved."
-        )
-    return None
-
-
-def _tip_anchors(facts: Mapping[str, object], locale: str) -> tuple[str, ...]:
-    """A future suggestion must mention a real bought item or broad category."""
-    anchors: list[str] = []
-    categories = facts.get("categorySpending")
-    for row in categories if isinstance(categories, list) else []:
-        if not isinstance(row, Mapping) or row.get("categoryId") in {"uncategorised", "other"}:
-            continue
-        label = _broad_category_label(row, locale)
-        if isinstance(label, str) and len(label.strip()) >= 4:
-            anchors.append(label.strip().casefold())
-    source_items = facts.get("boughtItems")
-    for item in source_items if isinstance(source_items, list) else []:
-        if not isinstance(item, Mapping):
-            continue
-        name = item.get("name")
-        if isinstance(name, str) and len(name.strip()) >= 4:
-            anchors.append(name.strip().casefold())
-    return tuple(anchors)
-
-
-_GENERIC_TIP = re.compile(
-    r"\b(?:review (?:your|the) (?:usual )?(?:item )?list|"
-    r"keep (?:a |your )?(?:short )?note|make (?:a |your )?list|"
-    r"use (?:the )?app|semak senarai|catat(?:kan)?|nota ringkas|"
-    r"senarai semak|gunakan aplikasi)\b",
-    re.IGNORECASE,
-)
-
-
-def _narrative_newsletter(
-    pairs: Mapping[str, object], cadence: str, locale: str,
-    activity_summary: str | None, tip_anchors: tuple[str, ...],
-) -> ReportNewsletter:
-    value = pairs.get("newsletter")
-    if not isinstance(value, Mapping):
-        raise ValueError("invalid narrative newsletter")
-    newsletter = ReportNewsletter.model_validate(value)
+        insights.append(insight)
+        any_candidate = any_candidate or used
+    # The headline is always the application's own sentence: a single line that
+    # mixes several findings' figures is where narrated numbers got misattributed.
+    headline = default_headline_text
     subject = (
-        f"Your {cadence} shopping report"
+        f"Your {payload.cadence} shopping report"
         if locale == "en"
-        else f"Laporan membeli-belah {'mingguan' if cadence == 'weekly' else 'bulanan'} anda"
+        else f"Laporan membeli-belah {'mingguan' if payload.cadence == 'weekly' else 'bulanan'} anda"
     )
-    opening = newsletter.opening
-    if activity_summary:
-        allowed = 1200 - len(activity_summary) - 1
-        if len(opening) > allowed:
-            opening = opening[:allowed].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
-        opening = f"{activity_summary} {opening}"
-    source = activity_summary or (newsletter.insights[0].body if newsletter.insights else opening)
-    preview = re.split(r"(?<=[.!?])\s+", source, maxsplit=1)[0].strip()
+    preview = re.split(r"(?<=[.!?])\s+", headline, maxsplit=1)[0].strip()
     if len(preview) > 220:
-        clipped = preview[:217].rsplit(" ", 1)[0].rstrip(" ,;:")
-        preview = f"{clipped}…"
-    tip = newsletter.tip
-    if tip is not None and (
-        not any(anchor in tip.casefold() for anchor in tip_anchors)
-        or _GENERIC_TIP.search(tip)
-    ):
-        tip = None
+        preview = preview[:217].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
     return ReportNewsletter(
-        subject=subject,
-        preview=preview,
-        opening=opening,
-        insights=newsletter.insights,
-        tip=tip,
-    )
+        subject=subject, preview=preview, headline=headline, insights=insights
+    ), any_candidate
 
 
 async def generate_report(
@@ -719,29 +465,25 @@ async def generate_report(
         if previous["tripCount"] > 0
         else None
     )
-    facts = _narrative_facts(
-        payload, current, comparison, disclosures, specific_category_spending
+    findings, current_period, baseline = build_findings(payload, start, now_utc)
+    default_headline_text = default_headline(
+        findings, current_period, baseline, payload.cadence, payload.locale
     )
-    activity_summary = _activity_summary(facts, payload.locale)
-    tip_anchors = _tip_anchors(facts, payload.locale)
+    facts = _narrative_facts(
+        payload, current, findings, default_headline_text, now_utc < end
+    )
     try:
-        pairs = await narrator.narrate(facts)
-        sections = _narrative_sections(pairs)
-        newsletter = _narrative_newsletter(
-            pairs, payload.cadence, payload.locale, activity_summary, tip_anchors
+        narrated = await narrator.narrate(facts)
+        newsletter, used_llm = _newsletter(
+            narrated, findings, payload, default_headline_text
         )
-        candidate_source = getattr(pairs, "generation_source", "fallback")
+        claimed_source = getattr(narrated, "generation_source", "fallback")
         generation_source = (
-            candidate_source
-            if candidate_source in {"llm", "fallback"}
-            else "fallback"
+            "llm" if claimed_source == "llm" and used_llm else "fallback"
         )
     except Exception:
-        pairs = await FallbackReportNarrator().narrate(facts)
-        sections = _narrative_sections(pairs)
-        newsletter = _narrative_newsletter(
-            pairs, payload.cadence, payload.locale, activity_summary, tip_anchors
-        )
+        narrated = await FallbackReportNarrator().narrate(facts)
+        newsletter, _ = _newsletter(narrated, findings, payload, default_headline_text)
         generation_source = "fallback"
 
     return GeneratedReport(
@@ -762,7 +504,6 @@ async def generate_report(
         spending_class_breakdown=_class_breakdown(current),
         comparison=comparison,
         newsletter=newsletter,
-        sections=sections,
         disclosures=disclosures,
         generation_source=generation_source,
     )

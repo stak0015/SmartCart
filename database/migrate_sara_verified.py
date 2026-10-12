@@ -17,6 +17,8 @@ an existing verification.
 This script does not contact Google or MyKasih. It consumes the local raw
 snapshot at ``data/raw/google_place_candidates_sara_one_mykasih.json`` and the
 local PriceCatcher/Place enrichment snapshots.
+
+Owner: Shun
 """
 
 from __future__ import annotations

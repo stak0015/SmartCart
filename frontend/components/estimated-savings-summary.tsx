@@ -1,4 +1,5 @@
 "use client";
+// Owner: Shun
 
 import type { EstimatedSavingsSnapshot } from "@/lib/estimated-savings";
 import { formatRm } from "@/lib/format-rm";
@@ -7,26 +8,24 @@ import type { Locale } from "@/lib/i18n";
 const TEXT = {
   en: {
     title: "Estimated savings",
-    differenceTitle: "Estimated cost difference",
-    unavailable: "A like-for-like savings estimate is not available yet.",
-    less: (amount: string) => `You could spend an estimated ${amount} less than a typical recommended store.`,
-    above: (amount: string) => `This plan is ${amount} above the typical recommended-store cost.`,
-    same: "This plan costs about the same as a typical recommended store.",
+    unavailable: "A comparable median plan cost is not available yet.",
+    less: (amount: string) => `Estimated ${amount} savings vs the median plan, including travel.`,
+    above: (amount: string) => `Estimated ${amount} above the median plan, including travel.`,
+    same: "About the same cost as the median plan, including travel.",
     swapsOnly: (amount: string) => `Your applied item changes reduce this basket by ${amount}.`,
     swapsCostMore: (amount: string) => `Your applied item changes add ${amount} to this basket.`,
-    storeChoice: "Store choice",
+    storeChoice: "Plan choice",
     itemChanges: "Item changes",
   },
   ms: {
     title: "Anggaran penjimatan",
-    differenceTitle: "Anggaran perbezaan kos",
-    unavailable: "Anggaran penjimatan setara belum tersedia.",
-    less: (amount: string) => `Anda mungkin berbelanja ${amount} kurang berbanding kedai cadangan biasa.`,
-    above: (amount: string) => `Pelan ini ${amount} melebihi kos biasa kedai cadangan.`,
-    same: "Kos pelan ini hampir sama dengan kedai cadangan biasa.",
+    unavailable: "Kos median pelan setara belum tersedia.",
+    less: (amount: string) => `Anggaran penjimatan ${amount} berbanding median pelan, termasuk perjalanan.`,
+    above: (amount: string) => `Anggaran ${amount} melebihi median pelan, termasuk perjalanan.`,
+    same: "Kos hampir sama dengan median pelan, termasuk perjalanan.",
     swapsOnly: (amount: string) => `Perubahan item anda mengurangkan bakul ini sebanyak ${amount}.`,
     swapsCostMore: (amount: string) => `Perubahan item anda menambah ${amount} kepada bakul ini.`,
-    storeChoice: "Pilihan kedai",
+    storeChoice: "Pilihan pelan",
     itemChanges: "Perubahan item",
   },
 } as const;
@@ -47,7 +46,8 @@ export function EstimatedSavingsSummary({
   const net = snapshot.netSavingRm;
   const hasMedian = snapshot.medianCombinedCostRm != null && snapshot.comparableStoreCount >= 2;
   const itemImpact = snapshot.itemChangeImpactRm;
-  const title = net != null && net < 0 ? text.differenceTitle : text.title;
+  const title = text.title;
+  const showItemChanges = itemImpact != null && itemImpact > 0;
   const headline = net == null
     ? text.unavailable
     : hasMedian
@@ -65,33 +65,33 @@ export function EstimatedSavingsSummary({
   return (
     <section
       aria-labelledby="estimated-savings-title"
-      className="rounded-2xl border border-[#bddfce] bg-[#f0faf5] p-4 sm:p-5"
+      className="rounded-lg border border-[#dce5e0] bg-white p-4"
     >
-      <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h2 id="estimated-savings-title" className="mt-1 text-xl font-extrabold text-[#10231d]">{title}</h2>
+          <h2 id="estimated-savings-title" className="text-base font-bold text-[#10152e]">{title}</h2>
         </div>
         {net != null && net > 0 ? (
-          <p className="text-2xl font-extrabold text-[#087f5b]">{formatRm(net)}</p>
+          <p className="text-base font-bold text-[#007d38]">{formatRm(net)}</p>
         ) : null}
       </div>
 
-      <p className="mt-2 text-sm font-semibold leading-5 text-[#27483d]">{headline}</p>
+      <p className="mt-2 text-xs leading-5 text-[#526078]">{headline}</p>
 
-      {(snapshot.storeChoiceImpactRm != null || itemImpact != null) ? (
-        <dl className="mt-3 grid grid-cols-2 gap-2">
+      {(snapshot.storeChoiceImpactRm != null || showItemChanges) ? (
+        <dl className="mt-3 space-y-2 border-t border-[#dce5e0] pt-3">
           {snapshot.storeChoiceImpactRm != null ? (
-            <div className="rounded-xl border border-[#d5e9df] bg-white px-3 py-2">
-              <dt className="text-[11px] text-[#617069]">{text.storeChoice}</dt>
-              <dd className={`mt-0.5 text-sm font-extrabold ${snapshot.storeChoiceImpactRm >= 0 ? "text-[#087f5b]" : "text-[#9b3d00]"}`}>
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="text-xs text-[#526078]">{text.storeChoice}</dt>
+              <dd className={`whitespace-nowrap text-[13px] font-bold ${snapshot.storeChoiceImpactRm >= 0 ? "text-[#007d38]" : "text-[#9b3d00]"}`}>
                 {signedAmount(snapshot.storeChoiceImpactRm)}
               </dd>
             </div>
           ) : null}
-          {itemImpact != null ? (
-            <div className="rounded-xl border border-[#d5e9df] bg-white px-3 py-2">
-              <dt className="text-[11px] text-[#617069]">{text.itemChanges}</dt>
-              <dd className={`mt-0.5 text-sm font-extrabold ${itemImpact >= 0 ? "text-[#087f5b]" : "text-[#9b3d00]"}`}>
+          {showItemChanges ? (
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="text-xs text-[#526078]">{text.itemChanges}</dt>
+              <dd className={`whitespace-nowrap text-[13px] font-bold ${itemImpact >= 0 ? "text-[#007d38]" : "text-[#9b3d00]"}`}>
                 {signedAmount(itemImpact)}
               </dd>
             </div>

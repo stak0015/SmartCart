@@ -5,6 +5,8 @@ Its adjacent raw cache contains the selected Place-details coordinates that
 are intentionally omitted from the CSV. This repeatable migration performs no
 provider requests. It can target local PostgreSQL or Neon by passing the
 appropriate ``--database-url``.
+
+Owner: Shun
 """
 
 from __future__ import annotations

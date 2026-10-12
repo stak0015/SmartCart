@@ -9,12 +9,14 @@ Grouping uses a conservative family key for pack-size comparison and
 uses the category-scoped name similarity matcher in ``alternatives``.
 Quantities come from the ingest-time columns
 ``item.quantity_value`` / ``item.quantity_unit``
-(D3.2-A); rows without a parsed quantity are not comparable and silently stay
+; rows without a parsed quantity are not comparable and silently stay
 out of the comparison. KG and L families never mix.
 
-All money maths uses Decimal: comparisons, the best-value pick (batch 2) and
-the trade-off differences (batch 3) run on full precision, only display
+All money maths uses Decimal: comparisons, the best-value pick and
+the trade-off differences run on full precision, only display
 values are rounded to cents.
+
+Owners: Zhihao, Shun
 """
 
 from dataclasses import dataclass, replace
@@ -57,6 +59,13 @@ def _pack_comparison_family(item_name: str | None) -> str:
 
 @dataclass(frozen=True)
 class PackSizeOption:
+    """One pack size of a product family at the store with its price per kg or litre.
+    is_best_value and the trade-off differences are filled in by
+    get_pack_options_from_rows.
+
+    Owners: Zhihao, Shun
+    """
+
     item_id: str
     item_name: str | None
     package_size: str | None
@@ -71,7 +80,7 @@ class PackSizeOption:
     # never serialised (display uses the rounded price_per_unit_rm).
     _ratio: Decimal | None = None
     is_best_value: bool = False
-    # AC 3.2.3: trade-off versus the Best value option (null on that card).
+    # AC 3.2.5: trade-off versus the Best value option (null on that card).
     upfront_diff_rm: float | None = None
     per_unit_diff_rm: float | None = None
     # Full-precision pack price for the trade-off maths; never serialised.
@@ -84,6 +93,7 @@ class PackSizeOption:
 
 
 def _source_rows(item_ids: list[int]) -> list[tuple]:
+    """Name, unit and parsed quantity of each basket item."""
     with database_cursor() as cursor:
         cursor.execute(
             """
@@ -98,6 +108,10 @@ def _source_rows(item_ids: list[int]) -> list[tuple]:
 
 
 def _premise_pack_rows(premise_id: str) -> list[tuple]:
+    """Every item with a parsed quantity that has a store price at the premise.
+
+    Owners: Zhihao, Shun
+    """
     with database_cursor() as cursor:
         cursor.execute(
             """
@@ -127,6 +141,11 @@ def _premise_pack_rows(premise_id: str) -> list[tuple]:
 
 
 def _option_from_row(row: tuple) -> PackSizeOption:
+    """Build a PackSizeOption from a database row, keeping the full-precision price and
+    unit ratio for ranking.
+
+    Owners: Shun, Zhihao
+    """
     image_code = row[10] if len(row) > 10 else None
     if len(row) == 9:
         (
@@ -258,12 +277,12 @@ def get_pack_options_from_rows(
                 int(option.item_id),
             ),
         )
-        # AC 3.2.2: exactly one "Best value" per comparison — the cheapest
+        # AC 3.2.3: exactly one "Best value" per comparison — the cheapest
         # unit price at full precision; ties break on the newest observed
         # price, then name, then item id (the ranking is already in that
         # order, so the head of the list is the pick).
         ranked[0] = replace(ranked[0], is_best_value=True)
-        # AC 3.2.3: every other card shows its trade-off against the Best
+        # AC 3.2.5: every other card shows its trade-off against the Best
         # value card — how much more/less it costs upfront and per unit —
         # computed in full-precision Decimal and rounded only for display.
         best = ranked[0]

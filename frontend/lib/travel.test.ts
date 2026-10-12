@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { SelectedLocation, StoreRecommendation } from "./contracts";
-import { mapsRouteUrl } from "./travel";
+import { mapsPlanRouteUrl, mapsRouteUrl } from "./travel";
 
 const origin: SelectedLocation = {
   label: "Current location",
@@ -14,6 +14,26 @@ const store = {
   name: "Example Market",
   address: "10 Example Street, Melbourne",
 } as StoreRecommendation;
+
+describe("mapsPlanRouteUrl", () => {
+  const plan = {storePremiseIds: ["2", "1"], storeNames: ["Second", "First"]};
+  const stores = [
+    {...store, premiseId: "1", name: "First", googlePlaceId: "place-1"},
+    {...store, premiseId: "2", name: "Second", googlePlaceId: "place-2"},
+  ];
+  it("preserves visit order and returns home using both waypoint place IDs", () => {
+    const params = new URL(mapsPlanRouteUrl(origin, plan, stores, "motorcycle")).searchParams;
+    expect(params.get("origin")).toBe(params.get("destination"));
+    expect(params.get("waypoints")).toBe("Second, 10 Example Street, Melbourne|First, 10 Example Street, Melbourne");
+    expect(params.get("waypoint_place_ids")).toBe("place-2|place-1");
+    expect(params.get("travelmode")).toBe("two-wheeler");
+  });
+  it("uses store names when metadata is unavailable without partial place IDs", () => {
+    const params = new URL(mapsPlanRouteUrl(origin, plan, stores.slice(0, 1), "car")).searchParams;
+    expect(params.get("waypoints")).toBe("Second|First, 10 Example Street, Melbourne");
+    expect(params.has("waypoint_place_ids")).toBe(false);
+  });
+});
 
 describe("mapsRouteUrl", () => {
   it.each([

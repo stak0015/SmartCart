@@ -1,14 +1,18 @@
+// Owner: Shun | Contributors: Zhihao
+import { isPlannedWeek, plannedWeekOptions } from "./planned-week";
 import type { BasketItem } from "./basket-state";
 import { isItemCategory, isSourceCategory, type ItemCategory, type SourceCategory, type PriceSource } from "./contracts";
 import {
+  isSaraItemSnapshot,
   effectiveChecklistQuantity,
   effectiveChecklistUnitPrice,
   type ChecklistItem,
+  type SaraItemSnapshot,
   type ShoppingChecklist,
 } from "./shopping-checklist";
 
 export const NEXT_TRIP_STORAGE_KEY = "smartcart.next-trip.v1";
-export const NEXT_TRIP_VERSION = 2 as const;
+export const NEXT_TRIP_VERSION = 3 as const;
 
 function money(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -17,10 +21,10 @@ function money(value: number): number {
 // Only item identity and quantity travel between trips. A previous store's
 // price, shopping outcome and location are not a quote for the next trip.
 export type NextTripItem = Pick<ChecklistItem,
-  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "category" | "sourceCategory" | "imageUrl" | "packageSize" | "quantity"
->;
+  "id" | "source" | "catalogueItemId" | "itemName" | "itemNameEn" | "itemNameMs" | "category" | "sourceCategory" | "imageUrl" | "packageSize" | "quantity" | "saraEligible" | "saraCategoryCandidate"
+> & { plannedWeek?: string | null };
 
-export interface NextTripPriceQuote {
+export interface NextTripPriceQuote extends SaraItemSnapshot {
   itemName?: string | null;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
@@ -37,7 +41,12 @@ export function nextTripItemId(item: Pick<ChecklistItem, "id" | "catalogueItemId
   return item.catalogueItemId == null ? item.id : `catalogue:${item.catalogueItemId}`;
 }
 
-export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): NextTripItem[] {
+/**
+ * Save an unbought checklist line to Planned items. Only identity and quantity are kept (no price,
+ * store or outcome); saving the same item again updates the existing entry and keeps its week
+ * unless a new one is given.
+ */
+export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem, plannedWeek?: string | null): NextTripItem[] {
   if (item.status === "bought") return saved;
   const entry: NextTripItem = {
     id: nextTripItemId(item),
@@ -46,36 +55,54 @@ export function saveForNextTrip(saved: NextTripItem[], item: ChecklistItem): Nex
     itemName: item.itemName,
     itemNameEn: item.itemNameEn,
     itemNameMs: item.itemNameMs,
+    ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+    ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
     category: item.category,
     sourceCategory: item.sourceCategory ?? null,
     imageUrl: item.imageUrl,
     packageSize: item.packageSize,
     quantity: effectiveChecklistQuantity(item),
+    plannedWeek: plannedWeek ?? saved.find(candidate => candidate.id === nextTripItemId(item))?.plannedWeek ?? null,
   };
   const existing = saved.findIndex(candidate => candidate.id === entry.id);
   return existing < 0 ? [...saved, entry] : saved.map((candidate, index) => index === existing ? entry : candidate);
+}
+
+/** Only newly scheduled purchases are restricted to the upcoming four weeks. */
+export function schedulePlannedItem(saved: NextTripItem[], item: NextTripItem, week: string): NextTripItem[] {
+  if (!plannedWeekOptions().includes(week)) return saved;
+  const entry = { ...item, plannedWeek: week };
+  return saved.some(candidate => candidate.id === item.id)
+    ? saved.map(candidate => candidate.id === item.id ? entry : candidate)
+    : [...saved, entry];
 }
 
 export function serializeNextTrip(items: NextTripItem[]): string {
   return JSON.stringify({ version: NEXT_TRIP_VERSION, items });
 }
 
+/**
+ * Read Planned items from device storage, migrating older versions and dropping invalid entries;
+ * returns an empty list on any error.
+ */
 export function parseNextTrip(serialized: string | null): NextTripItem[] {
   try {
     const value: unknown = JSON.parse(serialized ?? "null");
     if (!value || typeof value !== "object") return [];
     const envelope = value as Record<string, unknown>;
-    if ((envelope.version !== 1 && envelope.version !== NEXT_TRIP_VERSION) || !Array.isArray(envelope.items)) return [];
+    if ((envelope.version !== 1 && envelope.version !== 2 && envelope.version !== NEXT_TRIP_VERSION) || !Array.isArray(envelope.items)) return [];
     const seen = new Set<string>();
     return envelope.items.filter((entry): entry is NextTripItem => {
       if (!entry || typeof entry !== "object") return false;
       const item = entry as Record<string, unknown>;
+      if (!isSaraItemSnapshot(item as SaraItemSnapshot)) return false;
       if (typeof item.id !== "string" || !item.id.trim() || seen.has(item.id)
         || typeof item.itemName !== "string" || !item.itemName.trim()
         || ![item.itemNameEn, item.itemNameMs, item.packageSize].every(field => field === null || typeof field === "string")
         || !(item.category === null || (envelope.version === 1 && item.category === undefined) || isItemCategory(item.category))
         || !(item.sourceCategory === undefined || item.sourceCategory === null || isSourceCategory(item.sourceCategory))
         || (item.imageUrl !== undefined && item.imageUrl !== null && typeof item.imageUrl !== "string")
+        || !(item.plannedWeek == null || isPlannedWeek(item.plannedWeek))
         || typeof item.quantity !== "number" || !Number.isSafeInteger(item.quantity) || item.quantity < 1
         || !(item.source === "manual" && item.catalogueItemId === null
           && (item.category === null || envelope.version === 1 && item.category === undefined)
@@ -93,9 +120,12 @@ export function parseNextTrip(serialized: string | null): NextTripItem[] {
       itemNameMs: item.itemNameMs,
       category: item.category === undefined ? null : item.category as ItemCategory | null,
       sourceCategory: item.sourceCategory === undefined ? null : item.sourceCategory as SourceCategory | null,
+      ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+      ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
       ...(item.imageUrl !== undefined ? { imageUrl: item.imageUrl } : {}),
       packageSize: item.packageSize,
       quantity: item.quantity,
+      ...(item.plannedWeek !== undefined ? { plannedWeek: item.plannedWeek } : {}),
     }));
   } catch {
     return [];
@@ -112,11 +142,13 @@ export function nextTripBasket(basket: BasketItem[], saved: NextTripItem[]): Bas
       ? items.map(line => line.id === id ? { ...line, imageUrl: line.imageUrl ?? item.imageUrl, qty: Math.max(line.qty, item.quantity) } : line)
       : [...items, {
         id, name: item.itemName, itemNameEn: item.itemNameEn, itemNameMs: item.itemNameMs,
-        category: item.category,
+        ...(item.saraEligible !== undefined ? { saraEligible: item.saraEligible } : {}),
+    ...(item.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: item.saraCategoryCandidate } : {}),
+    category: item.category,
         sourceCategory: item.sourceCategory ?? null,
         imageUrl: item.imageUrl,
         size: item.packageSize ?? "—", qty: item.quantity,
-        saraEligible: null, saraCategoryCandidate: false,
+        saraEligible: item.saraEligible ?? null, saraCategoryCandidate: item.saraCategoryCandidate ?? false,
       }];
   }, basket);
 }
@@ -141,6 +173,8 @@ export function addNextTripItem(
   const existingUnitPrice = existing ? effectiveChecklistUnitPrice(existing) : null;
   const restoredItem: ChecklistItem = existing ? {
     ...existing,
+    saraEligible: quote?.saraEligible !== undefined ? quote.saraEligible : existing.saraEligible ?? saved.saraEligible,
+    saraCategoryCandidate: quote?.saraCategoryCandidate ?? existing.saraCategoryCandidate ?? saved.saraCategoryCandidate,
     status: "neutral",
     imageUrl,
     category: quote?.category ?? saved.category,
@@ -168,10 +202,12 @@ export function addNextTripItem(
         : money(existingUnitPrice * quantity),
     }),
   } : {
-    ...saved,
+    id: saved.id, source: saved.source, catalogueItemId: saved.catalogueItemId,
     itemName,
     itemNameEn,
     itemNameMs,
+    saraEligible: quote?.saraEligible !== undefined ? quote.saraEligible : saved.saraEligible,
+    saraCategoryCandidate: quote?.saraCategoryCandidate ?? saved.saraCategoryCandidate,
     category: quote?.category ?? saved.category,
     sourceCategory: quote?.sourceCategory ?? saved.sourceCategory ?? null,
     imageUrl,

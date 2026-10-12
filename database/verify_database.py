@@ -1,4 +1,7 @@
-"""Run post-ingestion integrity and freshness checks for SmartCart PostgreSQL."""
+"""Run post-ingestion integrity and freshness checks for SmartCart PostgreSQL.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

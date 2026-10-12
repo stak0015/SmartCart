@@ -83,6 +83,37 @@ describe("Statistics view behavior", () => {
     expect(view.hasComparisonActivity).toBe(true);
   });
 
+  it("reports the signed change, per-trip average and per-category change vs the previous period", () => {
+    const view = buildStatisticsView([
+      trip("current-a", "2026-09-22T03:00:00.000Z"),
+      trip("current-b", "2026-09-23T03:00:00.000Z"),
+      trip("previous", "2026-09-15T03:00:00.000Z"),
+    ], "weekly", now, "en");
+    expect(view.spendingChangeRm).toBe(7.5);
+    expect(view.spendingChangePercent).toBe(100);
+    expect(view.averagePerTripRm).toBe(7.5);
+    expect(view.categoryChanges).toEqual([
+      { categoryId: "staples", amountRm: 15, percent: 100, partial: false, previousAmountRm: 7.5, changeRm: 7.5 },
+    ]);
+  });
+
+  it("builds an eight-period trend ending at the selected period and can step back in time", () => {
+    const records = [trip("current", "2026-09-22T03:00:00.000Z"), trip("old", "2026-08-25T03:00:00.000Z")];
+    const view = buildStatisticsView(records, "weekly", now, "en");
+    expect(view.trend).toHaveLength(8);
+    expect(view.trend.at(-1)).toMatchObject({ selected: true, amountRm: 7.5, tripCount: 1 });
+    expect(view.trend.filter(point => point.amountRm != null)).toHaveLength(2);
+    expect(view.canGoNewer).toBe(false);
+    expect(view.canGoOlder).toBe(true);
+
+    const earlier = buildStatisticsView(records, "weekly", now, "en", -4);
+    expect(earlier.isCurrentPeriod).toBe(false);
+    expect(earlier.currentRangeLabel).toContain("24 Aug 2026");
+    expect(earlier.analytics.current.tripCount).toBe(1);
+    expect(earlier.canGoNewer).toBe(true);
+    expect(earlier.canGoOlder).toBe(false);
+  });
+
   it("keeps a no-previous state distinct from an empty current period", () => {
     const view = buildStatisticsView([trip("current", "2026-09-22T03:00:00.000Z")], "monthly", now, "en");
     expect(view.hasCurrentActivity).toBe(true);

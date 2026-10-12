@@ -1,4 +1,7 @@
-"""Epic 1 catalogue database queries."""
+"""Epic 1 catalogue database queries.
+
+Owners: Shun, Zhihao | Contributors: Randy
+"""
 
 import re
 from typing import Any
@@ -18,10 +21,9 @@ from .translations import (
     translation_select_columns,
 )
 
-# Query-time parsing of brand and package size from item_name (the item table
-# has no dedicated columns). Anything that cannot be parsed confidently is
-# returned as None so the frontend can show "—" instead of an invented value.
-_BRAND_MARKER = re.compile(r"\b(?:CAP|JENAMA)\s+(.+?)\s*(?:\(|$)", re.IGNORECASE)
+# Query-time parsing of package size from item_name; the item table has no
+# dedicated column. Anything that cannot be parsed confidently is returned as
+# None so the frontend can show "—" instead of an invented value.
 _PACKAGE_SIZE = re.compile(
     r"(\d+\s?[Xx]\s?\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L)\b"  # multipack, e.g. 5X79G
     r"|\d+(?:\.\d+)?\s?(?:KG|G|GM|ML|L|LITER|LITRE|CM)\b"  # e.g. 850G, 15CM
@@ -83,21 +85,11 @@ SARA_CATEGORY_CANDIDATES = frozenset(
 )
 
 
-def parse_brand(item_name: str | None) -> str | None:
-    """Extract the brand after a CAP/JENAMA marker; None when unbranded."""
-    if not item_name:
-        return None
-    if "PELBAGAI JENAMA" in item_name.upper():
-        return None  # sold under various brands; no single brand to show
-    match = _BRAND_MARKER.search(item_name)
-    if not match:
-        return None
-    brand = match.group(1).strip(" '\"-")
-    return brand or None
-
-
 def parse_package_size(item_name: str | None) -> str | None:
-    """Extract an explicit package size from the name; None when absent."""
+    """Extract an explicit package size from the name; None when absent.
+
+    Owner: Zhihao
+    """
     if not item_name:
         return None
     if _WEIGHT_RANGE.search(item_name):
@@ -109,7 +101,10 @@ def parse_package_size(item_name: str | None) -> str | None:
 def display_package_size(item_name: str | None, unit: str | None) -> str | None:
     """Merged quantity/pricing-basis column: the parsed package size when the
     name states one, otherwise the pricing unit (e.g. "1kg" for fresh goods).
-    None only when neither exists."""
+    None only when neither exists.
+
+    Owner: Zhihao
+    """
     return parse_package_size(item_name) or (unit.strip() if unit and unit.strip() else None)
 
 
@@ -129,7 +124,16 @@ def search_catalogue(
     page: int,
     page_size: int,
     categories: list[str] | None = None,
+    sara_category_only: bool = False,
+    sort: str = "name_asc",
+    premise_ids: list[str] | None = None,
+    locale: str = "en",
 ) -> tuple[list[dict[str, Any]], int]:
+    """Run the paged catalogue query and enrich each row with categories, package size,
+    SARA category flag and image URL. Price sorts use the cheapest observed price among
+    premise_ids, else the cached median; unpriced items sort last. Returns (rows,
+    total).
+    """
     keyword = f"%{query.strip()}%"
     selected_categories = [
         category.strip() for category in categories or [] if category.strip()
@@ -146,6 +150,30 @@ def search_catalogue(
         include_unmapped,
         ALL_MAPPED_RAW_CATEGORIES,
     )
+    if sara_category_only:
+        where += " AND BTRIM(i.item_category) = ANY(%s::text[])"
+        params += (sorted(SARA_CATEGORY_CANDIDATES),)
+    name_order = "i.item_name" if locale == "ms" else "COALESCE(NULLIF(i.item_name_en, ''), i.item_name)"
+    price_join = ""
+    price_params: tuple[object, ...] = ()
+    if sort in {"price_asc", "price_desc"}:
+        # Aggregate before LIMIT/OFFSET so price ordering spans every page.
+        price_join = """
+            LEFT JOIN (
+                SELECT item_id, MIN(current_price) AS min_rm
+                FROM current_status
+                WHERE premise_id = ANY(%s::bigint[]) AND current_price > 0
+                GROUP BY item_id
+            ) catalogue_prices ON catalogue_prices.item_id = i.item_id
+        """
+        price_params = ([int(value) for value in premise_ids or []],)
+        direction = "ASC" if sort == "price_asc" else "DESC"
+        order = f"COALESCE(catalogue_prices.min_rm, CASE WHEN i.median_price_rm > 0 THEN i.median_price_rm END) {direction} NULLS LAST, {name_order} ASC, i.item_id ASC"
+    elif sort in {"name_asc", "name_desc"}:
+        direction = "ASC" if sort == "name_asc" else "DESC"
+        order = f"{name_order} {direction}, i.item_id ASC"
+    else:
+        raise ValueError("Unknown catalogue sort")
     with database_cursor() as cursor:
         cursor.execute(
             f"""
@@ -166,12 +194,13 @@ def search_catalogue(
                    {translation_select_columns()}
             FROM item i
             {joins}
+            {price_join}
             WHERE {where}
-            ORDER BY i.item_name
+            ORDER BY {order}
             LIMIT %s
             OFFSET %s
             """,
-            (*params, page_size, offset),
+            (*price_params, *params, page_size, offset),
         )
         columns = [
             "item_id",
@@ -208,41 +237,41 @@ def search_catalogue(
     return rows, total
 
 
-def list_catalogue_categories() -> list[str]:
-    with database_cursor() as cursor:
-        cursor.execute(
-            """
-            SELECT DISTINCT item_category
-            FROM item
-            WHERE item_category IS NOT NULL AND item_category <> ''
-            ORDER BY item_category
-            """
-        )
-        return [row[0] for row in cursor.fetchall()]
-
-
 def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[int, dict]:
-    """Observed prices only, bounded to the cached nearby stores (no medians)."""
+    """Nearby observed ranges, falling back to the item's cached median."""
     if not item_ids or not premise_ids:
         return {}
     with database_cursor() as cursor:
         cursor.execute(
             """
-            SELECT item_id, MIN(current_price), MAX(current_price),
-                   COUNT(DISTINCT premise_id), MIN(price_observed_date)
-            FROM current_status
-            WHERE item_id = ANY(%s::bigint[])
-              AND premise_id = ANY(%s::bigint[])
-              AND current_price > 0
-            GROUP BY item_id
+            WITH nearby_prices AS (
+                SELECT item_id, MIN(current_price) AS min_rm,
+                       MAX(current_price) AS max_rm,
+                       COUNT(DISTINCT premise_id) AS store_count,
+                       MIN(price_observed_date) AS oldest_observed_date
+                FROM current_status
+                WHERE item_id = ANY(%s::bigint[])
+                  AND premise_id = ANY(%s::bigint[])
+                  AND current_price > 0
+                GROUP BY item_id
+            )
+            SELECT i.item_id, COALESCE(p.min_rm, i.median_price_rm),
+                   COALESCE(p.max_rm, i.median_price_rm),
+                   COALESCE(p.store_count, 0), p.oldest_observed_date,
+                   CASE WHEN p.item_id IS NOT NULL THEN 'store' ELSE 'median' END
+            FROM item i
+            LEFT JOIN nearby_prices p ON p.item_id = i.item_id
+            WHERE i.item_id = ANY(%s::bigint[])
+              AND COALESCE(p.min_rm, i.median_price_rm) > 0
             """,
-            (item_ids, [int(value) for value in premise_ids]),
+            (item_ids, [int(value) for value in premise_ids], item_ids),
         )
         return {
             int(item_id): {
                 "min_rm": float(low), "max_rm": float(high),
                 "store_count": int(count),
                 "oldest_observed_date": observed.isoformat() if observed else None,
+                "price_source": source,
             }
-            for item_id, low, high, count, observed in cursor.fetchall()
+            for item_id, low, high, count, observed, source in cursor.fetchall()
         }

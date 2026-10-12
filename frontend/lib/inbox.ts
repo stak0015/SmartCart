@@ -1,9 +1,10 @@
+// Owner: Shun | Contributors: Randy
 import { isGeneratedReport, type GeneratedReport, type LocalInboxReport, type ReportCadence } from "./report-generation";
 
 export type { ReportCadence } from "./report-generation";
 
 export const INBOX_STORAGE_KEY = "smartcart.inbox.v1";
-export const INBOX_VERSION = 4 as const;
+export const INBOX_VERSION = 5 as const;
 
 export interface InboxState {
   version: typeof INBOX_VERSION;
@@ -25,15 +26,19 @@ function isLocalInboxReport(value: unknown): value is LocalInboxReport {
   return isGeneratedReport(report);
 }
 
+/**
+ * Read the report inbox. Older inbox versions keep only the weekly/monthly choice because the
+ * report format changed.
+ */
 export function parseInboxState(serialized: string | null | undefined): InboxState {
   if (!serialized) return EMPTY_INBOX;
   try {
     const value: unknown = JSON.parse(serialized);
     if (!value || typeof value !== "object" || Array.isArray(value)) return EMPTY_INBOX;
     const state = value as Record<string, unknown>;
-    // The v4 newsletter format intentionally clears saved v3 reports while
-    // retaining the shopper's weekly/monthly preference.
-    if (state.version === 3 && (state.cadence === "weekly" || state.cadence === "monthly")) {
+    // Each newsletter format change (v4 prose, v5 insight cards) clears saved
+    // reports while retaining the shopper's weekly/monthly preference.
+    if ((state.version === 3 || state.version === 4) && (state.cadence === "weekly" || state.cadence === "monthly")) {
       return { ...EMPTY_INBOX, cadence: state.cadence };
     }
     if (Object.keys(state).sort().join(",") !== "cadence,messages,version"
@@ -57,6 +62,7 @@ export function setReportCadence(state: InboxState, cadence: ReportCadence): Inb
   return state.cadence === cadence ? state : { ...state, cadence };
 }
 
+/** Add or replace a report in the inbox (keeping its read state), newest period first. */
 export function saveReadyReport(state: InboxState, report: GeneratedReport): InboxState {
   if (!isGeneratedReport(report)) return state;
   const existing = state.messages.find(message => message.id === report.id);
@@ -81,17 +87,4 @@ export function clearInboxReports(state: InboxState): InboxState {
 
 export function unreadReportCount(state: InboxState): number {
   return state.messages.reduce((count, message) => count + (message.read ? 0 : 1), 0);
-}
-
-export function readBackInboxState(
-  storage: { getItem(key: string): string | null },
-): InboxState | null {
-  try {
-    const serialized = storage.getItem(INBOX_STORAGE_KEY);
-    if (serialized === null) return null;
-    const parsed = parseInboxState(serialized);
-    return parsed.version === INBOX_VERSION ? parsed : null;
-  } catch {
-    return null;
-  }
 }

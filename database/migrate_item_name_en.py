@@ -4,6 +4,8 @@ The PriceCatcher lookup is represented by the ``item`` table in SmartCart.
 English labels therefore live on that row, keyed by the stable item code.  The
 migration is safe to rerun: it only fills an empty label from an existing
 English ``item_translation`` row, then removes that obsolete table.
+
+Owner: Shun
 """
 
 from __future__ import annotations

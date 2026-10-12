@@ -1,5 +1,6 @@
 from dataclasses import replace
 import asyncio
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -93,10 +94,21 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
             "straightLineDistanceKm": 1.5,
         "routeDistanceKm": 2.0,
         "estimatedTravelMinutes": 11,
-        "estimatedRoundTripCostRm": 0.48,
+        "estimatedRoundTripCostRm": 0.26,
+        "travelCostBreakdown": {
+            "fuelCostRm": 0.26,
+            "fuelLitres": 0.1,
+            "litresPer100Km": 2.5,
+            "fuelPricePerLitreRm": 2.6,
+            "fuelPriceBasis": "ron95",
+            "fuelPriceSource": "data.gov.my",
+            "fuelPriceEffectiveDate": "2026-10-08",
+            "tollCostRm": None,
+            "tollStatus": "unavailable",
+        },
         "saraStatus": "candidate",
         "basketCostRm": 12.34,
-        "estimatedTotalCostRm": 12.82,
+        "estimatedTotalCostRm": 12.6,
         "pricedItemCount": 1,
         "basketItemCount": 1,
         "storePriceCount": 1,
@@ -109,7 +121,7 @@ def test_recommendation_endpoint_preserves_frontend_contract(monkeypatch) -> Non
         "basketLineCount": 1,
         "saraCreditRm": 5.0,
         "cashNeededRm": 7.34,
-        "combinedTotalRm": 12.82,
+        "combinedTotalRm": 12.6,
         "basketLines": [],
         "priceObservedDaysAgo": None,
         "exceedsLimit": False,
@@ -323,6 +335,76 @@ def test_recommendation_without_routes_key_uses_25_nearest_premises(monkeypatch)
     assert captured["maximum_straight_line_km"] is None
 
 
+@pytest.mark.parametrize("failure_call", [1, 2])
+@pytest.mark.parametrize("endpoint", ["/api/recommendations", "/api/recommendations/prepare"])
+def test_routes_failure_uses_25_nearest_and_reuses_prepared_fallback(
+    monkeypatch, failure_call, endpoint,
+) -> None:
+    from smartcart import api
+    from smartcart.errors import AppError
+    from smartcart.pricing import StoreBasketSummary
+
+    api._candidate_cache.clear()
+    monkeypatch.setattr(api, "get_settings", lambda: replace(
+        get_settings(), google_routes_api_key="invalid-key", route_matrix_candidate_limit=7,
+    ))
+    queries = []
+
+    def fake_find(**options):
+        queries.append(options)
+        return [PremiseCandidate(
+            premise_id=str(index), premise_code=f"P{index}", name=f"Shop {index}",
+            address=None, district=None, state=None, google_place_id=f"place-{index}",
+            straight_line_distance_km=float(index), sara_status="unverified",
+        ) for index in range(1, 31)]
+
+    class FailingRoutes:
+        calls = 0
+
+        async def compute_route_matrix(self, *_args):
+            self.calls += 1
+            if self.calls == failure_call:
+                raise AppError("MAPS_UNAVAILABLE", "Google rejected the Routes request.", 502)
+            return [RouteMatrixResult(0, 100_000, 10_000)]
+
+    provider = FailingRoutes()
+    monkeypatch.setattr(api, "find_nearest_premises", fake_find)
+    monkeypatch.setattr(api, "get_maps_provider", lambda: provider)
+    monkeypatch.setattr(api, "get_basket_pricing", lambda ids, _basket: {
+        premise_id: StoreBasketSummary(
+            subtotal_rm=12.34, priced_count=1, basket_line_count=1,
+            sara_credit_rm=0, cash_needed_rm=12.34,
+        ) for premise_id in ids
+    })
+    client = TestClient(create_app())
+    payload = VALID_REQUEST if endpoint == "/api/recommendations" else {"travel": VALID_REQUEST["travel"]}
+    response = client.post(endpoint, json=payload)
+    assert response.status_code == 200
+    assert queries[-1]["maximum_straight_line_km"] is None
+    assert queries[-1]["limit"] == 25
+    assert provider.calls == failure_call
+
+    if endpoint.endswith("/prepare"):
+        assert response.json()["candidateCount"] == 25
+        assert response.json()["reachableCount"] == 25
+        response = client.post("/api/recommendations", json={
+            **VALID_REQUEST, "candidateCacheId": response.json()["candidateCacheId"],
+        })
+        assert response.status_code == 200
+        assert provider.calls == failure_call
+
+    body = response.json()
+    assert body["routeProvider"] == "straight_line"
+    assert body["totalCandidatesEvaluated"] == 25
+    assert body["totalReachable"] == 25
+    assert body["expandedSearch"] is False
+    assert {store["premiseId"] for store in body["recommendations"]} == {str(i) for i in range(1, 26)}
+    assert all(store["basketSubtotalRm"] == 12.34 for store in body["recommendations"])
+    assert "Google Routes is unavailable" in body["routeWarning"]
+    assert "approximate" in body["routeWarning"]
+    api._candidate_cache.clear()
+
+
 def test_recommendation_expands_search_when_no_store_within_limit(
     monkeypatch,
 ) -> None:
@@ -497,12 +579,9 @@ def test_reverse_geocode_ignores_malformed_result(monkeypatch) -> None:
     assert label is None
 
 
-def test_item_name_parsing_extracts_brand_and_package_size() -> None:
-    from smartcart.catalogue import parse_brand, parse_package_size
+def test_item_name_parsing_extracts_package_size() -> None:
+    from smartcart.catalogue import parse_package_size
 
-    assert parse_brand("BERAS CAP JATI (SST5%)") == "JATI"
-    assert parse_brand("SARDIN CAP AYAM (SOS TOMATO)") == "AYAM"
-    assert parse_brand("SANTAN KELAPA JENAMA KARA") == "KARA"
     assert parse_package_size("MAGGI 2 MINUTE NOODLE CURRY FLAVOUR (5X79G)") == "5X79G"
     assert parse_package_size("PANADOL ACTIFAST 10S") == "10S"
 
@@ -512,7 +591,7 @@ def test_item_search_passes_page_and_multiple_category_filters(monkeypatch) -> N
 
     captured = {}
 
-    def fake_search(query, page, page_size, categories):
+    def fake_search(query, page, page_size, categories, *_options):
         captured.update(
             query=query, page=page, page_size=page_size, categories=categories
         )
@@ -544,7 +623,7 @@ def test_item_search_allows_empty_query_for_default_catalogue(monkeypatch) -> No
 
     captured = {}
 
-    def fake_search(query, page, page_size, categories):
+    def fake_search(query, page, page_size, categories, *_options):
         captured.update(
             query=query, page=page, page_size=page_size, categories=categories
         )
@@ -750,12 +829,8 @@ def test_item_search_rejects_raw_and_unknown_category_filters(monkeypatch) -> No
 
 
 def test_item_name_parsing_returns_none_when_nothing_parseable() -> None:
-    from smartcart.catalogue import parse_brand, parse_package_size
+    from smartcart.catalogue import parse_package_size
 
-    # Various-brands and unbranded names must not invent a brand.
-    assert parse_brand("BERAS PULUT THAILAND (SUSU) PELBAGAI JENAMA") is None
-    assert parse_brand("AYAM BERSIH - STANDARD") is None
-    assert parse_brand(None) is None
     # Grade weight ranges are not package sizes; plain names have none.
     assert parse_package_size("TELUR AYAM GRED A (BERAT 65.0 GM HINGGA 69.9 GM SEBIJI)") is None
     assert parse_package_size("AYAM BERSIH - STANDARD") is None

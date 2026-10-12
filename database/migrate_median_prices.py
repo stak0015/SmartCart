@@ -4,6 +4,8 @@ Fresh databases add and refresh ``item.median_price_rm`` during ingestion. This
 repeatable migration upgrades an existing database and computes the cache from
 all positive latest item-premise prices already stored in ``current_status``;
 it does not download PriceCatcher files.
+
+Owner: Shun
 """
 
 from __future__ import annotations

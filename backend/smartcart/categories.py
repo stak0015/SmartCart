@@ -1,4 +1,7 @@
-"""Authoritative, database-independent broad catalogue categories."""
+"""Authoritative, database-independent broad catalogue categories.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

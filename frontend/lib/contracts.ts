@@ -1,3 +1,4 @@
+// Owners: Shun, Randy, Zhihao
 export type TransportMode = "walk" | "public_transport" | "motorcycle" | "car";
 export type TravelLimitType = "distance" | "time" | "both";
 export type SaraFilter = "any" | "candidate" | "verified";
@@ -111,6 +112,9 @@ export interface RecommendationRequest {
   basket?: BasketLineRequest[];
   travel: TravelPreferencesRequest;
   candidateCacheId?: string;
+  // US 6.1: the limit applied to the first-store → second-store leg. Omit it
+  // for single-store results; sending it turns on two-store plans (US 6.2/6.3).
+  secondStoreLimit?: TravelLimit;
 }
 
 export interface CandidatePreparationResponse {
@@ -145,8 +149,8 @@ export interface ReverseLocationResponse {
 
 export type SaraStoreStatus = "verified" | "candidate" | "unverified";
 // A median price is a cached cross-store estimate, not a price observed at the
-// selected store. Optional fields keep older API snapshots readable while the
-// recommendation API rolls out the explicit source metadata.
+// selected store. Optional so older saved snapshots without the source
+// metadata stay readable.
 export type PriceSource = "store" | "median";
 
 export interface BasketItemPrice {
@@ -221,10 +225,10 @@ export interface PackSizeOption {
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
-  // AC 3.2.2: exactly one option per comparison carries the "Best value"
+  // AC 3.2.3: exactly one option per comparison carries the "Best value"
   // label (lowest unit price, deterministic tie-break).
   isBestValue?: boolean;
-  // AC 3.2.3: signed trade-off versus the Best value option (total-price and
+  // AC 3.2.5: signed trade-off versus the Best value option (total-price and
   // unit-price differences), computed server-side; null on the Best value
   // card itself, which the UI marks as the comparison baseline.
   upfrontDiffRm?: number | null;
@@ -249,6 +253,18 @@ export interface BasketAlternativesResponse {
   generatedAt: string;
 }
 
+export interface TravelCostBreakdown {
+  fuelCostRm: number;
+  fuelLitres: number;
+  litresPer100Km: number;
+  fuelPricePerLitreRm: number;
+  fuelPriceBasis: "ron95" | "ron95_budi95";
+  fuelPriceSource: "data.gov.my" | "cached" | "fallback";
+  fuelPriceEffectiveDate: string | null;
+  tollCostRm: null;
+  tollStatus: "unavailable";
+}
+
 export interface StoreRecommendation {
   premiseId: string;
   premiseCode: string;
@@ -261,6 +277,7 @@ export interface StoreRecommendation {
   routeDistanceKm: number;
   estimatedTravelMinutes: number;
   estimatedRoundTripCostRm: number;
+  travelCostBreakdown?: TravelCostBreakdown | null;
   basketCostRm: number;
   estimatedTotalCostRm: number | null;
   pricedItemCount: number;
@@ -281,12 +298,12 @@ export interface StoreRecommendation {
   // Effective priced-item coverage ("X of N items priced"); null without a basket.
   pricedCount: number | null;
   basketLineCount: number | null;
-  // SARA Credit / Cash Needed split of the displayed subtotal (AC 2.3.7/2.3.8);
+  // SARA Credit / Cash Needed split of the displayed subtotal (AC 2.3.8);
   // candidate-based estimate, both null whenever the subtotal is unavailable.
   saraCreditRm: number | null;
   cashNeededRm: number | null;
-  // Age in days of the store's oldest basket-line price (AC 2.3.5); null
-  // when no basket line is priced at that store (or no basket was sent).
+  // Age in days of the store's oldest basket-line price; null when no basket
+  // line is priced at that store. Not shown by the current UI.
   priceObservedDaysAgo: number | null;
   // Priced basket subtotal plus return transport cost, including partial baskets.
   // Null when no line has a store or median price; unresolved prices never
@@ -311,6 +328,136 @@ export interface RecommendationResponse {
   // True when no store matched the shopper's travel limit and the nearest
   // stores were returned anyway (iteration1 feedback).
   expandedSearch: boolean;
+  // US 6.2: two-store plans. Absent unless a secondStoreLimit was sent, so
+  // single-store clients see an unchanged response shape.
+  multiStore?: MultiStorePlans | null;
+}
+
+/** One segment of a two-store journey (AC 6.2.6). Role values arrive in
+ * snake_case because they are payload values, not field names. */
+export type RouteLegRole =
+  | "origin_to_first"
+  | "first_to_second"
+  | "second_to_origin";
+
+export interface RouteLeg {
+  role: RouteLegRole;
+  fromName: string;
+  toName: string;
+  distanceKm: number;
+  travelMinutes: number;
+  costRm: number;
+  travelCostBreakdown?: TravelCostBreakdown | null;
+}
+
+/** One eligible two-store journey in visit order. `firstStore*` is always the
+ * store visited first under AC 6.2.5; `interStore*` is only the leg governed by
+ * the second-store limits (AC 6.1.4/6.2.1). */
+export interface MultiStorePlan {
+  firstStorePremiseId: string;
+  secondStorePremiseId: string;
+  firstStoreName: string;
+  secondStoreName: string;
+  interStoreDistanceKm: number;
+  interStoreTravelMinutes: number;
+  // Whole loop: home -> first -> second -> home (AC 6.2.6).
+  totalRouteDistanceKm: number;
+  totalTravelMinutes: number;
+  totalTravelCostRm: number;
+  legs: RouteLeg[];
+  // Cost of the rejected reverse order, kept so the UI can explain the choice.
+  // Null when the reverse order was unrouteable.
+  reverseOrderCostRm: number | null;
+  routeProvider: "google" | "straight_line";
+}
+
+/** Why the plan list is empty, so the client can show an accurate empty state
+ * with an "edit limits" affordance (AC 6.2.8) instead of a blank panel. */
+export type MultiStoreEmptyReason =
+  | "no_pairs_within_limit"
+  | "no_inter_store_route_data"
+  | "insufficient_reachable_stores"
+  | "straight_line_fallback_unsupported";
+
+/** One basket line assigned to a store inside a two-store plan (AC 6.3.1).
+ * The full quantity always lands on a single store — never split. A store
+ * price is preferred; a labelled median estimate is used only when neither
+ * store has one (priceSource says which). */
+export interface PlanStoreAssignment {
+  itemId: string;
+  itemName: string | null;
+  quantity: number;
+  unitPriceRm: number | null;
+  lineTotalRm: number | null;
+  storePremiseId: string;
+  storeName: string;
+  // AC 6.4.2: pack spec for the assigned line (e.g. "500 g"), null if unknown.
+  unit: string | null;
+  observedDate: string | null;
+  priceSource?: PriceSource | null;
+  itemNameEn?: string | null;
+  itemNameMs?: string | null;
+  category?: ItemCategory | null;
+  sourceCategory?: SourceCategory | null;
+  saraEligible?: boolean | null;
+  saraCategoryCandidate?: boolean;
+}
+
+/** A single-store or two-store plan priced for combined-cost comparison
+ * (US 6.3). `storeCount` discriminates the two shapes. */
+export interface PricedPlan {
+  planId: string;
+  storeCount: 1 | 2;
+  storePremiseIds: string[];
+  storeNames: string[];
+  // AC 6.3.2: sum of assigned unit prices x quantities.
+  basketSubtotalRm: number | null;
+  // Complete-route transport: round trip for one store, full loop for two.
+  transportCostRm: number;
+  // AC 6.3.2: subtotal + transport.
+  combinedTotalRm: number | null;
+  // False when any requested line has neither a store price nor a median
+  // estimate; its totals are then labelled partial (AC 6.3.4).
+  isComplete: boolean;
+  pricedLineCount: number;
+  basketLineCount: number;
+  missingItems: string[];
+  totalTravelMinutes: number;
+  totalRouteDistanceKm: number;
+  // Two-store plans only (AC 6.3.1).
+  assignments: PlanStoreAssignment[];
+  interStoreDistanceKm: number | null;
+  // AC 6.4.1: the journey breakdown, echoed so the detail view is complete.
+  // Null/empty for single-store plans.
+  interStoreTravelMinutes: number | null;
+  legs: RouteLeg[];
+  // AC 6.2.5 transparency: what the rejected reverse visit order would cost.
+  reverseOrderCostRm: number | null;
+}
+
+/** AC 6.3: single-store and two-store plans compared by combined cost. */
+export interface PlanComparison {
+  // AC 6.3.3: complete plans, cheapest combined total first.
+  completePlans: PricedPlan[];
+  // Plans with unpriced lines. rankedStorePlanOptions merges both lists into one ranking.
+  incompletePlans: PricedPlan[];
+  // Discloses that store prices are used where available and medians otherwise.
+  priceBasisNote: string;
+}
+
+export interface MultiStorePlans {
+  stores?: StoreRecommendation[];
+  plans: MultiStorePlan[];
+  secondStoreLimit: TravelLimit | null;
+  // Ordered store pairs whose inter-store leg was actually routed.
+  evaluatedPairCount: number;
+  // AC 6.2.7: pairs dropped because no route existed. These are excluded rather
+  // than given an invented cost.
+  unrouteablePairCount: number;
+  emptyReason: MultiStoreEmptyReason | null;
+  // US 6.3: present only when a basket was sent and at least one two-store plan
+  // exists. The route-level `plans` above remain the US 6.2 output.
+  comparison: PlanComparison | null;
 }
 
 export interface ApiErrorBody {

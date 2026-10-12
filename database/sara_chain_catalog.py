@@ -1,4 +1,7 @@
-"""Normalize and summarize recurring chain names in the SARA merchant list."""
+"""Normalize and summarize recurring chain names in the SARA merchant list.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

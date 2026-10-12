@@ -3,6 +3,8 @@
 The script targets ``DEMO_DATABASE_URL`` by default so the official
 PriceCatcher database is never modified accidentally. Start the demo
 PostgreSQL service with ``docker-compose.demo.yml`` before running it.
+
+Owner: Shun
 """
 
 from __future__ import annotations

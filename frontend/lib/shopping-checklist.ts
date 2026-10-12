@@ -1,4 +1,7 @@
-import { isItemCategory, isSourceCategory, type BasketItemPrice, type ItemCategory, type SourceCategory, type StoreRecommendation } from "./contracts";
+// Owners: Shun, Zhihao | Contributors: Randy
+import { isTripTravelSnapshot, type TripTravelSnapshot } from "./trip-travel-cost";
+import type { BasketItem } from "./basket-state";
+import { isItemCategory, isSourceCategory, type PricedPlan, type BasketItemPrice, type ItemCategory, type SelectedLocation, type SourceCategory, type StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
 import {
   isEstimatedSavingsSnapshot,
@@ -14,7 +17,7 @@ export type ChecklistItemSource = "catalogue" | "manual";
 export type ChecklistQuantitySource = "planned" | "actual";
 
 /**
- * Epic 8 interface point (D8.0 / gap G4): the estimated trip cost of each
+ * Epic 8 interface point: the estimated trip cost of each
  * alternative store at snapshot time. These are estimates, never observed
  * prices; they let later epics compare "what if I had shopped elsewhere"
  * on-device without re-querying recommendations.
@@ -31,9 +34,25 @@ export interface ChecklistStore {
   premiseCode: string;
   name: string;
   address: string | null;
+  saraStatus?: StoreRecommendation["saraStatus"];
 }
 
-export interface ChecklistItem {
+export type ChecklistRouteOrigin = Pick<SelectedLocation, "latitude" | "longitude">;
+
+export interface SaraItemSnapshot {
+  /** Absent on older snapshots that did not preserve item eligibility. */
+  saraEligible?: boolean | null;
+  saraCategoryCandidate?: boolean;
+}
+
+export function isSaraItemSnapshot(value: SaraItemSnapshot): boolean {
+  return (value.saraEligible === undefined || value.saraEligible === null || typeof value.saraEligible === "boolean")
+    && (value.saraCategoryCandidate === undefined || typeof value.saraCategoryCandidate === "boolean");
+}
+
+export interface ChecklistItem extends SaraItemSnapshot {
+  storePremiseId?: string;
+  storeName?: string;
   id: string;
   source: ChecklistItemSource;
   catalogueItemId: string | null;
@@ -86,10 +105,14 @@ function withOriginalValues(item: ChecklistItem): ChecklistItem {
   return { ...item, originalValues: originalValues(item) };
 }
 
-export interface ShoppingChecklist {
+export interface ShoppingChecklist extends TripTravelSnapshot {
   version: typeof SHOPPING_CHECKLIST_VERSION;
   id: string;
   store: ChecklistStore;
+  stores?: ChecklistStore[];
+  /** Selected start point needed to reopen the complete route from the checklist. */
+  routeOrigin?: ChecklistRouteOrigin;
+  planId?: string;
   createdAt: string;
   updatedAt: string;
   // AC 5.1.1: the snapshot keeps the planned subtotal, the estimated return
@@ -98,7 +121,7 @@ export interface ShoppingChecklist {
   plannedSubtotalRm: number | null;
   estimatedRoundTripCostRm: number | null;
   plannedCombinedTotalRm: number | null;
-  // Gap G4: the alternative stores' estimated trip costs at snapshot time.
+  // The alternative stores' estimated trip costs at snapshot time.
   // Empty for payloads created before this field existed (migrated v1-v3).
   alternativeStoreEstimates: AlternativeStoreEstimate[];
   // Frozen at plan confirmation so later item-price updates cannot rewrite a
@@ -147,6 +170,7 @@ export interface ChecklistProgress {
 interface ChecklistCreationOptions {
   checklistId?: string;
   createdAt?: string;
+  routeOrigin?: ChecklistRouteOrigin;
   alternativeStores?: StoreRecommendation[];
   estimatedSavings?: EstimatedSavingsSnapshot | null;
   // AC 8.2.3: provenance of the frozen travel estimates.
@@ -201,6 +225,8 @@ function checklistItemFromDetail(row: RecommendationDetailRow, index: number): C
     itemName: current.itemName,
     itemNameEn: current.itemNameEn ?? null,
     itemNameMs: current.itemNameMs ?? null,
+    saraEligible: current.saraEligible,
+    saraCategoryCandidate: current.saraCategoryCandidate,
     category: current.category,
     sourceCategory: current.sourceCategory ?? null,
     imageUrl: current.imageUrl || row.basketItem?.imageUrl || row.source.imageUrl || null,
@@ -227,6 +253,8 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
     itemName: price.itemName,
     itemNameEn: price.itemNameEn ?? null,
     itemNameMs: price.itemNameMs ?? null,
+    ...(price.saraEligible !== undefined ? { saraEligible: price.saraEligible } : {}),
+    ...(price.saraCategoryCandidate !== undefined ? { saraCategoryCandidate: price.saraCategoryCandidate } : {}),
     category: price.category,
     sourceCategory: price.sourceCategory ?? null,
     packageSize: price.packageSize,
@@ -245,6 +273,8 @@ function checklistItemFromBasketPrice(price: BasketItemPrice, index: number): Ch
 /**
  * Creates a frozen checklist snapshot. Replacement-aware detail rows take
  * precedence; basketPrices is the fallback when alternatives are unavailable.
+ *
+ * Owners: Shun, Zhihao
  */
 export function createShoppingChecklist(
   store: StoreRecommendation,
@@ -276,7 +306,9 @@ export function createShoppingChecklist(
       premiseCode: store.premiseCode,
       name: store.name,
       address: store.address,
+      saraStatus: store.saraStatus,
     },
+    ...(options.routeOrigin ? { routeOrigin: options.routeOrigin } : {}),
     createdAt,
     updatedAt: createdAt,
     plannedSubtotalRm: store.basketSubtotalRm == null ? null : money(store.basketSubtotalRm),
@@ -287,6 +319,8 @@ export function createShoppingChecklist(
       ? null
       : money(store.estimatedTotalCostRm),
     alternativeStoreEstimates,
+    ...(store.travelCostBreakdown ? { travelCostBreakdowns: [{ ...store.travelCostBreakdown }] } : {}),
+    actualTollCostRm: null,
     estimatedSavings: options.estimatedSavings ?? null,
     // AC 8.2.3: frozen only when the caller knows it, mirroring the pattern
     // used for estimatedSavings so serialised output is unchanged for callers
@@ -296,6 +330,58 @@ export function createShoppingChecklist(
   };
 }
 
+/** Freeze a whole two-store trip; rows retain their assigned store and source. */
+export function createPlanShoppingChecklist(
+  plan: PricedPlan,
+  stores: StoreRecommendation[],
+  basket: BasketItem[],
+  options: ChecklistCreationOptions = {},
+): ShoppingChecklist {
+  const createdAt = options.createdAt ?? nowIso();
+  const planStores = plan.storePremiseIds.map((id, index) => {
+    const store = stores.find(store => store.premiseId === id);
+    return { premiseId: id, premiseCode: store?.premiseCode ?? id,
+      name: plan.storeNames[index], address: store?.address ?? null,
+      ...(store?.saraStatus ? { saraStatus: store.saraStatus } : {}) };
+  });
+  const items = plan.assignments.map((line, index) => {
+    const basketItem = basket.find(item => item.id === `db-${line.itemId}`);
+    return {
+      ...checklistItemFromBasketPrice({
+        itemId: line.itemId, itemName: line.itemName || basketItem?.name || line.itemId,
+        itemNameEn: line.itemNameEn ?? basketItem?.itemNameEn,
+        itemNameMs: line.itemNameMs ?? basketItem?.itemNameMs,
+        packageSize: line.unit ?? basketItem?.size ?? null, quantity: line.quantity,
+        unitPriceRm: line.unitPriceRm, lineTotalRm: line.lineTotalRm,
+        priceObservedDate: line.observedDate, priceSource: line.priceSource,
+        saraEligible: line.saraEligible ?? basketItem?.saraEligible,
+        saraCategoryCandidate: line.saraCategoryCandidate ?? basketItem?.saraCategoryCandidate,
+        category: line.category ?? basketItem?.category ?? null,
+        sourceCategory: line.sourceCategory ?? basketItem?.sourceCategory ?? null,
+      }, index),
+      imageUrl: basketItem?.imageUrl ?? null,
+      storePremiseId: line.storePremiseId, storeName: line.storeName,
+    };
+  });
+  return {
+    version: SHOPPING_CHECKLIST_VERSION, id: options.checklistId ?? generatedId("checklist"),
+    planId: plan.planId, stores: planStores,
+    ...(options.routeOrigin ? { routeOrigin: options.routeOrigin } : {}),
+    // The combined name also keeps existing history and export headers useful.
+    store: { premiseId: plan.planId, premiseCode: plan.planId,
+      name: planStores.map(store => store.name).join(" → "),
+      address: planStores.map(store => store.address).filter(Boolean).join(" · ") || null },
+    createdAt, updatedAt: createdAt, plannedSubtotalRm: plan.basketSubtotalRm == null ? null : money(plan.basketSubtotalRm),
+    estimatedRoundTripCostRm: money(plan.transportCostRm), plannedCombinedTotalRm: plan.combinedTotalRm == null ? null : money(plan.combinedTotalRm),
+    ...(plan.legs.length > 0 && plan.legs.every(leg => leg.travelCostBreakdown)
+      ? { travelCostBreakdowns: plan.legs.map(leg => ({ ...leg.travelCostBreakdown! })) } : {}),
+    actualTollCostRm: null,
+    alternativeStoreEstimates: [], estimatedSavings: options.estimatedSavings ?? null,
+    ...(options.routeProvider ? { routeProvider: options.routeProvider } : {}), items,
+  };
+}
+
+/** Mark a line bought or not bought; pressing the same status again returns it to neutral (US 5.2). */
 export function toggleChecklistItemStatus(
   checklist: ShoppingChecklist,
   itemId: string,
@@ -318,7 +404,7 @@ export function toggleChecklistItemStatus(
 function parseQuantity(value: number | string): number | null {
   if (typeof value === "string" && !/^\d+$/.test(value)) return null;
   const parsed = typeof value === "string" ? Number(value) : value;
-  // AC 5.1.5: any positive whole number is accepted; no upper bound.
+  // AC 5.1.9: any positive whole number is accepted; no upper bound.
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= Number.MAX_SAFE_INTEGER
     ? parsed
     : null;
@@ -333,12 +419,18 @@ function parseManualUnitPrice(value: number | string): number | null {
   return money(parsed);
 }
 
+/**
+ * Validate the add/edit form: a name is required, quantity must be a positive whole number, and an
+ * optional price must be positive with at most two decimals.
+ *
+ * Owners: Shun, Zhihao
+ */
 export function validateManualChecklistItem(
   input: ManualChecklistItemInput,
 ): ManualChecklistItemValidation {
   const itemName = input.itemName.trim();
   const quantity = parseQuantity(input.quantity);
-  // AC 5.1.5: the price may be left blank when the shopper does not know it
+  // AC 5.1.9: the price may be left blank when the shopper does not know it
   // yet; a blank string means "unknown", not an error. A provided price must
   // still be a positive amount with no more than two decimals.
   const priceIsBlank = input.unitPriceRm == null
@@ -355,6 +447,10 @@ export function validateManualChecklistItem(
   };
 }
 
+/**
+ * Add a shopper-typed line (source 'manual') to the checklist. Manual lines are never matched to a
+ * catalogue item.
+ */
 export function addManualChecklistItem(
   checklist: ShoppingChecklist,
   input: ManualChecklistItemInput,
@@ -366,6 +462,8 @@ export function addManualChecklistItem(
   const item: ChecklistItem = withOriginalValues({
     id: options.itemId ?? generatedId("manual"),
     source: "manual",
+    saraEligible: null,
+    saraCategoryCandidate: false,
     catalogueItemId: null,
     itemName,
     itemNameEn: null,
@@ -390,6 +488,10 @@ export function addManualChecklistItem(
   };
 }
 
+/**
+ * Replace a line with validated manual values, turning it into a manual line. The edit dialog uses
+ * editChecklistValues instead, which keeps catalogue identity.
+ */
 export function editChecklistItem(
   checklist: ShoppingChecklist,
   itemId: string,
@@ -406,6 +508,8 @@ export function editChecklistItem(
     items: checklist.items.map((item, itemIndex) => itemIndex === index ? {
       ...item,
       source: "manual",
+      saraEligible: null,
+      saraCategoryCandidate: false,
       catalogueItemId: null,
       itemName,
       itemNameEn: null,
@@ -435,6 +539,11 @@ export function effectiveChecklistLineTotal(item: ChecklistItem): number | null 
   return price == null ? null : money(price * effectiveChecklistQuantity(item));
 }
 
+/**
+ * Change one field of a line, remembering the original values first so the change can be reverted
+ * (US 5.1). A price equal to the original restores its source and observed date; any other price
+ * is marked manual. Returns null for invalid input.
+ */
 export function updateChecklistItemField(
   checklist: ShoppingChecklist,
   itemId: string,
@@ -493,6 +602,7 @@ export function editChecklistValues(
   return fields.reduce((current, [field, value]) => updateChecklistItemField(current, itemId, field, value) ?? current, checklist);
 }
 
+/** Restore a line's original name, quantity, price and source, clearing recorded actual values. */
 export function revertChecklistItem(
   checklist: ShoppingChecklist,
   itemId: string,
@@ -517,60 +627,13 @@ export function revertChecklistItem(
   };
 }
 
-export function boughtChecklistTotal(checklist: ShoppingChecklist): number | null {
-  const totals = checklist.items
-    .filter(item => item.status === "bought")
-    .map(effectiveChecklistLineTotal)
-    .filter((value): value is number => value != null);
-  return totals.length === 0 ? null : money(totals.reduce((sum, value) => sum + value, 0));
-}
-
 /**
- * AC 5.3.1: validates an actual unit price typed by the shopper. A blank
- * input clears the recorded price (success with null); anything else must be
- * a positive amount with no more than two decimals.
- */
-export function validateActualUnitPrice(
-  input: string,
-): { success: true; value: number | null } | { success: false } {
-  const trimmed = input.trim();
-  if (trimmed === "") return { success: true, value: null };
-  const parsed = parseManualUnitPrice(trimmed);
-  return parsed == null ? { success: false } : { success: true, value: parsed };
-}
-
-/**
- * AC 5.3.1/5.3.2: records or clears the shopper-observed unit price on a
- * Purchased line. The official/reference price fields are never touched.
- * Returns null when the line does not exist or is not marked bought.
- */
-export function setChecklistItemActualPrice(
-  checklist: ShoppingChecklist,
-  itemId: string,
-  actualPriceRm: number | null,
-  updatedAt = nowIso(),
-): ShoppingChecklist | null {
-  const index = checklist.items.findIndex(item => item.id === itemId);
-  if (index < 0) return null;
-  const target = checklist.items[index];
-  if (target.status !== "bought") return null;
-  if (actualPriceRm != null && (!Number.isFinite(actualPriceRm) || actualPriceRm <= 0)) return null;
-  const normalized = actualPriceRm == null ? null : money(actualPriceRm);
-  if (target.actualPriceRm === normalized) return checklist;
-  return {
-    ...checklist,
-    updatedAt,
-    items: checklist.items.map((item, itemIndex) => (
-      itemIndex === index ? { ...item, actualPriceRm: normalized } : item
-    )),
-  };
-}
-
-/**
- * AC 5.3.3: the actual line total exists only while an actual unit price is
+ * The actual line total exists only while an actual unit price is
  * recorded; a cleared/unknown price yields null (rendered blank, never 0.00).
- * The quantity is the shopper-recorded actual quantity when present (AC
- * 5.3.4), otherwise the planned quantity.
+ * The quantity is the shopper-recorded actual quantity when present (older
+ * records only), otherwise the planned quantity.
+ *
+ * Owner: Zhihao
  */
 export function actualLineTotalRm(item: ChecklistItem): number | null {
   return item.actualPriceRm == null
@@ -578,54 +641,7 @@ export function actualLineTotalRm(item: ChecklistItem): number | null {
     : money(item.actualPriceRm * (item.actualQuantity ?? item.quantity));
 }
 
-/**
- * AC 5.3.4: validates an actual quantity typed by the shopper. A blank input
- * means "use the planned quantity" (success with null); anything else must be
- * a positive whole number (same rule as AC 5.1.5).
- */
-export function validateActualQuantity(
-  input: string,
-): { success: true; value: number | null } | { success: false } {
-  const trimmed = input.trim();
-  if (trimmed === "") return { success: true, value: null };
-  const parsed = parseQuantity(trimmed);
-  return parsed == null ? { success: false } : { success: true, value: parsed };
-}
-
-/**
- * AC 5.3.4: records or clears the actual quantity on a Purchased line and
- * marks the quantity source planned/actual accordingly. Returns null when the
- * line does not exist or is not marked bought.
- */
-export function setChecklistItemActualQuantity(
-  checklist: ShoppingChecklist,
-  itemId: string,
-  actualQuantity: number | null,
-  updatedAt = nowIso(),
-): ShoppingChecklist | null {
-  const index = checklist.items.findIndex(item => item.id === itemId);
-  if (index < 0) return null;
-  const target = checklist.items[index];
-  if (target.status !== "bought") return null;
-  if (actualQuantity != null
-    && (!Number.isInteger(actualQuantity)
-      || actualQuantity < 1
-      || actualQuantity > Number.MAX_SAFE_INTEGER)) return null;
-  const nextSource: ChecklistQuantitySource = actualQuantity == null ? "planned" : "actual";
-  if (target.actualQuantity === actualQuantity && target.quantitySource === nextSource) {
-    return checklist;
-  }
-  return {
-    ...checklist,
-    updatedAt,
-    items: checklist.items.map((item, itemIndex) => (
-      itemIndex === index
-        ? { ...item, actualQuantity: actualQuantity ?? null, quantitySource: nextSource }
-        : item
-    )),
-  };
-}
-
+/** Remove one line from the checklist. */
 export function deleteChecklistItem(
   checklist: ShoppingChecklist,
   itemId: string,
@@ -637,15 +653,6 @@ export function deleteChecklistItem(
     updatedAt,
     items: checklist.items.filter(candidate => candidate.id !== itemId),
   };
-}
-
-export function plannedChecklistSubtotal(checklist: ShoppingChecklist): number | null {
-  const pricedLines = checklist.items
-    .map(item => item.lineTotalRm)
-    .filter((value): value is number => value != null);
-  return pricedLines.length > 0
-    ? money(pricedLines.reduce((total, value) => total + value, 0))
-    : null;
 }
 
 export function checklistProgress(checklist: ShoppingChecklist): ChecklistProgress {
@@ -680,6 +687,9 @@ function isIsoDate(value: unknown): value is string {
 function isChecklistItem(value: unknown): value is ChecklistItem {
   if (!value || typeof value !== "object") return false;
   const item = value as Record<string, unknown>;
+  if (!isSaraItemSnapshot(item as SaraItemSnapshot)) return false;
+  if ((item.storePremiseId !== undefined && typeof item.storePremiseId !== "string")
+    || (item.storeName !== undefined && typeof item.storeName !== "string")) return false;
   const sourceIsValid = item.source === "catalogue" || item.source === "manual";
   const statusIsValid = item.status === "neutral" || item.status === "bought"
     || item.status === "not_bought";
@@ -718,7 +728,7 @@ function isChecklistItem(value: unknown): value is ChecklistItem {
   if (!commonFieldsAreValid) return false;
 
   if ((item.unitPriceRm === null) !== (item.lineTotalRm === null)) return false;
-  // AC 5.3.4: a recorded actual quantity must carry the "actual" source, and
+  // A recorded actual quantity (older checklists) must carry the "actual" source, and
   // a cleared one must fall back to "planned".
   if ((item.actualQuantity === null) !== (item.quantitySource === "planned")) return false;
   if (item.source === "manual") {
@@ -764,9 +774,14 @@ function isAlternativeStoreEstimate(value: unknown): value is AlternativeStoreEs
     && isFiniteMoneyOrNull(estimate.estimatedTotalCostRm);
 }
 
+/**
+ * Runtime validation of a stored checklist; every field is checked so corrupted device data is
+ * discarded.
+ */
 export function isShoppingChecklist(value: unknown): value is ShoppingChecklist {
   if (!value || typeof value !== "object") return false;
   const checklist = value as Record<string, unknown>;
+  if (!isTripTravelSnapshot(checklist)) return false;
   if (checklist.version !== SHOPPING_CHECKLIST_VERSION
     || typeof checklist.id !== "string"
     || checklist.id.length === 0
@@ -780,15 +795,22 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     || (checklist.estimatedSavings !== undefined
       && checklist.estimatedSavings !== null
       && !isEstimatedSavingsSnapshot(checklist.estimatedSavings))
-    // AC 8.2.3 / AC 5.5.4: optional provenance. Absent is valid (records
+    // AC 8.2.3: optional provenance. Absent is valid (records
     // predate it); present must be one of the two known providers, so a
     // corrupt value is rejected rather than silently trusted.
     || (checklist.routeProvider !== undefined
       && checklist.routeProvider !== "google"
       && checklist.routeProvider !== "straight_line")
+    || (checklist.routeOrigin !== undefined && !isChecklistRouteOrigin(checklist.routeOrigin))
     || !Array.isArray(checklist.items)
     || !checklist.items.every(isChecklistItem)) return false;
 
+  if (checklist.planId !== undefined && typeof checklist.planId !== "string") return false;
+  if (checklist.stores !== undefined && (!Array.isArray(checklist.stores)
+    || !checklist.stores.every(value => value && typeof value === "object"
+      && typeof value.premiseId === "string" && typeof value.premiseCode === "string"
+      && typeof value.name === "string" && isNullableString(value.address)
+      && (value.saraStatus === undefined || isSaraStatus(value.saraStatus))))) return false;
   if (!checklist.store || typeof checklist.store !== "object") return false;
   const store = checklist.store as Record<string, unknown>;
   return typeof store.premiseId === "string"
@@ -796,7 +818,19 @@ export function isShoppingChecklist(value: unknown): value is ShoppingChecklist 
     && typeof store.premiseCode === "string"
     && typeof store.name === "string"
     && store.name.length > 0
-    && isNullableString(store.address);
+    && isNullableString(store.address)
+    && (store.saraStatus === undefined || isSaraStatus(store.saraStatus));
+}
+
+function isSaraStatus(value: unknown): value is StoreRecommendation["saraStatus"] {
+  return value === "verified" || value === "candidate" || value === "unverified";
+}
+
+function isChecklistRouteOrigin(value: unknown): value is ChecklistRouteOrigin {
+  if (!value || typeof value !== "object") return false;
+  const location = value as Record<string, unknown>;
+  return typeof location.latitude === "number" && Number.isFinite(location.latitude)
+    && typeof location.longitude === "number" && Number.isFinite(location.longitude);
 }
 
 export function serializeShoppingChecklist(checklist: ShoppingChecklist): string {
@@ -808,6 +842,8 @@ export function serializeShoppingChecklist(checklist: ShoppingChecklist): string
  * price and quantity overrides become the visible row values, while the
  * starting values are kept for Revert. Missing optional price dates become
  * null. Unknown versions are dropped safely.
+ *
+ * Owners: Shun, Zhihao
  */
 export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null {
   if (!raw || typeof raw !== "object") return null;
@@ -878,6 +914,10 @@ export function migrateShoppingChecklist(raw: unknown): ShoppingChecklist | null
   return isShoppingChecklist(normalized) ? normalized : null;
 }
 
+/**
+ * Read the stored checklist, migrating older versions; returns null when the record is missing or
+ * invalid.
+ */
 export function parseShoppingChecklist(serialized: string | null | undefined): ShoppingChecklist | null {
   if (!serialized) return null;
   try {
@@ -886,4 +926,9 @@ export function parseShoppingChecklist(serialized: string | null | undefined): S
   } catch {
     return null;
   }
+}
+
+export function setChecklistTollCost(checklist: ShoppingChecklist, amount: number | null): ShoppingChecklist {
+  if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return checklist;
+  return { ...checklist, actualTollCostRm: amount == null ? null : money(amount), updatedAt: nowIso() };
 }

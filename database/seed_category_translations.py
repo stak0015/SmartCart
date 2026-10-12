@@ -1,4 +1,7 @@
-"""Load optional English/Malay category labels into PostgreSQL."""
+"""Load optional English/Malay category labels into PostgreSQL.
+
+Owner: Shun
+"""
 
 from __future__ import annotations
 

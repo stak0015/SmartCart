@@ -1,5 +1,10 @@
+// Owner: Shun
 import Image from "next/image";
-import type { ReactNode } from "react";
+import svgPathsCompare from "./icons/compare";
+
+export function StorePlaceholder() {
+  return <svg aria-hidden="true" width={18} height={16} viewBox="0 0 18 16" fill="none" className="store-placeholder"><path d={svgPathsCompare.p2a93db80} fill="currentColor"/></svg>;
+}
 
 const CHAIN_LOGOS: Array<{ file: string; aliases: string[] }> = [
   { file: "99-speedmart", aliases: ["99 SPEEDMART", "99 SPEED MART", "SPEEDMART"] },
@@ -40,6 +45,8 @@ function normalize(value: string): string {
 
 function resolveChainLogo(name: string): string | null {
   const normalizedName = ` ${normalize(name)} `;
+  // Food courts are separate premises, even when named after their host chain.
+  if (/\b(?:MEDAN SELERA|FOOD\s*COURT)\b/.test(normalizedName)) return null;
   const chain = CHAIN_LOGOS.find(({ aliases }) =>
     aliases.some((alias) => normalizedName.includes(` ${normalize(alias)} `)),
   );
@@ -48,13 +55,11 @@ function resolveChainLogo(name: string): string | null {
 
 export function StoreChainLogo({
   name,
-  fallback,
 }: {
   name: string;
-  fallback: ReactNode;
 }) {
   const src = resolveChainLogo(name);
-  if (!src) return fallback;
+  if (!src) return <StorePlaceholder/>;
 
   return (
     <Image

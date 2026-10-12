@@ -1,15 +1,29 @@
 "use client";
+// Owner: Shun | Contributors: Randy, Zhihao
+import type { CatalogueSort } from "@/lib/api";
+
+import { TripFactsItems } from "./trip-facts";
+import { TravelCostDetails } from "./travel-cost-breakdown";
+import { StorePriceTable } from "./store-basket-row";
 
 import { usePathname, useRouter } from "next/navigation";
-import { DropdownChevron, UIIcon } from "./ui-icon";
+import { DropdownChevron, TrashIcon, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
 import { CatalogueItemImage } from "./catalogue-item-image";
+import { ItemPriceHistory } from "./price-history";
+import { TransportModeIcon, IcoWalkFigma, IcoBusFigma, IcoMotoFigma, IcoCarFigma } from "./transport-mode-icon";
 import { StoreChainLogo } from "./store-chain-logo";
+import { ShoppingStepNav } from "./shopping-step-nav";
+import { HealthierAlternativesSection } from "./healthier-alternatives";
+import { ItemNutritionSection } from "./item-nutrition";
+import { SHOPPING_SESSION_STORAGE_KEY, parseShoppingSession, serializeShoppingSession, type TravelPreferences } from "@/lib/shopping-session";
+import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { listCategories, searchItems, type Item } from "@/lib/api";
-import { DEFAULT_QTY, MAX_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
+import { useCallback, useEffect, useMemo, useRef, useState, useId, type Dispatch, type SetStateAction } from "react";
+import { fetchHealthierAlternatives, fetchItemNutrition, listCategories, searchItems, type Item, type HealthierAlternativesResult, type ItemNutritionResult } from "@/lib/api";
+import { DEFAULT_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
+import { NearbyPriceStatus, type CandidatePreparationState } from "./nearby-price-status";
 import {
   getRecommendations,
   getBasketAlternatives,
@@ -21,6 +35,7 @@ import {
 import type {
   BasketItemPrice,
   LocationSuggestion,
+  MultiStoreEmptyReason,
   RecommendationResponse,
   SaraFilter,
   SelectedLocation,
@@ -33,8 +48,21 @@ import type {
 } from "@/lib/contracts";
 import { toAlternativeLineRequests, toBasketLineRequests } from "@/lib/basket-lines";
 import {
+  DEFAULT_MULTI_STORE_CONFIG,
+  DISTANCE_LIMITS,
+  TIME_LIMITS,
+  type MultiStoreConfig,
+} from "@/lib/multi-store";
+import { MultiStorePanel } from "./multi-store-panel";
+import { MultiPlanCard } from "./plan-comparison";
+import { rankedStorePlanOptions, type StorePlanOption } from "@/lib/multi-store";
+import { PlanDetailView } from "./plan-detail";
+import { QuantitySelector } from "./quantity-selector";
+import { RecommendationBasketRow } from "./recommendation-basket-row";
+import { repriceComparisonOptions } from "@/lib/plan-detail-edits";
+import { SaraEligibilityFlag, SaraStoreTag } from "./store-tags";
+import {
   applyBasketReplacement,
-  currentReplacementImpactRm,
   lowerCostReplacementChoice,
   packReplacementChoice,
   undoBasketReplacement,
@@ -43,13 +71,13 @@ import {
 import {
   buildRecommendationDetailRows,
   recommendationDetailTotals,
-  targetAlreadyInBasket,
   type RecommendationDetailRow,
 } from "@/lib/recommendation-detail";
 import {
   ConfirmationDialog,
   EmptyChecklistScreen,
   NextTripList,
+  PlannedWeekDialog,
   ShoppingChecklistScreen,
 } from "@/components/shopping-checklist";
 import { EstimatedSavingsSummary } from "@/components/estimated-savings-summary";
@@ -59,7 +87,7 @@ import {
   type TripJourneyStep,
 } from "@/components/journey-screens";
 import { ReceiptHistoryScreen, ReportConsentDialog, ReportScreen, type ConsentDialogMode, type ReportGenerationUiState } from "@/components/report-screens";
-import { mapsRouteUrl } from "@/lib/travel";
+import { mapsPlanRouteUrl, mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
 import { uppercaseItemName } from "@/lib/item-name";
 import { localizedPackageSize } from "@/lib/package-size";
@@ -67,6 +95,7 @@ import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-sto
 import {
   SHOPPING_CHECKLIST_STORAGE_KEY,
   addManualChecklistItem,
+  setChecklistTollCost,
   createShoppingChecklist,
   deleteChecklistItem,
   editChecklistValues,
@@ -94,10 +123,12 @@ import {
   nextTripItemId,
   parseNextTrip,
   saveForNextTrip,
+  schedulePlannedItem,
   serializeNextTrip,
   type NextTripItem,
   type NextTripPriceQuote,
 } from "@/lib/next-trip";
+import { currentPlannedWeek, plannedWeekOptions } from "@/lib/planned-week";
 import { calculateEstimatedSavings } from "@/lib/estimated-savings";
 import {
   EMPTY_INBOX,
@@ -112,6 +143,7 @@ import {
   type InboxState,
 } from "@/lib/inbox";
 import { readReportConsent, writeReportConsent, type ReportConsentRead, type ReportConsentStatus } from "@/lib/report-consent";
+import { readReportLanguage, writeReportLanguage } from "@/lib/report-language";
 import { buildGenerateReportRequest, claimAutomaticReportPeriods, getEligibleReportPeriods, getManualReportPeriods, requestGeneratedReport, type ReportCadence, type ReportPeriod } from "@/lib/report-generation";
 import svgPathsBasket from "@/components/icons/basket";
 import svgPathsLocation from "@/components/icons/location";
@@ -128,16 +160,6 @@ const SCREEN_ROUTES: Record<Screen, string> = {
 function screenForPath(pathname: string): Screen {
   if (pathname.startsWith("/store/")) return "compare";
   return (Object.entries(SCREEN_ROUTES).find(([, route]) => route === pathname)?.[0] as Screen | undefined) ?? "home";
-}
-
-interface TravelPreferences {
-  origin: SelectedLocation | null;
-  transportMode: TransportMode;
-  limitType: TravelLimitType;
-  limitValue: number;
-  distanceKm: number;
-  timeMinutes: number;
-  saraFilter: SaraFilter;
 }
 
 function recommendationTravelRequest(preferences: TravelPreferences): TravelPreferencesRequest {
@@ -183,27 +205,6 @@ function IcoLocation({ color = "#00535B" }: { color?: string }) {
     </svg>
   );
 }
-function IcoTrash({ color = "#BA1A1A" }: { color?: string }) {
-  return (
-    <svg width={13.333} height={15} viewBox="0 0 13.3333 15" fill="none">
-      <path d={svgPathsBasket.pd83d200} fill={color} />
-    </svg>
-  );
-}
-function IcoArrowRight({ color = "white" }: { color?: string }) {
-  return (
-    <svg width={16} height={16} viewBox="0 0 16 16" fill="none">
-      <path d={svgPathsBasket.p1a406200} fill={color} />
-    </svg>
-  );
-}
-function IcoStore({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={18} height={16} viewBox="0 0 18 16" fill="none">
-      <path d={svgPathsCompare.p2a93db80} fill={color} />
-    </svg>
-  );
-}
 function IcoWarn({ color = "#93000A" }: { color?: string }) {
   return (
     <svg width={12.833} height={11.083} viewBox="0 0 12.8333 11.0833" fill="none">
@@ -211,87 +212,7 @@ function IcoWarn({ color = "#93000A" }: { color?: string }) {
     </svg>
   );
 }
-function IcoWalkFigma({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={17.333} height={28.667} viewBox="0 0 17.3333 28.6667" fill="none">
-      <path d={svgPathsLocation.p15f7f100} fill={color} />
-    </svg>
-  );
-}
-function IcoBusFigma({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={21.333} height={25.333} viewBox="0 0 21.3333 25.3333" fill="none">
-      <path d={svgPathsLocation.p11d2e580} fill={color} />
-    </svg>
-  );
-}
-function IcoMotoFigma({ color = "white" }: { color?: string }) {
-  return (
-    <svg width={32} height={18.667} viewBox="0 0 32 18.6667" fill="none">
-      <path d={svgPathsLocation.p2da71d00} fill={color} />
-    </svg>
-  );
-}
-function IcoCarFigma({ color = "#3E494A" }: { color?: string }) {
-  return (
-    <svg width={24} height={21.333} viewBox="0 0 24 21.3333" fill="none">
-      <path d={svgPathsLocation.p282dfe00} fill={color} />
-    </svg>
-  );
-}
-// ── Transport mode icon (iteration1 feedback: transit includes walking) ────
-function TransportModeIcon({ mode, color = "#3E494A" }: { mode: TransportMode; color?: string }) {
-  if (mode === "public_transport") {
-    return (
-      <span className="flex h-5 items-center gap-1 [&_svg]:h-5 [&_svg]:w-auto">
-        <IcoWalkFigma color={color} />
-        <IcoBusFigma color={color} />
-      </span>
-    );
-  }
-  return (
-    <span className="flex h-5 items-center [&_svg]:h-5 [&_svg]:w-auto">
-      {mode === "walk" ? (
-        <IcoWalkFigma color={color} />
-      ) : mode === "motorcycle" ? (
-        <IcoMotoFigma color={color} />
-      ) : (
-        <IcoCarFigma color={color} />
-      )}
-    </span>
-  );
-}
-
-type TripFact = { icon: ReactNode; label: string; value: ReactNode };
-
-function TripFactsItems({ facts }: { facts: TripFact[] }) {
-  return <>{facts.map(fact => <span key={fact.label}>{fact.icon}<small>{fact.label}</small><strong>{fact.value}</strong></span>)}</>;
-}
-
 // ── Header ─────────────────────────────────────────────────────────────────
-function SaraEligibilityFlag({
-  status,
-  candidate = false,
-  copy,
-}: {
-  status: boolean | null;
-  candidate?: boolean;
-  copy: AppCopy;
-}) {
-  if (status !== true && !candidate) return null;
-  return <span className="sara-item-status">{copy.saraCategory}</span>;
-}
-
-function SaraStoreTag({ status, copy }: { status: StoreRecommendation["saraStatus"]; copy: AppCopy }) {
-  if (status === "verified") {
-    return <span className="inline-flex self-start rounded-md bg-[#e5f5ed] px-2 py-1 text-xs font-semibold text-[#166534]">{copy.verifiedSara}</span>;
-  }
-  if (status === "candidate") {
-    return <span className="inline-flex self-start rounded-md bg-[#fff4ce] px-2 py-1 text-xs font-semibold text-[#755b00]">{copy.candidateSara}</span>;
-  }
-  return <span className="inline-flex self-start rounded-md bg-[#f3f4f5] px-2 py-1 text-xs font-medium text-[#5f6368]">{copy.unverifiedSara}</span>;
-}
-
 function medianPriceCount(prices: BasketItemPrice[], reportedCount?: number): number {
   return reportedCount ?? prices.filter(price => price.priceSource === "median" && price.lineTotalRm != null).length;
 }
@@ -327,12 +248,7 @@ function CompactBasketPriceList({ prices, basket = [], copy, locale }: { prices:
   );
 }
 
-function replacementImpactText(copy: AppCopy, impactRm: number | null): string {
-  if (impactRm == null) return copy.savingsUnavailable;
-  if (impactRm > 0) return copy.saveAmount(formatRm(impactRm));
-  if (impactRm < 0) return copy.moreNow(formatRm(Math.abs(impactRm)));
-  return copy.sameCostNow;
-}
+
 
 type PaginationEntry = number | `ellipsis-${number}`;
 
@@ -377,86 +293,108 @@ function Header({ basketCount, onBasket, basketActive, onHome, locale, onToggleL
   </div></header>;
 }
 
-function QuantitySelector({
-  value,
-  onChange,
-  onStep,
-  decreaseLabel,
-  increaseLabel,
-  quantityLabel,
-  errorId,
-  errorText,
-  action,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  onStep: (delta: number) => void;
-  decreaseLabel: string;
-  increaseLabel: string;
-  quantityLabel: string;
-  errorId?: string;
-  errorText?: string;
-  action?: ReactNode;
+function CatalogueSortControl({ value, locale, onChange, onOpen }: {
+  value: CatalogueSort; locale: Locale; onChange: (value: CatalogueSort) => void; onOpen: () => void;
 }) {
-  const qty = parseQty(value);
-
-  return (
-    <div className="quantity-selector flex min-w-0 flex-col gap-2 sm:items-start">
-      <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
-        <button type="button" aria-label={decreaseLabel} disabled={qty === DEFAULT_QTY} onClick={() => onStep(-1)} className="flex h-11 w-11 items-center justify-center rounded-xl border border-[#cbd8d1] text-lg text-[#007d38] disabled:opacity-40">−</button>
-        <input
-          type="text"
-          inputMode="numeric"
-          aria-label={quantityLabel}
-          aria-invalid={qty === null}
-          aria-describedby={qty === null && errorId ? errorId : undefined}
-          value={value}
-          onChange={event => onChange(event.target.value)}
-          className={`h-11 w-12 rounded-xl border text-center text-sm font-bold focus:outline-none ${qty === null ? "border-[#c92a2a] bg-[#fff5f5] text-[#93000a] focus:border-[#c92a2a]" : "border-[#cbd8d1] text-[#10152e] focus:border-[#007d38]"}`}
-        />
-        <button type="button" aria-label={increaseLabel} disabled={qty === MAX_QTY} onClick={() => onStep(1)} className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#007d38] text-lg text-white disabled:opacity-40">+</button>
-        {action}
-      </div>
-      {qty === null && errorId && errorText && (
-        <p id={errorId} role="alert" className="max-w-full break-words text-right text-[13px] font-semibold leading-5 text-[#c92a2a]">{errorText}</p>
-      )}
-    </div>
-  );
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  const options: { value: CatalogueSort; label: string }[] = [
+    { value: "price_asc", label: locale === "en" ? "Cheapest first" : "Termurah dahulu" },
+    { value: "price_desc", label: locale === "en" ? "Highest price first" : "Harga tertinggi dahulu" },
+    { value: "name_asc", label: locale === "en" ? "Name: A–Z" : "Nama: A–Z" },
+    { value: "name_desc", label: locale === "en" ? "Name: Z–A" : "Nama: Z–A" },
+  ];
+  const selectedLabel = options.find(option => option.value === value)!.label;
+  const compactLabel = value === "price_asc" ? `${locale === "en" ? "Price" : "Harga"} ↑` : value === "price_desc" ? `${locale === "en" ? "Price" : "Harga"} ↓` : value === "name_asc" ? "A–Z" : "Z–A";
+  useEffect(() => {
+    if (!open) return;
+    rootRef.current?.querySelector<HTMLButtonElement>('[aria-checked="true"]')?.focus();
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", dismiss);
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [open]);
+  return <div ref={rootRef} className="catalogue-sort-control">
+    <button ref={triggerRef} type="button" className="catalogue-sort-trigger" aria-haspopup="menu" aria-expanded={open} aria-controls={menuId}
+      aria-label={`${locale === "en" ? "Sort by" : "Susun mengikut"}: ${selectedLabel}`} onClick={() => { if (!open) onOpen(); setOpen(current => !current); }}
+      onKeyDown={event => { if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); onOpen(); setOpen(true); } }}>
+      <span><span className="catalogue-sort-label-full">{selectedLabel}</span><span className="catalogue-sort-label-short">{compactLabel}</span></span><DropdownChevron/>
+    </button>
+    {open && <div id={menuId} className="catalogue-sort-menu" role="menu" aria-label={locale === "en" ? "Sort options" : "Pilihan susunan"}
+      onKeyDown={event => {
+        const buttons = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button'));
+        const index = buttons.indexOf(document.activeElement as HTMLButtonElement);
+        if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+          event.preventDefault();
+          const next = event.key === "Home" ? 0 : event.key === "End" ? buttons.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + buttons.length) % buttons.length;
+          buttons[next]?.focus();
+        } else if (event.key === "Escape") {
+          event.preventDefault(); setOpen(false); triggerRef.current?.focus();
+        } else if (event.key === "Tab") setOpen(false);
+      }}>
+      {options.map(option => <button key={option.value} type="button" role="menuitemradio" tabIndex={-1} aria-checked={option.value === value}
+        onClick={() => { onChange(option.value); setOpen(false); triggerRef.current?.focus(); }}>
+        <span>{option.label}</span>{option.value === value && <UIIcon name="check" size={16}/>}
+      </button>)}
+    </div>}
+  </div>;
 }
 
-// ── Screen 1: Build Your Basket ───────────────────────────────────────────────
 function BasketScreen({
   candidateCacheId = null,
+  hasLocation = false,
+  candidatePreparation = { status: "idle" },
+  onRetryNearbyPrices,
+  onSchedulePurchase,
+  plannedItems,
   view,
   basket,
   setBasket,
   onViewBasket,
+  onBackToShop,
   onContinue,
   copy,
   locale,
 }: {
   candidateCacheId?: string | null;
+  hasLocation?: boolean;
+  candidatePreparation?: CandidatePreparationState;
+  onRetryNearbyPrices?: () => void;
+  onSchedulePurchase: (item: Item, quantity: number) => void;
+  plannedItems: NextTripItem[];
   view: "shop" | "basket";
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onViewBasket: () => void;
+  onBackToShop: () => void;
   onContinue: () => void;
   copy: AppCopy;
   locale: Locale;
 }) {
   const [search, setSearch] = useState("");
-  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  // Epic 7 (US 7.2): the item dialog walks a stack of visited items so an
+  // alternative can be opened, explored further, and stepped back one level
+  // at a time. Quantities stay per item id, so returning restores the
+  // shopper's unsubmitted quantity (AC 7.2.2).
+  const [selectedStack, setSelectedStack] = useState<Item[]>([]);
+  const selectedItem = topItem(selectedStack);
+  const previousItem = previousInStack(selectedStack);
   const [priceContext, setPriceContext] = useState<"ready" | "unavailable">("unavailable");
   const [priceStoreCount, setPriceStoreCount] = useState(0);
   const searchRef = useRef<HTMLInputElement>(null);
   const [activeCategories, setActiveCategories] = useState<string[]>([]);
+  const [saraCategoryOnly, setSaraCategoryOnly] = useState(false);
+  const [catalogueSort, setCatalogueSort] = useState<CatalogueSort>("price_asc");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [emptyError, setEmptyError] = useState(false);
   const [categories, setCategories] = useState<ItemCategory[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState(false);
 
-  // ── Real database search (Step 6) ─────────────────────────────────────────
+  // ── Catalogue search ─────────────────────────────────────────
   const [apiResults, setApiResults] = useState<Item[]>([]);
   const [apiTotal, setApiTotal] = useState(0);
   const [apiTotalPages, setApiTotalPages] = useState(0);
@@ -464,8 +402,19 @@ function BasketScreen({
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [apiError, setApiError] = useState(false);
+  // Wait for the store context before searching: the first result includes prices.
+  const waitingForPrices = hasLocation && !candidateCacheId
+    && candidatePreparation.status !== "failed";
+  const catalogueLoading = apiLoading || waitingForPrices;
   const [qtyById, setQtyById] = useState<Record<number, string>>({});
   const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
+  // Epic 7 (US 7.1): alternatives for the item currently open in the dialog.
+  const [alternatives, setAlternatives] = useState<HealthierAlternativesResult | null>(null);
+  const [alternativesLoading, setAlternativesLoading] = useState(false);
+  const [alternativesError, setAlternativesError] = useState(false);
+  const [itemNutrition, setItemNutrition] = useState<ItemNutritionResult | null>(null);
+  const [itemNutritionLoading, setItemNutritionLoading] = useState(false);
+  const [itemNutritionError, setItemNutritionError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -486,6 +435,10 @@ function BasketScreen({
 
   useEffect(() => {
     if (view !== "shop") return;
+    if (waitingForPrices) {
+      setApiLoading(true);
+      return;
+    }
     const query = search.trim();
     if (query.length === 1) {
       setApiResults([]);
@@ -502,11 +455,16 @@ function BasketScreen({
     setApiSearched(true);
     setApiError(false);
     const timer = window.setTimeout(() => {
-      searchItems(query, page, activeCategories, controller.signal, candidateCacheId, 15)
+      searchItems(query, page, activeCategories, controller.signal, candidateCacheId, 15, { saraCategoryOnly, sort: catalogueSort, locale })
         .then(data => {
           if (controller.signal.aborted) return;
           setApiResults(data.items);
-          setSelectedItem(current => current ? data.items.find(item => item.item_id === current.item_id) ?? current : null);
+          setSelectedStack(current => {
+            const top = topItem(current);
+            if (!top) return current;
+            const refreshed = data.items.find(item => item.item_id === top.item_id);
+            return refreshed ? replaceTop(current, refreshed) : current;
+          });
           setPriceContext(data.price_context ?? "unavailable");
           setPriceStoreCount(data.price_store_count ?? 0);
           setApiTotal(data.total);
@@ -528,7 +486,66 @@ function BasketScreen({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [activeCategories, page, search, view, candidateCacheId]);
+  }, [activeCategories, page, search, view, candidateCacheId, saraCategoryOnly, catalogueSort, locale, waitingForPrices]);
+
+  // Epic 7 (US 7.1): load approved healthier alternatives for the item
+  // currently open in the dialog. A failure only affects this section
+  // (AC 7.1.5) — the item stays usable.
+  useEffect(() => {
+    const itemCode = selectedItem?.item_code;
+    if (!itemCode) {
+      setAlternatives(null);
+      setAlternativesError(false);
+      setAlternativesLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setAlternatives(null);
+    setAlternativesError(false);
+    setAlternativesLoading(true);
+    fetchHealthierAlternatives(itemCode, candidateCacheId, controller.signal)
+      .then(data => {
+        if (!controller.signal.aborted) setAlternatives(data);
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setAlternatives(null);
+        setAlternativesError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAlternativesLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedItem?.item_code, candidateCacheId]);
+
+  // Nutrition lookup is intentionally independent from healthier alternatives:
+  // a generic or product match remains useful without a recommendation.
+  useEffect(() => {
+    const itemCode = selectedItem?.item_code;
+    if (!itemCode) {
+      setItemNutrition(null);
+      setItemNutritionError(false);
+      setItemNutritionLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setItemNutrition(null);
+    setItemNutritionError(false);
+    setItemNutritionLoading(true);
+    fetchItemNutrition(itemCode, controller.signal)
+      .then(data => {
+        if (!controller.signal.aborted) setItemNutrition(data);
+      })
+      .catch(error => {
+        if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+        setItemNutrition(null);
+        setItemNutritionError(true);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setItemNutritionLoading(false);
+      });
+    return () => controller.abort();
+  }, [selectedItem?.item_code]);
 
   const toggleCategory = (category: string) => {
     setPage(1);
@@ -576,11 +593,11 @@ function BasketScreen({
   };
 
   // Convert a real database Item into a BasketItem and add it to the basket.
-  // id is prefixed with "db-" to avoid colliding with the demo STORES ids ("1".."5").
+  // id is prefixed with "db-"; only "db-" lines are sent for pricing.
   // Package size comes from the same mapping as the result row, so both views
   // always show identical details; unparsed values show "—".
   const addRealItem = (item: Item, qty: number) => {
-    // AC-1.4.2: same item added again increases quantity, never duplicates.
+    // AC 1.4.5: same item added again increases quantity, never duplicates.
     setBasket(current => upsertBasketLine(current, {
       id: `db-${item.item_id}`,
       ...basketDetails(item),
@@ -617,22 +634,22 @@ function BasketScreen({
   const isDesktopBasketRail = view === "shop";
   const basketPanel = (
     <section className={"basket-panel " + (isDesktopBasketRail ? "is-rail" : "is-review")} aria-label={copy.basketItems}>
-      <header className="basket-panel-heading"><UIIcon name="basket"/><h2>{isDesktopBasketRail ? (locale === "en" ? "Your basket" : "Bakul anda") : copy.basketItems}</h2><span>{itemCount}</span></header>
+      <header className="basket-panel-heading"><UIIcon name="basket"/><h2 className="section-title">{isDesktopBasketRail ? (locale === "en" ? "Your basket" : "Bakul anda") : copy.basketItems}</h2><span>{itemCount}</span></header>
       {basket.length === 0 ? <p className="basket-empty">{copy.basketEmpty}</p> : <>
         <div className="basket-columns" aria-hidden="true"><span>{locale === "en" ? "Product" : "Produk"}</span><span>SARA</span><span>{locale === "en" ? "Unit size" : "Saiz unit"}</span><span>{locale === "en" ? "Quantity" : "Kuantiti"}</span><span/></div>
         <ul className="basket-rows">{basket.map(item => {
           const replacement = item.replacement && item.id !== item.replacement.original.id ? item.replacement : null;
           return <li key={item.id} className={"basket-row " + (replacement ? "is-replaced" : "")}>
-          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3>{localizedName(copy, item.name, item)}</h3><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span><small>{categoryLabel(locale, item.category)}</small></div></div>
-          <div className="basket-sara"><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
+          <div className="basket-product"><span className="basket-product-icon" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={32}/></span><div><h3 title={localizedName(copy, item.name, item)}>{localizedName(copy, item.name, item)}</h3>{!isDesktopBasketRail && <><span className="basket-mobile-size">{packageSizeForCopy(copy, item.size)}</span><small>{categoryLabel(locale, item.category)}</small></>}</div></div>
+          <div className="basket-sara"><small className="basket-compact-size">{packageSizeForCopy(copy, item.size)}</small><SaraEligibilityFlag status={item.saraEligible} candidate={item.saraCategoryCandidate} copy={copy}/></div>
           <span className="basket-package">{packageSizeForCopy(copy, item.size)}</span>
           <div className="basket-quantity"><QuantitySelector value={basketQtyById[item.id] ?? String(item.qty)} onChange={raw => typeBasketQty(item.id, raw)} onStep={delta => stepBasketQty(item.id, delta)} decreaseLabel={copy.decreaseQuantity(localizedName(copy, item.name, item))} increaseLabel={copy.increaseQuantity(localizedName(copy, item.name, item))} quantityLabel={copy.quantityFor(localizedName(copy, item.name, item))} errorId={`basket-quantity-error-${item.id}`} errorText={copy.quantityError}/></div>
-          <button type="button" className="basket-remove" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)}><IcoTrash color="#526078"/></button>
+          <button type="button" className="basket-remove" aria-label={copy.removeItem(localizedName(copy, item.name, item))} onClick={() => removeItem(item.id)}><TrashIcon style={{ color: "#526078" }}/></button>
           {replacement && <div className="basket-replacement"><span>{replacement.kind === "pack" ? copy.packChanged : copy.swapped} · {copy.originally(localizedName(copy, replacement.original.name, replacement.original))} ({packageSizeForCopy(copy, replacement.original.size)})</span><button type="button" onClick={() => setBasket(current => undoBasketReplacement(current, item.id))}>{copy.undoSwap}</button></div>}
         </li>;
         })}</ul>
       </>}
-      {isDesktopBasketRail && <div className="basket-rail-action"><button type="button" className="primary-button" onClick={onViewBasket} disabled={basket.length === 0}>{copy.viewBasket} →</button></div>}
+      {isDesktopBasketRail && <div className="basket-rail-action"><button type="button" className="primary-button" onClick={onViewBasket} disabled={basket.length === 0}>{copy.viewBasket}</button></div>}
     </section>
   );
 
@@ -641,15 +658,14 @@ function BasketScreen({
       {view === "shop" && (
         <div className="catalogue-content">
       {/* Page header */}
-      <div className="px-4 pb-5 pt-0 sm:px-6">
-
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">{copy.shopTitle}</h1>
-        <p className="mt-2 max-w-[580px] text-[16px] leading-6 text-[#526078]">
+      <div className="page-header">
+        <h1 className="page-title">{copy.shopTitle}</h1>
+        <p className="page-intro">
           {copy.shopDescription}
         </p>
       </div>
 
-      {/* Search —— now calls the real backend API (Step 6) */}
+      {/* Search bar (US 1.1) */}
       <div className="catalogue-search px-4 pb-3 pt-2 sm:px-6">
         <div className="relative h-14">
           <div className="absolute left-4 top-1/2 -translate-y-1/2">
@@ -671,6 +687,7 @@ function BasketScreen({
         </div>
       </div>
 
+      <div className="catalogue-controls" role="group" aria-label={locale === "en" ? "Catalogue filters and sorting" : "Penapis dan susunan katalog"}>
       {/* Multi-select category filter */}
       <div className="catalogue-categories">
         <button
@@ -717,52 +734,64 @@ function BasketScreen({
         )}
       </div>
 
-      {/* Matching items —— now shows real backend data with prices (Step 7) */}
+        <CatalogueSortControl value={catalogueSort} locale={locale} onOpen={() => setCategoryOpen(false)} onChange={value => { setCatalogueSort(value); setPage(1); }}/>
+      </div>
+      <label className="catalogue-sara-control">
+        <input type="checkbox" checked={saraCategoryOnly} onChange={event => { setSaraCategoryOnly(event.target.checked); setPage(1); }} className="h-4 w-4 accent-[#007d38]"/>
+        {locale === "en" ? "SARA categories only" : "Kategori SARA sahaja"}
+      </label>
+
+      {/* Catalogue results with nearby prices (US 1.1, 2.5) */}
       <div id="catalogue-results" className="scroll-mt-36 px-4 pb-7 sm:px-6">
         <div className="mb-3 flex items-end justify-between gap-3">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">
+          <h2 className="section-title">
             {search.trim().length >= 2 || activeCategories.length > 0 ? copy.searchResults : copy.allEssentials}
           </h2>
           <span className="text-sm font-medium text-[#718078]">
-            {apiLoading ? copy.searching : copy.itemCount(apiTotal)}
+            {catalogueLoading ? copy.searching : copy.itemCount(apiTotal)}
           </span>
         </div>
-        {!apiLoading && <p className="catalogue-price-context">{priceContext === "ready"
-          ? (locale === "en" ? `Recorded prices across ${priceStoreCount} nearby stores. Prices may vary in store.` : `Harga direkodkan daripada ${priceStoreCount} kedai berdekatan. Harga di kedai mungkin berbeza.`)
-          : (locale === "en" ? "Nearby prices unavailable. Set your location in Travel to load nearby stores." : "Harga berdekatan tidak tersedia. Tetapkan lokasi dalam Perjalanan untuk memuatkan kedai berdekatan.")}</p>}
+        {(!catalogueLoading || candidatePreparation.status === "loading") && <NearbyPriceStatus
+          hasLocation={hasLocation}
+          preparation={candidatePreparation}
+          ready={priceContext === "ready"}
+          storeCount={priceStoreCount}
+          locale={locale}
+          onRetry={onRetryNearbyPrices}
+        />}
 
         {/* Not searched yet */}
-        {!apiSearched && (
+        {!apiSearched && !catalogueLoading && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
             {copy.enterTwoCharacters}
           </p>
         )}
 
         {/* Loading */}
-        {apiLoading && (
+        {catalogueLoading && (
           <p className="text-[16px] text-[#718078] text-center py-6">{copy.searchingDatabase}</p>
         )}
 
-        {/* Searched but no results — AC-1.1.1 exact wording */}
-        {!apiLoading && apiSearched && !apiError && apiResults.length === 0 && (
+        {/* Searched but no results (AC 1.1.4) */}
+        {!catalogueLoading && apiSearched && !apiError && apiResults.length === 0 && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
             {copy.noItems}
           </p>
         )}
 
-        {!apiLoading && apiError && (
+        {!catalogueLoading && apiError && (
           <p role="alert" className="text-[16px] text-[#ba1a1a] text-center py-6">{copy.catalogueUnavailable}</p>
         )}
 
         {/* Real results list */}
-        {!apiLoading && apiResults.length > 0 && (
+        {!catalogueLoading && apiResults.length > 0 && (
           <div className="product-grid">
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
               return (
               <article key={item.item_id} className="product-card"><div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={item.image_url}/></div>
                 <div className="flex min-w-0 flex-col gap-1.5">
-                  <h3 className="break-words text-[15px] font-extrabold leading-5 text-[#10152e]">{fields.name}</h3>
+                  <h3 className="item-name-line text-[15px] font-extrabold leading-5 text-[#10152e]" title={fields.name}>{fields.name}</h3>
                   <div className="flex min-w-0 flex-wrap gap-x-2.5 gap-y-0.5 text-[12px] leading-5">
                     <span className="break-words text-[#526078]">{packageSizeForCopy(copy, fields.packageSize)}</span>
                     <span className="break-words text-[#718078]">{categoryLabel(locale, item.category)}</span>
@@ -771,7 +800,7 @@ function BasketScreen({
                 </div>
                 <div className="product-card-footer">
                   <strong className={item.price_range ? "product-price" : "product-price is-unavailable"}>{cataloguePrice(item, locale)}</strong>
-                  <button type="button" className="product-add icon-button" aria-haspopup="dialog" aria-label={`${copy.addToBasket}: ${fields.name}`} onClick={() => { setQtyById(current => ({ ...current, [item.item_id]: "1" })); setSelectedItem(item); }}><UIIcon name="plus"/></button>
+                  <button type="button" className="product-add icon-button" aria-haspopup="dialog" aria-label={`${copy.addToBasket}: ${fields.name}`} onClick={() => { setQtyById(current => ({ ...current, [item.item_id]: "1" })); setSelectedStack(resetStack(item)); }}><UIIcon name="plus"/></button>
                 </div>
               </article>
               );
@@ -779,7 +808,7 @@ function BasketScreen({
           </div>
         )}
 
-        {!apiLoading && !apiError && apiTotalPages > 1 && (
+        {!catalogueLoading && !apiError && apiTotalPages > 1 && (
           <nav aria-label={copy.pagination} className="mt-6 flex flex-col items-center gap-3">
             <p className="text-sm font-medium text-[#526078]">{copy.pageOf(page, apiTotalPages)}</p>
             <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5">
@@ -831,21 +860,27 @@ function BasketScreen({
           {basketPanel}
         </aside>
       )}
-      <CatalogueItemDialog open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedItem(null)} canAdd={selectedQty !== null}
-        onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedItem(null); } }}
-        details={selectedItem && <div className="catalogue-dialog-details">
-          <div className="product-visual" aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></div>
+      <CatalogueItemDialog key={selectedItem?.item_code ?? 'closed'} open={selectedItem !== null} title={selectedName} locale={locale} onClose={() => setSelectedStack(clearStack<Item>())} canAdd={selectedQty !== null}
+        trends={selectedItem ? onClose => <ItemPriceHistory code={selectedItem.item_code} quantity={selectedQty} locale={locale} onClose={onClose} plannedWeek={plannedItems.find(item => item.catalogueItemId === String(selectedItem.item_id))?.plannedWeek}/> : undefined}
+        back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
+        onSchedule={selectedItem ? () => { if (selectedQty !== null) onSchedulePurchase(selectedItem, selectedQty); } : undefined}
+        onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
+        details={selectedItem ? priceTrendsButton => <div className="catalogue-dialog-details">
+          <div className="product-visual"><span aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></span>{priceTrendsButton}</div>
           <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
           <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
           <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
-          {selectedItem.price_range && <p>{locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
-          {selectedItem.price_range?.oldest_observed_date && <p>{locale === "en" ? "Oldest price observation: " : "Rekod harga terlama: "}{selectedItem.price_range.oldest_observed_date}</p>}
-        </div>}
-        quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}/>
+          {selectedItem.price_range && <p>{selectedItem.price_range.price_source === "median"
+            ? (locale === "en" ? "Estimated from the item's median price. Per unit; final price depends on your store." : "Anggaran daripada harga median item. Seunit; harga akhir bergantung pada kedai.")
+            : locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
+        </div> : null}
+        quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
+        nutrition={selectedItem && <ItemNutritionSection loading={itemNutritionLoading} result={itemNutrition} error={itemNutritionError} locale={locale}/>}
+        alternatives={selectedItem ? onOpenInsights => <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenInsights={onOpenInsights} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/> : undefined}/>
       {view === "basket" && (
         <>
-      <div className="px-4 pb-5 pt-4 sm:px-6 sm:pt-6">
-        <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">{copy.basketTitle}</h1><p className="page-description">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p>
+      <div className="page-header">
+        <h1 className="page-title">{copy.basketTitle}</h1><p className="page-intro">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p>
       </div>
 
       {basketPanel}
@@ -854,11 +889,12 @@ function BasketScreen({
 
       {(view === "basket" || itemCount > 0) && !(view === "shop" && categoryOpen) && <div className={(view === "shop" ? "lg:hidden " : "") + "fixed inset-x-0 bottom-0 z-40 border-t border-[#dfe7e2] bg-white/96 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_28px_rgba(16,35,29,0.10)] backdrop-blur"}>
         {view === "basket" ? (
-          <div className="mx-auto flex w-full max-w-[712px] gap-3">
+          <div className="basket-review-actions mx-auto w-full max-w-[712px]">
+            <button type="button" onClick={onBackToShop} className="secondary-button h-14 min-w-0 flex-1">{copy.backToShop}</button>
             <button
               type="button"
               onClick={handleContinue}
-              className="h-14 w-full rounded-2xl bg-[#007d38] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
+              className="h-14 min-w-0 flex-1 rounded-2xl bg-[#007d38] text-[14px] font-extrabold text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)]"
             >
               {copy.chooseLocation}
             </button>
@@ -871,7 +907,6 @@ function BasketScreen({
               className="flex min-h-14 w-full min-w-0 items-center justify-center gap-2 whitespace-normal break-words rounded-2xl bg-[#007d38] px-5 py-2 text-center text-[15px] font-extrabold leading-5 text-white shadow-[0_5px_14px_rgba(8,127,91,0.25)] sm:w-auto sm:min-w-[190px]"
             >
               {copy.viewBasket}
-              <IcoArrowRight />
             </button>
           </div>
         )}
@@ -908,15 +943,37 @@ function transportLabel(copy: AppCopy, mode: TransportMode): string {
   }[mode];
 }
 
+/**
+ * AC 6.2.8: map the backend's empty-state reason to shopper-facing copy.
+ *
+ * The reasons are kept distinct rather than collapsed into one message because
+ * they need different shopper responses: "no_pairs_within_limit" means the
+ * limits are too tight (edit them), while "no_inter_store_route_data" means the
+ * provider had no route (a data condition the shopper cannot fix by editing).
+ */
+function multiStoreEmptyMessage(
+  copy: AppCopy,
+  reason: MultiStoreEmptyReason,
+): string {
+  switch (reason) {
+    case "no_inter_store_route_data":
+      return copy.multiStoreNoInterStoreRoutes;
+    case "insufficient_reachable_stores":
+      return copy.multiStoreInsufficientStores;
+    case "straight_line_fallback_unsupported":
+      return copy.multiStoreUnsupportedFallback;
+    case "no_pairs_within_limit":
+    default:
+      return copy.multiStoreNoMatchingPlans;
+  }
+}
+
 function createLocationSessionToken(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return "smartcart-" + Date.now() + "-" + Math.random().toString(36).slice(2);
 }
-
-const DISTANCE_LIMITS = [2, 5, 10, 15] as const;
-const TIME_LIMITS = [10, 20, 30, 45] as const;
 
 function LocationScreen({
   preferences,
@@ -1134,7 +1191,7 @@ function LocationScreen({
 
       <div className="location-layout">
         <section className="origin-panel">
-          <div className="location-heading"><h1>{copy.locationTitle}</h1><p>{copy === COPY.ms ? "Pilih lokasi dan pilihan perjalanan anda." : "Set your location and travel preferences."}</p></div>
+          <div className="location-heading"><h1 className="page-title">{copy.locationTitle}</h1><p className="page-intro">{copy === COPY.ms ? "Pilih lokasi dan pilihan perjalanan anda." : "Set your location and travel preferences."}</p></div>
           <div className="origin-title">
             <IcoLocation />
             <h2>{copy.startingPoint}</h2>
@@ -1225,7 +1282,7 @@ function LocationScreen({
 
         <div className="preference-bar">
         <section className={"transport-panel preference-panel " + (expandedPreference === "transport" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "transport"} onClick={() => setExpandedPreference(current => current === "transport" ? null : "transport")}><TransportModeIcon mode={transportMode}/> <strong>{copy.transportMode}</strong><span>{transportLabel(copy, transportMode)}</span><DropdownChevron/></button><div className="preference-content">
-          <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{copy.transportMode}</h2>
+          <h2 className="section-title">{copy.transportMode}</h2>
           <div className="grid grid-cols-2 gap-3">
             {TRANSPORT_OPTS.map(option => {
               const active = transportMode === option.id;
@@ -1247,7 +1304,7 @@ function LocationScreen({
 
         <section className={"limit-panel preference-panel " + (expandedPreference === "limit" ? "preference-open" : "")}><button type="button" className="preference-summary" aria-expanded={expandedPreference === "limit"} onClick={() => setExpandedPreference(current => current === "limit" ? null : "limit")}><UIIcon name="history" size={20}/> <strong>{copy.travelLimit}</strong><span>{limitType === "both" ? `${distanceKm} km · ${timeMinutes} min` : limitType === "distance" ? `${distanceKm} km` : `${timeMinutes} min`}</span><DropdownChevron/></button><div className="preference-content">
           <div>
-            <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{copy.travelLimit}</h2>
+            <h2 className="section-title">{copy.travelLimit}</h2>
             <p className="mt-1 text-[16px] text-[#3e494a]">{copy.travelLimitDescription}</p>
           </div>
           <div className="grid grid-cols-3 rounded-xl bg-[#e8efeb] p-1" aria-label={copy.travelLimitType}>
@@ -1318,9 +1375,9 @@ function LocationScreen({
   );
 }
 
-// AC 2.3.3/2.3.5/2.3.9: one reachable-store card — priced-basket amounts,
+// AC 2.3.3/2.3.9/2.3.11: one reachable-store card — priced-basket amounts,
 // travel estimates, SARA status and the expandable per-line price detail.
-function StoreCard({
+export function StoreCard({
   store,
   isRecommended,
   pricesExpanded,
@@ -1357,7 +1414,7 @@ function StoreCard({
     <article className={"store-card " + (isRecommended ? "is-recommended" : "")}>
       <div className="store-card-marker">{isRecommended && <span>★ {copy.recommendedStore}</span>}</div>
       <header className="store-card-header">
-        <div className="store-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
+        <div className="store-symbol" aria-hidden="true"><StoreChainLogo name={store.name} /></div>
         <div className="store-card-identity">
           <h3>{store.name}</h3>
           <SaraStoreTag status={store.saraStatus} copy={copy} />
@@ -1381,183 +1438,13 @@ function StoreCard({
           <button type="button" className="store-price-trigger" aria-expanded={pricesExpanded} aria-controls={priceListId} onClick={onTogglePrices}>{pricesExpanded ? copy.hidePriceList : copy.viewPriceList} <DropdownChevron/></button>
           {pricesExpanded && <div id={priceListId} className="store-price-popover" onKeyDown={event => { if (event.key === "Escape") onTogglePrices(); }}>
             <div className="store-price-popover-heading"><strong>{copy.basketItems}</strong><button type="button" onClick={onTogglePrices} aria-label={copy.dismiss}>×</button></div>
-            <div className="store-price-table-head"><span>{copy === COPY.ms ? "Item" : "Item"}</span><span>{copy === COPY.ms ? "Saiz" : "Pack"}</span><span>{copy === COPY.ms ? "Kuantiti" : "Qty"}</span><span>{copy === COPY.ms ? "Harga" : "Unit"}</span><span>{copy === COPY.ms ? "Jumlah" : "Total"}</span></div>
-            <ul>{store.basketPrices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{localizedName(copy, price.itemName, price)}<small>{categoryLabel(locale, price.category)}</small>{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{packageSizeForCopy(copy, price.packageSize) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
+            <StorePriceTable prices={store.basketPrices} copy={copy} locale={locale}/>
             {store.missingItems.length > 0 && <p className="store-price-missing">{copy.missingItemPrices(store.missingItems.map(name => localizedName(copy, name, store.basketPrices.find(price => price.itemName === name))).join(", "))}</p>}
           </div>}
         </div>}
-        <button type="button" className="store-select-button" onClick={onSelectStore} aria-label={copy.selectStore + " " + store.name}>{copy.selectStore} <span aria-hidden="true">→</span></button>
+        <button type="button" className="store-select-button" onClick={onSelectStore} aria-label={copy.selectStore + " " + store.name}>{copy.selectStore}</button>
       </div>
     </article>
-  );
-}
-
-function RecommendationBasketRow({
-  row,
-  basket,
-  copy,
-  locale,
-  onApplyAlternative,
-  onApplyPack,
-  onUndo,
-  onChangeQuantity,
-}: {
-  row: RecommendationDetailRow;
-  basket: BasketItem[];
-  copy: AppCopy;
-  locale: Locale;
-  onApplyAlternative: (line: BasketAlternativeLine) => void;
-  onApplyPack: (row: RecommendationDetailRow, packItemId: string) => void;
-  onUndo: (row: RecommendationDetailRow) => void;
-  onChangeQuantity: (id: string, quantity: number) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const suggestion = row.alternatives;
-  const alternative = suggestion.alternative;
-  // A median baseline is useful for an estimate, but it is not a store price
-  // against which savings or pack-value recommendations can be claimed.
-  const hasMedianBaseline = row.source.priceSource === "median" || row.current.priceSource === "median";
-  const lowerCostAvailable = Boolean(
-    !hasMedianBaseline
-    &&
-    alternative
-    && suggestion.savingsRm != null
-    && suggestion.savingsRm > 0
-    && alternative.itemId !== row.current.itemId,
-  );
-  const lowerCostDuplicate = alternative
-    ? targetAlreadyInBasket(basket, row.source.itemId, alternative.itemId)
-    : false;
-  const eligibilityChanges = alternative ? (
-    alternative.saraEligible !== row.current.saraEligible
-    || alternative.saraCategoryCandidate !== row.current.saraCategoryCandidate
-  ) : false;
-  const packOptions = hasMedianBaseline ? [] : suggestion.packOptions ?? [];
-  const bestPack = packOptions.find(pack => pack.isBestValue) ?? packOptions[0];
-  const impactRm = row.basketItem ? currentReplacementImpactRm(row.basketItem) : null;
-  const hasOtherPacks = packOptions.some(pack => pack.itemId !== row.current.itemId);
-  const hasOptions = Boolean(row.replacement || lowerCostAvailable || hasOtherPacks);
-  const currentImageUrl = row.current.imageUrl ?? (
-    row.basketItem?.id === `db-${row.current.itemId}` ? row.basketItem.imageUrl : undefined
-  );
-
-  return (
-    <li className="recommendation-item">
-      <div className="store-item-row">
-        <span className="store-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={currentImageUrl} fallbackSize={27}/></span>
-        <div className="store-item-name">
-          <strong>{localizedName(copy, row.current.itemName, row.current)}</strong>
-          <small>{categoryLabel(locale, row.current.category)}</small>
-          <small>{packageSizeForCopy(copy, row.current.packageSize) ?? "—"}<span className="store-item-mobile-quantity"> × {row.current.quantity}</span>{row.replacement ? ` · ${copy.originally(localizedName(copy, row.replacement.original.name, row.replacement.original))}` : ""}</small>
-          {row.replacement && <small className="store-item-replaced">{row.replacement.kind === "pack" ? copy.packChanged : copy.swapped}</small>}
-          {row.current.priceSource === "median" && <small className="store-item-estimate">{copy.medianPriceEstimate}</small>}
-        </div>
-        <div className="store-item-sara"><SaraEligibilityFlag status={row.current.saraEligible} candidate={row.current.saraCategoryCandidate} copy={copy}/></div>
-        <span className="store-item-package">{packageSizeForCopy(copy, row.current.packageSize) ?? "—"}</span>
-        <div className="store-item-quantity">
-          {row.basketItem ? <QuantitySelector value={String(row.current.quantity)} onChange={raw => { const quantity = parseQty(raw); if (quantity != null) onChangeQuantity(row.basketItem!.id, quantity); }} onStep={delta => onChangeQuantity(row.basketItem!.id, stepQty(row.current.quantity, delta))} decreaseLabel={copy.decreaseQuantity(row.current.itemName)} increaseLabel={copy.increaseQuantity(row.current.itemName)} quantityLabel={copy.quantityFor(row.current.itemName)} errorId={`store-quantity-${row.source.itemId}`} errorText={copy.quantityError}/> : row.current.quantity}
-        </div>
-        <span className="store-item-unit-price">{row.current.unitPriceRm == null ? "—" : formatRm(row.current.unitPriceRm)}</span>
-        <strong className="store-item-total">{row.current.lineTotalRm == null ? copy.noStorePrice : formatRm(row.current.lineTotalRm)}</strong>
-        {hasOptions && <button type="button" className="store-item-toggle" aria-expanded={expanded} aria-label={`${expanded ? copy.hidePriceList : copy.viewPriceList}: ${localizedName(copy, row.current.itemName, row.current)}`} onClick={() => setExpanded(value => !value)}><DropdownChevron/></button>}
-      </div>
-      {hasOptions && expanded && <div className="store-item-options">
-
-      {row.replacement && row.basketItem && (
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-[#f3faf7] px-3 py-2 text-xs text-[#286d67]">
-          <span className="font-semibold">{replacementImpactText(copy, impactRm)}</span>
-          <button type="button" onClick={() => onUndo(row)} className="min-h-9 font-extrabold text-[#007d38] underline underline-offset-2">{copy.undoSwap}</button>
-        </div>
-      )}
-
-      {lowerCostAvailable && alternative && suggestion.savingsRm != null && (
-        <div className="mt-2 flex flex-col gap-2 rounded-xl bg-[#f3faf7] px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="text-[11px] font-extrabold uppercase tracking-[0.04em] text-[#286d67]">{copy.lowerPriceNow}</p>
-            <p className="mt-0.5 break-words text-xs font-semibold text-[#10152e]">{localizedName(copy, alternative.itemName, alternative)}</p>
-            <p className="text-[11px] text-[#526078]">{categoryLabel(locale, alternative.category)}</p>
-            <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, alternative.packageSize ?? alternative.unit) ?? "—"}</p>
-            <p className="mt-0.5 text-[11px] font-bold text-[#175f4b]">{copy.saveAmount(formatRm(suggestion.savingsRm))}</p>
-            {eligibilityChanges && (
-              <div className="mt-1"><SaraEligibilityFlag status={alternative.saraEligible} candidate={alternative.saraCategoryCandidate} copy={copy} /></div>
-            )}
-          </div>
-          <button
-            type="button"
-            disabled={lowerCostDuplicate}
-            onClick={() => onApplyAlternative(suggestion)}
-            aria-label={`${copy.swapAndSave}: ${localizedName(copy, alternative.itemName, alternative)}`}
-            className="min-h-11 shrink-0 rounded-lg bg-[#007d38] px-3 text-xs font-extrabold text-white disabled:cursor-not-allowed disabled:bg-[#9db5ac]"
-          >
-            {lowerCostDuplicate ? copy.alreadyInBasket : copy.swapAndSave}
-          </button>
-        </div>
-      )}
-
-      {hasOtherPacks && bestPack && (
-        <details className="pack-comparison mt-2 rounded-xl border border-[#dce5e0] bg-white">
-          <summary className="dropdown-summary cursor-pointer list-none px-3 py-2.5 [&::-webkit-details-marker]:hidden">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-xs font-extrabold text-[#10152e]">{copy.comparePackSizes(packOptions.length)}</p>
-                <p className="mt-0.5 break-words text-[11px] text-[#526078]">
-                  {bestPack.itemId === row.current.itemId
-                    ? copy.currentPackBestValue
-                    : `${copy.bestUnitValue}: ${packageSizeForCopy(copy, bestPack.packageSize) ?? "—"} · ${bestPack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(bestPack.pricePerUnitRm), bestPack.unitKind) : "—"}`}
-                </p>
-              </div>
-              <DropdownChevron className="text-[#007d38]"/>
-            </div>
-          </summary>
-          <div className="pack-options">
-            {packOptions.map(pack => {
-              const isCurrent = pack.itemId === row.current.itemId;
-              const duplicate = targetAlreadyInBasket(basket, row.source.itemId, pack.itemId);
-              const unitDifference = pack.totalPriceRm != null && row.current.unitPriceRm != null
-                ? Number(((pack.totalPriceRm - row.current.unitPriceRm) * row.current.quantity).toFixed(2))
-                : null;
-              const upfrontText = unitDifference == null
-                ? null
-                : unitDifference > 0
-                  ? copy.moreNow(formatRm(unitDifference))
-                  : unitDifference < 0
-                    ? copy.lessNow(formatRm(Math.abs(unitDifference)))
-                    : copy.sameCostNow;
-              return (
-                <div key={pack.itemId} className={`pack-option ${isCurrent ? "bg-[#e7f7f0] ring-1 ring-[#007d38]" : "bg-[#f4f8f9]"}`}>
-                  <div className="flex flex-wrap gap-1">
-                    {pack.isBestValue && <span className="rounded-md bg-[#007d38] px-1.5 py-0.5 text-[9px] font-extrabold text-white">{copy.bestUnitValue}</span>}
-                    {isCurrent && <span className="rounded-md bg-[#e2e9e5] px-1.5 py-0.5 text-[9px] font-extrabold text-[#526078]">{copy.currentPack}</span>}
-                  </div>
-                  <p className="mt-1 break-words text-xs font-bold leading-4 text-[#10152e]">{localizedName(copy, pack.itemName, pack)}</p>
-                  <p className="text-[11px] text-[#526078]">{categoryLabel(locale, pack.category)}</p>
-                  <p className="text-[11px] text-[#718078]">{packageSizeForCopy(copy, pack.packageSize) ?? "—"}</p>
-                  <div className="mt-2 flex items-end justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-extrabold text-[#10152e]">{pack.totalPriceRm != null ? formatRm(pack.totalPriceRm) : "—"}</p>
-                      <p className="text-[10px] text-[#526078]">{pack.pricePerUnitRm != null ? copy.packUnitPrice(formatRm(pack.pricePerUnitRm), pack.unitKind) : "—"}</p>
-                      {upfrontText && !isCurrent && <p className="mt-0.5 text-[10px] font-semibold text-[#526078]">{upfrontText}</p>}
-                    </div>
-                    {!isCurrent && (
-                      <button
-                        type="button"
-                        disabled={duplicate}
-                        onClick={() => onApplyPack(row, pack.itemId)}
-                        aria-label={`${copy.choosePack}: ${localizedName(copy, pack.itemName, pack)}`}
-                        className="min-h-11 shrink-0 rounded-lg border border-[#007d38] bg-[#007d38] px-2.5 text-[11px] font-extrabold text-white disabled:cursor-not-allowed disabled:border-[#b8d3c6] disabled:bg-[#e8f4ee] disabled:text-[#245d4b]"
-                      >
-                        {duplicate ? copy.alreadyInBasket : copy.choosePack}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </details>
-      )}
-      </div>}
-    </li>
   );
 }
 
@@ -1567,6 +1454,7 @@ function RecommendationBasketRow({
 function RecommendationOverview({
   store,
   recommendations,
+  comparisonOptions,
   basket,
   activeChecklist,
   preferences,
@@ -1575,9 +1463,11 @@ function RecommendationOverview({
   locale,
   onSetBasket,
   onCreateChecklist,
+  onBack,
 }: {
   store: StoreRecommendation;
   recommendations: StoreRecommendation[];
+  comparisonOptions: StorePlanOption[];
   basket: BasketItem[];
   activeChecklist: ShoppingChecklist | null;
   preferences: TravelPreferences;
@@ -1586,6 +1476,7 @@ function RecommendationOverview({
   locale: Locale;
   onSetBasket: Dispatch<SetStateAction<BasketItem[]>>;
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
+  onBack: () => void;
 }) {
   const [alternativeLines, setAlternativeLines] = useState<BasketAlternativeLine[]>([]);
   const [alternativesLoading, setAlternativesLoading] = useState(true);
@@ -1670,8 +1561,9 @@ function RecommendationOverview({
       detailTotals.originalSubtotalRm,
       detailTotals.currentSubtotalRm,
       routeProvider,
+      repriceComparisonOptions(comparisonOptions, basket),
     ),
-    [detailTotals.currentSubtotalRm, detailTotals.originalSubtotalRm, recommendations, routeProvider, store],
+    [detailTotals.currentSubtotalRm, detailTotals.originalSubtotalRm, recommendations, routeProvider, store, comparisonOptions, basket],
   );
 
   const applyAlternative = (line: BasketAlternativeLine) => {
@@ -1698,6 +1590,7 @@ function RecommendationOverview({
     onCreateChecklist(createShoppingChecklist(store, detailRows, {
       alternativeStores: recommendations,
       estimatedSavings,
+      ...(preferences.origin ? { routeOrigin: { latitude: preferences.origin.latitude, longitude: preferences.origin.longitude } } : {}),
     }));
     setReplaceChecklistOpen(false);
   };
@@ -1717,8 +1610,9 @@ function RecommendationOverview({
   return (
     <div className="screen-enter store-detail">
       <div className="store-detail-shell">
+        <button type="button" className="plan-back-button" onClick={onBack}>← {copy.planDetailBack}</button>
         <header className="store-detail-header">
-          <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={store.name} fallback={<IcoStore />} /></div>
+          <div className="store-symbol store-detail-symbol" aria-hidden="true"><StoreChainLogo name={store.name} /></div>
           <div className="store-detail-identity">
             <h1>{store.name}</h1>
             <p>{[store.address, store.district, store.state].filter(Boolean).join(", ")}</p>
@@ -1726,10 +1620,10 @@ function RecommendationOverview({
           </div>
           <div className="store-detail-facts">
             <TripFactsItems facts={[
+              { icon: <UIIcon name="home"/>, label: locale === "en" ? "From" : "Dari", value: preferences.origin?.label || "—" },
               { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: transportLabel(copy, preferences.transportMode) },
-              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${store.estimatedTravelMinutes} ${copy.minutes}` },
               { icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: `${store.routeDistanceKm.toFixed(1)} km` },
-              { icon: <UIIcon name="wallet" size={20}/>, label: copy.returnTravel, value: formatRm(store.estimatedRoundTripCostRm) },
+              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: `${store.estimatedTravelMinutes} ${copy.minutes}` },
             ]}/>
           </div>
           {preferences.origin && <a className="store-detail-route" href={mapsRouteUrl(preferences.origin, store, preferences.transportMode)} target="_blank" rel="noopener noreferrer">{copy.openInGoogleMaps} ↗</a>}
@@ -1747,11 +1641,10 @@ function RecommendationOverview({
           <aside className="store-detail-sidebar">
             <section className="store-detail-summary">
               <h2><UIIcon name="basket" size={22}/>{locale === "en" ? "Basket summary" : "Ringkasan bakul"}</h2>
-              <dl className="summary-counts"><div><dt>{locale === "en" ? "Items" : "Item"}</dt><dd>{displayedLineCount}</dd></div><div><dt>{locale === "en" ? "Store prices" : "Harga kedai"}</dt><dd>{displayedStorePriceCount}</dd></div><div><dt>{locale === "en" ? "Median estimates" : "Anggaran median"}</dt><dd>{displayedMedianPriceCount}</dd></div><div><dt>{locale === "en" ? "Missing prices" : "Tiada harga"}</dt><dd>{Math.max(0, displayedLineCount - displayedPricedCount)}</dd></div></dl>
               <dl className="store-summary-money"><div><dt>{hasIncompleteBasket ? (hasEstimatedPrices ? copy.estimatedPartialTotal : copy.partialTotal) : hasEstimatedPrices ? copy.estimatedSubtotal : copy.basketSubtotal}</dt><dd>{displayedSubtotal == null ? "—" : formatRm(displayedSubtotal)}</dd></div>{displayedCredit != null && displayedCash != null && <><div><dt>{copy.saraCreditLabel}</dt><dd>{formatRm(displayedCredit)}</dd></div><div><dt>{copy.cashNeededLabel}</dt><dd>{formatRm(displayedCash)}</dd></div></>}</dl>
               {displayedCredit != null && <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>}
-              <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3><div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div><div><span>{totalLabel}</span><strong>{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</strong></div></div>
-              <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={beginChecklistCreation}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist} →</button>
+              <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3>{!store.travelCostBreakdown && <div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div>}<TravelCostDetails breakdowns={[store.travelCostBreakdown]} locale={locale} roundTrip/><div><span>{totalLabel}</span><strong>{adjustedCombinedTotal == null ? "—" : formatRm(adjustedCombinedTotal)}</strong></div></div>
+              <button type="button" className="primary-button store-start-button" disabled={alternativesLoading} onClick={beginChecklistCreation}>{alternativesLoading ? copy.checklistPreparing : activeChecklist ? copy.replaceChecklist : copy.createChecklist}</button>
             </section>
             {!alternativesLoading && <EstimatedSavingsSummary snapshot={estimatedSavings} locale={locale}/>}
           </aside>
@@ -1777,9 +1670,14 @@ function CompareScreen({
   onCreateChecklist,
   selectedStore,
   onSelectStore,
+  onBackToPlans,
+  selectedPlanId,
+  setSelectedPlanId,
   preferences,
   candidateCacheId,
   onChangeTravel,
+  multiStore,
+  onMultiStoreChange,
   copy,
 }: {
   basket: BasketItem[];
@@ -1788,9 +1686,14 @@ function CompareScreen({
   onCreateChecklist: (checklist: ShoppingChecklist) => void;
   selectedStore: StoreRecommendation | null;
   onSelectStore: (store: StoreRecommendation) => void;
+  onBackToPlans: () => void;
+  selectedPlanId: string | null;
+  setSelectedPlanId: Dispatch<SetStateAction<string | null>>;
   preferences: TravelPreferences;
   candidateCacheId: string | null;
   onChangeTravel: () => void;
+  multiStore: MultiStoreConfig;
+  onMultiStoreChange: (next: MultiStoreConfig) => void;
   copy: AppCopy;
 }) {
   const [result, setResult] = useState<RecommendationResponse | null>(null);
@@ -1799,17 +1702,36 @@ function CompareScreen({
   const [visibleCount, setVisibleCount] = useState(VISIBLE_STEP);
   // One price disclosure is expanded at a time.
   const [expandedStoreId, setExpandedStoreId] = useState<string | null>(null);
-  // AC 2.3.1: only real catalogue items ("db-" ids) are priced; mock rows are
-  // filtered out. Empty after filtering -> request without a basket, keeping
+  // US 6.4: the two-store plan whose detail view is open, if any. Held here
+  // (not in a URL route) so opening the detail never unmounts CompareScreen —
+  // the basket, travel preferences and multi-store configuration therefore
+  // survive the round trip unchanged (AC 6.4.4 / 6.4.6).
+  // AC 2.3.1: only catalogue items ("db-" ids) are priced. Empty after filtering -> request without a basket, keeping
   // transport-first ranking.
   const basketLines = useMemo(() => toBasketLineRequests(basket), [basket]);
   const [requestBasketLines, setRequestBasketLines] = useState(() => basketLines);
   const [requestCandidateCacheId] = useState(candidateCacheId);
+  // AC 6.1.9: the limit actually bound to the current request. Kept in a
+  // snapshot (like requestBasketLines) so editing presets without pressing Apply
+  // does not trigger a re-request; only an applied limit does.
+  const [requestSecondStoreLimit, setRequestSecondStoreLimit] = useState(() => multiStore.applied);
   const hasBasket = requestBasketLines.length > 0;
   const previousSelectedStore = useRef(selectedStore);
+  const previousSelectedPlan = useRef(selectedPlanId);
+  const previousAppliedLimit = useRef(multiStore.applied);
 
   useEffect(() => {
-    if (previousSelectedStore.current && !selectedStore) {
+    // Only a change in the applied limit re-requests; toggling presets alone
+    // must not. Reference identity is stable until Apply produces a new object.
+    if (previousAppliedLimit.current !== multiStore.applied) {
+      previousAppliedLimit.current = multiStore.applied;
+      setLoading(true);
+      setRequestSecondStoreLimit(multiStore.applied);
+    }
+  }, [multiStore.applied]);
+
+  useEffect(() => {
+    if ((previousSelectedStore.current && !selectedStore) || (previousSelectedPlan.current && !selectedPlanId)) {
       const nextBasketLines = toBasketLineRequests(basket);
       const basketChanged = JSON.stringify(nextBasketLines) !== JSON.stringify(requestBasketLines);
       // Returning without changing the basket can reuse the existing list;
@@ -1820,7 +1742,8 @@ function CompareScreen({
       }
     }
     previousSelectedStore.current = selectedStore;
-  }, [basket, requestBasketLines, selectedStore]);
+    previousSelectedPlan.current = selectedPlanId;
+  }, [basket, requestBasketLines, selectedStore, selectedPlanId]);
 
   useEffect(() => {
     if (!preferences.origin) {
@@ -1835,16 +1758,19 @@ function CompareScreen({
     // AC 2.3.2: a fresh recommendation list starts again at the first six.
     setVisibleCount(VISIBLE_STEP);
     setExpandedStoreId(null);
+    setSelectedPlanId(null);
 
     getRecommendations({
       ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
       ...(requestCandidateCacheId ? { candidateCacheId: requestCandidateCacheId } : {}),
+      ...(requestSecondStoreLimit ? { secondStoreLimit: requestSecondStoreLimit } : {}),
       travel: recommendationTravelRequest(preferences),
     }, controller.signal)
       .then(response => {
         setResult(response);
             setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
+        setSelectedPlanId(null);
       })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -1855,11 +1781,12 @@ function CompareScreen({
       });
 
     return () => controller.abort();
-  }, [requestBasketLines, requestCandidateCacheId, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences]);
+  }, [requestBasketLines, requestCandidateCacheId, requestSecondStoreLimit, copy.chooseStartingLocation, copy.recommendationsUnavailable, preferences, setSelectedPlanId]);
 
   const recommendations = result?.recommendations ?? [];
-  const recommendedStore = recommendations.find(store => (store.pricedCount ?? 0) > 0);
-  const visibleStores = recommendations.slice(0, visibleCount);
+  const storePlanOptions = rankedStorePlanOptions(recommendations, result?.multiStore?.comparison);
+  const visibleOptions = storePlanOptions.slice(0, visibleCount);
+  const hasSplitPlans = storePlanOptions.some(option => option.kind === "plan");
   const modeLabel = transportLabel(copy, preferences.transportMode) || copy.selectedTransport;
   const originLabel = preferences.origin?.label ?? "";
   const limitLabel = preferences.limitType === "both"
@@ -1877,10 +1804,12 @@ function CompareScreen({
       <RecommendationOverview
         store={selectedStore}
         recommendations={recommendations}
+        comparisonOptions={storePlanOptions}
         basket={basket}
         activeChecklist={activeChecklist}
         onSetBasket={setBasket}
         onCreateChecklist={onCreateChecklist}
+        onBack={onBackToPlans}
         preferences={preferences}
         copy={copy}
         routeProvider={result?.routeProvider ?? "google"}
@@ -1889,14 +1818,50 @@ function CompareScreen({
     );
   }
 
+  // AC 6.4.1: opening a two-store plan replaces the list with its detail view.
+  // Because this is an in-place swap (not a route), returning clears
+  // selectedPlanId and the list reappears exactly as it was; the basket,
+  // travel preferences and multi-store configuration are untouched throughout
+  // (AC 6.4.4 / 6.4.6).
+  if (selectedPlanId) {
+    const comparison = result?.multiStore?.comparison;
+    const selectedPlan = comparison
+      ? [...comparison.completePlans, ...comparison.incompletePlans]
+          .find(plan => plan.planId === selectedPlanId)
+      : undefined;
+    // A stale id (e.g. the list refreshed and the plan is gone) falls through to
+    // the normal list rather than showing an empty detail view.
+    if (selectedPlan) {
+      return (
+        <PlanDetailView
+          isEstimate={result?.routeProvider === "straight_line"}
+          origin={preferences.origin}
+          transportMode={preferences.transportMode}
+          plan={selectedPlan}
+          comparisonOptions={storePlanOptions}
+          key={selectedPlan.planId}
+          basket={basket}
+          onSetBasket={setBasket}
+          activeChecklist={activeChecklist}
+          onCreateChecklist={onCreateChecklist}
+          stores={result?.multiStore?.stores ?? recommendations}
+          secondStoreLimit={result?.multiStore?.secondStoreLimit ?? null}
+          copy={copy}
+          locale={copy === COPY.ms ? "ms" : "en"}
+          onBack={() => setSelectedPlanId(null)}
+        />
+      );
+    }
+  }
+
   return (
     <div className="screen-enter compare-screen pb-8">
-      <div className="flex flex-col gap-6 px-4 pb-6 pt-5 sm:gap-8 sm:px-6 sm:pt-8">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-[30px] font-extrabold leading-[36px] tracking-[-0.8px] text-[#10152e] sm:text-[36px] sm:leading-[42px]">
+      <div className="flex flex-col gap-6 px-4 pb-6 pt-4 sm:gap-8 sm:px-6 sm:pt-6">
+        <div className="flex flex-col">
+          <h1 className="page-title">
             {copy.recommendationTitle}
           </h1>
-          <p className="text-sm leading-5 text-[#526078]">
+          <p className="page-intro">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
           {preferences.saraFilter === "candidate" && (
@@ -1904,14 +1869,24 @@ function CompareScreen({
           )}
         </div>
 
-        <div className="store-detail-facts">
-          <TripFactsItems facts={[
-            { icon: <UIIcon name="home"/>, label: copy === COPY.ms ? "Dari" : "From", value: originLabel || "—" },
-            { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: modeLabel },
-            { icon: <UIIcon name="history" size={20}/>, label: copy.travelLimit, value: limitLabel },
-            { icon: <IcoStore/>, label: copy === COPY.ms ? "Kedai" : "Stores", value: loading ? "—" : recommendations.length },
-          ]}/>
+        <div className="compare-travel-toolbar">
+          <div className="store-detail-facts">
+            <TripFactsItems facts={[
+              { icon: <UIIcon name="home"/>, label: copy === COPY.ms ? "Dari" : "From", value: originLabel || "—" },
+              { icon: <TransportModeIcon mode={preferences.transportMode} color="#526078"/>, label: copy.transportMode, value: modeLabel },
+              { icon: <UIIcon name="route" size={20}/>, label: copy.distance, value: preferences.limitType === "time" ? "—" : `${preferences.limitType === "both" ? preferences.distanceKm : preferences.limitValue} km` },
+              { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: preferences.limitType === "distance" ? "—" : `${preferences.limitType === "both" ? preferences.timeMinutes : preferences.limitValue} ${copy.minutes}` },
+            ]}/>
+          </div>
+
+          {/* US 6.1: the opt-in multi-store toggle and second-store travel limits. */}
+          <MultiStorePanel
+            config={multiStore}
+            onChange={onMultiStoreChange}
+            copy={copy}
+          />
         </div>
+
         {loading && (
           <div role="status" className="rounded-2xl border border-[#dce5e0] bg-white p-6 text-center shadow-sm">
             <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[#cce3d9] border-t-[#007d38]" />
@@ -1935,24 +1910,58 @@ function CompareScreen({
                 {copy.expandedSearchNotice}
               </div>
             )}
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <h2 className="text-[20px] font-extrabold leading-7 text-[#10152e]">{result.routeProvider === "straight_line" ? copy.nearbyStores : copy.reachablePremises}</h2>
-                <p className="mt-1 text-sm text-[#526078]">{result.routeProvider === "straight_line" ? `${recommendations.length} / ${result.totalCandidatesEvaluated}` : copy.reachableSummary(recommendations.length, result.totalCandidatesEvaluated)}</p>
-              </div>
-              <span className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</span>
-            </div>
 
-            <div className="store-grid">
-              {visibleStores.map(store => (
+            {/* AC 6.2.8: when the shopper applied second-store limits and no
+                two-store plan qualified, explain why and offer a way back to
+                the limits. The single-store list below is untouched, so this
+                never empties the recommendation page. Plan rendering itself is
+                US 6.3/6.4; US 6.2 only reports the outcome. */}
+            {result.multiStore && result.multiStore.plans.length === 0 && result.multiStore.emptyReason && result.multiStore.emptyReason !== "straight_line_fallback_unsupported" && (
+              <div role="status" className="multi-store-empty">
+                <p className="text-[13px] font-semibold leading-5 text-[#10152e]">
+                  {multiStoreEmptyMessage(copy, result.multiStore.emptyReason)}
+                </p>
+                {result.multiStore.evaluatedPairCount > 0 && (
+                  <p className="mt-1 text-xs text-[#718078]">
+                    {copy.multiStoreEvaluatedCount(result.multiStore.evaluatedPairCount)}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  // Re-expands the limits menu (idempotent: it is already
+                  // enabled once a limit was applied) and keeps the selection.
+                  onClick={() => {
+                    onMultiStoreChange({ ...multiStore, enabled: true });
+                    const menu = document.getElementById("multi-store-settings") as HTMLDetailsElement | null;
+                    if (menu) {
+                      menu.open = true;
+                      menu.querySelector("summary")?.focus();
+                    }
+                  }}
+                  className="plan-card-action w-fit"
+                >
+                  {copy.editLimits}
+                </button>
+              </div>
+            )}
+            <p className="text-right text-xs font-medium text-[#718078]">{hasBasket ? copy.lowerTravelFirst : "Lower travel cost first"}</p>
+
+            <div className={"store-grid " + (hasSplitPlans ? "mixed-store-grid" : "")}>
+              {visibleOptions.map((option, index) => option.kind === "plan" ? (
+                <MultiPlanCard key={option.plan.planId} plan={option.plan} transportMode={preferences.transportMode}
+                  routeUrl={preferences.origin ? mapsPlanRouteUrl(preferences.origin, option.plan, result.multiStore?.stores ?? recommendations, preferences.transportMode) : undefined}
+                  copy={copy} basket={basket} stores={result.multiStore?.stores ?? recommendations}
+                  locale={copy === COPY.ms ? "ms" : "en"} isRecommended={index === 0}
+                  onSelectPlan={setSelectedPlanId}/>
+              ) : (
                 <StoreCard
-                  key={store.premiseId}
-                  store={store}
-                  isRecommended={recommendedStore?.premiseId === store.premiseId}
-                  routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, store, preferences.transportMode) : undefined}
-                  pricesExpanded={expandedStoreId === store.premiseId}
-                  onTogglePrices={() => setExpandedStoreId(current => (current === store.premiseId ? null : store.premiseId))}
-                  onSelectStore={() => onSelectStore(store)}
+                  key={option.store.premiseId}
+                  store={option.store}
+                  isRecommended={index === 0}
+                  routeUrl={preferences.origin ? mapsRouteUrl(preferences.origin, option.store, preferences.transportMode) : undefined}
+                  pricesExpanded={expandedStoreId === option.store.premiseId}
+                  onTogglePrices={() => setExpandedStoreId(current => (current === option.store.premiseId ? null : option.store.premiseId))}
+                  onSelectStore={() => onSelectStore(option.store)}
                   copy={copy}
                   locale={copy === COPY.ms ? "ms" : "en"}
                   transportMode={preferences.transportMode}
@@ -1960,9 +1969,9 @@ function CompareScreen({
               ))}
 
               {/* Page the unified ranking six stores at a time. */}
-              {hasMoreStores(visibleCount, recommendations.length) && (
-                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, recommendations.length))} className="h-12 w-full rounded-xl border border-[#007d38] bg-white text-sm font-bold text-[#007d38]">
-                  {copy.moreStores}
+              {hasMoreStores(visibleCount, storePlanOptions.length) && (
+                <button type="button" onClick={() => setVisibleCount(count => nextVisibleCount(count, storePlanOptions.length))} className="h-12 w-full rounded-xl border border-[#007d38] bg-white text-sm font-bold text-[#007d38]">
+                  {hasSplitPlans ? (copy === COPY.ms ? "Lihat pilihan lagi (+6)" : "See more options (+6)") : copy.moreStores}
                 </button>
               )}
 
@@ -1994,12 +2003,25 @@ export default function App() {
     router.push(SCREEN_ROUTES[next]);
   };
   const [resumeStep, setResumeStep] = useState<TripJourneyStep>("location");
+  const [sessionStorageReady, setSessionStorageReady] = useState(false);
+  const restoredSessionRef = useRef(false);
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
+  const [candidatePreparation, setCandidatePreparation] = useState<CandidatePreparationState>({ status: "idle" });
   const candidatePreparationController = useRef<AbortController | null>(null);
   const [checklist, setChecklist] = useState<ShoppingChecklist | null>(null);
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
+  const [purchaseToSchedule, setPurchaseToSchedule] = useState<{ item: NextTripItem; checklistItemId?: string } | null>(null);
+  const [plannedItemsNotice, setPlannedItemsNotice] = useState("");
+  const [currentWeek, setCurrentWeek] = useState(() => currentPlannedWeek());
+  useEffect(() => {
+    const refreshWeek = () => setCurrentWeek(currentPlannedWeek());
+    const timer = window.setInterval(refreshWeek, 60_000);
+    window.addEventListener("focus", refreshWeek);
+    return () => { window.clearInterval(timer); window.removeEventListener("focus", refreshWeek); };
+  }, []);
   const [savedItems, setSavedItems] = useState<NextTripItem[]>([]);
   const [savedItemsReady, setSavedItemsReady] = useState(false);
   const [savedItemsToUse, setSavedItemsToUse] = useState<NextTripItem[]>([]);
@@ -2013,6 +2035,7 @@ export default function App() {
   const [reportConsentLoaded, setReportConsentLoaded] = useState(false);
   const [consentDialogMode, setConsentDialogMode] = useState<ConsentDialogMode>(null);
   const [consentStorageError, setConsentStorageError] = useState(false);
+  const [reportLanguageChoice, setReportLanguageChoice] = useState<Locale | null>(null);
   const automaticReportAttemptedRef = useRef<Set<string>>(new Set());
   const pendingManualReportCadenceRef = useRef<ReportCadence | null>(null);
   const activeReportControllerRef = useRef<AbortController | null>(null);
@@ -2027,6 +2050,28 @@ export default function App() {
     timeMinutes: 20,
     saraFilter: "any",
   });
+  // AC 6.1.1: a new recommendation session starts with multi-store plans off.
+  // Held at app level so the configuration outlives the compare screen and can
+  // be restored when the shopper returns to the recommendations (AC 6.4.4).
+  const [multiStore, setMultiStore] = useState<MultiStoreConfig>(DEFAULT_MULTI_STORE_CONFIG);
+
+  // Reports follow the app language until the shopper picks a report language.
+  const reportLanguage = reportLanguageChoice ?? locale;
+  useEffect(() => {
+    try {
+      setReportLanguageChoice(readReportLanguage(window.localStorage));
+    } catch {
+      // Storage unavailable: keep following the app language.
+    }
+  }, []);
+  const changeReportLanguage = useCallback((language: Locale) => {
+    setReportLanguageChoice(language);
+    try {
+      writeReportLanguage(window.localStorage, language);
+    } catch {
+      // The choice still applies for this session.
+    }
+  }, []);
 
   const runReportGeneration = useCallback(async (period: ReportPeriod) => {
     if (activeReportControllerRef.current) return;
@@ -2043,7 +2088,7 @@ export default function App() {
       return next;
     });
     try {
-      const request = buildGenerateReportRequest(tripHistory, period, locale);
+      const request = buildGenerateReportRequest(tripHistory, period, reportLanguage);
       let storage: Storage;
       try {
         storage = window.localStorage;
@@ -2086,7 +2131,7 @@ export default function App() {
     } finally {
       if (activeReportControllerRef.current === controller) activeReportControllerRef.current = null;
     }
-  }, [locale, tripHistory]);
+  }, [reportLanguage, tripHistory]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -2096,8 +2141,9 @@ export default function App() {
     if (pendingPathRef.current === pathname) pendingPathRef.current = null;
     // Saving a plan clears the selected store before the home route commits.
     // Do not let the direct-link fallback override that navigation.
-    if (isStoreRoute && !selectedStore && !pendingPathRef.current) router.replace(SCREEN_ROUTES.compare);
-  }, [isStoreRoute, pathname, router, selectedStore]);
+    if (sessionStorageReady && isStoreRoute && !pendingPathRef.current
+      && (!selectedStore || pathname !== `/store/${encodeURIComponent(selectedStore.premiseId)}`)) router.replace(SCREEN_ROUTES.compare);
+  }, [isStoreRoute, pathname, router, selectedStore, sessionStorageReady]);
 
   useEffect(() => () => candidatePreparationController.current?.abort(), []);
 
@@ -2194,7 +2240,7 @@ export default function App() {
     }
   }, [savedItems, savedItemsReady]);
 
-  // AC 5.4.3: trip records live on this device only (localStorage), mirroring
+  // Trip records live on this device only (localStorage), mirroring
   // the checklist persistence pattern above.
   useEffect(() => {
     try {
@@ -2287,9 +2333,9 @@ export default function App() {
   }, [consentDialogMode, inbox.messages, inboxStorageReady, reportConsent, reportConsentLoaded, runReportGeneration, tripHistory, tripHistoryStorageReady]);
 
   useEffect(() => {
-    const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
-    if (!savedPreferences) return;
     try {
+      const savedPreferences = window.localStorage.getItem("smartcart-travel-preferences");
+      if (!savedPreferences) return;
       const saved = JSON.parse(savedPreferences) as Record<string, unknown>;
       const transportMode = ["walk", "public_transport", "motorcycle", "car"].includes(String(saved.transportMode))
         ? saved.transportMode as TransportMode
@@ -2308,9 +2354,45 @@ export default function App() {
         distanceKm: Number.isFinite(distanceKm) && distanceKm >= 0.5 && distanceKm <= 100 ? distanceKm : 5,
         timeMinutes: Number.isFinite(timeMinutes) && timeMinutes >= 5 && timeMinutes <= 180 ? timeMinutes : 20, saraFilter });
     } catch {
-      window.localStorage.removeItem("smartcart-travel-preferences");
+      // Keep the default preferences if device storage is unavailable.
     }
   }, []);
+
+  useEffect(() => {
+    try {
+      const serialized = window.localStorage.getItem(SHOPPING_SESSION_STORAGE_KEY);
+      const session = parseShoppingSession(serialized);
+      if (session) {
+        setBasket(session.basket);
+        setPreferences(session.preferences);
+        setResumeStep(session.resumeStep);
+        setSelectedStore(session.selectedStore);
+        setSavedItemsToUse(session.savedItemsToUse);
+        restoredSessionRef.current = true;
+      } else if (serialized) {
+        window.localStorage.removeItem(SHOPPING_SESSION_STORAGE_KEY);
+      }
+    } catch {
+      // Shopping remains usable when device storage is unavailable.
+    } finally {
+      setSessionStorageReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sessionStorageReady) return;
+    try {
+      if (!preferences.origin && basket.length === 0) {
+        window.localStorage.removeItem(SHOPPING_SESSION_STORAGE_KEY);
+      } else {
+        window.localStorage.setItem(SHOPPING_SESSION_STORAGE_KEY, serializeShoppingSession({
+          basket, preferences, resumeStep, selectedStore, savedItemsToUse,
+        }));
+      }
+    } catch {
+      // The current trip remains usable in memory if saving fails.
+    }
+  }, [sessionStorageReady, basket, preferences, resumeStep, selectedStore, savedItemsToUse]);
 
   const basketCount = basket.reduce((count, item) => count + item.qty, 0);
   const copy = COPY[locale];
@@ -2402,6 +2484,7 @@ export default function App() {
   const updatePreferencesDraft = useCallback((next: TravelPreferences) => {
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "idle" });
     setPreferences(next);
   }, []);
   const prepareCandidates = useCallback((next: TravelPreferences) => {
@@ -2410,23 +2493,38 @@ export default function App() {
     const controller = new AbortController();
     candidatePreparationController.current = controller;
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "loading" });
     prepareRecommendationCandidates(recommendationTravelRequest(next), controller.signal)
       .then(response => {
-        if (!controller.signal.aborted) setCandidateCacheId(response.candidateCacheId);
+        if (!controller.signal.aborted) {
+          setCandidateCacheId(response.candidateCacheId);
+          setCandidatePreparation({ status: "ready" });
+        }
       })
       .catch(error => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        // Candidate preparation is an optimization. The explicit Search stores
-        // action remains the user-visible retry and fetches fresh prices.
+        if (controller.signal.aborted) return;
+        setCandidatePreparation({ status: "failed", message:
+          error instanceof Error && error.name === "SmartCartApiError"
+            ? error.message
+            : (locale === "en" ? "Could not connect to the store service. Please try again." : "Tidak dapat menyambung kepada perkhidmatan kedai. Sila cuba lagi."),
+        });
       });
-  }, []);
+  }, [locale]);
+  useEffect(() => {
+    if (!sessionStorageReady || !restoredSessionRef.current) return;
+    restoredSessionRef.current = false;
+    if (preferences.origin) prepareCandidates(preferences);
+  }, [sessionStorageReady, preferences, prepareCandidates]);
   const navigateTrip = (next: TripJourneyStep) => {
+    if (next === "compare") setSelectedPlanId(null);
     setResumeStep(next);
     navigateTo(next);
   };
   const resetTrip = () => {
+    setSelectedPlanId(null);
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
+    setCandidatePreparation({ status: "idle" });
     setBasket([]);
     setSelectedStore(null);
     setPreferences(current => ({ ...current, origin: null }));
@@ -2451,20 +2549,38 @@ export default function App() {
     if (!checklist) return;
     const currentItem = checklist.items.find(item => item.id === itemId);
     if (!currentItem) return;
-    // Unticking a purchased item records it as unbought and keeps it for later.
-    const isSaved = savedItems.some(item => item.id === nextTripItemId(currentItem));
-    let next = checklist;
-    if (status === "bought") {
-      next = toggleChecklistItemStatus(checklist, itemId, currentItem.status === "bought" ? "not_bought" : "bought");
-    } else if ((currentItem.status === "not_bought") === isSaved) {
-      // A saved item can also be neutral after recording an unfinished trip.
-      next = toggleChecklistItemStatus(checklist, itemId, "not_bought");
+    const savedItem = savedItems.find(item => item.id === nextTripItemId(currentItem));
+    if (status === "not_bought" && !savedItem) {
+      setPurchaseToSchedule({ item: saveForNextTrip([], { ...currentItem, status: "not_bought" })[0], checklistItemId: itemId });
+      return;
     }
+    if (status === "not_bought") {
+      removeSavedItem(nextTripItemId(currentItem));
+      return;
+    }
+    const next = toggleChecklistItemStatus(checklist, itemId, currentItem.status === "bought" ? "not_bought" : "bought");
     setChecklist(next);
-    const item = next.items.find(candidate => candidate.id === itemId)!;
-    setSavedItems(current => (status === "not_bought" ? !isSaved : item.status === "not_bought")
-      ? saveForNextTrip(current, item)
-      : current.filter(saved => saved.id !== nextTripItemId(item)));
+    if (next.items.find(item => item.id === itemId)?.status === "bought") removeSavedItem(nextTripItemId(currentItem));
+  };
+  const scheduleCataloguePurchase = (item: Item, quantity: number) => {
+    setPurchaseToSchedule({ item: {
+      id: `catalogue:${item.item_id}`, source: "catalogue", catalogueItemId: String(item.item_id),
+      itemName: item.item_name, itemNameEn: item.item_name_en ?? null, itemNameMs: item.item_name_ms ?? null,
+      category: item.category, sourceCategory: item.source_category ?? null,
+      imageUrl: item.image_url ?? null, packageSize: item.package_size, quantity,
+      plannedWeek: savedItems.find(saved => saved.catalogueItemId === String(item.item_id))?.plannedWeek,
+    } });
+  };
+  const confirmPurchaseWeek = (week: string) => {
+    if (!purchaseToSchedule || !plannedWeekOptions().includes(week)) return;
+    const { item, checklistItemId } = purchaseToSchedule;
+    setSavedItems(current => schedulePlannedItem(current, item, week));
+    if (checklistItemId) setChecklist(current => current ? {
+      ...current, updatedAt: new Date().toISOString(),
+      items: current.items.map(line => line.id === checklistItemId ? { ...line, status: "not_bought" } : line),
+    } : current);
+    setPurchaseToSchedule(null);
+    setPlannedItemsNotice(locale === "en" ? "Purchase saved to planned items." : "Pembelian disimpan ke item dirancang.");
   };
   const addChecklistItem = (input: ManualChecklistItemInput) => {
     setChecklist(current => current ? addManualChecklistItem(current, input) ?? current : current);
@@ -2503,6 +2619,8 @@ export default function App() {
             itemName: source.itemName,
             itemNameEn: source.itemNameEn,
             itemNameMs: source.itemNameMs,
+            saraEligible: source.saraEligible,
+            saraCategoryCandidate: source.saraCategoryCandidate,
             imageUrl: source.imageUrl,
             packageSize: source.packageSize,
             unitPriceRm: source.unitPriceRm,
@@ -2521,9 +2639,10 @@ export default function App() {
     setChecklist(current => current ? addNextTripItem(current, item, quote) : current);
     removeSavedItem(item.id);
   };
-  const planWithSavedItems = () => {
-    setBasket(current => nextTripBasket(current, savedItems));
-    setSavedItemsToUse(savedItems);
+  const planWithSavedItems = (items: NextTripItem[]) => {
+    if (!items.length) return;
+    setBasket(current => nextTripBasket(current, items));
+    setSavedItemsToUse(items);
     navigateTrip(preferences.origin ? "shop" : "location");
   };
   const removeChecklistItem = (itemId: string) => {
@@ -2536,12 +2655,13 @@ export default function App() {
   const recordTrip = () => {
     if (!checklist) return;
     const record = buildTripRecord(checklist);
-    setSavedItems(current => checklist.items.reduce((saved, item) => saveForNextTrip(saved, item), current));
     // The record appears in the in-memory history immediately (no reload) and
     // is persisted by the storage effect above.
     setTripHistory(current => addTripRecord(current, record));
+    resetTrip();
     navigateTo("history");
   };
+  if (!sessionStorageReady) return <div className="smartcart-app" aria-busy="true" />;
   return (
     <div className="smartcart-app">
       <Header
@@ -2558,9 +2678,25 @@ export default function App() {
       />
 
       <main className={"app-main screen-" + screen}>
+        {(["location", "shop", "basket", "compare"].includes(screen) || (screen === "checklist" && checklist)) && <ShoppingStepNav
+          current={screen === "compare" && (isStoreRoute || selectedPlanId) ? "store" : screen as "location" | "shop" | "basket" | "compare" | "checklist"}
+          locale={locale}
+          available={[
+            "location",
+            ...(preferences.origin ? ["shop" as const, "basket" as const] : []),
+            ...(preferences.origin && basket.length > 0 ? ["compare" as const] : []),
+            ...(screen === "compare" && (selectedStore || selectedPlanId) && preferences.origin && basket.length > 0 ? ["store" as const] : []),
+          ]}
+          onNavigate={step => {
+            if (step === "store" && selectedPlanId) navigateTo("compare");
+            else if (step === "store" && selectedStore) router.push(`/store/${encodeURIComponent(selectedStore.premiseId)}`);
+            else if (step !== "store" && step !== "checklist") navigateTrip(step);
+          }}
+        />}
         {screen === "home" ? (
           <>
           <SmartCartHomeScreen
+            plannedThisWeek={savedItems.some(item => item.plannedWeek === currentWeek) ? <NextTripList variant="week" title={locale === "en" ? "Planned this week" : "Dirancang minggu ini"} items={savedItems.filter(item => item.plannedWeek === currentWeek)} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/> : undefined}
             locale={locale}
             checklist={checklist}
             history={tripHistory}
@@ -2573,24 +2709,30 @@ export default function App() {
             onHistory={() => navigateTo("history")}
             onInbox={() => navigateTo("inbox")}
           />
-          {savedItems.length > 0 && <div className="px-4 pb-8 sm:px-6"><NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} /></div>}
+          {savedItems.length > 0 && <div className="home-planned-lists">
+            <NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/>
+          </div>}
           </>
         ) : null}
         {screen === "checklist" ? checklist ? (
-          <ShoppingChecklistScreen
+          <ShoppingChecklistScreen key={checklist.id}
             checklist={checklist}
             locale={locale}
             copy={copy}
+            origin={preferences.origin}
+            transportMode={preferences.transportMode}
             onToggleStatus={updateChecklistStatus}
             onAddManual={addChecklistItem}
             onEditItem={editChecklistItem}
             onRevertItem={revertItem}
             savedItems={savedItems}
+            onUseSavedItems={planWithSavedItems}
             onRestoreSavedItem={restoreSavedItem}
             onRemoveSavedItem={removeSavedItem}
             onDeleteItem={removeChecklistItem}
             onDeleteChecklist={removeChecklist}
             alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
+            onSetTollCost={amount => setChecklist(current => current ? setChecklistTollCost(current, amount) : current)}
             onRecordTrip={recordTrip}
           />
         ) : (
@@ -2620,15 +2762,23 @@ export default function App() {
             onRetry={retryReport}
             onGenerate={generateReportForCadence}
             onOpenSettings={() => { setConsentStorageError(false); setConsentDialogMode("settings"); }}
+            reportLanguage={reportLanguage}
+            onReportLanguage={changeReportLanguage}
           />
         ) : null}
         {screen === "shop" ? (
           <BasketScreen
+            plannedItems={savedItems}
+            onSchedulePurchase={scheduleCataloguePurchase}
             view="shop"
             candidateCacheId={candidateCacheId}
+            hasLocation={preferences.origin != null}
+            candidatePreparation={candidatePreparation}
+            onRetryNearbyPrices={() => prepareCandidates(preferences)}
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => navigateTrip("basket")}
+            onBackToShop={() => navigateTrip("shop")}
             onContinue={() => navigateTrip("basket")}
             copy={copy}
             locale={locale}
@@ -2636,10 +2786,13 @@ export default function App() {
         ) : null}
         {screen === "basket" ? (
           <BasketScreen
+            plannedItems={savedItems}
+            onSchedulePurchase={scheduleCataloguePurchase}
             view="basket"
             basket={basket}
             setBasket={setBasket}
             onViewBasket={() => navigateTrip("basket")}
+            onBackToShop={() => navigateTrip("shop")}
             onContinue={() => navigateTrip("compare")}
             copy={copy}
             locale={locale}
@@ -2659,6 +2812,8 @@ export default function App() {
         ) : null}
         {screen === "compare" ? (
           <CompareScreen
+            selectedPlanId={selectedPlanId}
+            setSelectedPlanId={setSelectedPlanId}
             basket={basket}
             setBasket={setBasket}
             activeChecklist={checklist}
@@ -2674,17 +2829,23 @@ export default function App() {
               );
               setChecklist(withSavedItems);
               setSavedItems(current => current.filter(item => !usedSavedItems.some(saved => saved.id === item.id)));
-              resetTrip();
-              navigateTo("home");
+              navigateTo("checklist");
             }}
             selectedStore={isStoreRoute ? selectedStore : null}
             onSelectStore={store => {
+              setSelectedPlanId(null);
               setSelectedStore(store);
               router.push(`/store/${encodeURIComponent(store.premiseId)}`);
+            }}
+            onBackToPlans={() => {
+              setSelectedStore(null);
+              navigateTo("compare");
             }}
             preferences={preferences}
             candidateCacheId={candidateCacheId}
             onChangeTravel={() => navigateTo("location")}
+            multiStore={multiStore}
+            onMultiStoreChange={setMultiStore}
             copy={copy}
           />
         ) : null}
@@ -2700,6 +2861,8 @@ export default function App() {
         onDeleteAll={deleteLocalReports}
         onClose={() => setConsentDialogMode(null)}
       />
+      {purchaseToSchedule && <PlannedWeekDialog key={purchaseToSchedule.item.id} item={purchaseToSchedule.item} locale={locale} onSave={confirmPurchaseWeek} onCancel={() => setPurchaseToSchedule(null)}/>}
+      {plannedItemsNotice && <div role="status" className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-[#007d38] px-4 py-3 text-sm text-white shadow-lg">{plannedItemsNotice}<button type="button" aria-label={copy.close} onClick={() => setPlannedItemsNotice("")}>×</button></div>}
       <ConfirmationDialog
         open={restartTripOpen}
         title={locale === "ms" ? "Mulakan perjalanan baharu?" : "Start a new trip?"}

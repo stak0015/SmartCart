@@ -1,77 +1,8 @@
 # SmartCart frontend
 
-This is the Next.js development copy of the Iteration 1 React prototype. The mobile-first UI and visual system have been retained and extended for the current Iteration 1 epics.
+Next.js app. Documentation lives in [`docs/`](../docs/README.md):
 
-## Run locally
-
-1. Start the FastAPI service by following [`../backend/README.md`](../backend/README.md).
-2. Install Node.js 22 and pnpm.
-3. Copy `.env.example` to `.env.local`; its default points to the local FastAPI
-   service.
-4. Run `pnpm install`.
-5. Reapply `../database/schema.sql` to the database if needed. Existing
-   databases can run `../database/migrate_item_name_en.py`, followed by
-   `../database/seed_item_names.py`, to populate direct English item labels.
-6. Prepare a small coordinate batch with
-   `pnpm sync:premise-locations -- --limit=100`, or use `--all` for the full
-   premise set after reviewing quota. This script reads server credentials from
-   `../backend/.env`.
-7. Run `pnpm dev` and open `http://localhost:3000`.
-
-Catalogue thumbnails are pre-compressed, versioned WebP assets so Vercel can
-serve them directly from its CDN without transforming each image at request
-time. If the source PNG set changes, regenerate them with
-`pnpm optimize:catalogue-images`.
-
-## Current implementation
-
-The live item search and the location and recommendation flow all call the
-FastAPI service. Typed request and response shapes are in `lib/contracts.ts`;
-browser calls are in `lib/api.ts` and `lib/api-client.ts`.
-
-The UI covers:
-
-- item search, category browsing, item details, quantities, editing, removal and basket review;
-- device geolocation or Malaysia-restricted Google location autocomplete;
-- distance- or time-based travel limits for walking, public transport,
-  motorcycle, and car;
-- reachable single-premise recommendations ranked by priced-item coverage,
-  then partial combined cost, travel time and distance, with one unified list
-  and per-store item-price breakdowns;
-- privacy-preserving preference storage that excludes the selected origin;
-- expensive-item flags, immediate-cost versus unit-value alternatives, applying an alternative, and potential savings;
-- explicit verified, candidate, and unverified SARA store statuses without
-  treating automated matches as verified.
-
-## FastAPI endpoints
-
-- `GET /api/items/search?q=&limit=` searches the live PriceCatcher catalogue.
-- `GET /api/locations/autocomplete?query=&sessionToken=` proxies Places
-  Autocomplete (New) without exposing the API key.
-- `POST /api/locations/resolve` resolves a selected Place ID to an address and
-  coordinates.
-- `POST /api/locations/reverse` best-effort reverse-geocodes device
-  coordinates without persisting the origin.
-- `POST /api/recommendations` queries PostgreSQL for nearby premise candidates,
-  requests a bounded Google route matrix when configured, or falls back to the
-  25 nearest premises using straight-line planning estimates when the Routes
-  key is absent. It retrieves current store-level basket prices and returns the
-  combined-cost ranking with transparent missing-price coverage; fallback
-  responses explain that travel limits and route feasibility are unverified.
-- `POST /api/premises/{premiseId}/basket-alternatives` checks the selected
-  premise for one lower-priced, name-similar item in the same category and
-  package basis per basket line. Applying an alternative updates the in-memory
-  basket, exposes the saving, and keeps an Undo action available in both the
-  store overview and basket.
-
-Run `pnpm lint` and `pnpm build` here and `python -m pytest` in `../backend`
-before handoff. See
-[`../docs/recommendation-engine.md`](../docs/recommendation-engine.md) for the
-algorithm, assumptions, provider costs, data preparation, and known limits.
-
-Missing store prices remain visible in each store's item-price list and are
-excluded from its basket subtotal. Stores are shown in one unified list ranked
-by priced-item coverage, then partial combined cost, travel time, and distance.
-The primary recommendation is the first store with at least one priced line.
-The UI must never convert missing SARA verification into an ineligible or
-non-partner claim.
+- [Local setup](../docs/07-operations/local-setup.md#3-frontend) — `pnpm install`, `.env.local`, `pnpm dev`
+- [Frontend architecture](../docs/06-frontend/frontend-architecture.md) — screens, state, device storage, module map
+- [Data model — device data](../docs/05-data/data-model.md#device-data-model)
+- [Testing](../docs/07-operations/testing.md) — `pnpm test`, `pnpm lint`, `pnpm build`
