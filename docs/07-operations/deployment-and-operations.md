@@ -42,6 +42,7 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | `CEREBRAS_API_KEY` | — | Enables AI report prose |
 | `CEREBRAS_MODEL` | `gpt-oss-120b` | Model name |
 | `SMARTCART_FORECAST_PATH` | `backend/data/price_forecasts.json` | Alternative snapshot for previews |
+| `SMARTCART_FORECAST_SOURCE` | `file` | `postgres` reads the active offline-generated database batch; enable after initial verified publication |
 
 `TRAVEL_COST_CAR_PER_KM_RM` and `TRAVEL_COST_MOTORCYCLE_PER_KM_RM` are still read by `config.py` but no longer affect pricing (fuel-based costs replaced them).
 
@@ -74,6 +75,7 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | Regenerate premise status CSV + import | When stores open/close | Enrichment workflow + `migrate_premise_open_status.py` | Manual |
 | Promote SARA chain branches for new premises | After ingestion adds premises | `migrate_sara_chain_partners.py --apply` | Manual |
 | Regenerate or re-qualify forecast snapshot | Before each demo, at least every 4 weeks | Research pipeline / `requalify_price_forecasts.py` | Manual — forecasts are withdrawn once the latest observation is more than 28 days old |
+| Refresh forecasts from newer official observations | Weekly Monday 04:00 MYT | `.github/workflows/forecasts.yml` | PostgreSQL publishing workflow; requires initial activation and `NEON_DATABASE_URL` |
 | Re-check provider pricing and quotas | Each iteration | Google Cloud console | Manual |
 
 ## Monitoring and failure modes
@@ -125,4 +127,4 @@ Before promotion/release:
 | Requalification cannot find matching paths | Recover the matching research bundle; do not substitute forecasts from a different run |
 | New catalogue item has `not_evaluated` | Include it in the aligned research history and backtest it; ingestion alone does not create a forecast |
 
-There is no automated forecast-refresh job or recorded prospective accuracy/drift monitor. Suggested maintenance evidence is available/rejected counts at the serving date, age distribution of observations and reasons for withdrawals, plus forecast-versus-actual errors when new weeks arrive. These are operational follow-ups, not existing telemetry or model guarantees.
+The weekly PostgreSQL refresh workflow is documented in [Weekly forecasts](../../forecasting/README.md). It generates new paths from updated data and re-runs three rolling short-horizon holdouts before atomic publication. Initial activation and one backend deployment are required; afterwards updates do not need redeployment. There is no independent prospective accuracy/drift monitor. Retain generation reports, available/rejected counts and withdrawal reasons with each run, and inspect forecast-versus-actual errors as observations arrive.
