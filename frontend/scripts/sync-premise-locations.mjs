@@ -101,6 +101,7 @@ const pool = new Pool({
 
 let updated = 0;
 let failed = 0;
+let notFound = 0;
 let nextRequestAt = 0;
 
 async function waitForRequestSlot() {
@@ -176,6 +177,24 @@ try {
           console.log(`Progress: ${updated + failed}/${premiseCount}; updated: ${updated}; failed: ${failed}.`);
         }
       } catch (error) {
+        if (error?.status === 404) {
+          // The Place ID no longer exists. Clear the cached coordinate so the store is not
+          // ranked; it needs a new Place match (premise status CSV) to return.
+          await pool.query(
+            `
+              UPDATE premise
+              SET latitude = NULL,
+                  longitude = NULL,
+                  location_provider = NULL,
+                  location_refreshed_at = NULL
+              WHERE premise_id = $1
+            `,
+            [premise.premise_id],
+          );
+          notFound += 1;
+          console.warn(`Premise ${premise.premise_code}: Place ID not found; coordinates cleared, needs re-match.`);
+          continue;
+        }
         failed += 1;
         console.error(`Premise ${premise.premise_code}: ${error instanceof Error ? error.message : "unknown error"}`);
       }
@@ -185,5 +204,5 @@ try {
   await pool.end();
 }
 
-console.log(`Premise locations refreshed: ${updated}; failed: ${failed}.`);
+console.log(`Premise locations refreshed: ${updated}; Place IDs not found: ${notFound}; failed: ${failed}.`);
 if (failed > 0) process.exitCode = 1;
