@@ -16,7 +16,9 @@ def load_item_dataset(item_code=None):
             'item_code', i.item_code, 'food_id', f.food_id)
             FROM item i JOIN nutrition_food f ON f.nutrition_id = i.nutrition_food_id
             WHERE f.dataset = 'items' AND i.nutrition_mapping_metadata IS NOT NULL"""
-            + ("" if item_code is None else " AND i.item_code = %s") + " ORDER BY i.item_code",
+            + ("" if item_code is None else
+               " AND i.item_code = ANY(%s::text[])" if isinstance(item_code, (list, tuple)) else
+               " AND i.item_code = %s") + " ORDER BY i.item_code",
             None if item_code is None else (item_code,))
         mappings = [r[0] for r in cursor.fetchall()]
         food_ids = {r['food_id'] for r in mappings}

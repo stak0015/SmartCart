@@ -63,7 +63,7 @@ def _valid_food(food: dict[str, Any]) -> bool:
     return "url" not in food or food["url"] is None or _text(food["url"])
 
 
-def load_item_nutrition(path: Path | str | None = None, *, item_code: str | None = None) -> dict[str, Any]:
+def load_item_nutrition(path: Path | str | None = None, *, item_code: str | list[str] | None = None) -> dict[str, Any]:
     """Read item mappings and nutrient data from PostgreSQL by default.
 
     Database failures propagate rather than quietly serving an older snapshot.

@@ -46,11 +46,11 @@ Short decision records: what was decided, why, and what it costs. Newest underst
 
 ## D6. Short-lived candidate snapshot
 
-**Decision.** `POST /recommendations/prepare` routes once from the origin and caches the result in process memory for 30 minutes under an opaque ID, bound to a SHA-256 fingerprint of the travel settings.
+**Decision.** `POST /recommendations/prepare` routes once from the origin and caches the result in PostgreSQL for 30 minutes under an opaque ID, bound to a SHA-256 fingerprint of the travel settings. Each worker also retains a bounded memory cache.
 
 **Why.** The Shop screen shows nearby price ranges for every product, and the basket changes often. Re-routing on every change would multiply Google cost. The fingerprint stops a stale ID being reused after the shopper changes mode or limit.
 
-**Trade-off.** The cache is per process and lost on restart; the frontend simply prepares again. Multi-store requests bypass it because they need a fresh inter-store matrix.
+**Trade-off.** Preparation adds one database write; a cold worker reads the shared snapshot once. This avoids losing nearby prices when requests hit different workers. Multi-store requests bypass it because they need a fresh inter-store matrix.
 
 ## D7. Transport cost from official fuel prices
 

@@ -249,3 +249,13 @@ BEGIN
 END $$;
 CREATE INDEX IF NOT EXISTS item_nutrition_food_id_idx
     ON item (nutrition_food_id) WHERE nutrition_food_id IS NOT NULL;
+
+-- Shared, short-lived prepared stores; origins are represented only by a fingerprint.
+CREATE TABLE IF NOT EXISTS smartcart_candidate_snapshot (
+    cache_id TEXT PRIMARY KEY,
+    fingerprint TEXT NOT NULL,
+    response JSONB NOT NULL,
+    expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS smartcart_candidate_snapshot_expiry_idx
+    ON smartcart_candidate_snapshot (expires_at);

@@ -402,6 +402,10 @@ function BasketScreen({
   const [apiLoading, setApiLoading] = useState(false);
   const [apiSearched, setApiSearched] = useState(false);
   const [apiError, setApiError] = useState(false);
+  // Wait for the store context before searching: the first result includes prices.
+  const waitingForPrices = hasLocation && !candidateCacheId
+    && candidatePreparation.status !== "failed";
+  const catalogueLoading = apiLoading || waitingForPrices;
   const [qtyById, setQtyById] = useState<Record<number, string>>({});
   const [basketQtyById, setBasketQtyById] = useState<Record<string, string>>({});
   // Epic 7 (US 7.1): alternatives for the item currently open in the dialog.
@@ -431,6 +435,10 @@ function BasketScreen({
 
   useEffect(() => {
     if (view !== "shop") return;
+    if (waitingForPrices) {
+      setApiLoading(true);
+      return;
+    }
     const query = search.trim();
     if (query.length === 1) {
       setApiResults([]);
@@ -478,7 +486,7 @@ function BasketScreen({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [activeCategories, page, search, view, candidateCacheId, saraCategoryOnly, catalogueSort, locale]);
+  }, [activeCategories, page, search, view, candidateCacheId, saraCategoryOnly, catalogueSort, locale, waitingForPrices]);
 
   // Epic 7 (US 7.1): load approved healthier alternatives for the item
   // currently open in the dialog. A failure only affects this section
@@ -740,10 +748,10 @@ function BasketScreen({
             {search.trim().length >= 2 || activeCategories.length > 0 ? copy.searchResults : copy.allEssentials}
           </h2>
           <span className="text-sm font-medium text-[#718078]">
-            {apiLoading ? copy.searching : copy.itemCount(apiTotal)}
+            {catalogueLoading ? copy.searching : copy.itemCount(apiTotal)}
           </span>
         </div>
-        {(!apiLoading || candidatePreparation.status === "loading") && <NearbyPriceStatus
+        {(!catalogueLoading || candidatePreparation.status === "loading") && <NearbyPriceStatus
           hasLocation={hasLocation}
           preparation={candidatePreparation}
           ready={priceContext === "ready"}
@@ -753,30 +761,30 @@ function BasketScreen({
         />}
 
         {/* Not searched yet */}
-        {!apiSearched && (
+        {!apiSearched && !catalogueLoading && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
             {copy.enterTwoCharacters}
           </p>
         )}
 
         {/* Loading */}
-        {apiLoading && (
+        {catalogueLoading && (
           <p className="text-[16px] text-[#718078] text-center py-6">{copy.searchingDatabase}</p>
         )}
 
         {/* Searched but no results (AC 1.1.4) */}
-        {!apiLoading && apiSearched && !apiError && apiResults.length === 0 && (
+        {!catalogueLoading && apiSearched && !apiError && apiResults.length === 0 && (
           <p className="text-[16px] text-[#3e494a] text-center py-6">
             {copy.noItems}
           </p>
         )}
 
-        {!apiLoading && apiError && (
+        {!catalogueLoading && apiError && (
           <p role="alert" className="text-[16px] text-[#ba1a1a] text-center py-6">{copy.catalogueUnavailable}</p>
         )}
 
         {/* Real results list */}
-        {!apiLoading && apiResults.length > 0 && (
+        {!catalogueLoading && apiResults.length > 0 && (
           <div className="product-grid">
             {apiResults.map(item => {
               const fields = { ...resultRowFields(item), name: localizedName(copy, item.item_name, { itemNameEn: item.item_name_en, itemNameMs: item.item_name_ms }) };
@@ -800,7 +808,7 @@ function BasketScreen({
           </div>
         )}
 
-        {!apiLoading && !apiError && apiTotalPages > 1 && (
+        {!catalogueLoading && !apiError && apiTotalPages > 1 && (
           <nav aria-label={copy.pagination} className="mt-6 flex flex-col items-center gap-3">
             <p className="text-sm font-medium text-[#526078]">{copy.pageOf(page, apiTotalPages)}</p>
             <div className="flex max-w-full flex-wrap items-center justify-center gap-1.5">

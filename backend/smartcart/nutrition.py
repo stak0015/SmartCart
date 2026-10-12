@@ -158,7 +158,9 @@ def healthier_alternatives(
     if not mappings:
         return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])
 
-    profiles = load_item_nutrition()
+    profiles = load_item_nutrition(item_code=sorted(
+        {item_code, *(m["alternative_item_code"] for m in mappings)}
+    ))
     original_reference = get_item_nutrition(item_code, dataset=profiles)
     if not original_reference['available']:
         return HealthierAlternativesResponse(item_code=item_code, count=0, alternatives=[])

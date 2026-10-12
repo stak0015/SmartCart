@@ -10,6 +10,7 @@ from hashlib import sha256
 import json
 import logging
 from time import monotonic, perf_counter
+from threading import RLock
 from uuid import uuid4
 from typing import Literal
 
@@ -25,6 +26,7 @@ from .catalogue import (
 )
 from .categories import CATEGORY_SUMMARIES, CATEGORIES_BY_ID
 from .config import get_settings
+from .shared_candidates import load_snapshot, save_snapshot
 from .fuel import get_fuel_price
 from .errors import AppError
 from .report_models import (
@@ -106,10 +108,11 @@ FALLBACK_NEAREST_LIMIT = 25
 CANDIDATE_CACHE_TTL_SECONDS = 30 * 60
 CANDIDATE_CACHE_MAX_ENTRIES = 128
 
-# Process-local and deliberately short-lived. Entries contain the routed store
+# Process-local hot cache backed by short-lived PostgreSQL snapshots. Entries contain the routed store
 # snapshot, not the selected origin; only a SHA-256 travel fingerprint is kept
 # to prevent an opaque token being reused with changed travel settings.
 _candidate_cache: OrderedDict[str, tuple[float, str, RecommendationResponse]] = OrderedDict()
+_candidate_cache_lock = RLock()
 
 # Keep the historical helper imports as an intentionally small compatibility
 # seam for callers/tests that override the old endpoint dependencies. The
@@ -129,11 +132,12 @@ def _travel_fingerprint(travel: TravelPreferences) -> str:
 
 
 def _prune_candidate_cache(now: float) -> None:
-    expired = [key for key, (expires_at, _, _) in _candidate_cache.items() if expires_at <= now]
-    for key in expired:
-        _candidate_cache.pop(key, None)
-    while len(_candidate_cache) > CANDIDATE_CACHE_MAX_ENTRIES:
-        _candidate_cache.popitem(last=False)
+    with _candidate_cache_lock:
+        expired = [key for key, (expires_at, _, _) in _candidate_cache.items() if expires_at <= now]
+        for key in expired:
+            _candidate_cache.pop(key, None)
+        while len(_candidate_cache) > CANDIDATE_CACHE_MAX_ENTRIES:
+            _candidate_cache.popitem(last=False)
 
 
 def _store_candidate_snapshot(
@@ -147,14 +151,32 @@ def _store_candidate_snapshot(
     now = monotonic()
     _prune_candidate_cache(now)
     cache_id = uuid4().hex
-    _candidate_cache[cache_id] = (
-        now + CANDIDATE_CACHE_TTL_SECONDS,
-        _travel_fingerprint(travel),
-        deepcopy(response),
-    )
-    _prune_candidate_cache(now)
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=CANDIDATE_CACHE_TTL_SECONDS)
+    save_snapshot(cache_id, _travel_fingerprint(travel), response, expires_at)
+    with _candidate_cache_lock:
+        _candidate_cache[cache_id] = (
+            now + CANDIDATE_CACHE_TTL_SECONDS,
+            _travel_fingerprint(travel),
+            deepcopy(response),
+        )
+    _prune_candidate_cache(now)
     return cache_id, expires_at
+
+
+def _candidate_snapshot(cache_id: str | None):
+    if not cache_id:
+        return None
+    _prune_candidate_cache(monotonic())
+    entry = _candidate_cache.get(cache_id)
+    if entry is None:
+        stored = load_snapshot(cache_id)
+        if stored is not None:
+            remaining, fingerprint, response = stored
+            entry = (monotonic() + remaining, fingerprint, response)
+            with _candidate_cache_lock:
+                _candidate_cache[cache_id] = entry
+            _prune_candidate_cache(monotonic())
+    return entry
 
 
 def _get_candidate_snapshot(
@@ -168,13 +190,15 @@ def _get_candidate_snapshot(
         return None
     now = monotonic()
     _prune_candidate_cache(now)
-    entry = _candidate_cache.get(cache_id)
+    entry = _candidate_snapshot(cache_id)
     if not entry:
         return None
     _, fingerprint, response = entry
     if fingerprint != _travel_fingerprint(travel):
         return None
-    _candidate_cache.move_to_end(cache_id)
+    with _candidate_cache_lock:
+        if cache_id in _candidate_cache:
+            _candidate_cache.move_to_end(cache_id)
     return deepcopy(response)
 
 
@@ -255,7 +279,7 @@ def search_items(
             400,
         )
     _prune_candidate_cache(monotonic())
-    snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
+    snapshot = _candidate_snapshot(candidate_cache_id)
     stores = (
         sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
         if snapshot else []
@@ -297,7 +321,7 @@ def healthier_alternatives_endpoint(
     # AC 7.1.5: if this lookup fails the client hides the section; the
     # endpoint itself only ever returns approved mappings.
     _prune_candidate_cache(monotonic())
-    snapshot = _candidate_cache.get(candidate_cache_id) if candidate_cache_id else None
+    snapshot = _candidate_snapshot(candidate_cache_id)
     stores = (
         sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
         if snapshot else []
@@ -426,7 +450,7 @@ async def prepare_recommendation_candidates(
 ) -> CandidatePreparationResponse:
     """Warm one short-lived route snapshot before the shopper builds a basket."""
     response = await recommend_stores(RecommendationRequest(travel=payload.travel))
-    cache_id, expires_at = _store_candidate_snapshot(payload.travel, response)
+    cache_id, expires_at = await run_in_threadpool(_store_candidate_snapshot, payload.travel, response)
     return CandidatePreparationResponse(
         candidate_cache_id=cache_id,
         candidate_count=response.total_candidates_evaluated,
@@ -646,7 +670,7 @@ async def _recommend_stores(
     cached = (
         None
         if payload.second_store_limit is not None
-        else _get_candidate_snapshot(payload.candidate_cache_id, travel)
+        else await run_in_threadpool(_get_candidate_snapshot, payload.candidate_cache_id, travel)
     )
     if cached is not None and payload.basket:
         recommendations = cached.recommendations

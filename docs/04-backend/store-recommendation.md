@@ -92,12 +92,14 @@ With an empty basket the same key applies to travel cost alone, so the cheapest-
 
 ## 6. Candidate snapshot (nearby prices while shopping)
 
-`POST /recommendations/prepare` runs steps 1–3 once, without a basket, and caches the result for 30 minutes (process memory, max 128 entries, LRU). The returned `candidateCacheId` lets:
+`POST /recommendations/prepare` runs steps 1–3 once, without a basket, and caches the result for 30 minutes in PostgreSQL, with a process-memory hot cache of up to 128 entries. Snapshots therefore survive a request landing on a different Vercel worker. The returned `candidateCacheId` lets:
 
 - `GET /items/search` and healthier alternatives show each product's price range across the 25 nearest cached stores (falling back to the item's median, labelled);
 - `POST /recommendations` skip routing and only re-price the basket.
 
 The cache entry stores a SHA-256 fingerprint of the travel settings; a mismatched ID is ignored. Requests with a second-store limit always bypass the cache.
+
+The `smartcart_candidate_snapshot` table and expiry index are created on first use; the database role needs CREATE permission. Expired rows are removed on preparation. The selected origin is not stored. Catalogue search waits for preparation before loading items and prices together; preparation failures still allow browsing with an explicit unavailable-price status.
 
 ## Edge cases
 

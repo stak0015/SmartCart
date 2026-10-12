@@ -1,6 +1,7 @@
 // Owners: Shun, Zhihao, Randy
 // Epic 1 catalogue calls use the same FastAPI base as every other feature.
 import { API_BASE_URL } from "./api-base";
+import { cachedJson } from "./response-cache";
 import type { ItemCategory, SourceCategory } from "./contracts";
 
 export interface CataloguePriceRange {
@@ -77,11 +78,7 @@ export async function searchItems(
     params.set("locale", options.locale);
   }
   const url = `${API_BASE_URL}/items/search?${params.toString()}`;
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`Search failed: HTTP ${res.status}`);
-  }
-  return res.json();
+  return cachedJson<SearchResult>(url, 30_000, signal);
 }
 
 /**
@@ -91,11 +88,7 @@ export async function searchItems(
  */
 export async function listCategories(signal?: AbortSignal): Promise<CategoriesResult> {
   const url = `${API_BASE_URL}/items/categories`;
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`Failed to fetch categories: HTTP ${res.status}`);
-  }
-  return res.json();
+  return cachedJson<CategoriesResult>(url, 300_000, signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -176,11 +169,7 @@ export async function fetchHealthierAlternatives(
   if (candidateCacheId) params.set("candidate_cache_id", candidateCacheId);
   const query = params.toString();
   const url = `${API_BASE_URL}/items/${encodeURIComponent(itemCode)}/healthier-alternatives${query ? `?${query}` : ""}`;
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`Healthier alternatives failed: HTTP ${res.status}`);
-  }
-  return res.json();
+  return cachedJson<HealthierAlternativesResult>(url, 60_000, signal);
 }
 
 // ---------------------------------------------------------------------------
@@ -225,9 +214,5 @@ export async function fetchItemNutrition(
   signal?: AbortSignal,
 ): Promise<ItemNutritionResult> {
   const url = `${API_BASE_URL}/items/${encodeURIComponent(itemCode)}/nutrition`;
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`Item nutrition failed: HTTP ${res.status}`);
-  }
-  return res.json();
+  return cachedJson<ItemNutritionResult>(url, 300_000, signal);
 }

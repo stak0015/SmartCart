@@ -4,12 +4,20 @@
 
 | Part | Production | Notes |
 | --- | --- | --- |
-| Frontend | Vercel, project `smart-cart`, team scope `tm-17` | Build with `pnpm build`; set `NEXT_PUBLIC_API_BASE_URL` to the public backend URL including `/api` |
+| Frontend | Vercel, project `smartcart-my`, team scope `tm-17` | Build with `pnpm build`; set `NEXT_PUBLIC_API_BASE_URL` to the public backend URL including `/api` |
 | Database | Neon PostgreSQL, managed through the Vercel integration | Connection string available to scripts via `npx vercel env run` and to CI as the `NEON_DATABASE_URL` secret |
-| Backend | FastAPI (`uvicorn main:app`) | The hosting target is **not recorded in this repository**; confirm and document it here |
+| Backend | Vercel, FastAPI project `smart-cart`, team scope `tm-17` | Production uses `main`; the iteration3 branch has its own preview alias |
 | Daily data refresh | GitHub Actions, `.github/workflows/pricecatcher.yml` | 02:00 Malaysia time |
 
 Deployed versions, smoke checks and sign-off are not tracked in the repository. Record them with each release (commit SHA, frontend deployment ID, backend version, date, checks run).
+
+### Request latency
+
+Backend workers lazily reuse up to four PostgreSQL connections each. Read transactions are rolled back before reuse, broken connections are discarded, and idle connections older than four minutes are replaced. Prepared store snapshots use the shared `smartcart_candidate_snapshot` table (30-minute TTL), provisioned on first use.
+
+The browser keeps up to 128 successful catalogue responses in memory: search prices for 30 seconds, alternative cards for 60 seconds, nutrition and categories for five minutes. Price cache keys include the candidate ID; failures and aborted requests are not cached. HTTP responses remain private and non-cacheable by shared CDNs.
+
+On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview to pause paid Routes usage. With no generic `GOOGLE_MAPS_API_KEY` configured, the existing nearest-25 straight-line fallback is used. Re-add a Routes key and redeploy to restore routed estimates. Places and geocoding keys are separate and remain configured.
 
 ## Configuration
 

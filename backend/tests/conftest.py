@@ -6,6 +6,13 @@ from smartcart.fuel import FuelPrice
 
 
 @pytest.fixture(autouse=True)
+def offline_candidate_snapshots(monkeypatch):
+    """Tests never read or write the deployed snapshot table."""
+    monkeypatch.setattr("smartcart.api.save_snapshot", lambda *args: None)
+    monkeypatch.setattr("smartcart.api.load_snapshot", lambda *args: None)
+
+
+@pytest.fixture(autouse=True)
 def offline_nutrition_records(monkeypatch):
     """Service tests supply food fixtures; production reads PostgreSQL."""
     from smartcart import item_nutrition
@@ -13,7 +20,8 @@ def offline_nutrition_records(monkeypatch):
     profiles = json.loads(path.read_text(encoding='utf-8'))
     def records(item_code=None):
         return {**profiles, 'mappings': [r for r in profiles['mappings']
-                if item_code is None or r['item_code'] == item_code]}
+                if item_code is None or r['item_code'] == item_code
+                or isinstance(item_code, (list, tuple)) and r['item_code'] in item_code]}
     monkeypatch.setattr(item_nutrition, 'load_item_dataset', records)
 
 
