@@ -1197,6 +1197,7 @@ button.planned-card-week:focus-visible { outline: 2px solid var(--green); outlin
 @media (min-width: 640px) { .page-header { padding: 24px 24px 20px; } }
 .smartcart-app .page-title { margin: 0; color: var(--ink); font-size: 30px; line-height: 38px; font-weight: 800; letter-spacing: -.6px; overflow-wrap: anywhere; }
 .smartcart-app .page-intro { max-width: 600px; margin: 6px 0 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+.smartcart-app .page-intro-wide { max-width: none; }
 @media (max-width: 639px) {
   .smartcart-app .page-title { font-size: 24px; line-height: 32px; letter-spacing: -.4px; }
   .smartcart-app .page-intro { font-size: 14px; line-height: 21px; }
