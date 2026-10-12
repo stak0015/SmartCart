@@ -29,7 +29,7 @@ Card [2527217098](https://monashie.leankit.com/card/2527217098) · size 5
 
 As a household shopper, I want to see curated healthier alternatives below an item's details, so that I can consider suitable alternatives while browsing the catalogue.
 
-**Implementation** — frontend: [`healthier-alternatives.tsx`](../../frontend/components/healthier-alternatives.tsx), [`nutrition.ts`](../../frontend/lib/nutrition.ts), [`api.ts`](../../frontend/lib/api.ts) (fetchHealthierAlternatives); backend/data: [`nutrition.py`](../../backend/smartcart/nutrition.py) (healthier_alternatives), [`mappings.json`](../../data/nutrition/mappings.json).
+**Implementation** — frontend: [`healthier-alternatives.tsx`](../../frontend/components/healthier-alternatives.tsx), [`nutrition.ts`](../../frontend/lib/nutrition.ts), [`api.ts`](../../frontend/lib/api.ts) (fetchHealthierAlternatives); backend/data: [`nutrition.py`](../../backend/smartcart/nutrition.py) (healthier_alternatives), [`mappings.json`](../../backend/data/nutrition/mappings.json).
 
 **Tests** — [`test_healthier_alternatives.py`](../../backend/tests/test_healthier_alternatives.py), [`test_nutrition.py`](../../backend/tests/test_nutrition.py), [`healthier-alternatives.test.tsx`](../../frontend/components/healthier-alternatives.test.tsx), [`nutrition.test.ts`](../../frontend/lib/nutrition.test.ts).
 
@@ -65,7 +65,7 @@ Card [2527216879](https://monashie.leankit.com/card/2527216879) · size 10
 
 As a household shopper, I want to inspect the nutritional differences between an item and its recommended alternative, so that I can understand the recommendation before deciding what to add.
 
-**Implementation** — frontend: [`healthier-alternatives.tsx`](../../frontend/components/healthier-alternatives.tsx), [`nutrition.ts`](../../frontend/lib/nutrition.ts); backend/data: [`nutrition.py`](../../backend/smartcart/nutrition.py), [`nutrition_comparison.py`](../../backend/smartcart/nutrition_comparison.py), [`comparison_policy.json`](../../data/nutrition/comparison_policy.json).
+**Implementation** — frontend: [`healthier-alternatives.tsx`](../../frontend/components/healthier-alternatives.tsx), [`nutrition.ts`](../../frontend/lib/nutrition.ts); backend/data: [`nutrition.py`](../../backend/smartcart/nutrition.py), [`nutrition_comparison.py`](../../backend/smartcart/nutrition_comparison.py), [`comparison_policy.json`](../../backend/data/nutrition/comparison_policy.json).
 
 **Tests** — [`test_nutrition_comparison.py`](../../backend/tests/test_nutrition_comparison.py), [`test_alternative_item_nutrition.py`](../../backend/tests/test_alternative_item_nutrition.py), [`healthier-alternatives.test.tsx`](../../frontend/components/healthier-alternatives.test.tsx).
 

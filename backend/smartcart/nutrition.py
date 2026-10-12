@@ -1,6 +1,6 @@
 """Epic 7 — file-based alternative logic backed by PostgreSQL nutrient data.
 
-Alternative mappings and rules live in version control under `data/nutrition`;
+Alternative mappings and rules live in version control under `backend/data/nutrition`;
 item profiles, their reviewed mappings and provenance are read from PostgreSQL.
 A suggestion is produced only from an approved catalogue-to-catalogue
 mapping and always carries the nutrition evidence behind it (AC 7.1.3,
@@ -36,8 +36,7 @@ from .translations import catalogue_translation_joins, translation_select_column
 from .item_nutrition import get_item_nutrition, load_item_nutrition
 from .nutrition_comparison import compare_category
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nutrition"
-FOODS_PATH = DATA_DIR / "foods.json"
+DATA_DIR = Path(__file__).resolve().parents[1] / "data" / "nutrition"
 MAPPINGS_PATH = DATA_DIR / "mappings.json"
 
 # Nutrients shown in the "Why this alternative?" comparison, in display order.

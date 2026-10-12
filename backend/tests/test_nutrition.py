@@ -14,9 +14,11 @@ from pathlib import Path
 
 import pytest
 
+from smartcart.nutrition import MAPPINGS_PATH
+
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "nutrition"
 FOODS = json.loads((DATA_DIR / "foods.json").read_text(encoding="utf-8"))
-MAPPINGS = json.loads((DATA_DIR / "mappings.json").read_text(encoding="utf-8"))
+MAPPINGS = json.loads(MAPPINGS_PATH.read_text(encoding="utf-8"))
 PRIORITY_REVIEW = json.loads((DATA_DIR / "priority-review.json").read_text(encoding="utf-8"))
 
 REQUIRED_FOOD_FIELDS = {"id", "source", "source_code", "description", "basis", "nutrients"}

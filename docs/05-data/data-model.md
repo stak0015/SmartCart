@@ -97,8 +97,8 @@ Indexes: `premise (state, district)`, partial `premise (latitude, longitude)`, `
 | File | Keyed by | Contents |
 | --- | --- | --- |
 | `backend/data/price_forecasts.json` | `item_code` | Weekly national history, forecasts, eligibility status (see [Price history and forecasts](../04-backend/price-history-and-forecasts.md)) |
-| `data/nutrition/mappings.json` | `original_item_code` → `alternative_item_code` | Healthier-alternative rules and approved mappings |
-| `data/nutrition/comparison_policy.json` | rule ID → category | Nutrient thresholds, priorities, guards |
+| `backend/data/nutrition/mappings.json` | `original_item_code` → `alternative_item_code` | Healthier-alternative rules and approved mappings |
+| `backend/data/nutrition/comparison_policy.json` | rule ID → category | Nutrient thresholds, priorities, guards |
 | `backend/smartcart/catalogue_image_manifest.py` | `item_code` | Which items have a checked-in thumbnail |
 | `database/data/item_name_en.csv` | `item_code` | English item labels (seed) |
 | `database/data/category_translations.csv` | raw category | Category labels (seed) |

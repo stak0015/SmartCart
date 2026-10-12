@@ -10,15 +10,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'backend'))
 from smartcart.item_nutrition import get_item_nutrition
-from smartcart.nutrition_comparison import compare_category
+from smartcart.nutrition import MAPPINGS_PATH
+from smartcart.nutrition_comparison import POLICY_PATH, compare_category
 
 
 def audit():
     data = ROOT / 'data/nutrition'
     catalogue = {r['item_code']: r for r in json.loads((data / 'catalogue_snapshot.json').read_text())['items']}
-    mappings = json.loads((data / 'mappings.json').read_text())['mappings']
+    mappings = json.loads(MAPPINGS_PATH.read_text(encoding='utf-8'))['mappings']
     profiles = json.loads((data / 'item_nutrition.json').read_text())
-    policy = json.loads((data / 'comparison_policy.json').read_text())
+    policy = json.loads(POLICY_PATH.read_text(encoding='utf-8'))
     records = []
     for mapping in mappings:
         if not mapping.get('approved'):

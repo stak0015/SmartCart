@@ -5,7 +5,7 @@ Owner: Shun
 import json
 from pathlib import Path
 
-POLICY_PATH = Path(__file__).resolve().parents[2] / 'data/nutrition/comparison_policy.json'
+POLICY_PATH = Path(__file__).resolve().parents[1] / 'data/nutrition/comparison_policy.json'
 
 
 def compare_category(rule_id, original, alternative, policy=None):

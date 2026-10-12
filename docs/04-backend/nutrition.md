@@ -13,8 +13,8 @@ Code: `backend/smartcart/item_nutrition.py`, `nutrition_repository.py`, `nutriti
 | --- | --- | --- |
 | Nutrient values per food, per 100 g or 100 ml, with publisher provenance | `nutrition_food` table | Database |
 | Item → food link, approval, generic/product match, rationale, basis variants | `item.nutrition_food_id`, `item.nutrition_mapping_metadata` | Database |
-| Alternative rules and approved original → alternative mappings | `data/nutrition/mappings.json` | File (cached per process) |
-| Comparison thresholds, priorities, required and guard nutrients | `data/nutrition/comparison_policy.json` | File |
+| Alternative rules and approved original → alternative mappings | `backend/data/nutrition/mappings.json` | File (cached per process) |
+| Comparison thresholds, priorities, required and guard nutrients | `backend/data/nutrition/comparison_policy.json` | File |
 | Import snapshots (`item_nutrition.json`, `foods.json`) | `data/nutrition/` | Import and audit only, never at runtime |
 
 The database is the only runtime source for nutrient values; a database failure is reported as an error, never silently replaced with file values.
