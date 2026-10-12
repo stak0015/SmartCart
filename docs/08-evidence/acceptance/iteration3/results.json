@@ -1,0 +1,1079 @@
+[
+  {
+    "id": "AT-4.01",
+    "evidence": [
+      "AT-4.01-home-nothing-planned.png"
+    ],
+    "checks": [
+      {
+        "name": "No \"Planned this week\" box when nothing is planned",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.02",
+    "evidence": [
+      "AT-4.02-loading.png",
+      "AT-4.02-panel-default.png"
+    ],
+    "checks": [
+      {
+        "name": "Loading message while history loads",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Price trends panel beside details",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Basis, last update and national note",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Legend names Historical and Projected",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "1y selected by default",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "12w selected by default",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No rise/drop banner for small change",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "1y state=true; 12w state=true"
+  },
+  {
+    "id": "AT-4.03",
+    "evidence": [
+      "AT-4.03-3m-4w.png",
+      "AT-4.03-all-12w.png"
+    ],
+    "checks": [
+      {
+        "name": "3m highlighted",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "4w highlighted",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.04",
+    "evidence": [
+      "AT-4.04-hover-historical.png",
+      "AT-4.04-hover-projected.png"
+    ],
+    "checks": [
+      {
+        "name": "Hover shows week and price (historical)",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Hover on projected line labelled Projected",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.05",
+    "evidence": [
+      "AT-4.05-data-details.png"
+    ],
+    "checks": [
+      {
+        "name": "Explains source and aggregation",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Shows missing weeks",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Says forecasts are planning estimates",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Shows when data and forecast were produced",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.06",
+    "evidence": [
+      "AT-4.06-closed.png"
+    ],
+    "checks": [
+      {
+        "name": "Panel closes",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Item details stay open",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.07",
+    "evidence": [
+      "AT-4.07-error-retry.png",
+      "AT-4.07-after-retry.png"
+    ],
+    "checks": [
+      {
+        "name": "Error message with Retry",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Retry loads the chart",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.08",
+    "evidence": [
+      "AT-4.08-forecast-unavailable.png"
+    ],
+    "checks": [
+      {
+        "name": "Forecast unavailable note, history only",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Item controls still work",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.09",
+    "evidence": [
+      "AT-4.09-invalid-quantity.png"
+    ],
+    "checks": [
+      {
+        "name": "Schedule purchase disabled for invalid quantity",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.10",
+    "evidence": [
+      "AT-4.10-schedule-window.png",
+      "AT-4.10-cancelled.png"
+    ],
+    "checks": [
+      {
+        "name": "Window shows item and weeks",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Only this week to in 4 weeks offered",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "This week selected by default",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Escape closes without saving",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.11",
+    "evidence": [
+      "AT-4.11-saved-confirmation.png"
+    ],
+    "checks": [
+      {
+        "name": "Confirmation shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Confirmation text",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.12",
+    "evidence": [
+      "AT-4.12-no-forecast-item-scheduled.png"
+    ],
+    "checks": [
+      {
+        "name": "Item without forecast can be scheduled",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.13",
+    "evidence": [
+      "AT-4.13-home-planned.png"
+    ],
+    "checks": [
+      {
+        "name": "Planned this week box lists this week item with dates",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Later-week item not in Planned this week",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Planned items list shows both items with quantity and week",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.14",
+    "evidence": [
+      "AT-4.14-after-reload.png"
+    ],
+    "checks": [
+      {
+        "name": "Planned items persist after reload",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.15",
+    "evidence": [
+      "AT-4.15-week-changed.png"
+    ],
+    "checks": [
+      {
+        "name": "Week changed (banana no longer in this week box)",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.16",
+    "evidence": [
+      "AT-4.16-planned-week-in-trends.png",
+      "AT-4.16-reschedule-starts-on-current-week.png"
+    ],
+    "checks": [
+      {
+        "name": "Price trends shows planned week",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Re-scheduling starts on current planned week (Next week)",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.17",
+    "evidence": [
+      "AT-4.17-before-ticking.png",
+      "AT-4.17-ticked.png",
+      "AT-4.17-trip-planned.png"
+    ],
+    "checks": [
+      {
+        "name": "No duplicate planned item",
+        "ok": true,
+        "detail": "occurrences=1"
+      },
+      {
+        "name": "Plan trip button unavailable before ticking",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Shop screen opens",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Planned item added with planned quantity",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "planned quantity=1, basket count=1"
+  },
+  {
+    "id": "AT-4.18",
+    "evidence": [
+      "AT-4.18-removed.png"
+    ],
+    "checks": [
+      {
+        "name": "Item removed",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Basket unchanged",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.01",
+    "evidence": [
+      "AT-6.01-menu-default-off.png"
+    ],
+    "checks": [
+      {
+        "name": "Switch is off",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No second-store limits shown",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.02",
+    "evidence": [
+      "AT-6.02-limits-shown.png"
+    ],
+    "checks": [
+      {
+        "name": "Limits section appears",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Distance, Time and Both options",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Apply limits shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Note explains first store to second store leg",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Distance presets 2/5/10/15 km, no number box",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.03",
+    "evidence": [
+      "AT-6.03-missing-preset.png"
+    ],
+    "checks": [
+      {
+        "name": "Missing-limit message",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.04",
+    "evidence": [
+      "AT-6.04-preset-selected.png"
+    ],
+    "checks": [
+      {
+        "name": "5 km highlighted",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Exactly one preset selected (10 km)",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.05",
+    "evidence": [
+      "AT-6.05-time-presets.png",
+      "AT-6.05-both-presets.png"
+    ],
+    "checks": [
+      {
+        "name": "Only time presets 10/20/30/45 min",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Both groups shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Earlier choices kept (10 km, 20 min)",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.06",
+    "evidence": [
+      "AT-6.06-menu-closed.png"
+    ],
+    "checks": [
+      {
+        "name": "Escape closes menu",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Settings kept after reopening",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Clicking outside closes menu",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.07",
+    "evidence": [
+      "AT-6.07-applied-without-routes.png"
+    ],
+    "checks": [
+      {
+        "name": "Approximate-routes notice shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No two-store plans listed",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Single stores still listed",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Basket unchanged",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.08",
+    "evidence": [
+      "AT-6.08-turned-off.png"
+    ],
+    "checks": [
+      {
+        "name": "Limits hidden when turned off",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Single-store list still shown",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.01",
+    "evidence": [
+      "AT-7.01-alternatives-section.png"
+    ],
+    "checks": [
+      {
+        "name": "Healthier alternatives section shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Cards show name and reason",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Cards have pictures",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Separate \"Why this alternative?\" button",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.02",
+    "evidence": [
+      "AT-7.02-no-alternatives.png"
+    ],
+    "checks": [
+      {
+        "name": "No healthier alternatives section",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Item controls still available",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.03",
+    "evidence": [
+      "AT-7.03-alternatives-load-failure.png"
+    ],
+    "checks": [
+      {
+        "name": "Section hidden when alternatives fail to load",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Add to basket still enabled",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.04",
+    "evidence": [
+      "AT-7.04-original-quantity-3.png",
+      "AT-7.04-alternative-opened.png",
+      "AT-7.04-back-to-original.png"
+    ],
+    "checks": [
+      {
+        "name": "Alternative details open in same window",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Basket unchanged after opening alternative",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Visible Back button",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Back returns to original item",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Unsubmitted quantity restored (3)",
+        "ok": true,
+        "detail": "quantity=3"
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.05",
+    "evidence": [
+      "AT-7.05-alternative-price-trends.png"
+    ],
+    "checks": [
+      {
+        "name": "Price trends button on alternative",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Schedule purchase button on alternative",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Price trends opens for alternative",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.06",
+    "evidence": [
+      "AT-7.06-basket-only-alternative.png"
+    ],
+    "checks": [
+      {
+        "name": "Window closes after adding",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Basket count increased by one unit",
+        "ok": true,
+        "detail": "0 -> 1"
+      },
+      {
+        "name": "Only the alternative was added",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.07",
+    "evidence": [
+      "AT-7.07-why-panel.png"
+    ],
+    "checks": [
+      {
+        "name": "Panel names both items",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Reason shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Same basis with units",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Trade-off shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Generic reference note",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Item dialog still open",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.08",
+    "evidence": [
+      "AT-7.08-usage-and-sources.png"
+    ],
+    "checks": [
+      {
+        "name": "Nutrition sources named",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Usage note shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Note when secondary comparisons unavailable",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.09",
+    "evidence": [
+      "AT-7.09-switched-comparison.png",
+      "AT-7.09-closed-insights.png"
+    ],
+    "checks": [
+      {
+        "name": "Panel switches to the other alternative",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Panel closed, item still open",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.10",
+    "evidence": [
+      "AT-7.10-why-replaces-trends.png",
+      "AT-7.10-trends-replaces-why.png"
+    ],
+    "checks": [
+      {
+        "name": "Why opens and price trends closes",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Price trends opens and Why closes",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.11",
+    "evidence": [
+      "AT-7.11-nutrition-information.png"
+    ],
+    "checks": [
+      {
+        "name": "Values per 100 g / 100 mL",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Generic food note",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Source shown with link",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.12",
+    "evidence": [
+      "AT-7.12-no-nutrition-match.png"
+    ],
+    "checks": [
+      {
+        "name": "No-match message",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.13",
+    "evidence": [
+      "AT-7.13-nutrition-loading.png",
+      "AT-7.13-nutrition-error.png"
+    ],
+    "checks": [
+      {
+        "name": "Loading message while nutrition loads",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Unavailable message when nutrition fails",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Item controls still work",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-7.14",
+    "evidence": [
+      "AT-7.14-unavailable-value.png"
+    ],
+    "checks": [
+      {
+        "name": "Missing value never shown as zero (saturated fat not rendered as 0)",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Secondary-comparison note shown",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-00",
+    "evidence": [
+      "REG-00-home.png",
+      "REG-00-home-bm.png"
+    ],
+    "checks": [
+      {
+        "name": "Home loads with Start a shopping trip",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Bahasa Melayu switch works",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-01",
+    "evidence": [
+      "REG-01-recommendations.png"
+    ],
+    "checks": [
+      {
+        "name": "Recommendations ranked with basket + transport totals",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Missing/median prices disclosed",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-02",
+    "evidence": [
+      "REG-02-store-details.png"
+    ],
+    "checks": [
+      {
+        "name": "Store details open",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-03",
+    "evidence": [
+      "REG-03-basket.png"
+    ],
+    "checks": [
+      {
+        "name": "Basket lists items with quantity controls",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-04",
+    "evidence": [
+      "REG-04-checklist.png"
+    ],
+    "checks": [
+      {
+        "name": "Checklist screen after saving plan",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-05",
+    "evidence": [
+      "REG-05-items-ticked.png",
+      "REG-05-record-confirm.png",
+      "REG-05-recorded.png"
+    ],
+    "checks": [
+      {
+        "name": "Bought filter count updated",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-06",
+    "evidence": [
+      "REG-06-history.png"
+    ],
+    "checks": [
+      {
+        "name": "History shows the recorded trip",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "REG-07",
+    "evidence": [
+      "REG-07-reports.png"
+    ],
+    "checks": [
+      {
+        "name": "Reports page loads",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  }
+]
