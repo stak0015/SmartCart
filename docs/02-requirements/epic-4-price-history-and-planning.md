@@ -30,9 +30,9 @@ Card [2527214995](https://monashie.leankit.com/card/2527214995) · size 8
 
 As a household shopper, I want to open a price-trends chart from an item's details, so that I can understand how its price has changed over time.
 
-**Implementation** — frontend: [`price-history.tsx`](../../frontend/components/price-history.tsx), [`price-series-chart.tsx`](../../frontend/components/price-series-chart.tsx), [`price-history.ts`](../../frontend/lib/price-history.ts); backend/data: [`price_history.py`](../../backend/smartcart/price_history.py), [`price_forecasts.json`](../../backend/data/price_forecasts.json).
+**Implementation** — frontend: [`price-history.tsx`](../../frontend/components/price-history.tsx), [`price-series-chart.tsx`](../../frontend/components/price-series-chart.tsx), [`price-history.ts`](../../frontend/lib/price-history.ts); backend/data: [`price_history.py`](../../backend/smartcart/price_history.py), [`refresh.py`](../../forecasting/refresh.py), [`store.py`](../../forecasting/store.py).
 
-**Tests** — [`test_price_history.py`](../../backend/tests/test_price_history.py), [`price-history.test.ts`](../../frontend/lib/price-history.test.ts).
+**Tests** — [`test_price_history.py`](../../backend/tests/test_price_history.py), [`test_forecast_postgres.py`](../../backend/tests/test_forecast_postgres.py), [`price-history.test.ts`](../../frontend/lib/price-history.test.ts).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -54,9 +54,9 @@ Card [2527215468](https://monashie.leankit.com/card/2527215468) · size 10
 
 As a household shopper, I want to see estimated prices for the next 4 to 12 weeks and be told when a big rise or drop is expected, so that I can consider buying earlier or later.
 
-**Implementation** — frontend: [`price-history.ts`](../../frontend/lib/price-history.ts) (forecastForDisplay, fourWeekForecastSignal), [`price-history.tsx`](../../frontend/components/price-history.tsx); backend/data: [`forecast_rules.py`](../../backend/smartcart/forecast_rules.py), [`price_history.py`](../../backend/smartcart/price_history.py), [`requalify_price_forecasts.py`](../../backend/scripts/requalify_price_forecasts.py).
+**Implementation** — frontend: [`price-history.ts`](../../frontend/lib/price-history.ts) (forecastForDisplay, fourWeekForecastSignal), [`price-history.tsx`](../../frontend/components/price-history.tsx); backend/data: [`forecast_rules.py`](../../backend/smartcart/forecast_rules.py), [`price_history.py`](../../backend/smartcart/price_history.py), [`model.py`](../../forecasting/model.py), [`refresh.py`](../../forecasting/refresh.py).
 
-**Tests** — [`test_price_history.py`](../../backend/tests/test_price_history.py), [`price-history.test.ts`](../../frontend/lib/price-history.test.ts).
+**Tests** — [`test_price_history.py`](../../backend/tests/test_price_history.py), [`test_forecast_postgres.py`](../../backend/tests/test_forecast_postgres.py), [`test_refresh.py`](../../forecasting/tests/test_refresh.py), [`price-history.test.ts`](../../frontend/lib/price-history.test.ts).
 
 | AC | Criterion | Size |
 | --- | --- | --- |

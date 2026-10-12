@@ -5,7 +5,8 @@
 | Suite | Location | Runner | Needs |
 | --- | --- | --- | --- |
 | Backend unit + API | `backend/tests/` | pytest | `backend/requirements-dev.txt`; no database or Google key (both are faked) |
-| Database scripts | `database/tests/` | unittest / pytest | `database/requirements.txt` (pandas, psycopg); pytest for `test_import_nutrition.py` |
+| Database scripts | `database/tests/` | pytest | `database/requirements.txt` (pandas, psycopg); some tests are pytest-style, so unittest discovery misses them |
+| Weekly forecast refresh | `forecasting/tests/` | pytest | `forecasting/requirements.txt` (CPU torch, Chronos); the three publishing tests need `FORECAST_TEST_DATABASE_URL` and are skipped without it. Run in every weekly workflow against a temporary PostgreSQL |
 | Nutrition data scripts | `data/nutrition/scripts/test_*.py` | unittest / pytest | `data/nutrition/scripts/requirements.txt` (includes openpyxl, requests) |
 | Frontend unit + component | `frontend/**/*.test.ts(x)` | Vitest | `pnpm install` |
 | Browser smoke checks | `frontend/scripts/check-*.cjs` | Node + Playwright | Running dev server, Playwright + Chrome; API calls are mocked |
@@ -18,7 +19,11 @@ cd backend && python -m pytest
 ```
 
 ```bash
-cd database && python -m unittest discover -s tests -v
+cd database && python -m pytest tests
+```
+
+```bash
+python -m pytest forecasting/tests -q
 ```
 
 ```bash
@@ -41,7 +46,8 @@ cd frontend && pnpm lint && pnpm build
 | Basket pricing, medians, SARA split | `test_pricing.py`, `test_sara.py` |
 | Two-store routing and pricing | `test_multi_store.py`, `test_multi_store_pricing.py`, `test_multi_store_api.py` |
 | Alternatives and pack sizes | `test_alternatives.py`, `test_pack_ratios.py` |
-| Forecast eligibility and serving | `test_price_history.py`, `price-history.test.ts` |
+| Forecast eligibility and serving | `test_price_history.py`, `test_forecast_postgres.py`, `price-history.test.ts` |
+| Weekly forecast refresh and publishing | `forecasting/tests/test_refresh.py`, `forecasting/tests/test_store_integration.py` |
 | Nutrition | `test_nutrition*.py`, `test_item_nutrition*.py`, `test_healthier_alternatives.py`, `nutrition.test.ts` |
 | Reports | `test_report_insights.py`, `test_report_story.py`, `test_cerebras_narrator.py`, `test_report_api.py`, `test_period_analytics.py` |
 | Device records | `shopping-checklist.test.ts`, `trip-history.test.ts`, `next-trip.test.ts`, `shopping-session.test.ts`, `report-consent.test.ts`, `checklist-snapshots.test.ts` |
@@ -51,13 +57,13 @@ Story-by-story mapping: [Traceability matrix](../08-evidence/traceability-matrix
 
 ## Forecast verification
 
-Serving tests and offline model validation answer different questions. The committed suites test API/eligibility/UI behaviour; they do not fit Chronos or independently recreate the research backtest evidence.
+Serving tests and model validation answer different questions. The backend and frontend suites test API/eligibility/UI behaviour. `forecasting/tests` test the weekly refresh: complete-week recalculation, rolling holdouts that never see future data, source validation and atomic publishing. None of them recreate the original model-selection evidence.
 
-Run these focused checks for a snapshot or serving change:
+Run these focused checks for a serving change:
 
 ```bash
 cd backend
-python -m pytest tests/test_price_history.py
+python -m pytest tests/test_price_history.py tests/test_forecast_postgres.py
 ```
 
 ```bash
@@ -65,7 +71,7 @@ cd frontend
 pnpm test -- price-history.test.ts
 ```
 
-The model bundle's local `test_shared_short_head.py`, `test_chronos2_peer_context.py`, `test_chronos2_shape_correction.py` and related tests cover training cutoffs, origin-only inputs and transformations. They live in git-ignored research and are unavailable in a clean clone. Passing serving tests is not evidence that a changed model meets the forecast gate; inspect reproduced chronological scores, complete paths, baseline comparisons and provenance before promotion. See [methodology](../04-backend/forecasting-methodology.md#backtesting-and-interpreting-accuracy) and the [maintenance runbook](deployment-and-operations.md#forecast-snapshot-maintenance).
+The model bundle's local `test_shared_short_head.py`, `test_chronos2_peer_context.py`, `test_chronos2_shape_correction.py` and related tests cover training cutoffs, origin-only inputs and transformations. They live in git-ignored research and are unavailable in a clean clone. Passing serving tests is not evidence that a changed model meets the forecast gate; inspect reproduced chronological scores, complete paths, baseline comparisons and provenance before promotion. See [methodology](../04-backend/forecasting-methodology.md#backtesting-and-interpreting-accuracy) and the [maintenance runbook](deployment-and-operations.md#forecast-maintenance).
 
 ## Writing tests
 

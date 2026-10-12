@@ -41,8 +41,8 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | `TRAVEL_FUEL_PRICE_FALLBACK_RM` | `2.60` | Used only with no official or cached price |
 | `CEREBRAS_API_KEY` | — | Enables AI report prose |
 | `CEREBRAS_MODEL` | `gpt-oss-120b` | Model name |
-| `SMARTCART_FORECAST_PATH` | `backend/data/price_forecasts.json` | Alternative snapshot for previews |
-| `SMARTCART_FORECAST_SOURCE` | `file` | `postgres` reads the active offline-generated database batch; enable after initial verified publication |
+| `SMARTCART_FORECAST_PATH` | `backend/data/price_forecasts.json` | File used when the source is `file` (previews, local runs) |
+| `SMARTCART_FORECAST_SOURCE` | `file` | `postgres` reads the active weekly batch from the database (set in Production since 12 Oct 2026) |
 
 `TRAVEL_COST_CAR_PER_KM_RM` and `TRAVEL_COST_MOTORCYCLE_PER_KM_RM` are still read by `config.py` but no longer affect pricing (fuel-based costs replaced them).
 
@@ -60,7 +60,7 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 
 1. All tests pass locally (see [Testing](testing.md)); `pnpm lint` and `pnpm build` succeed.
 2. Apply schema changes: reapply `database/schema.sql` (idempotent) and any new migration; run `python database/import_nutrition.py --verify-only` after nutrition changes.
-3. If the forecast snapshot changed, follow [Forecast snapshot maintenance](#forecast-snapshot-maintenance), commit the verified JSON and restart all backend workers to load it.
+3. If forecasting code or the forecast tables changed, follow [Forecast maintenance](#forecast-maintenance). Weekly forecast batches themselves need no release.
 4. Deploy the backend, then the frontend; confirm `CORS_ORIGINS` includes the frontend URL.
 5. Smoke test: `/api/health`, a catalogue search, a recommendation with and without a basket, one price-trends panel, one nutrition panel, one report (with and without a Cerebras key).
 6. Record the release (see above).
@@ -70,12 +70,11 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | Task | Frequency | How | Status |
 | --- | --- | --- | --- |
 | Ingest current PriceCatcher month + verify | Daily 02:00 MYT | GitHub Actions | Automated |
-| Delete Google coordinates older than 30 days | Daily | `pnpm cleanup:premise-locations` | **Not automated** — required by Google terms whenever coordinates are cached |
-| Refresh premise coordinates | As needed | `pnpm sync:premise-locations` | Manual |
+| Delete Google coordinates older than 30 days, then refresh those older than 29 days | Daily 03:00 MYT | `.github/workflows/premise-locations.yml` (uses the `NEON_DATABASE_URL` and `GOOGLE_PLACES_API_KEY` secrets) | Automated — required by Google terms; the backend also ignores Google coordinates older than 30 days |
+| Refresh premise coordinates outside the schedule | As needed | `pnpm sync:premise-locations` | Manual |
 | Regenerate premise status CSV + import | When stores open/close | Enrichment workflow + `migrate_premise_open_status.py` | Manual |
 | Promote SARA chain branches for new premises | After ingestion adds premises | `migrate_sara_chain_partners.py --apply` | Manual |
-| Regenerate or re-qualify forecast snapshot | Before each demo, at least every 4 weeks | Research pipeline / `requalify_price_forecasts.py` | Manual — forecasts are withdrawn once the latest observation is more than 28 days old |
-| Refresh forecasts from newer official observations | Weekly Monday 04:00 MYT | `.github/workflows/forecasts.yml` | PostgreSQL publishing workflow; requires initial activation and `NEON_DATABASE_URL` |
+| Refresh forecasts from newer official observations | Weekly Monday 04:00 MYT | `.github/workflows/forecasts.yml` (uses the `NEON_DATABASE_URL` secret) | Automated — check each run; forecasts are withdrawn once the latest observation is more than 28 days old |
 | Re-check provider pricing and quotas | Each iteration | Google Cloud console | Manual |
 
 ## Monitoring and failure modes
@@ -86,45 +85,31 @@ On 2026-10-12, `GOOGLE_ROUTES_API_KEY` was removed from Production and Preview t
 | Google Routes quota/key failure | Straight-line fallback with warning | `routeProvider = straight_line` in responses |
 | Fuel CSV unavailable | Cached or fallback fuel price, labelled | Backend warning log |
 | Cerebras failure or timeout | Report uses fallback text (`generationSource = fallback`) | `report_generation` log events (counts, timings, outcome) |
-| Forecast snapshot ages | Forecasts withdrawn; history remains | Status `rejected` with "Historical observations are too old." |
+| Weekly forecast job fails | Previous batch stays active; forecasts withdrawn once observations are over 28 days old; history remains | GitHub Actions failure email (only to maintainers watching the workflow); status `rejected` with "Historical observations are too old." |
+| Forecast tables empty or unreachable (`postgres` source) | Price trends show "could not be loaded" | `HISTORY_UNAVAILABLE` (503) from price history |
+| Premise location job fails | Stores whose coordinates pass 30 days drop out of recommendations until refreshed | GitHub Actions failure email (only to maintainers watching the workflow); fewer stores in results |
 | Database unreachable | API returns 500/503 errors | `/api/health` |
 
 The backend logs unexpected errors with the request path only; report requests log metadata, never bodies.
 
-## Forecast snapshot maintenance
+## Forecast maintenance
 
-The snapshot is loaded on the first history request and cached once per backend process by `load_snapshot()` (`lru_cache(maxsize=1)`). Replacing the JSON or changing `SMARTCART_FORECAST_PATH` does not invalidate a running worker's cached data. Restart/redeploy every worker after replacement; otherwise different workers can serve different snapshots. Eligibility is still checked against the current Malaysian date on every request for a record stored as available. A stored rejected record cannot become available through a request.
+Production reads forecasts from PostgreSQL (`SMARTCART_FORECAST_SOURCE=postgres`). The weekly job, first activation, local generation and rollback are documented in [Weekly forecasts](../../forecasting/README.md). In short:
 
-Choose maintenance according to what changed:
+- **Weekly run** (Monday 04:00 MYT, or **Run workflow** manually): tests the refresh logic, applies `database/migrations/003_price_forecasts.sql`, exports the active batch as the reference, downloads newer PriceCatcher months, regenerates paths with the fixed model, re-runs three rolling holdouts and publishes the batch atomically. A run that finds no newer complete week fails without publishing. Generation and validation reports are kept as workflow artifacts for 30 days.
+- **Freshness:** eligibility is checked against the current Malaysian date on every request. A failed run leaves the previous batch active until its observations pass 28 days; it does not relabel dates.
+- **Rollback:** switch `price_forecast_active.batch_id` to a retained batch inside a transaction, then confirm the API's `generated_at`/`data_cutoff`. Rollback does not extend freshness.
+- **Model changes** (new checkpoint, features or rules) still need a code release and the offline research evidence in [Forecasting methodology](../04-backend/forecasting-methodology.md#reproducibility-and-source-map).
 
-| Need | Action | Prerequisite |
-| --- | --- | --- |
-| Reassess existing predictions for a date | Run `backend/scripts/requalify_price_forecasts.py` | Exact matching saved 52-week paths from the local research bundle |
-| Include newer source observations or retrain | Rebuild research inputs, backtests, audits and provenance, then promote with `build_short_serving.py` | Full offline research bundle and exact reference inputs; see [methodology](../04-backend/forecasting-methodology.md#reproducibility-and-source-map) |
-| Deploy a verified snapshot | Replace JSON and restart all workers | Validated artifact; backend ML dependencies are unnecessary |
-
-For eligibility-only maintenance, run from the repository root against a **copy** first:
-
-```powershell
-Copy-Item backend/data/price_forecasts.json backend/data/price_forecasts.preview.json
-python backend/scripts/requalify_price_forecasts.py --source backend/data/price_forecasts.preview.json --paths research/price_forecasting/unified_results/current_shared_short_head_paths.csv --as-of 2026-10-12
-```
-
-Replace the example date with the intended assessment date. Review the preview and remove it after use; it is not a second production dataset. Requalification writes through a temporary file and replaces its target atomically, preserves history and rejects incomplete, duplicate, non-positive, non-finite or changed serving paths. It updates `quality_policy.assessed_at` and provenance; it does not change `generated_at`, source dates or model weights. Production must use the actual assessment date, not an earlier date chosen to restore expired forecasts.
-
-Before promotion/release:
-
-1. Record artifact hash, model/checkpoint revision, `generated_at`, `data_cutoff`, `quality_policy.assessed_at`, rules, status counts and source/path hashes. Distinguish counts in the candidate snapshot from earlier research reports.
-2. Confirm unique item/region records, aligned histories with null gaps, positive finite forecast prices, weekly dates after the cutoff and the declared generated/validated horizons. Compare preserved history and model paths with the reference evidence.
-3. Run the targeted backend and frontend serving checks in [Testing](testing.md#forecast-verification). Inspect available and withheld series, missing history and stale-date behaviour. Check the API's stored 52-week path is displayed only up to the validated 12 weeks in the UI.
-4. Deploy/restart every worker and confirm the price-history response's generation/cutoff dates match the candidate. Preserve the prior verified artifact for rollback; rolling back does not extend its freshness.
+There is no independent prospective accuracy or drift monitor. Keep each run's report, available/rejected counts and withdrawal reasons, and compare forecasts with actual prices as new weeks arrive.
 
 | Symptom | Check/action |
 | --- | --- |
-| `HISTORY_UNAVAILABLE` (503) | Check snapshot path, file permissions and JSON syntax; an unreadable/invalid JSON file is not repaired by the API |
-| Expected new snapshot is not visible | Confirm file/environment path and restart all workers; HTTP `no-store` does not clear the process cache |
-| Forecast disappeared but history remains | Inspect reasons and latest observation date; advancing raw observations requires a research refresh |
-| Requalification cannot find matching paths | Recover the matching research bundle; do not substitute forecasts from a different run |
-| New catalogue item has `not_evaluated` | Include it in the aligned research history and backtest it; ingestion alone does not create a forecast |
+| `HISTORY_UNAVAILABLE` (503) with `postgres` | Check `DATABASE_URL` and that `price_forecast_active` points at a batch; the API does not fall back to the file |
+| Weekly run failed | Read the job log and report artifact. A 404 for the current month is tolerated; missing older months, corrupt files or no newer complete week stop the run |
+| Forecast disappeared but history remains | Inspect reasons and latest observation date; usually stale data after failed runs or a failed holdout |
+| New catalogue item has `not_evaluated` | The weekly job adds new items with null earlier history; they need enough weeks and backtests before a forecast is shown |
 
-The weekly PostgreSQL refresh workflow is documented in [Weekly forecasts](../../forecasting/README.md). It generates new paths from updated data and re-runs three rolling short-horizon holdouts before atomic publication. Initial activation and one backend deployment are required; afterwards updates do not need redeployment. There is no independent prospective accuracy/drift monitor. Retain generation reports, available/rejected counts and withdrawal reasons with each run, and inspect forecast-versus-actual errors as observations arrive.
+### File source (fallback)
+
+With `SMARTCART_FORECAST_SOURCE=file`, the JSON at `SMARTCART_FORECAST_PATH` is loaded once per process by `load_snapshot()` (`lru_cache(maxsize=1)`); restart every worker after replacing it. The committed file is the 9 Oct 2026 reference and ages out like any batch, so choose this source explicitly and check its dates. `backend/scripts/requalify_price_forecasts.py` re-applies eligibility to the file for a given date (run it on a copy first, with the matching saved paths from the git-ignored research bundle); it cannot add newer observations.

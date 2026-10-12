@@ -1,6 +1,6 @@
 # Forecasting methodology, model architecture and training
 
-This document describes the `chronos_2_small_ridge` pipeline behind the committed 9 October 2026 snapshot. The [feature guide](price-history-and-forecasts.md) covers eligibility, API behaviour and the shopper interface. Parameter values below were checked against the snapshot, local research source and checkpoint configuration on 12 October 2026.
+This document describes the `chronos_2_small_ridge` pipeline behind the committed 9 October 2026 snapshot. Since 12 October 2026 the same model runs every week in `forecasting/` (frozen Chronos-2 checkpoint, fixed settings, ridge head refit on data known at each origin) and publishes to PostgreSQL; see [Weekly forecasts](../../forecasting/README.md). The [feature guide](price-history-and-forecasts.md) covers eligibility, API behaviour and the shopper interface. Parameter values below were checked against the snapshot, local research source and checkpoint configuration on 12 October 2026.
 
 ## Target and data preparation
 
@@ -112,7 +112,7 @@ The three later 12-week target blocks do not overlap. Nested 4-, 8- and 12-week 
 
 Earlier research selection uses additional pattern criteria and stricter pass definitions; those are not the current serving thresholds. The stored `shared_ridge.pattern_relative_mae` describes an earlier selection cohort, not overall performance for all 796 items. The snapshot stores per-item evidence rather than a single claimed universal accuracy.
 
-The committed snapshot has 129 available, 387 rejected, 274 insufficient and six no-history records at its 9 October assessment. A local promotion report predates subsequent requalification and reports 80 qualified records; use the committed snapshot for serving counts. Requalification changes eligibility and forecast inclusion without refitting or changing predictions.
+The committed snapshot has 129 available, 387 rejected, 274 insufficient and six no-history records at its 9 October assessment. The first weekly batch (12 October, cutoff 11 October) has 105 available, 411 rejected, 274 insufficient and six no-history records. A local promotion report predates subsequent requalification and reports 80 qualified records; use the committed snapshot for serving counts. Requalification changes eligibility and forecast inclusion without refitting or changing predictions.
 
 ## Limitations and evidence boundaries
 
@@ -122,11 +122,11 @@ The committed snapshot has 129 available, 387 rejected, 274 insufficient and six
 - Foundation pretraining-corpus overlap with this historical archive has **not been verified**. Local chronological cutoffs prevent future labels entering SmartCart's ridge fits and input features, but cannot certify independence from the foundation model's pretraining data.
 - Historical research archives were reused during development. Later tests are chronological evidence, not a newly collected prospective trial or a guarantee against all research-selection bias.
 - Survey coverage, mixed item definitions, sudden policy/supply shocks and changing store composition can undermine forecasts. Eligibility withdraws weak/stale series; it does not eliminate those risks.
-- Daily PostgreSQL price ingestion does not refresh the independent forecast snapshot. Forecasts do not determine basket quotes, store ranking or actual spending.
+- Forecasts are refreshed by their own weekly job, not by daily price ingestion. Weekly runs re-check three recent holdouts but do not repeat model selection, so drift in model quality is not monitored beyond those holdouts. Forecasts do not determine basket quotes, store ranking or actual spending.
 
 ## Reproducibility and source map
 
-The deployed API needs only the committed snapshot and lightweight backend dependencies. The offline workspace, raw inputs, checkpoint cache, model code and experiment outputs are git-ignored. **A clean clone can serve forecasts but cannot retrain this model from repository contents alone.** Preserve or obtain the research bundle before trying to reproduce a run.
+The deployed API needs only the database batch (or the committed snapshot) and lightweight backend dependencies. The weekly refresh code in `forecasting/` is committed and can regenerate forecasts from public data with the pinned checkpoint. The original research workspace, raw archive and experiment outputs are git-ignored. **A clean clone can refresh forecasts with the selected model but cannot repeat model selection from repository contents alone.** Preserve or obtain the research bundle before trying to reproduce a run.
 
 | Local source/artifact | Purpose |
 | --- | --- |
@@ -136,11 +136,12 @@ The deployed API needs only the committed snapshot and lightweight backend depen
 | `build_short_serving.py` | Reproduce paths/evidence and promote snapshot |
 | `unified_results/*parameters.json`, `*provenance.json`, `shared_short_head_verification.json` | Frozen settings, input/cache/source hashes and verification |
 | `unified_results/shared_short_head_holdout.csv`, `current_shared_short_head_paths.csv` | Backtest scores and saved paths |
-| `backend/scripts/requalify_price_forecasts.py` | Committed eligibility-only maintenance tool |
+| `forecasting/model.py`, `refresh.py`, `store.py` | Committed weekly inference, rolling validation and PostgreSQL publishing |
+| `backend/scripts/requalify_price_forecasts.py` | Committed eligibility-only tool for the reference file |
 | `backend/smartcart/forecast_rules.py`, `price_history.py` | Shared gates and runtime serving |
 
 Research filenames above refer to the local bundle; they are intentionally not links to files available in a clean clone. The recorded runtime uses `chronos-forecasting==2.3.2`, `torch==2.13.0`, `transformers==5.15.0`, `huggingface-hub==1.27.0` and `scikit-learn==1.5.1`; retain the full research requirements and checkpoint manifest when transferring the bundle.
 
 For reproducibility, preserve source parquet SHA-256 entries from `sources[]`, item ordering and the complete weekly grid, the exact reference snapshot named by the input hash, checkpoint revision/configuration/weights, research source hashes, selected settings, cached origin paths, assessment date and dependency manifests. Promotion verifies reference-input and source hashes, reproduces current paths within absolute tolerance `1e-9`, checks short evidence, preserves history and requires finite positive 52-week paths after the data cutoff.
 
-These scripts form an experimental dependency chain, not an automated clean-clone training command. Several expect the exact pre-promotion snapshot hash; the currently served/requalified JSON need not match it. Refreshing source data requires rebuilding aligned histories, origin-specific covariates, backtests, audits and provenance before promotion. Requalification alone cannot perform that refresh. See the [operations runbook](../07-operations/deployment-and-operations.md#forecast-snapshot-maintenance) for safe serving updates.
+These scripts form an experimental dependency chain, not an automated clean-clone training command. Several expect the exact pre-promotion snapshot hash; the currently served/requalified JSON need not match it. Refreshing source data requires rebuilding aligned histories, origin-specific covariates, backtests, audits and provenance before promotion. Requalification alone cannot perform that refresh. See the [operations runbook](../07-operations/deployment-and-operations.md#forecast-maintenance) for safe serving updates.

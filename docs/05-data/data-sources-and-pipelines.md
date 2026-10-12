@@ -4,12 +4,12 @@
 
 | Source | Used for | Refresh | Licence |
 | --- | --- | --- | --- |
-| [PriceCatcher transactions](https://data.gov.my/data-catalogue/pricecatcher) (monthly parquet) | `current_status`, `item.median_price_rm`, forecast research | Daily (current month) | CC BY 4.0 |
+| [PriceCatcher transactions](https://data.gov.my/data-catalogue/pricecatcher) (monthly parquet) | `current_status`, `item.median_price_rm`, weekly forecast batches | Daily (current month); recent months re-downloaded weekly by the forecast job | CC BY 4.0 |
 | [PriceCatcher item lookup](https://data.gov.my/data-catalogue/lookup_item) | `item` | With each ingestion | CC BY 4.0 |
 | [PriceCatcher premise lookup](https://data.gov.my/data-catalogue/lookup_premise) | `premise` names and addresses | With each ingestion | CC BY 4.0 |
 | Premise enrichment snapshot (2026-08-23, committed parquet + provenance) | Candidate Google Place IDs, SARA candidate flags | Manual | Derived |
 | Premise status CSV + Place cache (`database/data/raw/`, not committed) | `open_closed_status`, Place coordinates | Manual | Google terms |
-| Google Places (via `sync-premise-locations.mjs`) | Refresh missing or stale premise coordinates | On demand | Google terms, 30-day cache |
+| Google Places (via `sync-premise-locations.mjs`) | Refresh missing or stale premise coordinates | Daily 03:00 MYT (GitHub Actions) and on demand | Google terms, 30-day cache |
 | [data.gov.my fuel prices](https://data.gov.my/data-catalogue/fuelprice) | Car/motorcycle travel cost | First request each day (backend) | data.gov.my terms |
 | MyKasih SARA merchant list + official partner directory | `premise.sara_partner` | Manual | Authorised collection; not committed |
 | USDA FoodData Central, AFCD, MyFCD | `nutrition_food` | Manual import | See [Security and privacy](../03-architecture/security-and-privacy.md#data-licences-and-attribution) |
@@ -30,14 +30,19 @@ flowchart LR
         H[import_nutrition.py]
         I[pnpm sync / cleanup:premise-locations]
     end
+    subgraph weekly["Weekly: GitHub Actions Monday 04:00 MYT"]
+        W[forecasting.refresh: new weeks, rolling holdouts] --> X[forecasting.store publish: atomic batch]
+    end
     subgraph offline["Offline research (git-ignored research/)"]
-        J[Forecast training and backtests] --> P[build_short_serving.py: promote verified paths]
+        J[Forecast training and model selection] --> P[build_short_serving.py: reference snapshot]
         K[requalify_price_forecasts.py: eligibility only]
     end
     A --> DB[(PostgreSQL)]
     C & D & E & F & G & H & I --> DB
+    X --> DB
     P --> SNAP[[price_forecasts.json]]
     K --> SNAP
+    SNAP -. first-run reference .-> W
 ```
 
 ## PriceCatcher ingestion (`database/ingest_pricecatcher.py`)
@@ -64,7 +69,7 @@ Production runs daily through `.github/workflows/pricecatcher.yml` (cron `0 18 *
 - The committed snapshot holds 3,803 top-candidate Place IDs; its SHA-256 is checked against the provenance file before any database write. 1,407 premises share their top Place ID one-to-one with a SARA merchant and are stored as `sara_match_candidate = TRUE`.
 - `migrate_premise_open_status.py` imports the maintained status CSV and its `.cache.json` Place coordinates. Only the selected Place's coordinates are used (never postcode geocodes). Rows whose match decision is `rejected` or `needs_review` have Place ID, status and coordinates cleared. It never calls Google and is safe to rerun.
 - New PriceCatcher premises stay hidden (status NULL) until a refreshed CSV is imported.
-- `pnpm sync:premise-locations -- --limit=100` (or `--all`) refreshes missing or stale coordinates for `open` premises through Google Places, paced at 300 requests/minute by default. `pnpm cleanup:premise-locations` deletes Google coordinates older than 30 days and **must be scheduled daily** wherever Google coordinates are cached.
+- `pnpm sync:premise-locations -- --limit=100` (or `--all`) refreshes missing or stale coordinates for `open` premises through Google Places, paced at 300 requests/minute by default. `pnpm cleanup:premise-locations` deletes Google coordinates older than 30 days. Both run daily in `.github/workflows/premise-locations.yml`; any other database that caches Google coordinates needs the same schedule. The backend ignores Google coordinates older than 30 days, so a missed run removes stores from results rather than breaking the terms.
 
 For the production (Vercel-managed Neon) database, run migrations from the repository root so the injected production URL is used, e.g.:
 
@@ -102,11 +107,11 @@ Item-level SARA eligibility (`item.sara_eligible`) is not populated from a verif
 
 See [Nutrition — maintaining the data](../04-backend/nutrition.md#maintaining-the-data). The importer validates snapshots, upserts `nutrition_food`, links `item.nutrition_food_id`, and verifies parity in the same transaction.
 
-## Forecast snapshot
+## Weekly forecasts
 
-Built offline in the git-ignored `research/price_forecasting/` workspace and committed as `backend/data/price_forecasts.json`. See [Price history and forecasts](../04-backend/price-history-and-forecasts.md) and [Forecasting methodology](../04-backend/forecasting-methodology.md) for aggregation, model inputs, training, chronological evaluation and provenance.
+Every Monday at 04:00 MYT, `.github/workflows/forecasts.yml` refreshes forecasts and publishes them to the `price_forecast_*` tables ([Weekly forecasts](../../forecasting/README.md)). It downloads the current lookups and recent PriceCatcher months, recalculates complete Monday–Sunday weeks from individual observations (including weeks that cross a month boundary), keeps older weeks from the previous verified batch, generates paths with the frozen checkpoint and fixed settings and re-runs three rolling holdouts. Missing prices stay null, and changed item definitions are withheld until their history can be reconciled. A current-month file that is not yet published (HTTP 404) is recorded and skipped; other download failures, or no newer complete week, stop the run without publishing.
 
-This pipeline is independent of daily `current_status` ingestion: the six-month cache retained under `database/data/raw/` is not the full multi-year research archive under `raw/`. `build_short_serving.py` fits the pooled head and verifies cached paths/evidence before promotion; the committed `requalify_price_forecasts.py` only reapplies eligibility to already generated paths. Neither daily ingestion nor requalification advances forecast source dates. A clean clone includes serving data but lacks the research code, full archive and checkpoint needed for training.
+The weekly job is independent of daily `current_status` ingestion; neither job writes the other's tables. The original model selection and the 9 Oct 2026 reference file (`backend/data/price_forecasts.json`) were built in the git-ignored `research/price_forecasting/` workspace; see [Forecasting methodology](../04-backend/forecasting-methodology.md). `requalify_price_forecasts.py` only reapplies eligibility to that file.
 
 ## Data rules
 

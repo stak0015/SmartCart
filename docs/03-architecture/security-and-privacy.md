@@ -74,7 +74,7 @@ Risk to note in governance documents: on a shared device, anyone using the same 
 | Gap | Status |
 | --- | --- |
 | The report rate-limit hook defaults to *allow everything*. A deployment must inject a real limiter. | Not configured in the repository |
-| Google-derived premise coordinates must be deleted after 30 days (`pnpm cleanup:premise-locations`). No scheduled job for this exists in the repository. | Operational evidence needed |
+| Google-derived premise coordinates must be deleted after 30 days. `.github/workflows/premise-locations.yml` deletes them and refreshes due ones daily, and `premises.py` ignores any Google coordinate older than 30 days. | Needs a successful production run as evidence |
 | Other endpoints have no rate limiting; Google cost is bounded only by per-request caps and Google Cloud quotas. | Configure quotas and budget alerts |
 | Browser storage is unencrypted and shared by everyone using the browser profile. | Accepted trade-off (see [D8](design-decisions.md#d8-personal-data-stays-on-the-device-no-accounts)) |
 

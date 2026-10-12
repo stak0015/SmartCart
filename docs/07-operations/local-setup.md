@@ -115,7 +115,7 @@ pnpm sync:premise-locations -- --limit=100
 | "Store locations need to be prepared" | Open premises exist but coordinates were not imported (step 1) |
 | Every recommendation says "approximate" | No Routes key, or the key/quota failed — expected locally |
 | Nutrition and healthier alternatives "cannot load" | `import_nutrition.py` not run on this database (the nutrition table does not exist) |
-| Price trends "could not be loaded" for every item | `backend/data/price_forecasts.json` missing or `SMARTCART_FORECAST_PATH` points to a bad file |
+| Price trends "could not be loaded" for every item | With `SMARTCART_FORECAST_SOURCE=file` (default): `backend/data/price_forecasts.json` missing or `SMARTCART_FORECAST_PATH` points to a bad file. With `postgres`: the local database has no forecast tables or active batch, so use `file` locally |
 | Port 5432 in use | Set `POSTGRES_PORT` in `database/.env` and update `DATABASE_URL` |
 
 `docker compose down -v` deletes the local database volume permanently.

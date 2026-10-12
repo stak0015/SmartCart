@@ -8,6 +8,15 @@ from dataclasses import dataclass
 from .database import database_cursor
 from .models import SaraFilter, SaraStoreStatus
 
+# Google's terms allow cached coordinates for 30 days; expired ones are never used, even
+# if the daily cleanup job has not run.
+FRESH_LOCATION_SQL = """
+    latitude IS NOT NULL
+    AND longitude IS NOT NULL
+    AND (location_provider IS DISTINCT FROM 'google'
+         OR location_refreshed_at >= CURRENT_TIMESTAMP - INTERVAL '30 days')
+"""
+
 
 @dataclass(frozen=True)
 class PremiseCandidate:
@@ -56,8 +65,7 @@ def find_nearest_premises(
                 FROM premise
                 WHERE google_place_id IS NOT NULL
                   AND open_closed_status = 'open'
-                  AND latitude IS NOT NULL
-                  AND longitude IS NOT NULL
+                  AND """ + FRESH_LOCATION_SQL + """
                   AND (
                     %s = 'any'
                     OR (%s = 'verified' AND sara_partner IS TRUE)
@@ -123,8 +131,7 @@ def get_premise_location_coverage() -> tuple[int, int]:
                 COUNT(*) FILTER (
                     WHERE google_place_id IS NOT NULL
                       AND open_closed_status = 'open'
-                      AND latitude IS NOT NULL
-                      AND longitude IS NOT NULL
+                      AND """ + FRESH_LOCATION_SQL + """
                 )
             FROM premise
             """,
@@ -171,8 +178,7 @@ def get_premise_coordinates(premise_ids: list[str]) -> dict[str, tuple[float, fl
             SELECT premise_id, latitude, longitude
             FROM premise
             WHERE premise_id = ANY(%s)
-              AND latitude IS NOT NULL
-              AND longitude IS NOT NULL
+              AND """ + FRESH_LOCATION_SQL + """
             """,
             (numeric_ids,),
         )
