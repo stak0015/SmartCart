@@ -76,6 +76,25 @@ erDiagram
         text snapshot_sha256
         timestamptz imported_at
     }
+    PRICE_FORECAST_BATCH ||--|{ PRICE_FORECAST_RECORD : contains
+    PRICE_FORECAST_BATCH ||--o| PRICE_FORECAST_ACTIVE : "is active"
+    PRICE_FORECAST_BATCH {
+        varchar id PK
+        timestamptz generated_at
+        date data_cutoff
+        jsonb metadata "source, model, validation"
+        integer record_count "> 0"
+    }
+    PRICE_FORECAST_RECORD {
+        varchar batch_id PK, FK
+        varchar item_code PK "matches item.item_code, no FK"
+        varchar region_id PK "national:: only"
+        jsonb record "status, history, forecast"
+    }
+    PRICE_FORECAST_ACTIVE {
+        boolean singleton PK "always TRUE"
+        varchar batch_id FK
+    }
 ```
 
 ### Table notes
@@ -87,6 +106,7 @@ erDiagram
 | `current_status` | one per item–premise pair with a price | Latest observation only; older observations never overwrite newer rows. A price is not proof of stock. |
 | `category_translation` | 55 (English only) | Optional labels for 55 of the 59 raw categories; Malay and missing labels fall back to the raw PriceCatcher category. |
 | `nutrition_food` | ~196 current foods | `items` namespace = current item profiles; `foods` = legacy reference snapshot. One table holds values and provenance; there is no separate source table. |
+| `price_forecast_batch` / `_record` / `_active` | current and previous weekly batches, ~796 records each | Created by `database/migrations/003_price_forecasts.sql`; written only by the weekly forecast job ([Weekly forecasts](../../forecasting/README.md)). Publishing inserts a complete batch and moves the single active pointer in one transaction. Read by the API when `SMARTCART_FORECAST_SOURCE=postgres`. |
 
 Key constraints: positive prices and medians; coordinates in range and set together; `open_closed_status` enumerated; JSONB columns must be objects.
 
@@ -96,7 +116,7 @@ Indexes: `premise (state, district)`, partial `premise (latitude, longitude)`, `
 
 | File | Keyed by | Contents |
 | --- | --- | --- |
-| `backend/data/price_forecasts.json` | `item_code` | Weekly national history, forecasts, eligibility status (see [Price history and forecasts](../04-backend/price-history-and-forecasts.md)) |
+| `backend/data/price_forecasts.json` | `item_code` | 9 Oct 2026 reference snapshot of history, forecasts and eligibility; used when `SMARTCART_FORECAST_SOURCE=file` and to bootstrap the weekly job (see [Price history and forecasts](../04-backend/price-history-and-forecasts.md)) |
 | `backend/data/nutrition/mappings.json` | `original_item_code` → `alternative_item_code` | Healthier-alternative rules and approved mappings |
 | `backend/data/nutrition/comparison_policy.json` | rule ID → category | Nutrient thresholds, priorities, guards |
 | `backend/smartcart/catalogue_image_manifest.py` | `item_code` | Which items have a checked-in thumbnail |

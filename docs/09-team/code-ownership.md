@@ -1,6 +1,6 @@
 # Code ownership
 
-Who wrote and maintains each source file, derived from the repository's git history on 12 October 2026 (commit `cc35d4a`). Files deleted in the same day's dead-code cleanup are not listed. The same owners appear in a header comment at the top of each file.
+Who wrote and maintains each source file, derived from the repository's git history on 12 October 2026 (commit `cc35d4a`), plus the weekly forecasting files added in `092db28` (same day). Files deleted in the same day's dead-code cleanup are not listed. The same owners appear in a header comment at the top of each file.
 
 ## Method
 
@@ -18,7 +18,7 @@ Who wrote and maintains each source file, derived from the repository's git hist
 
 | Person | Files owned (≥ 10 % of lines) | Primary owner of |
 | --- | --- | --- |
-| Shun | 143 | 133 |
+| Shun | 147 | 137 |
 | Zhihao | 24 | 13 |
 | Randy | 16 | 4 |
 
@@ -67,6 +67,14 @@ Members without source files in the repository: Huan Yang (design, prototypes, e
 | --- | --- | --- |
 | [`backend/scripts/requalify_price_forecasts.py`](../../backend/scripts/requalify_price_forecasts.py) | Shun (100 %) | — |
 
+## Weekly forecasting
+
+| File | Owners (share of current lines) | Contributors |
+| --- | --- | --- |
+| [`forecasting/model.py`](../../forecasting/model.py) | Shun (100 %) | — |
+| [`forecasting/refresh.py`](../../forecasting/refresh.py) | Shun (100 %) | — |
+| [`forecasting/store.py`](../../forecasting/store.py) | Shun (100 %) | — |
+
 ## Database schema, ingestion and migrations
 
 | File | Owners (share of current lines) | Contributors |
@@ -84,6 +92,7 @@ Members without source files in the repository: Huan Yang (design, prototypes, e
 | [`database/migrate_sara_verified.py`](../../database/migrate_sara_verified.py) | Shun (100 %) | — |
 | [`database/migrations/001_nutrition.sql`](../../database/migrations/001_nutrition.sql) | Shun (100 %) | — |
 | [`database/migrations/002_item_nutrition.sql`](../../database/migrations/002_item_nutrition.sql) | Shun (100 %) | — |
+| [`database/migrations/003_price_forecasts.sql`](../../database/migrations/003_price_forecasts.sql) | Shun (100 %) | — |
 | [`database/sara_chain_catalog.py`](../../database/sara_chain_catalog.py) | Shun (100 %) | — |
 | [`database/schema.sql`](../../database/schema.sql) | Shun (96 %) | Zhihao |
 | [`database/seed_category_translations.py`](../../database/seed_category_translations.py) | Shun (100 %) | — |

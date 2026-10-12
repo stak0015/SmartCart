@@ -2,40 +2,48 @@
 
 Shows how an item's national price has moved since 2022 and, for items that pass strict quality checks, a projection for the next 4–12 weeks. Also covers *Planned items* (scheduling purchases by week), which is frontend-only.
 
-Code: `backend/smartcart/price_history.py`, `forecast_rules.py`, `backend/scripts/requalify_price_forecasts.py`, `backend/data/price_forecasts.json`. Frontend: `components/price-history.tsx`, `components/price-series-chart.tsx`, `lib/price-history.ts`, `lib/next-trip.ts`, `lib/planned-week.ts`.
+Code: `backend/smartcart/price_history.py`, `forecast_rules.py`; weekly generation and publishing in `forecasting/` (`refresh.py`, `model.py`, `store.py`) and `.github/workflows/forecasts.yml`; tables in `database/migrations/003_price_forecasts.sql`; fallback file `backend/data/price_forecasts.json`. Frontend: `components/price-history.tsx`, `components/price-series-chart.tsx`, `lib/price-history.ts`, `lib/next-trip.ts`, `lib/planned-week.ts`.
 
-For data preparation, checkpoint architecture, covariates, ridge features, fitting and selection, backtest metrics and evidence limits, see [Forecasting methodology](forecasting-methodology.md). For snapshot replacement, process restarts and troubleshooting, see [Forecast snapshot maintenance](../07-operations/deployment-and-operations.md#forecast-snapshot-maintenance).
+For data preparation, checkpoint architecture, covariates, ridge features, fitting and selection, backtest metrics and evidence limits, see [Forecasting methodology](forecasting-methodology.md). For the weekly job, publishing, first activation and rollback, see [Weekly forecasts](../../forecasting/README.md) and [Forecast maintenance](../07-operations/deployment-and-operations.md#forecast-maintenance).
 
 ## How data reaches the chart
 
 ```mermaid
 flowchart LR
-    A[PriceCatcher monthly files<br/>Jan 2022 → Sep 2026] --> B[Offline research pipeline<br/>research/price_forecasting — git-ignored]
+    A[PriceCatcher monthly files<br/>Jan 2022 onwards] --> B[Weekly GitHub Actions job<br/>Monday 04:00 MYT]
     B --> C[Weekly national series per item<br/>median of per-store weekly medians]
-    C --> D[Chronos-2 Small + shared ridge correction<br/>backtests at 4, 8, 12 weeks]
-    D --> E[[price_forecasts.json<br/>796 items, status per item]]
-    E --> F[price_history.py<br/>load once, re-check freshness]
+    C --> D[Chronos-2 Small + shared ridge correction<br/>rolling backtests at 4, 8, 12 weeks]
+    D --> E[(PostgreSQL<br/>price_forecast_batch / record / active)]
+    E --> F[price_history.py<br/>active batch, one item per request]
     F --> G["GET /items/:code/price-history"]
     G --> H[Price trends panel]
 ```
 
-The API **never fits or runs a model**. It serves the snapshot and re-applies the freshness rule against today's date (Asia/Kuala_Lumpur), so a forecast can be withdrawn at runtime but never created.
+The API **never fits or runs a model**. It reads the published results and re-applies the freshness rule against today's date (Asia/Kuala_Lumpur), so a forecast can be withdrawn at runtime but never created.
 
-## Snapshot (`backend/data/price_forecasts.json`)
+## Source of the data (`SMARTCART_FORECAST_SOURCE`)
 
-| Field | Current value / meaning |
+| Value | Behaviour |
 | --- | --- |
-| `generated_at` | 2026-10-09 |
-| `data_cutoff` | 2026-09-20 — last allowed source observation date; final weekly position starts 2026-09-14 |
+| `postgres` (production since 12 Oct 2026) | Reads metadata and only the requested item from the active batch in one query. No long-lived cache, so a new weekly batch is visible without redeploying. If the database fails or has no active batch, the API returns `HISTORY_UNAVAILABLE` (503); it never falls back to an old file. |
+| `file` (default) | Reads `backend/data/price_forecasts.json` (or `SMARTCART_FORECAST_PATH`) once per process. The committed file is the 9 Oct 2026 reference snapshot; it is also the bootstrap input for the first weekly run. |
+
+Each weekly run downloads the latest PriceCatcher months, recalculates recent complete weeks (keeping older weeks from the previous verified batch), generates new paths with the frozen checkpoint and fixed settings (the ridge head is refit on data known at each origin), re-runs three recent holdouts, and publishes only if the data contains a newer complete week. Publication validates every record and switches the active pointer in one transaction; the previous batch is kept for rollback. Model selection is not repeated weekly.
+
+## Batch contents
+
+| Field | Meaning |
+| --- | --- |
+| `generated_at` | When the batch was generated |
+| `data_cutoff` | Last allowed source observation date |
 | `source` | Government of Malaysia PriceCatcher (CC BY 4.0) |
 | `aggregation` | Median across per-store weekly medians |
-| `sources[]` | SHA-256 of every input parquet file (reproducibility) |
+| `sources[]` / `refresh_provenance` | SHA-256 of input files, model revision, rolling origins and validation evidence |
 | `model_policy` | `chronos_2_small_ridge`: one pooled Chronos-2 Small model (`autogluon/chronos-2-small`, pinned revision) with a shared ridge correction; batch-generated; no request-time inference |
 | `forecast_window_policy` | 52 weeks generated, **12 weeks validated**, longer horizons experimental |
-| `quality_policy` | Rules below; assessed 2026-10-09 |
 | `records[]` | Per item (national scope only): weekly `history`, `forecast`, `status`, `reasons`, `coverage`, diagnostics |
 
-Status counts at assessment: **129 available**, 387 rejected, 274 insufficient, 6 no history (796 items).
+Status counts: first weekly batch (generated 12 Oct 2026, cutoff 11 Oct 2026) **105 available**, 411 rejected, 274 insufficient, 6 no history (796 items). The 9 Oct reference file had 129 available.
 
 ## Forecast eligibility (`forecast_rules.eligibility`)
 
@@ -52,13 +60,13 @@ Status counts at assessment: **129 available**, 387 rejected, 274 insufficient, 
 | Store-composition shift | ≤ RM0.75 and must be measured |
 | Annual validation / current-shape checks | optional flags, off in the current policy |
 
-Outcomes: `no_history`, `insufficient` (< 52 weeks), `rejected` (any other failure, with human-readable reasons) or `available`. Items not in the snapshot return `not_evaluated`.
+Outcomes: `no_history`, `insufficient` (< 52 weeks), `rejected` (any other failure, with human-readable reasons) or `available`. Items not in the active batch return `not_evaluated`.
 
-> **Operational note.** Because the age rule runs at request time, forecasts expire without a new snapshot. With the current data, 39 items (latest observation 14 Sep 2026) lose their forecast from **13 Oct 2026** and the remaining 90 (latest 20 Sep 2026) from **19 Oct 2026**. History stays visible. Regenerate the snapshot before demonstrations.
+> **Operational note.** Because the age rule runs at request time, forecasts expire if the weekly job stops publishing: an item loses its forecast once its latest observation is more than 28 days old. History stays visible. Check each Monday's workflow run.
 
-### Re-qualifying without refitting
+### Re-qualifying the reference file
 
-`python backend/scripts/requalify_price_forecasts.py --as-of YYYY-MM-DD` re-applies the rules to saved model paths (`research/price_forecasting/unified_results/current_shared_short_head_paths.csv`, git-ignored) and rewrites the snapshot atomically. It refuses to run if the saved paths differ from forecasts already served. It cannot add newer data; that needs the research pipeline.
+`python backend/scripts/requalify_price_forecasts.py --as-of YYYY-MM-DD` re-applies the rules to saved model paths (`research/price_forecasting/unified_results/current_shared_short_head_paths.csv`, git-ignored) and rewrites the file atomically. It only applies to the `file` source and cannot add newer data; the weekly job does that.
 
 ## What the shopper sees
 

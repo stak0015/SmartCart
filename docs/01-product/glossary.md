@@ -25,7 +25,8 @@
 | **Second-store limit** | Distance and/or time limit applied only to the leg between the two stores. |
 | **Planned items** | Device-held list of items scheduled for a purchase week (this week or the next four). Formerly "Next trip" in code (`next-trip.ts`). Epic 4. |
 | **Planned week** | Monday-to-Sunday week in Asia/Kuala_Lumpur, stored as the Monday's ISO date. |
-| **Forecast snapshot** | `backend/data/price_forecasts.json`, generated offline. The API never fits a model at request time. |
+| **Forecast batch** | One weekly set of history and forecasts for every item, published by the forecast job to PostgreSQL. The API reads the active batch and never fits a model at request time. |
+| **Forecast snapshot** | `backend/data/price_forecasts.json`, the 9 Oct 2026 reference file; used only when `SMARTCART_FORECAST_SOURCE=file`. |
 | **Qualifying item** | An item whose forecast passed the quality rules in `forecast_rules.py`; only these show projections. |
 | **Checklist** | The active shopping list created from a chosen store plan. Device-held. Epic 5. |
 | **Trip record** | A frozen copy of a checklist when the shopper records the trip. Device-held. Epic 5. |

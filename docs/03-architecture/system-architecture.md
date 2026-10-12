@@ -9,24 +9,22 @@ flowchart LR
         fe[Next.js frontend<br/>React 19, TypeScript]
         be[FastAPI backend<br/>Python 3.12]
         db[(PostgreSQL<br/>Neon in production)]
-        snap[[Forecast snapshot<br/>backend/data/price_forecasts.json]]
         files[[Nutrition rules and policy<br/>data/nutrition/*.json]]
     end
     gm[Google Maps Platform<br/>Places · Routes · Geocoding]
     fuel[data.gov.my<br/>fuel price CSV]
     cb[Cerebras<br/>LLM, optional]
     pc[data.gov.my<br/>PriceCatcher]
-    gha[GitHub Actions<br/>daily ingest]
+    gha[GitHub Actions<br/>daily ingest, weekly forecasts]
 
     shopper <--> fe
     fe -- JSON over HTTPS /api --> be
     be --> db
-    be --> snap
     be --> files
     be -- origin, place IDs --> gm
     be -- daily, on demand --> fuel
     be -- report facts, opt-in --> cb
-    gha -- ingest_pricecatcher.py --> db
+    gha -- ingest_pricecatcher.py,<br/>forecast batches --> db
     pc --> gha
 ```
 
@@ -34,12 +32,13 @@ flowchart LR
 | --- | --- | --- |
 | Frontend | All screens, client-side state, device storage (basket, checklist, trips, planned items, reports), checklist export, statistics | `frontend/` |
 | Backend | Catalogue search, location proxy, store ranking, multi-store planning, alternatives, price history, nutrition, report generation | `backend/` |
-| Database | PriceCatcher catalogue, premises, latest prices, nutrition records | `database/schema.sql`, `database/migrations/` |
-| Forecast snapshot | Pre-computed weekly history and forecasts for 796 items | `backend/data/price_forecasts.json` |
+| Database | PriceCatcher catalogue, premises, latest prices, nutrition records, weekly forecast batches | `database/schema.sql`, `database/migrations/` |
+| Forecast job | Weekly history and forecasts for 796 items, published to the database | `forecasting/`, `.github/workflows/forecasts.yml` |
 | Nutrition files | Healthier-alternative mappings, rules and comparison policy | `data/nutrition/` |
 | Data jobs | PriceCatcher ingestion, enrichment, migrations, imports | `database/*.py`, `.github/workflows/pricecatcher.yml` |
+| Reference forecast file | 9 Oct 2026 snapshot; fallback when `SMARTCART_FORECAST_SOURCE=file` | `backend/data/price_forecasts.json` |
 
-Forecasting has a separate offline model lifecycle: one pinned pretrained Chronos-2 Small checkpoint plus a locally fitted pooled ridge head, chronological backtests, eligibility checks, then JSON promotion. Torch and model weights are not request-time service dependencies. See [Forecasting methodology](../04-backend/forecasting-methodology.md) for the architecture and training process, including the limits of reproducing git-ignored research.
+Forecasting has a separate model lifecycle: one pinned pretrained Chronos-2 Small checkpoint plus a pooled ridge head, chronological backtests and eligibility checks. A weekly GitHub Actions job regenerates forecasts from newer data, re-runs rolling holdouts and publishes a batch atomically ([Weekly forecasts](../../forecasting/README.md)). Torch and model weights are not request-time service dependencies. See [Forecasting methodology](../04-backend/forecasting-methodology.md) for the architecture and training process, including the limits of reproducing git-ignored research.
 
 ## Backend layering
 
@@ -137,7 +136,7 @@ Details: [Reports and analytics](../04-backend/reports-and-analytics.md).
 | State | Lives in | Lifetime |
 | --- | --- | --- |
 | Catalogue, premises, prices, nutrition | PostgreSQL | Refreshed daily (prices) or by migration |
-| Price history and forecasts | JSON snapshot in the backend | Replaced by an offline batch run |
+| Price history and forecasts | PostgreSQL (`price_forecast_*`), active batch read per request | Replaced weekly; current and previous batches retained |
 | Candidate snapshot | PostgreSQL, with a backend memory hot cache (128 entries) | 30 minutes |
 | Fuel price | Backend process memory | One Malaysian day; failures retried hourly |
 | Origin (location) | Frontend memory; also inside the device-held shopping session (for resume) and the active checklist (for its map link) | Until the trip is cleared; never written to the SmartCart database |

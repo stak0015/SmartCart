@@ -4,7 +4,7 @@
 
 | Source | Used for | Refresh | Licence |
 | --- | --- | --- | --- |
-| [PriceCatcher transactions](https://data.gov.my/data-catalogue/pricecatcher) (monthly parquet) | `current_status`, `item.median_price_rm`, forecast research | Daily (current month) | CC BY 4.0 |
+| [PriceCatcher transactions](https://data.gov.my/data-catalogue/pricecatcher) (monthly parquet) | `current_status`, `item.median_price_rm`, weekly forecast batches | Daily (current month); recent months re-downloaded weekly by the forecast job | CC BY 4.0 |
 | [PriceCatcher item lookup](https://data.gov.my/data-catalogue/lookup_item) | `item` | With each ingestion | CC BY 4.0 |
 | [PriceCatcher premise lookup](https://data.gov.my/data-catalogue/lookup_premise) | `premise` names and addresses | With each ingestion | CC BY 4.0 |
 | Premise enrichment snapshot (2026-08-23, committed parquet + provenance) | Candidate Google Place IDs, SARA candidate flags | Manual | Derived |
@@ -30,14 +30,19 @@ flowchart LR
         H[import_nutrition.py]
         I[pnpm sync / cleanup:premise-locations]
     end
+    subgraph weekly["Weekly: GitHub Actions Monday 04:00 MYT"]
+        W[forecasting.refresh: new weeks, rolling holdouts] --> X[forecasting.store publish: atomic batch]
+    end
     subgraph offline["Offline research (git-ignored research/)"]
-        J[Forecast training and backtests] --> P[build_short_serving.py: promote verified paths]
+        J[Forecast training and model selection] --> P[build_short_serving.py: reference snapshot]
         K[requalify_price_forecasts.py: eligibility only]
     end
     A --> DB[(PostgreSQL)]
     C & D & E & F & G & H & I --> DB
+    X --> DB
     P --> SNAP[[price_forecasts.json]]
     K --> SNAP
+    SNAP -. first-run reference .-> W
 ```
 
 ## PriceCatcher ingestion (`database/ingest_pricecatcher.py`)
@@ -102,11 +107,11 @@ Item-level SARA eligibility (`item.sara_eligible`) is not populated from a verif
 
 See [Nutrition — maintaining the data](../04-backend/nutrition.md#maintaining-the-data). The importer validates snapshots, upserts `nutrition_food`, links `item.nutrition_food_id`, and verifies parity in the same transaction.
 
-## Forecast snapshot
+## Weekly forecasts
 
-Built offline in the git-ignored `research/price_forecasting/` workspace and committed as `backend/data/price_forecasts.json`. See [Price history and forecasts](../04-backend/price-history-and-forecasts.md) and [Forecasting methodology](../04-backend/forecasting-methodology.md) for aggregation, model inputs, training, chronological evaluation and provenance.
+Every Monday at 04:00 MYT, `.github/workflows/forecasts.yml` refreshes forecasts and publishes them to the `price_forecast_*` tables ([Weekly forecasts](../../forecasting/README.md)). It downloads the current lookups and recent PriceCatcher months, recalculates complete Monday–Sunday weeks from individual observations (including weeks that cross a month boundary), keeps older weeks from the previous verified batch, generates paths with the frozen checkpoint and fixed settings and re-runs three rolling holdouts. Missing prices stay null, and changed item definitions are withheld until their history can be reconciled. A current-month file that is not yet published (HTTP 404) is recorded and skipped; other download failures, or no newer complete week, stop the run without publishing.
 
-This pipeline is independent of daily `current_status` ingestion: the six-month cache retained under `database/data/raw/` is not the full multi-year research archive under `raw/`. `build_short_serving.py` fits the pooled head and verifies cached paths/evidence before promotion; the committed `requalify_price_forecasts.py` only reapplies eligibility to already generated paths. Neither daily ingestion nor requalification advances forecast source dates. A clean clone includes serving data but lacks the research code, full archive and checkpoint needed for training.
+The weekly job is independent of daily `current_status` ingestion; neither job writes the other's tables. The original model selection and the 9 Oct 2026 reference file (`backend/data/price_forecasts.json`) were built in the git-ignored `research/price_forecasting/` workspace; see [Forecasting methodology](../04-backend/forecasting-methodology.md). `requalify_price_forecasts.py` only reapplies eligibility to that file.
 
 ## Data rules
 

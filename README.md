@@ -20,8 +20,9 @@ backend/    FastAPI service (Python) — catalogue, routing, ranking, forecasts,
 frontend/   Next.js app (TypeScript) — all screens and on-device records
 database/   PostgreSQL schema, PriceCatcher ingestion, enrichment and migrations
 data/       Versioned nutrition datasets and their build scripts
+forecasting/ Weekly price-forecast refresh and PostgreSQL publishing
 docs/       Documentation (current) and docs/archive (superseded)
-.github/    Daily PriceCatcher ingestion workflow
+.github/    Daily PriceCatcher ingestion and weekly forecast workflows
 ```
 
 ## Quick start
