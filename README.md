@@ -11,6 +11,7 @@ Plan essential grocery shopping in Malaysia at the lowest total cost — item pr
 | How it works | [System architecture](docs/03-architecture/system-architecture.md), [Design decisions](docs/03-architecture/design-decisions.md) |
 | Run it locally | [Local setup](docs/07-operations/local-setup.md) |
 | API | [API reference](docs/04-backend/api-reference.md) |
+| Forecast model and training | [Forecasting methodology](docs/04-backend/forecasting-methodology.md) |
 
 ## Repository layout
 

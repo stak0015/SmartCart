@@ -39,6 +39,8 @@ flowchart LR
 | Nutrition files | Healthier-alternative mappings, rules and comparison policy | `data/nutrition/` |
 | Data jobs | PriceCatcher ingestion, enrichment, migrations, imports | `database/*.py`, `.github/workflows/pricecatcher.yml` |
 
+Forecasting has a separate offline model lifecycle: one pinned pretrained Chronos-2 Small checkpoint plus a locally fitted pooled ridge head, chronological backtests, eligibility checks, then JSON promotion. Torch and model weights are not request-time service dependencies. See [Forecasting methodology](../04-backend/forecasting-methodology.md) for the architecture and training process, including the limits of reproducing git-ignored research.
+
 ## Backend layering
 
 ```mermaid

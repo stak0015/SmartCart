@@ -31,11 +31,13 @@ flowchart LR
         I[pnpm sync / cleanup:premise-locations]
     end
     subgraph offline["Offline research (git-ignored research/)"]
-        J[Forecast training and backtests] --> K[requalify_price_forecasts.py]
+        J[Forecast training and backtests] --> P[build_short_serving.py: promote verified paths]
+        K[requalify_price_forecasts.py: eligibility only]
     end
     A --> DB[(PostgreSQL)]
     C & D & E & F & G & H & I --> DB
-    K --> SNAP[[price_forecasts.json]]
+    P --> SNAP[[price_forecasts.json]]
+    K --> SNAP
 ```
 
 ## PriceCatcher ingestion (`database/ingest_pricecatcher.py`)
@@ -102,7 +104,9 @@ See [Nutrition — maintaining the data](../04-backend/nutrition.md#maintaining-
 
 ## Forecast snapshot
 
-Built offline in the git-ignored `research/price_forecasting/` workspace and committed as `backend/data/price_forecasts.json`. See [Price history and forecasts](../04-backend/price-history-and-forecasts.md).
+Built offline in the git-ignored `research/price_forecasting/` workspace and committed as `backend/data/price_forecasts.json`. See [Price history and forecasts](../04-backend/price-history-and-forecasts.md) and [Forecasting methodology](../04-backend/forecasting-methodology.md) for aggregation, model inputs, training, chronological evaluation and provenance.
+
+This pipeline is independent of daily `current_status` ingestion: the six-month cache retained under `database/data/raw/` is not the full multi-year research archive under `raw/`. `build_short_serving.py` fits the pooled head and verifies cached paths/evidence before promotion; the committed `requalify_price_forecasts.py` only reapplies eligibility to already generated paths. Neither daily ingestion nor requalification advances forecast source dates. A clean clone includes serving data but lacks the research code, full archive and checkpoint needed for training.
 
 ## Data rules
 

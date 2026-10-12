@@ -14,6 +14,7 @@ Single home for SmartCart's product, requirements, design and operations documen
 | Check what data leaves the device | [Security and privacy](03-architecture/security-and-privacy.md) |
 | Call or change the API | [API reference](04-backend/api-reference.md) |
 | Change a ranking, pricing or forecasting rule | [Backend logic](#backend-logic) |
+| Understand forecast model inputs, architecture, training and validation | [Forecasting methodology](04-backend/forecasting-methodology.md) |
 | Understand the tables and browser records | [Data model](05-data/data-model.md) |
 | Refresh or import data | [Data sources and pipelines](05-data/data-sources-and-pipelines.md) |
 | Work on the UI | [Frontend architecture](06-frontend/frontend-architecture.md) |
@@ -45,6 +46,7 @@ docs/
 - [Store recommendation](04-backend/store-recommendation.md) — Epic 2
 - [Budget alternatives](04-backend/budget-alternatives.md) — Epic 3
 - [Price history and forecasts](04-backend/price-history-and-forecasts.md) — Epic 4
+- [Forecasting methodology](04-backend/forecasting-methodology.md) — aggregation, model architecture, pooled training, backtests and reproducibility limits
 - [Multi-store planning](04-backend/multi-store-planning.md) — Epic 6
 - [Nutrition and healthier alternatives](04-backend/nutrition.md) — Epic 7
 - [Reports and analytics](04-backend/reports-and-analytics.md) — Epic 8

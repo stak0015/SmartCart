@@ -49,6 +49,24 @@ cd frontend && pnpm lint && pnpm build
 
 Story-by-story mapping: [Traceability matrix](../08-evidence/traceability-matrix.md).
 
+## Forecast verification
+
+Serving tests and offline model validation answer different questions. The committed suites test API/eligibility/UI behaviour; they do not fit Chronos or independently recreate the research backtest evidence.
+
+Run these focused checks for a snapshot or serving change:
+
+```bash
+cd backend
+python -m pytest tests/test_price_history.py
+```
+
+```bash
+cd frontend
+pnpm test -- price-history.test.ts
+```
+
+The model bundle's local `test_shared_short_head.py`, `test_chronos2_peer_context.py`, `test_chronos2_shape_correction.py` and related tests cover training cutoffs, origin-only inputs and transformations. They live in git-ignored research and are unavailable in a clean clone. Passing serving tests is not evidence that a changed model meets the forecast gate; inspect reproduced chronological scores, complete paths, baseline comparisons and provenance before promotion. See [methodology](../04-backend/forecasting-methodology.md#backtesting-and-interpreting-accuracy) and the [maintenance runbook](deployment-and-operations.md#forecast-snapshot-maintenance).
+
 ## Writing tests
 
 - Put pure logic in `backend/smartcart/*` domain modules or `frontend/lib/*` and test it directly; keep endpoint tests for wiring and contracts.

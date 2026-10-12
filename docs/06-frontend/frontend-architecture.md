@@ -64,7 +64,7 @@ flowchart TB
 | Journey | `shopping-session.ts`, `next-trip.ts` (Planned items), `planned-week.ts`, `item-stack.ts` (alternative navigation) |
 | Checklist and trips | `shopping-checklist.ts`, `trip-history.ts`, `checklist-export.ts` |
 | Savings and reports | `estimated-savings.ts`, `period-analytics.ts`, `statistics-view.ts`, `report-generation.ts`, `report-consent.ts`, `report-language.ts`, `report-format.ts`, `inbox.ts` |
-| Shared | `i18n.ts` (all copy), `format-rm.ts`, `toast-timer.ts`, `nutrition.ts` |
+| Shared | `i18n.ts` (all copy), `format-rm.ts`, `nutrition.ts` |
 
 Rule of thumb: `lib/` modules are pure and unit-tested; components render and wire events.
 

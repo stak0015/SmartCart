@@ -4,6 +4,8 @@ Shows how an item's national price has moved since 2022 and, for items that pass
 
 Code: `backend/smartcart/price_history.py`, `forecast_rules.py`, `backend/scripts/requalify_price_forecasts.py`, `backend/data/price_forecasts.json`. Frontend: `components/price-history.tsx`, `components/price-series-chart.tsx`, `lib/price-history.ts`, `lib/next-trip.ts`, `lib/planned-week.ts`.
 
+For data preparation, checkpoint architecture, covariates, ridge features, fitting and selection, backtest metrics and evidence limits, see [Forecasting methodology](forecasting-methodology.md). For snapshot replacement, process restarts and troubleshooting, see [Forecast snapshot maintenance](../07-operations/deployment-and-operations.md#forecast-snapshot-maintenance).
+
 ## How data reaches the chart
 
 ```mermaid
@@ -24,7 +26,7 @@ The API **never fits or runs a model**. It serves the snapshot and re-applies th
 | Field | Current value / meaning |
 | --- | --- |
 | `generated_at` | 2026-10-09 |
-| `data_cutoff` | 2026-09-20 — last week of source data |
+| `data_cutoff` | 2026-09-20 — last allowed source observation date; final weekly position starts 2026-09-14 |
 | `source` | Government of Malaysia PriceCatcher (CC BY 4.0) |
 | `aggregation` | Median across per-store weekly medians |
 | `sources[]` | SHA-256 of every input parquet file (reproducibility) |
@@ -72,7 +74,7 @@ Outcomes: `no_history`, `insufficient` (< 52 weeks), `rejected` (any other failu
 
 Forecasts **never** change basket prices, store ranking or recorded spending.
 
-`lib/price-history.ts` still contains `costInsight` (projected cost × quantity). It supported the archived US 4.3 and is not rendered by the current UI.
+The projected-cost helper `costInsight` for archived US 4.3 was removed on 12 October 2026. Current forecasts support price-trend viewing only.
 
 ## Planned items (frontend)
 
