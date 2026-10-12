@@ -11,6 +11,27 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from .forecast_rules import eligibility
 from .errors import AppError
+from .database import database_cursor
+
+
+def postgres_item_snapshot(item_code):
+    """Fetch only this item's active record; do not cache full database snapshots."""
+    try:
+        with database_cursor() as cursor:
+            cursor.execute('''SELECT b.metadata, r.record
+                FROM price_forecast_active a
+                JOIN price_forecast_batch b ON b.id = a.batch_id
+                LEFT JOIN price_forecast_record r ON r.batch_id = b.id
+                    AND r.item_code = %s AND r.region_id = 'national::'
+                WHERE a.singleton = TRUE''', (item_code,))
+            row = cursor.fetchone()
+    except AppError:
+        raise
+    except Exception as error:
+        raise AppError('HISTORY_UNAVAILABLE', 'Price history is temporarily unavailable.', 503) from error
+    if row is None:
+        raise AppError('HISTORY_UNAVAILABLE', 'Price history is temporarily unavailable.', 503)
+    return {**row[0], 'records': [row[1]] if row[1] else []}
 
 @lru_cache(maxsize=1)
 def load_snapshot():
@@ -30,7 +51,10 @@ def item_history(item_code, region=None):
     withdrawn at request time. Items missing from the snapshot return status
     'not_evaluated'.
     """
-    snapshot = load_snapshot()
+    source = os.environ.get('SMARTCART_FORECAST_SOURCE', 'file')
+    if source not in ('file', 'postgres'):
+        raise AppError('HISTORY_UNAVAILABLE', 'Price history is temporarily unavailable.', 503)
+    snapshot = postgres_item_snapshot(item_code) if source == 'postgres' else load_snapshot()
     records = [r for r in snapshot['records'] if r['item_code'] == item_code and r['region_id'] == 'national::']
     base = {k: snapshot[k] for k in ('generated_at','data_cutoff','source','aggregation')}
     base['regions'] = [dict(id=r['region_id'],label=r['region'],status=r['status']) for r in records]
