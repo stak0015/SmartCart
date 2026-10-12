@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from forecasting.refresh import update_histories, evaluate_paths, validate_snapshot, source_frames
+from forecasting.refresh import update_histories, evaluate_paths, validate_snapshot, source_frames,fetch_sources
 
 TODAY=date(2026,10,12)
 
@@ -131,3 +131,33 @@ def test_source_validation_rejects_unknown_invalid_and_future_rows(tmp_path):
     accepted,sources,counts=source_frames(tmp_path,['fixture.parquet'],{1},{1},TODAY)
     assert len(accepted)==1 and counts=={'source_rows':6,'skipped_rows':5}
     assert len(sources[0]['sha256'])==64
+
+
+def test_unpublished_current_month_is_recorded_without_reusing_cached_file(monkeypatch,tmp_path):
+    import requests
+    from forecasting import refresh
+    (tmp_path/'pricecatcher_2026-10.parquet').write_bytes(b'stale cached file')
+    def missing_current(name,directory):
+        if name=='pricecatcher_2026-10.parquet':
+            response=requests.Response();response.status_code=404
+            raise requests.HTTPError(response=response)
+    monkeypatch.setattr(refresh,'download',missing_current)
+    names,unpublished=fetch_sources(tmp_path,['pricecatcher_2026-09.parquet','pricecatcher_2026-10.parquet'],TODAY)
+    assert names==['pricecatcher_2026-09.parquet']
+    assert unpublished==['pricecatcher_2026-10.parquet']
+
+
+def test_missing_older_month_or_corrupt_source_does_not_become_optional(monkeypatch,tmp_path):
+    import requests
+    from forecasting import refresh
+    def missing_older(name,directory):
+        if name=='pricecatcher_2026-09.parquet':
+            response=requests.Response();response.status_code=404
+            raise requests.HTTPError(response=response)
+    monkeypatch.setattr(refresh,'download',missing_older)
+    with pytest.raises(requests.HTTPError):
+        fetch_sources(tmp_path,['pricecatcher_2026-09.parquet','pricecatcher_2026-10.parquet'],TODAY)
+    def corrupt(name,directory):raise ValueError('Invalid parquet')
+    monkeypatch.setattr(refresh,'download',corrupt)
+    with pytest.raises(ValueError,match='Invalid parquet'):
+        fetch_sources(tmp_path,['pricecatcher_2026-10.parquet'],TODAY)

@@ -50,7 +50,12 @@ withdrawal still runs for every request.
 5. Future weekly publications become visible without redeployment. A code release
    is still required for changes to model logic or API behaviour.
 
-If a weekly job fails or upstream data does not contain a newer complete week,
+An unpublished current-month file (HTTP 404) is recorded and skipped; the job can
+use newer complete weeks from the latest published month. It never reuses a stale
+cached current-month file for that run. Missing older inputs, corrupt files and
+other download failures stop the job. Actual source dates remain unchanged.
+
+If a weekly job fails or published data does not contain a newer complete week,
 the job fails and does not relabel dates or publish old predictions as fresh.
 GitHub Actions failure notifications require the responsible maintainers to
 subscribe. The old version can subsequently age out: a failed job is not a

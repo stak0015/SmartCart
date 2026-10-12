@@ -86,6 +86,25 @@ def source_frames(directory, names, item_codes, premise_codes, as_of):
     return pd.concat(frames, ignore_index=True), sources, dict(counts)
 
 
+def fetch_sources(directory, names, as_of):
+    """An unpublished current month is optional; missing older inputs are not."""
+    for name in ('lookup_item.parquet','lookup_premise.parquet'):
+        download(name,directory)
+    available,unpublished=[],[]
+    current=f'pricecatcher_{as_of:%Y-%m}.parquet'
+    for name in names:
+        try:
+            download(name,directory)
+        except requests.HTTPError as error:
+            if name != current or error.response is None or error.response.status_code != 404:
+                raise
+            unpublished.append(name)
+            print(f'Current-month source not published (404): {name}; use actual dates from published files',flush=True)
+        else:
+            available.append(name)
+    return available,unpublished
+
+
 def update_histories(snapshot, frame, lookup, as_of):
     """Recompute complete recent weeks, including weeks spanning month boundaries."""
     if not len(frame):
@@ -291,9 +310,9 @@ def main():
     if previous['model_policy']['name'] != 'chronos_2_small_ridge':
         raise ValueError('Unsupported reference model')
     names = month_names(date.fromisoformat(previous['data_cutoff']) - timedelta(weeks=12), args.as_of)
+    unpublished=[]
     if not args.offline:
-        for name in ['lookup_item.parquet', 'lookup_premise.parquet', *names]:
-            download(name, args.raw_dir)
+        names,unpublished=fetch_sources(args.raw_dir,names,args.as_of)
     lookup = pd.read_parquet(args.raw_dir / 'lookup_item.parquet', engine='fastparquet')
     premises = pd.read_parquet(args.raw_dir / 'lookup_premise.parquet', engine='fastparquet')
     lookup = lookup[lookup.item_code > 0]
@@ -324,6 +343,7 @@ def main():
     candidate['refresh_provenance'] = {'previous_snapshot_sha256':hashlib.sha256(source_bytes).hexdigest(),
         'sources':sources,'lookup_sha256':{n:hashlib.sha256((args.raw_dir/n).read_bytes()).hexdigest()
         for n in ('lookup_item.parquet','lookup_premise.parquet')},'dates':dates,'counts':counts,
+        'unavailable_source_files':unpublished,
         'composition_audit':'paired-store changes over latest 12 complete weeks',
         'history_policy':'preserve prefix, recompute downloaded complete recent weeks; new items retain null past gaps'}
     combined_sources = {s['file']:s for s in previous.get('sources',[])}
@@ -339,7 +359,8 @@ def main():
     temporary.write_bytes(output_bytes)
     temporary.replace(args.output)
     report = {'as_of':args.as_of.isoformat(),'generated_at':now.isoformat(),**dates,**counts,
-              'records':len(candidate['records']), 'status_counts':dict(Counter(r['status'] for r in candidate['records'])),
+              'records':len(candidate['records']), 'unavailable_source_files':unpublished,
+              'status_counts':dict(Counter(r['status'] for r in candidate['records'])),
               'snapshot_sha256':hashlib.sha256(output_bytes).hexdigest(), 'origins':origins,
               'model':candidate['model_policy'], 'backtests':proof}
     args.output.with_suffix('.report.json').write_text(json.dumps(report,allow_nan=False,indent=2),encoding='utf-8')
