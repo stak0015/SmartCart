@@ -55,9 +55,9 @@ Full stories and acceptance criteria: [Requirements](../02-requirements/README.m
 ## Principles that shape every feature
 
 1. **Never invent numbers.** Missing prices, routes, nutrients or forecasts are shown as unavailable, never as zero.
-2. **Label estimates.** Median prices (with the range they come from), straight-line travel, forecasts and savings are always marked as estimates.
+2. **Label estimates.** Median prices (with the range they come from), straight-line travel, forecasts and savings are always marked as estimates. Travel costs exclude tolls and parking.
 3. **A price is not stock.** A PriceCatcher observation does not prove an item is on the shelf today.
-4. **SARA states stay distinct.** *Verified*, *candidate* and *unverified* are never merged; unknown is not "ineligible".
+4. **SARA states stay distinct.** *Verified*, *candidate* and *unverified* are never merged; unknown is not "ineligible". SmartCart cannot see a shopper's SARA balance, so the SARA and cash split assumes enough credit.
 5. **Privacy by default.** Location is never stored on the server; it is kept on the device only with the trip in progress and the active checklist, and is never sent with reports. Trips, checklists and plans stay on the device.
 
 The reasoning behind these is in [Design decisions](../03-architecture/design-decisions.md).

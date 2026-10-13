@@ -74,7 +74,7 @@ The fuel price is the latest official RON95 (or RON95 BUDI95 if `TRAVEL_FUEL_PRI
 2. else use `item.median_price_rm` (`priceSource = "median"`, labelled estimate). The response also gives the range behind it, `estimateLowRm`–`estimateHighRm`: the 2.5th and 97.5th percentiles of current prices across all stores, so outliers are left out. The range is for display; totals use the median;
 3. else the line is unpriced: it appears in `missingItems` and is excluded from totals.
 
-`line total = unit price × quantity`; `basket subtotal = Σ priced line totals` (Decimal, rounded half-up to cents). The subtotal is split into **SARA credit** (lines with `sara_eligible = TRUE` or a SARA-listed category) and **cash needed**. `price_observed_days_ago` reports the age of the oldest store observation (still returned; the UI no longer shows a stale-price tag).
+`line total = unit price × quantity`; `basket subtotal = Σ priced line totals` (Decimal, rounded half-up to cents). The subtotal is split into **SARA credit** (lines with `sara_eligible = TRUE` or a SARA-listed category) and **cash needed**. SmartCart cannot see a shopper's SARA balance, so the split assumes enough credit to cover the SARA part. `price_observed_days_ago` reports the age of the oldest store observation (still returned; the UI no longer shows a stale-price tag).
 
 ## 5. Ranking
 
@@ -122,3 +122,5 @@ The table and its expiry index are created on first use; expired rows are remove
 | Google key invalid or quota exceeded | Straight-line fallback with warning |
 | Google reports no route for a pair | Cached as "no route" for 30 minutes; the store or pair is left out |
 | Price observation is old | Shown with its observed date; never treated as stock |
+| Route uses a toll road | Tolls are not estimated (Google returns no toll data for Malaysia); the shopper can record tolls paid on the checklist |
+| SARA credit runs out | Not detectable: SmartCart has no access to SARA balances, so cash needed may be higher than shown |
