@@ -164,6 +164,9 @@ export interface BasketItemPrice {
   lineTotalRm: number | null;
   priceObservedDate: string | null;
   priceSource?: PriceSource | null;
+  // AC 2.4.10: middle 95% of national prices behind a median estimate.
+  estimateLowRm?: number | null;
+  estimateHighRm?: number | null;
   saraEligible?: boolean | null;
   saraCategoryCandidate?: boolean;
   category: ItemCategory | null;
@@ -201,6 +204,9 @@ export interface AlternativePriceItem {
   observedDate: string | null;
   priceObservedDaysAgo: number | null;
   priceSource?: PriceSource | null;
+  // AC 2.4.10: middle 95% of national prices behind a median estimate.
+  estimateLowRm?: number | null;
+  estimateHighRm?: number | null;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
@@ -395,6 +401,9 @@ export interface PlanStoreAssignment {
   unit: string | null;
   observedDate: string | null;
   priceSource?: PriceSource | null;
+  // AC 2.4.10: middle 95% of national prices behind a median estimate.
+  estimateLowRm?: number | null;
+  estimateHighRm?: number | null;
   itemNameEn?: string | null;
   itemNameMs?: string | null;
   category?: ItemCategory | null;

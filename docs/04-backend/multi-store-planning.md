@@ -38,7 +38,7 @@ flowchart TD
 ### Routing (`multi_store.py`)
 
 - `select_pairs_for_routing` builds ordered pairs (first store from the reachable set, second from all candidates). For distance/both limits it removes pairs whose Haversine gap already exceeds the limit — safe because a route cannot be shorter. Time-only limits keep every pair (roads may be faster than planning speeds). Above 600 pairs, the ordered pair list is cut at 600 (first stores are in rank order, so lower-ranked first stores lose their pairs first) to bound Google quota.
-- `api.py` requests one multi-origin route matrix for the surviving pairs. In straight-line fallback mode it estimates the inter-store leg from Haversine distance and the mode's planning speed, and still applies both limits to these estimates.
+- `api.py` requests one multi-origin route matrix for the surviving pairs, through the 30-minute route cache (only pairs not already cached are sent; see [Store recommendation](store-recommendation.md#7-route-cache)). In straight-line fallback mode it estimates the inter-store leg from Haversine distance and the mode's planning speed, and still applies both limits to these estimates.
 - `_evaluate_direction` rejects an order if the inter-store route is missing, exceeds the second-store limit, or either home leg is missing. It never substitutes a made-up value.
 - `plan_multi_store_trips` tries the reverse order only when the other store is itself a valid first store, keeps the cheaper eligible order per unordered pair, records the other order's cost (`reverseOrderCostRm`), and reports `evaluatedPairCount`, `unrouteablePairCount` and an `emptyReason`:
 

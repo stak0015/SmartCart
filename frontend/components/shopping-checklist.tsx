@@ -13,6 +13,7 @@ import {
 import { createPortal } from "react-dom";
 import type { SelectedLocation, TransportMode } from "@/lib/contracts";
 import { displayItemName } from "@/lib/item-name";
+import type { ItemDetailsRequest } from "./item-details-dialog";
 import { formatRm } from "@/lib/format-rm";
 import { parseTollCost, tripTravelTotalRm } from "@/lib/trip-travel-cost";
 import { TravelCostDetails } from "./travel-cost-breakdown";
@@ -126,6 +127,8 @@ export interface ShoppingChecklistScreenProps {
   alreadyRecorded: boolean;
   onSetTollCost: (amount: number | null) => void;
   onRecordTrip: () => void;
+  // US 4.9 / 5.9: open a catalogue item's details from its name.
+  onOpenItem?: (request: ItemDetailsRequest) => void;
 }
 
 export interface EmptyChecklistScreenProps {
@@ -135,6 +138,7 @@ export interface EmptyChecklistScreenProps {
   onUseSavedItems: (items: NextTripItem[]) => void;
   onRemoveSavedItem: (itemId: string) => void;
   onStartOrResume: () => void;
+  onOpenItem?: (request: ItemDetailsRequest) => void;
 }
 
 export interface ConfirmationDialogProps {
@@ -543,14 +547,22 @@ function DownloadIcon() {
   );
 }
 
+// AC 4.9.1 / 5.9.1: a catalogue item's name opens its details; a manual
+// item's name is plain text (AC 4.9.2 / 5.9.3).
+function ItemNameButton({ name, locale, onOpen, children }: { name: string; locale: "en" | "ms"; onOpen?: () => void; children: ReactNode }) {
+  if (!onOpen) return <>{children}</>;
+  return <button type="button" className="item-name-button" aria-haspopup="dialog" aria-label={(locale === "en" ? "View item details: " : "Lihat butiran item: ") + name} onClick={onOpen}>{children}</button>;
+}
+
 function localizedItemName(item: ChecklistItem, locale: "en" | "ms") {
   if (item.source === "manual") return item.itemName;
   return (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
 }
 
-function ChecklistRow({ item, locale, copy, saved, hideImage = false, onToggleBought, onToggleNotBought, onEdit, onRevert, onDelete }: {
+function ChecklistRow({ item, locale, copy, saved, hideImage = false, onToggleBought, onToggleNotBought, onEdit, onRevert, onDelete, onOpenItem }: {
   item: ChecklistItem; locale: "en" | "ms"; copy: ShoppingChecklistCopy; saved: boolean; hideImage?: boolean;
   onToggleBought: () => void; onToggleNotBought: () => void; onEdit: () => void; onRevert: () => void; onDelete: () => void;
+  onOpenItem?: () => void;
 }) {
   const [actionsOpen, setActionsOpen] = useState(false);
   const name = localizedItemName(item, locale);
@@ -564,7 +576,7 @@ function ChecklistRow({ item, locale, copy, saved, hideImage = false, onToggleBo
     <div className="checklist-row-name">
       {!hideImage && <span className="checklist-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={28}/></span>}
       <div className="checklist-item-copy">
-        <h3 className="item-name-line" title={name}>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}{displayItemName(name, locale)}</h3>
+        <h3 className="item-name-line" title={name}>{item.source === "manual" && <small className="manual-item-label">{locale === "en" ? "Manual item" : "Item manual"}</small>}<ItemNameButton name={name} locale={locale} onOpen={item.source === "catalogue" && item.catalogueItemId ? onOpenItem : undefined}>{displayItemName(name, locale)}</ItemNameButton></h3>
         <p className="checklist-mobile-package">{item.packageSize || "—"} × {quantity}</p>
         <small>{categoryLabel(locale, item.category)}</small>
         <SaraEligibilityFlag status={item.saraEligible ?? null} candidate={item.saraCategoryCandidate ?? false} copy={APP_COPY[locale]}/>
@@ -614,10 +626,15 @@ export function PlannedWeekDialog({ item, locale, onSave, onCancel }: {
 }
 
 /** Planned items list (Home and checklist): select items to plan a trip, schedule or remove them. */
-export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, title, onSchedule, variant = "list" }: {
+export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, title, onSchedule, variant = "list", onOpenItem, onAddToBasket, showHint = true }: {
   items: NextTripItem[]; locale: "en" | "ms"; copy: ShoppingChecklistCopy;
   title?: string; variant?: "list" | "week"; onSchedule?: (item: NextTripItem) => void;
   onUse?: (items: NextTripItem[]) => void; onRestore?: (item: NextTripItem) => void | Promise<void>; onRemove: (id: string) => void;
+  // AC 4.9.1: open a planned item's details with its forecast.
+  onOpenItem?: (request: ItemDetailsRequest) => void;
+  // AC 4.8.3: add one planned item to the basket from the Shop or basket screen.
+  onAddToBasket?: (item: NextTripItem) => void;
+  showHint?: boolean;
 }) {
   const headingId = useId();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -639,7 +656,7 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
       <h2 id={headingId} className="flex items-center gap-2 text-base font-extrabold text-[#10152e]"><ActionIcon name="bookmark" />{title ?? copy.nextTrip} <span className="rounded-full bg-[#f0eadb] px-2 py-0.5 text-xs">{items.length}</span></h2>
       {variant === "list" && onUse && items.length > 0 && <button type="button" className="secondary-button saved-use planned-use-action" data-ready={selectedItems.length > 0} disabled={selectedItems.length === 0} aria-hidden={selectedItems.length === 0} onClick={() => onUse(selectedItems)}>{copy.useSavedItems}</button>}
     </div>
-    <p className="planned-list-hint">{variant === "week" ? plannedWeekLabel(items[0]?.plannedWeek, locale) : items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>
+    {showHint && <p className="planned-list-hint">{variant === "week" ? plannedWeekLabel(items[0]?.plannedWeek, locale) : items.length ? copy.nextTripHint : copy.nextTripEmpty}</p>}
     {items.length > 0 && <ul className="next-trip-list">
       {items.map(item => {
         const name = (locale === "ms" ? item.itemNameMs : item.itemNameEn) || item.itemName;
@@ -649,11 +666,12 @@ export function NextTripList({ items, locale, copy, onUse, onRestore, onRemove, 
           <div className="next-trip-item-identity">
           {onUse && <input type="checkbox" className="h-5 w-5 shrink-0 accent-[#007d38]" aria-label={(locale === "en" ? "Select for trip: " : "Pilih untuk perjalanan: ") + name} checked={selectedIds.includes(item.id)} onChange={event => setSelectedIds(current => event.target.checked ? [...current, item.id] : current.filter(id => id !== item.id))}/>}
           <span className="next-trip-item-image" aria-hidden="true"><CatalogueItemImage imageUrl={item.imageUrl} fallbackSize={26}/></span>
-          <div className="next-trip-item-copy"><p className="next-trip-item-name item-name-line" title={name}>{displayItemName(name, locale)}</p><p className="next-trip-item-meta">{`${copy.checklistQuantity}: ${item.quantity}${item.packageSize ? " · " + item.packageSize : ""}`}</p></div>
+          <div className="next-trip-item-copy"><p className="next-trip-item-name item-name-line" title={name}><ItemNameButton name={name} locale={locale} onOpen={onOpenItem && item.source === "catalogue" && item.catalogueItemId ? () => onOpenItem({ catalogueItemId: item.catalogueItemId!, name: displayItemName(name, locale), plannedWeek: item.plannedWeek, openTrends: true }) : undefined}>{displayItemName(name, locale)}</ItemNameButton></p><p className="next-trip-item-meta">{`${copy.checklistQuantity}: ${item.quantity}${item.packageSize ? " · " + item.packageSize : ""}`}</p></div>
           </div>
           {variant === "list" && <div className="planned-card-footer">
             {onSchedule ? <button type="button" className="planned-card-week" title={week} aria-label={(locale === "en" ? "Change planned week: " : "Tukar minggu dirancang: ") + name} onClick={() => onSchedule(item)}>{weekContent}</button> : <div className="planned-card-week" title={week}>{weekContent}</div>}
           <div className="next-trip-item-actions">
+          {onAddToBasket && item.source === "catalogue" && item.catalogueItemId && <button type="button" className="planned-add-basket" aria-label={(locale === "en" ? "Add to basket: " : "Tambah ke bakul: ") + name} onClick={() => onAddToBasket(item)}><AddIcon />{locale === "en" ? "Add to basket" : "Tambah ke bakul"}</button>}
           {onRestore && <IconButton label={copy.addToChecklist + ": " + name} disabled={restoringItemId === item.id} onClick={() => void restoreItem(item)}><AddIcon /></IconButton>}
           <IconButton label={copy.removeFromNextTrip + ": " + name} onClick={() => onRemove(item.id)}><ActionIcon name="trash" /></IconButton>
           </div></div>}
@@ -671,6 +689,7 @@ export function EmptyChecklistScreen({
   onUseSavedItems,
   onRemoveSavedItem,
   onStartOrResume,
+  onOpenItem,
 }: EmptyChecklistScreenProps) {
   return (
     <div className="screen-enter empty-checklist">
@@ -695,6 +714,7 @@ export function EmptyChecklistScreen({
             copy={copy}
             onUse={savedItems.length > 0 ? onUseSavedItems : undefined}
             onRemove={onRemoveSavedItem}
+            onOpenItem={onOpenItem}
           />
         </section>
       </div>
@@ -783,6 +803,7 @@ export function ShoppingChecklistScreen({
   alreadyRecorded,
   onRecordTrip,
   onSetTollCost,
+  onOpenItem,
 }: ShoppingChecklistScreenProps) {
   const [manualDialog, setManualDialog] = useState<{ open: boolean; item: ChecklistItem | null }>({
     open: false,
@@ -983,6 +1004,7 @@ export function ShoppingChecklistScreen({
                     onToggleNotBought={() => onToggleStatus(item.id, "not_bought")}
                     onEdit={() => setManualDialog({ open: true, item })}
                     onDelete={() => setItemPendingDelete(item)}
+                    onOpenItem={onOpenItem && item.catalogueItemId ? () => onOpenItem({ catalogueItemId: item.catalogueItemId!, name: displayItemName(localizedItemName(item, locale), locale), openTrends: false }) : undefined}
                   />
                 ))}
               </ul></>
@@ -1016,7 +1038,7 @@ export function ShoppingChecklistScreen({
           </section>
         </aside>
         </div>
-        <NextTripList items={savedItems} locale={locale} copy={copy} onUse={onUseSavedItems} onRestore={onRestoreSavedItem} onRemove={onRemoveSavedItem} />
+        <NextTripList items={savedItems} locale={locale} copy={copy} onUse={onUseSavedItems} onRestore={onRestoreSavedItem} onRemove={onRemoveSavedItem} onOpenItem={onOpenItem} />
       </div>
 
       {manualDialog.open && (

@@ -1,6 +1,6 @@
 # Epic 6 — Multi-store basket recommendations
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |
@@ -55,9 +55,9 @@ Card [2527217087](https://monashie.leankit.com/card/2527217087) · size 10
 
 As a household shopper, I want the journey between recommended stores to meet my selected time and distance limits, so that splitting my basket does not require more travel between stores than I am willing to make.
 
-**Implementation** — frontend: —; backend/data: [`multi_store.py`](../../backend/smartcart/multi_store.py), [`api.py`](../../backend/smartcart/api.py) (_build_multi_store_plans), [`maps.py`](../../backend/smartcart/maps.py) (compute_route_matrix_multi_origin).
+**Implementation** — frontend: —; backend/data: [`multi_store.py`](../../backend/smartcart/multi_store.py), [`api.py`](../../backend/smartcart/api.py) (_build_multi_store_plans), [`maps.py`](../../backend/smartcart/maps.py) (compute_route_matrix_multi_origin), [`route_cache.py`](../../backend/smartcart/route_cache.py).
 
-**Tests** — [`test_multi_store.py`](../../backend/tests/test_multi_store.py), [`test_multi_store_api.py`](../../backend/tests/test_multi_store_api.py).
+**Tests** — [`test_multi_store.py`](../../backend/tests/test_multi_store.py), [`test_multi_store_api.py`](../../backend/tests/test_multi_store_api.py), [`test_route_cache.py`](../../backend/tests/test_route_cache.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -70,7 +70,7 @@ As a household shopper, I want the journey between recommended stores to meet my
 | **6.2.7** No route between stores | Given no route can be found between the recommended stores, when the list loads, then no two-store plans are shown and a message explains there was no route between the stores. | 3 |
 | **6.2.8** No plan within the limits | Given no store pair fits the second-store limits, when the list loads, then single stores are still listed with a message that no plans match, how many pairs were checked, and an "Edit limits" button that opens "Store plans". | 3 |
 | **6.2.9** Too few stores to split | Given fewer than two stores are reachable, when the shopper presses "Apply limits", then a message says at least two reachable stores are needed. | 1 |
-| **6.2.10** Plans need real routes | Given route data is unavailable (approximate routes only), when the shopper presses "Apply limits", then no two-store plans are listed and single stores are shown as usual. | 3 |
+| **6.2.10** Approximate routes still give plans | Given route data is unavailable (approximate routes only), when the shopper presses "Apply limits", then two-store plans are still listed using approximate distances and times, and the page notes that travel limits are not checked. | 3 |
 
 ## US 6.3 Compare plans by combined cost
 

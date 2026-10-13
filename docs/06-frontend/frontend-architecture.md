@@ -10,11 +10,12 @@ The whole app is one client component, `components/smartcart-app.tsx` (`App`), m
 | --- | --- | --- |
 | `/` | Home | `SmartCartHomeScreen` in `journey-screens.tsx`; planned-items lists from `shopping-checklist.tsx` (`NextTripList`) |
 | `/location` | Travel | `LocationScreen` in `smartcart-app.tsx` |
-| `/shop` | Shop (catalogue) | `BasketScreen` in `smartcart-app.tsx`, `catalogue-item-dialog.tsx` |
-| `/basket` | Review basket | `BasketScreen` |
+| `/shop` | Shop (catalogue) | `BasketScreen` in `smartcart-app.tsx`, `catalogue-item-dialog.tsx`, `catalogue-item-details.tsx`, `planned-items-panel.tsx` |
+| `/basket` | Review basket | `BasketScreen`, `planned-items-panel.tsx` |
 | `/compare` | Recommendations | `CompareScreen`, `StoreCard`, `multi-store-panel.tsx`, `plan-comparison.tsx` |
 | `/store/[id]` | Store or plan details | `RecommendationOverview`, `plan-detail.tsx` |
 | `/checklist` | Checklist | `shopping-checklist.tsx` |
+| (any screen) | Item details from a planned item or checklist line | `item-details-dialog.tsx` (loads the item through `GET /items/lookup`) |
 | `/history` | Trip history | `ReceiptHistoryScreen` in `shopping-history.tsx` (`TripHistoryScreen` in `journey-screens.tsx` is unused) |
 | `/reports` | Statistics and AI reports | `report-screens.tsx`, `statistics-panel.tsx` |
 
@@ -53,13 +54,15 @@ flowchart TB
 - Each record type has a pure `serialize…` / `parse…` pair in `lib/` that validates every field and returns `null`/empty on anything invalid. Writes are wrapped in `try/catch`; if storage fails the app keeps working in memory.
 - Nothing renders until storage has been read (`sessionStorageReady`), so a reload resumes exactly where the shopper was.
 - Recommendation results are **not** persisted except the selected store (a selected two-store plan is kept in memory only); they are re-requested when needed.
+- "Store details" in the steps bar reopens whichever was opened last, the store or the two-store plan (`lastPlanId` in `App`).
+- Shop, basket and Recommendations prepare nearby stores themselves if a starting location is set and nothing is preparing them; opening the Travel screen without changing anything keeps the prepared stores.
 
 ## Module map (`frontend/lib/`)
 
 | Area | Modules |
 | --- | --- |
 | API | `api-base.ts` (`NEXT_PUBLIC_API_BASE_URL`), `api.ts` (catalogue, nutrition, alternatives), `api-client.ts` (location, recommendations, store alternatives), `price-history.ts`, `contracts.ts` (shared types) |
-| Basket | `basket-state.ts`, `result-row.ts`, `basket-lines.ts`, `basket-coverage.ts`, `package-size.ts`, `item-name.ts`, `catalogue-image.ts`, `catalogue-price.ts` |
+| Basket | `basket-state.ts`, `result-row.ts`, `basket-lines.ts`, `basket-coverage.ts`, `package-size.ts`, `item-name.ts`, `catalogue-image.ts`, `catalogue-price.ts`, `estimate-label.ts` (estimated price ranges) |
 | Recommendations | `travel.ts`, `visible-stores.ts`, `recommendation-detail.ts`, `multi-store.ts`, `plan-detail-edits.ts`, `trip-travel-cost.ts` |
 | Journey | `shopping-session.ts`, `next-trip.ts` (Planned items), `planned-week.ts`, `item-stack.ts` (alternative navigation) |
 | Checklist and trips | `shopping-checklist.ts`, `trip-history.ts`, `checklist-export.ts` |

@@ -138,6 +138,7 @@ Details: [Reports and analytics](../04-backend/reports-and-analytics.md).
 | Catalogue, premises, prices, nutrition | PostgreSQL | Refreshed daily (prices) or by migration |
 | Price history and forecasts | PostgreSQL (`price_forecast_*`), active batch read per request | Replaced weekly; current and previous batches retained |
 | Candidate snapshot | PostgreSQL, with a backend memory hot cache (128 entries) | 30 minutes |
+| Route cache | Home → store legs: backend process memory only. Store → store legs: memory and PostgreSQL (`smartcart_route_cache`) | 30 minutes |
 | Fuel price | Backend process memory | One Malaysian day; failures retried hourly |
 | Origin (location) | Frontend memory; also inside the device-held shopping session (for resume) and the active checklist (for its map link) | Until the trip is cleared; never written to the SmartCart database |
 | Basket, checklist, trips, planned items, reports, consent | Browser `localStorage` | Until the shopper deletes them |

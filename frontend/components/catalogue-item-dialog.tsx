@@ -6,8 +6,11 @@ import { UIIcon } from "./ui-icon";
 
 export { cataloguePrice } from "../lib/catalogue-price";
 
-export function CatalogueItemDialog({ open, title, details, quantity, back, nutrition, alternatives, trends, onClose, onAdd, onSchedule, canAdd, locale }: {
-  open: boolean; title: string; details: ReactNode | ((priceTrendsButton: ReactNode) => ReactNode); quantity: ReactNode;
+export function CatalogueItemDialog({ open, title, details, quantity, back, nutrition, alternatives, trends, onClose, onAdd, onSchedule, canAdd = true, locale, initialTrendsOpen = false }: {
+  open: boolean; title: string; details: ReactNode | ((priceTrendsButton: ReactNode) => ReactNode);
+  // Quantity and "Add to basket" are left out when details are opened from
+  // Planned items or the checklist (AC 4.9.1, 5.9.2).
+  quantity?: ReactNode;
   // Epic 7 (US 7.2): "Back to [previous item]" control, shown only when the
   // shopper has walked into an alternative.
   back?: ReactNode;
@@ -16,12 +19,14 @@ export function CatalogueItemDialog({ open, title, details, quantity, back, nutr
   // Item nutrition is an independent detail section; it may be available even
   // when there are no healthier-alternative recommendations.
   nutrition?: ReactNode;
-  onClose: () => void; onAdd: () => void; canAdd: boolean; locale: "en" | "ms";
+  onClose: () => void; onAdd?: () => void; canAdd?: boolean; locale: "en" | "ms";
+  // AC 4.9.1: details opened from Planned items show price trends straight away.
+  initialTrendsOpen?: boolean;
   trends?: (onClose: () => void) => ReactNode;
   onSchedule?: () => void;
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [trendsOpen, setTrendsOpen] = useState(false);
+  const [trendsOpen, setTrendsOpen] = useState(initialTrendsOpen);
   const [insights, setInsights] = useState<ReactNode>(null);
   const insightTrigger = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -58,9 +63,9 @@ export function CatalogueItemDialog({ open, title, details, quantity, back, nutr
       {typeof details === 'function' ? details(trends && <button type="button" className="price-trends-trigger" aria-label={locale === 'en' ? (trendsOpen ? 'Hide price trends' : 'See price trends') : (trendsOpen ? 'Sembunyikan trend harga' : 'Lihat trend harga')} title={locale === 'en' ? 'Price trends' : 'Trend harga'} aria-expanded={trendsOpen} aria-controls="catalogue-price-trends" onClick={() => { setInsights(null); setTrendsOpen(value => !value); }}><UIIcon name="priceTrends" size={20}/></button>) : details}
       {typeof alternatives === 'function' ? alternatives(panel => { insightTrigger.current = document.activeElement as HTMLElement; setTrendsOpen(false); setInsights(panel); }) : alternatives}
       {nutrition && <details className="catalogue-nutrition-disclosure"><summary>{locale === 'en' ? 'Nutrition information' : 'Maklumat pemakanan'}<UIIcon name="chevronDown" size={18}/></summary>{nutrition}</details>}
-      <div className="catalogue-dialog-quantity"><h3>{locale === "en" ? "Quantity" : "Kuantiti"}</h3>{quantity}</div>
+      {quantity && <div className="catalogue-dialog-quantity"><h3>{locale === "en" ? "Quantity" : "Kuantiti"}</h3>{quantity}</div>}
     </div>
-    <footer><button type="button" className="primary-button" disabled={!canAdd} onClick={onAdd}><UIIcon name="basket"/>{locale === "en" ? "Add to basket" : "Tambah ke bakul"}</button>{onSchedule && <button type="button" className="secondary-button catalogue-schedule-button" disabled={!canAdd} onClick={onSchedule} aria-haspopup="dialog" aria-label={locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"} title={locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"}><UIIcon name="calendar" size={20}/></button>}</footer>
+    {(onAdd || onSchedule) && <footer>{onAdd && <button type="button" className="primary-button" disabled={!canAdd} onClick={onAdd}><UIIcon name="basket"/>{locale === "en" ? "Add to basket" : "Tambah ke bakul"}</button>}{onSchedule && <button type="button" className="secondary-button catalogue-schedule-button" disabled={!canAdd} onClick={onSchedule} aria-haspopup="dialog" aria-label={locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"} title={locale === "en" ? "Schedule purchase" : "Jadualkan pembelian"}><UIIcon name="bookmark" size={20}/></button>}</footer>}
     </div>{trendsOpen && trends && <div id="catalogue-price-trends" className="catalogue-trends-card">{trends(() => { setTrendsOpen(false); dialogRef.current?.querySelector<HTMLButtonElement>('.price-trends-trigger')?.focus(); })}</div>}
     {insights && <aside id="catalogue-alternative-insights" className="catalogue-trends-card" aria-labelledby="catalogue-insights-title"><header className="catalogue-insights-header"><h3 id="catalogue-insights-title" tabIndex={-1}>{locale === 'en' ? 'Why this alternative?' : 'Mengapa alternatif ini?'}</h3><button type="button" className="icon-button" aria-label={locale === 'en' ? 'Close insights' : 'Tutup pandangan'} onClick={() => { setInsights(null); insightTrigger.current?.focus(); }}><UIIcon name="close"/></button></header>{insights}</aside>}</div>
   </dialog>;

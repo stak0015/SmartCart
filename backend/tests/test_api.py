@@ -354,7 +354,9 @@ def test_routes_failure_uses_25_nearest_and_reuses_prepared_fallback(
         queries.append(options)
         return [PremiseCandidate(
             premise_id=str(index), premise_code=f"P{index}", name=f"Shop {index}",
-            address=None, district=None, state=None, google_place_id=f"place-{index}",
+            address=None, district=None, state=None,
+            # The wider search finds other stores, so its routes are not cached yet.
+            google_place_id=f"{'wide' if options['maximum_straight_line_km'] is None else 'place'}-{index}",
             straight_line_distance_km=float(index), sara_status="unverified",
         ) for index in range(1, 31)]
 
@@ -471,7 +473,8 @@ def test_recommendation_expands_search_when_no_store_within_limit(
     assert any(
         call["maximum_straight_line_km"] is None for call in captured["find_calls"]
     )
-    assert captured["route_calls"] == 2
+    # The wider search finds the same store, whose route is already cached.
+    assert captured["route_calls"] == 1
 
 
 def test_recommendation_endpoint_rejects_invalid_basket_line() -> None:

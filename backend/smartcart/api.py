@@ -22,11 +22,14 @@ from .catalogue import (
     catalogue_price_ranges,
     SARA_CATEGORY_SOURCE,
     count_items,
+    get_catalogue_items,
     search_catalogue,
 )
 from .categories import CATEGORY_SUMMARIES, CATEGORIES_BY_ID
 from .config import get_settings
 from .shared_candidates import load_snapshot, save_snapshot
+from .estimate_ranges import attach_estimate_ranges
+from .route_cache import cached_route_matrix, cached_route_matrix_multi_origin
 from .fuel import get_fuel_price
 from .errors import AppError
 from .report_models import (
@@ -255,6 +258,32 @@ def health() -> dict[str, object]:
     return {"status": "ok", "item_rows": count_items()}
 
 
+def _nearby_price_premises(candidate_cache_id: str | None):
+    """The cached snapshot and its 25 nearest stores, used for nearby price ranges."""
+    _prune_candidate_cache(monotonic())
+    snapshot = _candidate_snapshot(candidate_cache_id)
+    stores = (
+        sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
+        if snapshot else []
+    )
+    return snapshot, [store.premise_id for store in stores]
+
+
+@router.get("/items/lookup")
+def lookup_items(
+    id: list[int] = Query(default=[], max_length=50),
+    candidate_cache_id: str | None = None,
+) -> dict[str, object]:
+    """Catalogue rows for known item IDs, so planned items and checklist lines can open
+    the item details window (AC 4.9.1, 5.9.1). Same shape as search results.
+    """
+    item_ids = sorted({value for value in id if value > 0})
+    _, premise_ids = _nearby_price_premises(candidate_cache_id)
+    items = get_catalogue_items(item_ids)
+    ranges = catalogue_price_ranges([item["item_id"] for item in items], premise_ids)
+    return {"items": [{**item, "price_range": ranges.get(item["item_id"])} for item in items]}
+
+
 @router.get("/items/search")
 def search_items(
     q: str = "",
@@ -278,13 +307,7 @@ def search_items(
             "Select a valid SmartCart catalogue category.",
             400,
         )
-    _prune_candidate_cache(monotonic())
-    snapshot = _candidate_snapshot(candidate_cache_id)
-    stores = (
-        sorted(snapshot[2].recommendations, key=lambda store: store.straight_line_distance_km)[:25]
-        if snapshot else []
-    )
-    premise_ids = [store.premise_id for store in stores]
+    snapshot, premise_ids = _nearby_price_premises(candidate_cache_id)
     items, total = search_catalogue(q, page, page_size, selected_categories, sara_category_only, sort, premise_ids, locale)
     ranges = catalogue_price_ranges([item["item_id"] for item in items], premise_ids)
     items = [{**item, "price_range": ranges.get(item["item_id"])} for item in items]
@@ -298,7 +321,7 @@ def search_items(
         "sara_category_source": SARA_CATEGORY_SOURCE,
         "items": items,
         "price_context": "ready" if snapshot else "unavailable",
-        "price_store_count": len(stores),
+        "price_store_count": len(premise_ids),
     }
 
 
@@ -437,11 +460,11 @@ async def basket_alternatives(
         )
         for line in lines
     ]
-    return BasketAlternativesResponse(
+    return await run_in_threadpool(attach_estimate_ranges, BasketAlternativesResponse(
         premise_id=str(premise_id),
         lines=response_lines,
         generated_at=datetime.now(timezone.utc),
-    )
+    ))
 
 
 @router.post("/recommendations/prepare", response_model=CandidatePreparationResponse)
@@ -561,7 +584,8 @@ async def _build_multi_store_plans(
                 duration_seconds=distance_km / speed_kmh * 3600,
             )
     else:
-        inter_store_results = await get_maps_provider().compute_route_matrix_multi_origin(
+        inter_store_results = await cached_route_matrix_multi_origin(
+            get_maps_provider(),
             [by_id[premise_id].google_place_id for premise_id in first_ids],
             [by_id[premise_id].google_place_id for premise_id in second_ids],
             travel.transport_mode,
@@ -640,13 +664,14 @@ async def recommend_stores(payload: RecommendationRequest) -> RecommendationResp
     the straight-line fallback so the shopper still gets results.
     """
     try:
-        return await _recommend_stores(payload)
+        response = await _recommend_stores(payload)
     except AppError as error:
         if error.code not in {"MAPS_NOT_CONFIGURED", "MAPS_UNAVAILABLE"}:
             raise
         # Retry with an unrestricted nearest-25 query, including failures from
         # the expanded route search. Do not reuse the routed candidate limit.
-        return await _recommend_stores(payload, routes_unavailable=True)
+        response = await _recommend_stores(payload, routes_unavailable=True)
+    return await run_in_threadpool(attach_estimate_ranges, response)
 
 
 async def _recommend_stores(
@@ -732,7 +757,8 @@ async def _recommend_stores(
         route_limit_type = "distance"
         route_limit_value = float("inf")
     else:
-        route_results = await get_maps_provider().compute_route_matrix(
+        route_results = await cached_route_matrix(
+            get_maps_provider(),
             {
                 "latitude": travel.origin.latitude,
                 "longitude": travel.origin.longitude,
@@ -798,7 +824,8 @@ async def _recommend_stores(
             limit=settings.route_matrix_candidate_limit,
         )
         if expanded_candidates:
-            expanded_route_results = await get_maps_provider().compute_route_matrix(
+            expanded_route_results = await cached_route_matrix(
+                get_maps_provider(),
                 {
                     "latitude": travel.origin.latitude,
                     "longitude": travel.origin.longitude,

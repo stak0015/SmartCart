@@ -9,6 +9,9 @@ import { StorePriceTable } from "./store-basket-row";
 import { usePathname, useRouter } from "next/navigation";
 import { DropdownChevron, TrashIcon, UIIcon } from "./ui-icon";
 import { CatalogueItemDialog, cataloguePrice } from "./catalogue-item-dialog";
+import { CatalogueItemDetails } from "./catalogue-item-details";
+import { ItemDetailsDialog, type ItemDetailsRequest } from "./item-details-dialog";
+import { PlannedItemsPanel } from "./planned-items-panel";
 import { CatalogueItemImage } from "./catalogue-item-image";
 import { ItemPriceHistory } from "./price-history";
 import { TransportModeIcon, IcoWalkFigma, IcoBusFigma, IcoMotoFigma, IcoCarFigma } from "./transport-mode-icon";
@@ -19,7 +22,7 @@ import { ItemNutritionSection } from "./item-nutrition";
 import { SHOPPING_SESSION_STORAGE_KEY, parseShoppingSession, serializeShoppingSession, type TravelPreferences } from "@/lib/shopping-session";
 import { canGoBack, clearStack, popItem, previousItem as previousInStack, pushItem, replaceTop, resetStack, topItem } from "@/lib/item-stack";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useId, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useId, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { fetchHealthierAlternatives, fetchItemNutrition, listCategories, searchItems, type Item, type HealthierAlternativesResult, type ItemNutritionResult } from "@/lib/api";
 import { DEFAULT_QTY, basketDetails, basketSummary, parseQty, resultRowFields, stepQty, upsertBasketLine } from "@/lib/result-row";
 import { COPY, categoryLabel, type AppCopy, type Locale } from "@/lib/i18n";
@@ -89,6 +92,7 @@ import {
 import { ReceiptHistoryScreen, ReportConsentDialog, ReportScreen, type ConsentDialogMode, type ReportGenerationUiState } from "@/components/report-screens";
 import { mapsPlanRouteUrl, mapsRouteUrl } from "@/lib/travel";
 import { formatRm } from "@/lib/format-rm";
+import { estimateLabel } from "@/lib/estimate-label";
 import { uppercaseItemName } from "@/lib/item-name";
 import { localizedPackageSize } from "@/lib/package-size";
 import { VISIBLE_STEP, hasMoreStores, nextVisibleCount } from "@/lib/visible-stores";
@@ -178,6 +182,13 @@ function recommendationTravelRequest(preferences: TravelPreferences): TravelPref
   };
 }
 
+function sameTravelPreferences(a: TravelPreferences, b: TravelPreferences): boolean {
+  return a.transportMode === b.transportMode && a.limitType === b.limitType && a.limitValue === b.limitValue
+    && a.distanceKm === b.distanceKm && a.timeMinutes === b.timeMinutes && a.saraFilter === b.saraFilter
+    && a.origin?.latitude === b.origin?.latitude && a.origin?.longitude === b.origin?.longitude
+    && a.origin?.label === b.origin?.label;
+}
+
 function localizedName(copy: AppCopy, name: string | null | undefined, translations?: { itemNameEn?: string | null; itemNameMs?: string | null }): string {
   const locale = copy === COPY.ms ? "ms" : "en";
   const localized = (locale === "ms" ? translations?.itemNameMs : translations?.itemNameEn) || name || "Catalogue item";
@@ -228,7 +239,7 @@ function CompactBasketPriceList({ prices, basket = [], copy, locale }: { prices:
             <p className="text-[11px] text-[#526078]">{categoryLabel(locale, price.category)}</p>
             {price.packageSize && <p className="mt-0.5 text-xs text-[#718078]">{packageSizeForCopy(copy, price.packageSize)}</p>}
             {price.priceSource === "median" && (
-              <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{copy.medianPriceEstimate}</p>
+              <p className="mt-1 text-[11px] font-semibold text-[#7a5b00]">{estimateLabel(price, locale)}</p>
             )}
             <div className="mt-1">
               <SaraEligibilityFlag status={price.saraEligible ?? null} candidate={price.saraCategoryCandidate} copy={copy} />
@@ -350,6 +361,7 @@ function BasketScreen({
   onRetryNearbyPrices,
   onSchedulePurchase,
   plannedItems,
+  plannedItemsControl,
   view,
   basket,
   setBasket,
@@ -365,6 +377,8 @@ function BasketScreen({
   onRetryNearbyPrices?: () => void;
   onSchedulePurchase: (item: Item, quantity: number) => void;
   plannedItems: NextTripItem[];
+  // US 4.8: the "Planned items" button and panel.
+  plannedItemsControl?: ReactNode;
   view: "shop" | "basket";
   basket: BasketItem[];
   setBasket: Dispatch<SetStateAction<BasketItem[]>>;
@@ -627,7 +641,6 @@ function BasketScreen({
   };
 
   const { itemCount } = basketSummary(basket);
-  const selectedFields = selectedItem ? resultRowFields(selectedItem) : null;
   const selectedName = selectedItem ? localizedName(copy, selectedItem.item_name, { itemNameEn: selectedItem.item_name_en, itemNameMs: selectedItem.item_name_ms }) : "";
   const selectedRawQty = selectedItem ? qtyById[selectedItem.item_id] ?? String(DEFAULT_QTY) : "1";
   const selectedQty = parseQty(selectedRawQty);
@@ -658,11 +671,14 @@ function BasketScreen({
       {view === "shop" && (
         <div className="catalogue-content">
       {/* Page header */}
-      <div className="page-header">
-        <h1 className="page-title">{copy.shopTitle}</h1>
-        <p className="page-intro">
-          {copy.shopDescription}
-        </p>
+      <div className="page-header page-header-with-action">
+        <div>
+          <h1 className="page-title">{copy.shopTitle}</h1>
+          <p className="page-intro">
+            {copy.shopDescription}
+          </p>
+        </div>
+        {plannedItemsControl}
       </div>
 
       {/* Search bar (US 1.1) */}
@@ -865,22 +881,15 @@ function BasketScreen({
         back={canGoBack(selectedStack) && previousItem && <button type="button" className="catalogue-dialog-back" onClick={() => setSelectedStack(current => popItem(current))}>{copy.backToItem(localizedName(copy, previousItem.item_name, { itemNameEn: previousItem.item_name_en, itemNameMs: previousItem.item_name_ms }))}</button>}
         onSchedule={selectedItem ? () => { if (selectedQty !== null) onSchedulePurchase(selectedItem, selectedQty); } : undefined}
         onAdd={() => { if (selectedItem && selectedQty !== null) { addRealItem(selectedItem, selectedQty); setSelectedStack(clearStack<Item>()); } }}
-        details={selectedItem ? priceTrendsButton => <div className="catalogue-dialog-details">
-          <div className="product-visual"><span aria-hidden="true"><CatalogueItemImage imageUrl={selectedItem.image_url}/></span>{priceTrendsButton}</div>
-          <p>{packageSizeForCopy(copy, selectedFields?.packageSize)} · {categoryLabel(locale, selectedItem.category)}</p>
-          <SaraEligibilityFlag status={selectedItem.sara_eligible} candidate={selectedItem.sara_category_candidate} copy={copy}/>
-          <strong className="product-price">{cataloguePrice(selectedItem, locale)}</strong>
-          {selectedItem.price_range && <p>{selectedItem.price_range.price_source === "median"
-            ? (locale === "en" ? "Estimated from the item's median price. Per unit; final price depends on your store." : "Anggaran daripada harga median item. Seunit; harga akhir bergantung pada kedai.")
-            : locale === "en" ? `Recorded at ${selectedItem.price_range.store_count} nearby stores. Per unit; final price depends on your store.` : `Direkodkan di ${selectedItem.price_range.store_count} kedai berdekatan. Seunit; harga akhir bergantung pada kedai.`}</p>}
-        </div> : null}
+        details={selectedItem ? priceTrendsButton => <CatalogueItemDetails item={selectedItem} priceTrendsButton={priceTrendsButton} copy={copy} locale={locale}/> : null}
         quantity={<QuantitySelector value={selectedRawQty} onChange={raw => { if (selectedItem) typeResultQty(selectedItem.item_id, raw); }} onStep={delta => { if (selectedItem) stepResultQty(selectedItem.item_id, delta); }} decreaseLabel={copy.decreaseQuantity(selectedName)} increaseLabel={copy.increaseQuantity(selectedName)} quantityLabel={copy.quantityFor(selectedName)} errorId="catalogue-dialog-quantity-error" errorText={copy.quantityError}/>}
         nutrition={selectedItem && <ItemNutritionSection loading={itemNutritionLoading} result={itemNutrition} error={itemNutritionError} locale={locale}/>}
         alternatives={selectedItem ? onOpenInsights => <HealthierAlternativesSection loading={alternativesLoading} result={alternatives} error={alternativesError} locale={locale} copy={copy} originalName={selectedName} onOpenInsights={onOpenInsights} onOpenItem={item => setSelectedStack(current => pushItem(current, item))}/> : undefined}/>
       {view === "basket" && (
         <>
-      <div className="page-header">
-        <h1 className="page-title">{copy.basketTitle}</h1><p className="page-intro">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p>
+      <div className="page-header page-header-with-action">
+        <div><h1 className="page-title">{copy.basketTitle}</h1><p className="page-intro">{locale === "en" ? "Check your items and quantities before comparing stores." : copy.basketDescription}</p></div>
+        {plannedItemsControl}
       </div>
 
       {basketPanel}
@@ -923,15 +932,15 @@ const TRANSPORT_OPTS: Array<{
   id: TransportMode;
   Icon: ({ active }: { active: boolean }) => React.ReactNode;
 }> = [
-  { id: "walk", Icon: ({ active }: { active: boolean }) => <IcoWalkFigma color={active ? "#007d38" : "#3E494A"} /> },
+  { id: "car", Icon: ({ active }: { active: boolean }) => <IcoCarFigma color={active ? "#007d38" : "#3E494A"} /> },
+  { id: "motorcycle", Icon: ({ active }: { active: boolean }) => <IcoMotoFigma color={active ? "#007d38" : "#3E494A"} /> },
   { id: "public_transport", Icon: ({ active }: { active: boolean }) => (
     <div className="flex items-center gap-1">
       <IcoWalkFigma color={active ? "#007d38" : "#3E494A"} />
       <IcoBusFigma color={active ? "#007d38" : "#3E494A"} />
     </div>
   ) },
-  { id: "motorcycle", Icon: ({ active }: { active: boolean }) => <IcoMotoFigma color={active ? "#007d38" : "#3E494A"} /> },
-  { id: "car", Icon: ({ active }: { active: boolean }) => <IcoCarFigma color={active ? "#007d38" : "#3E494A"} /> },
+  { id: "walk", Icon: ({ active }: { active: boolean }) => <IcoWalkFigma color={active ? "#007d38" : "#3E494A"} /> },
 ];
 
 function transportLabel(copy: AppCopy, mode: TransportMode): string {
@@ -995,7 +1004,7 @@ function LocationScreen({
   const [timeMinutes, setTimeMinutes] = useState(preferences.timeMinutes);
   const limitValue = limitType === "time" ? timeMinutes : distanceKm;
   const locationSearchRef = useRef<HTMLInputElement>(null);
-  const [saraFilter, setSaraFilter] = useState<SaraFilter>(preferences.saraFilter === "verified" ? "candidate" : preferences.saraFilter);
+  const [saraFilter, setSaraFilter] = useState<SaraFilter>(preferences.saraFilter === "any" ? "any" : "verified");
   const [remember, setRemember] = useState(true);
   const [sessionToken, setSessionToken] = useState(createLocationSessionToken);
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([]);
@@ -1343,9 +1352,9 @@ function LocationScreen({
           <div className="preference-content">
             <h2>{copy.saraPlanning}</h2>
             <div className="sara-options">
-              {(["any", "candidate"] as const).map(value => <button type="button" key={value} aria-pressed={saraFilter === value} onClick={() => setSaraFilter(value)}>{value === "any" ? (copy === COPY.en ? "All stores" : "Semua kedai") : (copy === COPY.en ? "SARA stores" : "Kedai SARA")}</button>)}
+              {(["verified", "any"] as const).map(value => <button type="button" key={value} aria-pressed={saraFilter === value} onClick={() => setSaraFilter(value)}>{value === "any" ? (copy === COPY.en ? "All stores" : "Semua kedai") : (copy === COPY.en ? "SARA stores" : "Kedai SARA")}</button>)}
             </div>
-            {saraFilter === "candidate" && <p className="text-xs text-amber-800">{copy.saraCandidateNote}</p>}
+            {saraFilter !== "any" && <p className="text-xs text-amber-800">{copy.saraCandidateNote}</p>}
           </div>
         </section>
 
@@ -1432,7 +1441,7 @@ export function StoreCard({
         <div><span>{copy.returnTravel}</span><strong>{formatRm(store.estimatedRoundTripCostRm)}</strong></div>
         <div className="store-card-grand-total"><span>{totalLabel}</span><strong>{store.combinedTotalRm == null ? "—" : formatRm(store.combinedTotalRm)}</strong></div>
       </div>
-      {(store.basketLineCount ?? 0) > 0 && <div className="price-coverage"><span>{storeOfficialPriceCount} {copy === COPY.ms ? "harga kedai" : "store prices"} · {storeMedianPriceCount} {copy === COPY.ms ? "anggaran median" : "median estimates"} · {store.missingItems.length} {copy === COPY.ms ? "tiada harga" : "missing prices"}</span><progress max={store.basketLineCount ?? 1} value={storeOfficialPriceCount} aria-label={copy.priceCoverage(storeOfficialPriceCount, store.basketLineCount ?? 0)}/></div>}
+      {(store.basketLineCount ?? 0) > 0 && <div className="price-coverage"><span>{storeOfficialPriceCount} {copy === COPY.ms ? "harga kedai" : "store prices"} · {storeMedianPriceCount} {copy === COPY.ms ? "harga anggaran" : "estimated prices"} · {store.missingItems.length} {copy === COPY.ms ? "tiada harga" : "missing prices"}</span><progress max={store.basketLineCount ?? 1} value={storeOfficialPriceCount} aria-label={copy.priceCoverage(storeOfficialPriceCount, store.basketLineCount ?? 0)}/></div>}
       <div className="store-card-actions">
         {(store.basketLineCount ?? 0) > 0 && store.basketPrices.length > 0 && <div className="store-price-anchor">
           <button type="button" className="store-price-trigger" aria-expanded={pricesExpanded} aria-controls={priceListId} onClick={onTogglePrices}>{pricesExpanded ? copy.hidePriceList : copy.viewPriceList} <DropdownChevron/></button>
@@ -1673,9 +1682,11 @@ function CompareScreen({
   onBackToPlans,
   selectedPlanId,
   setSelectedPlanId,
+  onOpenPlan,
   preferences,
   candidateCacheId,
   onChangeTravel,
+  onShowAllStores,
   multiStore,
   onMultiStoreChange,
   copy,
@@ -1689,9 +1700,11 @@ function CompareScreen({
   onBackToPlans: () => void;
   selectedPlanId: string | null;
   setSelectedPlanId: Dispatch<SetStateAction<string | null>>;
+  onOpenPlan: (planId: string) => void;
   preferences: TravelPreferences;
   candidateCacheId: string | null;
   onChangeTravel: () => void;
+  onShowAllStores: () => void;
   multiStore: MultiStoreConfig;
   onMultiStoreChange: (next: MultiStoreConfig) => void;
   copy: AppCopy;
@@ -1758,7 +1771,6 @@ function CompareScreen({
     // AC 2.3.2: a fresh recommendation list starts again at the first six.
     setVisibleCount(VISIBLE_STEP);
     setExpandedStoreId(null);
-    setSelectedPlanId(null);
 
     getRecommendations({
       ...(requestBasketLines.length > 0 ? { basket: requestBasketLines } : {}),
@@ -1770,7 +1782,10 @@ function CompareScreen({
         setResult(response);
             setVisibleCount(VISIBLE_STEP);
         setExpandedStoreId(null);
-        setSelectedPlanId(null);
+        // A plan reopened from the steps bar stays open if the new results
+        // still contain it; otherwise the list shows.
+        const planIds = new Set([...(response.multiStore?.comparison?.completePlans ?? []), ...(response.multiStore?.comparison?.incompletePlans ?? [])].map(plan => plan.planId));
+        setSelectedPlanId(current => current && planIds.has(current) ? current : null);
       })
       .catch(requestError => {
         if (requestError instanceof DOMException && requestError.name === "AbortError") return;
@@ -1864,7 +1879,7 @@ function CompareScreen({
           <p className="page-intro page-intro-wide">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
-          {preferences.saraFilter === "candidate" && (
+          {preferences.saraFilter !== "any" && (
             <p className="text-sm font-medium text-[#7a5b00]">{copy.saraFilterApplied}</p>
           )}
         </div>
@@ -1905,6 +1920,14 @@ function CompareScreen({
 
         {!loading && !error && result && (
           <section className="flex flex-col gap-4">
+            {/* AC 2.3.21: the SARA filter is on by default, so offer a way out
+                when no verified partner is within the limit. */}
+            {preferences.saraFilter !== "any" && (recommendations.length === 0 || result.expandedSearch) && (
+              <div role="status" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a4d00]">
+                <p className="font-semibold">{copy.noSaraStoresInReach}</p>
+                <button type="button" onClick={onShowAllStores} className="plan-card-action mt-2 w-fit">{copy.showAllStores}</button>
+              </div>
+            )}
             {result.expandedSearch && (
               <div role="status" className="rounded-2xl border border-[#efd3a6] bg-[#fff7e8] p-4 text-sm leading-5 text-[#7a4d00]">
                 {copy.expandedSearchNotice}
@@ -1952,7 +1975,7 @@ function CompareScreen({
                   routeUrl={preferences.origin ? mapsPlanRouteUrl(preferences.origin, option.plan, result.multiStore?.stores ?? recommendations, preferences.transportMode) : undefined}
                   copy={copy} basket={basket} stores={result.multiStore?.stores ?? recommendations}
                   locale={copy === COPY.ms ? "ms" : "en"} isRecommended={index === 0}
-                  onSelectPlan={setSelectedPlanId}/>
+                  onSelectPlan={onOpenPlan}/>
               ) : (
                 <StoreCard
                   key={option.store.premiseId}
@@ -2008,6 +2031,13 @@ export default function App() {
   const [basket, setBasket] = useState<BasketItem[]>(INIT_BASKET);
   const [selectedStore, setSelectedStore] = useState<StoreRecommendation | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  // The two-store plan opened most recently. Opening a single store clears it,
+  // so "Store details" in the steps bar reopens whichever was opened last.
+  const [lastPlanId, setLastPlanId] = useState<string | null>(null);
+  const openPlan = (planId: string) => {
+    setSelectedPlanId(planId);
+    setLastPlanId(planId);
+  };
   const [candidateCacheId, setCandidateCacheId] = useState<string | null>(null);
   const [candidatePreparation, setCandidatePreparation] = useState<CandidatePreparationState>({ status: "idle" });
   const candidatePreparationController = useRef<AbortController | null>(null);
@@ -2015,6 +2045,8 @@ export default function App() {
   const [checklistStorageReady, setChecklistStorageReady] = useState(false);
   const [purchaseToSchedule, setPurchaseToSchedule] = useState<{ item: NextTripItem; checklistItemId?: string } | null>(null);
   const [plannedItemsNotice, setPlannedItemsNotice] = useState("");
+  // US 4.9 / 5.9: item details opened from Planned items or the checklist.
+  const [itemDetails, setItemDetails] = useState<ItemDetailsRequest | null>(null);
   const [currentWeek, setCurrentWeek] = useState(() => currentPlannedWeek());
   useEffect(() => {
     const refreshWeek = () => setCurrentWeek(currentPlannedWeek());
@@ -2043,12 +2075,13 @@ export default function App() {
   const [locale, setLocale] = useState<Locale>("en");
   const [preferences, setPreferences] = useState<TravelPreferences>({
     origin: null,
-    transportMode: "motorcycle",
+    transportMode: "car",
     limitType: "distance",
     limitValue: 5,
     distanceKm: 5,
     timeMinutes: 20,
-    saraFilter: "any",
+    // AC 2.1.21: SARA stores by default.
+    saraFilter: "verified",
   });
   // AC 6.1.1: a new recommendation session starts with multi-store plans off.
   // Held at app level so the configuration outlives the compare screen and can
@@ -2339,15 +2372,15 @@ export default function App() {
       const saved = JSON.parse(savedPreferences) as Record<string, unknown>;
       const transportMode = ["walk", "public_transport", "motorcycle", "car"].includes(String(saved.transportMode))
         ? saved.transportMode as TransportMode
-        : "motorcycle";
+        : "car";
       const limitType = saved.limitType === "both" ? "both" : saved.limitType === "time" ? "time" : "distance";
       const candidateLimit = Number(saved.limitValue);
       const limitValue = Number.isFinite(candidateLimit) && candidateLimit > 0
         ? candidateLimit
         : limitType === "distance" ? 5 : 20;
-      const saraFilter: SaraFilter = saved.saraFilter === "verified" || saved.saraFilter === "candidate"
-        ? "candidate"
-        : "any";
+      // AC 2.2.5: "SARA stores" means verified partners only; older saved
+      // "candidate" choices become "verified".
+      const saraFilter: SaraFilter = saved.saraFilter === "any" ? "any" : "verified";
       const distanceKm = Number(saved.distanceKm ?? (limitType === "distance" ? limitValue : 5));
       const timeMinutes = Number(saved.timeMinutes ?? (limitType === "time" ? limitValue : 20));
       setPreferences({ origin: null, transportMode, limitType, limitValue,
@@ -2364,7 +2397,7 @@ export default function App() {
       const session = parseShoppingSession(serialized);
       if (session) {
         setBasket(session.basket);
-        setPreferences(session.preferences);
+        setPreferences({ ...session.preferences, saraFilter: session.preferences.saraFilter === "any" ? "any" : "verified" });
         setResumeStep(session.resumeStep);
         setSelectedStore(session.selectedStore);
         setSavedItemsToUse(session.savedItemsToUse);
@@ -2481,7 +2514,13 @@ export default function App() {
     }
     void runReportGeneration(period);
   };
+  const preferencesRef = useRef(preferences);
+  useEffect(() => { preferencesRef.current = preferences; }, [preferences]);
   const updatePreferencesDraft = useCallback((next: TravelPreferences) => {
+    // The Travel screen reports its draft as soon as it opens. Only a real
+    // change should drop the prepared nearby stores; otherwise returning to
+    // Shop through the steps bar would wait for prices nobody requested.
+    if (sameTravelPreferences(preferencesRef.current, next)) return;
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
     setCandidatePreparation({ status: "idle" });
@@ -2510,6 +2549,13 @@ export default function App() {
         });
       });
   }, [locale]);
+  // Safety net: Shop, basket and Recommendations need prepared nearby stores.
+  // If a starting location is set but nothing is preparing them, start now.
+  useEffect(() => {
+    if (!sessionStorageReady || !preferences.origin || candidateCacheId) return;
+    if (candidatePreparation.status !== "idle" || !["shop", "basket", "compare"].includes(screen)) return;
+    prepareCandidates(preferences);
+  }, [sessionStorageReady, preferences, candidateCacheId, candidatePreparation.status, screen, prepareCandidates]);
   useEffect(() => {
     if (!sessionStorageReady || !restoredSessionRef.current) return;
     restoredSessionRef.current = false;
@@ -2522,6 +2568,7 @@ export default function App() {
   };
   const resetTrip = () => {
     setSelectedPlanId(null);
+    setLastPlanId(null);
     candidatePreparationController.current?.abort();
     setCandidateCacheId(null);
     setCandidatePreparation({ status: "idle" });
@@ -2639,6 +2686,17 @@ export default function App() {
     setChecklist(current => current ? addNextTripItem(current, item, quote) : current);
     removeSavedItem(item.id);
   };
+  // AC 4.8.3: same merge as "Plan trip with selected items" (larger quantity
+  // wins). The item stays in Planned items and moves to the checklist when the
+  // plan is saved, like items started with "Plan trip with selected items".
+  const addPlannedItemToBasket = (item: NextTripItem) => {
+    if (item.catalogueItemId == null) return;
+    setBasket(current => nextTripBasket(current, [item]));
+    setSavedItemsToUse(current => current.some(saved => saved.id === item.id) ? current : [...current, item]);
+  };
+  const plannedItemsControl = <PlannedItemsPanel items={savedItems} copy={copy} locale={locale}
+    onAddToBasket={addPlannedItemToBasket} onRemove={removeSavedItem}
+    onSchedule={item => setPurchaseToSchedule({ item })} onOpenItem={setItemDetails}/>;
   const planWithSavedItems = (items: NextTripItem[]) => {
     if (!items.length) return;
     setBasket(current => nextTripBasket(current, items));
@@ -2685,10 +2743,13 @@ export default function App() {
             "location",
             ...(preferences.origin ? ["shop" as const, "basket" as const] : []),
             ...(preferences.origin && basket.length > 0 ? ["compare" as const] : []),
-            ...(screen === "compare" && (selectedStore || selectedPlanId) && preferences.origin && basket.length > 0 ? ["store" as const] : []),
+            ...(screen === "compare" && (selectedStore || selectedPlanId || lastPlanId) && preferences.origin && basket.length > 0 ? ["store" as const] : []),
           ]}
           onNavigate={step => {
-            if (step === "store" && selectedPlanId) navigateTo("compare");
+            if (step === "store" && (selectedPlanId || lastPlanId)) {
+              setSelectedPlanId(selectedPlanId ?? lastPlanId);
+              if (isStoreRoute) navigateTo("compare");
+            }
             else if (step === "store" && selectedStore) router.push(`/store/${encodeURIComponent(selectedStore.premiseId)}`);
             else if (step !== "store" && step !== "checklist") navigateTrip(step);
           }}
@@ -2696,7 +2757,7 @@ export default function App() {
         {screen === "home" ? (
           <>
           <SmartCartHomeScreen
-            plannedThisWeek={savedItems.some(item => item.plannedWeek === currentWeek) ? <NextTripList variant="week" title={locale === "en" ? "Planned this week" : "Dirancang minggu ini"} items={savedItems.filter(item => item.plannedWeek === currentWeek)} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/> : undefined}
+            plannedThisWeek={savedItems.some(item => item.plannedWeek === currentWeek) ? <NextTripList variant="week" title={locale === "en" ? "Planned this week" : "Dirancang minggu ini"} items={savedItems.filter(item => item.plannedWeek === currentWeek)} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })} onOpenItem={setItemDetails}/> : undefined}
             locale={locale}
             checklist={checklist}
             history={tripHistory}
@@ -2710,7 +2771,7 @@ export default function App() {
             onInbox={() => navigateTo("inbox")}
           />
           {savedItems.length > 0 && <div className="home-planned-lists">
-            <NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })}/>
+            <NextTripList items={savedItems} locale={locale} copy={copy} onUse={planWithSavedItems} onRemove={removeSavedItem} onSchedule={item => setPurchaseToSchedule({ item })} onOpenItem={setItemDetails}/>
           </div>}
           </>
         ) : null}
@@ -2734,6 +2795,7 @@ export default function App() {
             alreadyRecorded={tripHistory.some(record => record.checklistId === checklist.id)}
             onSetTollCost={amount => setChecklist(current => current ? setChecklistTollCost(current, amount) : current)}
             onRecordTrip={recordTrip}
+            onOpenItem={setItemDetails}
           />
         ) : (
           <EmptyChecklistScreen
@@ -2743,6 +2805,7 @@ export default function App() {
             onUseSavedItems={planWithSavedItems}
             onRemoveSavedItem={removeSavedItem}
             onStartOrResume={() => navigateTrip(hasTripInProgress ? resumeStep : "location")}
+            onOpenItem={setItemDetails}
           />
         ) : null}
         {screen === "history" ? <ReceiptHistoryScreen history={tripHistory} locale={locale} onDeleteTrip={deleteTripFromHistory} /> : null}
@@ -2769,6 +2832,7 @@ export default function App() {
         {screen === "shop" ? (
           <BasketScreen
             plannedItems={savedItems}
+            plannedItemsControl={plannedItemsControl}
             onSchedulePurchase={scheduleCataloguePurchase}
             view="shop"
             candidateCacheId={candidateCacheId}
@@ -2787,6 +2851,7 @@ export default function App() {
         {screen === "basket" ? (
           <BasketScreen
             plannedItems={savedItems}
+            plannedItemsControl={plannedItemsControl}
             onSchedulePurchase={scheduleCataloguePurchase}
             view="basket"
             basket={basket}
@@ -2814,6 +2879,7 @@ export default function App() {
           <CompareScreen
             selectedPlanId={selectedPlanId}
             setSelectedPlanId={setSelectedPlanId}
+            onOpenPlan={openPlan}
             basket={basket}
             setBasket={setBasket}
             activeChecklist={checklist}
@@ -2834,16 +2900,23 @@ export default function App() {
             selectedStore={isStoreRoute ? selectedStore : null}
             onSelectStore={store => {
               setSelectedPlanId(null);
+              setLastPlanId(null);
               setSelectedStore(store);
               router.push(`/store/${encodeURIComponent(store.premiseId)}`);
             }}
             onBackToPlans={() => {
-              setSelectedStore(null);
+              // Keep the store remembered so "Store details" in the steps bar
+              // can reopen it, as it does for a two-store plan.
               navigateTo("compare");
             }}
             preferences={preferences}
             candidateCacheId={candidateCacheId}
             onChangeTravel={() => navigateTo("location")}
+            onShowAllStores={() => {
+              const next = { ...preferences, saraFilter: "any" as const };
+              setPreferences(next);
+              prepareCandidates(next);
+            }}
             multiStore={multiStore}
             onMultiStoreChange={setMultiStore}
             copy={copy}
@@ -2861,6 +2934,7 @@ export default function App() {
         onDeleteAll={deleteLocalReports}
         onClose={() => setConsentDialogMode(null)}
       />
+      <ItemDetailsDialog request={itemDetails} candidateCacheId={candidateCacheId} copy={copy} locale={locale} onClose={() => setItemDetails(null)}/>
       {purchaseToSchedule && <PlannedWeekDialog key={purchaseToSchedule.item.id} item={purchaseToSchedule.item} locale={locale} onSave={confirmPurchaseWeek} onCancel={() => setPurchaseToSchedule(null)}/>}
       {plannedItemsNotice && <div role="status" className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl bg-[#007d38] px-4 py-3 text-sm text-white shadow-lg">{plannedItemsNotice}<button type="button" aria-label={copy.close} onClick={() => setPlannedItemsNotice("")}>×</button></div>}
       <ConfirmationDialog

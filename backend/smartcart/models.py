@@ -160,6 +160,9 @@ class BasketItemPrice(CamelModel):
     line_total_rm: float | None
     price_observed_date: date | None
     price_source: Literal["store", "median"] | None = None
+    # AC 2.4.10: middle 95% of national prices behind a median estimate.
+    estimate_low_rm: float | None = None
+    estimate_high_rm: float | None = None
     sara_eligible: bool | None = None
     sara_category_candidate: bool = False
     category: CategorySummary | None = None
@@ -209,6 +212,9 @@ class AlternativePriceItem(CamelModel):
     sara_category_candidate: bool = False
     is_sara_credit_candidate: bool = False
     price_source: Literal["store", "median"] | None = None
+    # AC 2.4.10: middle 95% of national prices behind a median estimate.
+    estimate_low_rm: float | None = None
+    estimate_high_rm: float | None = None
     image_url: str | None = None
     category: CategorySummary | None = None
     source_category: SourceCategorySummary | None = None
@@ -417,6 +423,9 @@ class PlanStoreAssignment(CamelModel):
     unit: str | None
     observed_date: str | None = None
     price_source: Literal["store", "median"] | None = None
+    # AC 2.4.10: middle 95% of national prices behind a median estimate.
+    estimate_low_rm: float | None = None
+    estimate_high_rm: float | None = None
     item_name_en: str | None = None
     item_name_ms: str | None = None
     category: CategorySummary | None = None
@@ -541,6 +550,8 @@ class CataloguePriceRange(CamelModel):
     store_count: int
     oldest_observed_date: date | None = None
     price_source: Literal["store", "median"] = "store"
+    # The median used in totals when the range is a national estimate.
+    estimate_rm: float | None = None
 
 
 class CatalogueItemSummary(CamelModel):

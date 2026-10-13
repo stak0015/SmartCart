@@ -202,39 +202,73 @@ def search_catalogue(
             """,
             (*price_params, *params, page_size, offset),
         )
-        columns = [
-            "item_id",
-            "item_code",
-            "item_name",
-            "unit",
-            "item_category",
-            "sara_eligible",
-            "item_name_en",
-            "item_name_ms",
-            "item_category_en",
-            "item_category_ms",
-        ]
-        rows = [dict(zip(columns, row)) for row in cursor.fetchall()]
+        rows = [dict(zip(_ITEM_COLUMNS, row)) for row in cursor.fetchall()]
 
     for row in rows:
-        category = category_for_raw(row["item_category"])
-        row["category"] = category.model_dump(by_alias=True) if category else None
-        source_category = source_category_for_raw(
-            row["item_category"],
-            row.get("item_category_en"),
-            row.get("item_category_ms"),
-        )
-        row["source_category"] = (
-            source_category.model_dump(by_alias=True) if source_category else None
-        )
-        row["package_size"] = display_package_size(row["item_name"], row["unit"])
-        row["sara_category_candidate"] = is_sara_category_candidate(
-            row["item_category"]
-        )
-        # Only advertise checked-in thumbnails. This avoids making the browser
-        # issue a failed request for every catalogue row without an image.
-        row["image_url"] = catalogue_image_url(row["item_code"])
+        _enrich_catalogue_row(row)
     return rows, total
+
+
+_ITEM_COLUMNS = [
+    "item_id",
+    "item_code",
+    "item_name",
+    "unit",
+    "item_category",
+    "sara_eligible",
+    "item_name_en",
+    "item_name_ms",
+    "item_category_en",
+    "item_category_ms",
+]
+
+
+def get_catalogue_items(item_ids: list[int]) -> list[dict[str, Any]]:
+    """Catalogue rows for known item IDs, in the same shape as search results.
+
+    Lets planned items and checklist lines open the item details window
+    (AC 4.9.1, 5.9.1).
+    """
+    if not item_ids:
+        return []
+    with database_cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT i.item_id, i.item_code, i.item_name, i.unit, i.item_category,
+                   i.sara_eligible,
+                   {translation_select_columns()}
+            FROM item i
+            {catalogue_translation_joins()}
+            WHERE i.item_id = ANY(%s::bigint[])
+            ORDER BY i.item_id
+            """,
+            (item_ids,),
+        )
+        rows = [dict(zip(_ITEM_COLUMNS, row)) for row in cursor.fetchall()]
+    for row in rows:
+        _enrich_catalogue_row(row)
+    return rows
+
+
+def _enrich_catalogue_row(row: dict[str, Any]) -> None:
+    """Add categories, package size, SARA category flag and image URL to a row."""
+    category = category_for_raw(row["item_category"])
+    row["category"] = category.model_dump(by_alias=True) if category else None
+    source_category = source_category_for_raw(
+        row["item_category"],
+        row.get("item_category_en"),
+        row.get("item_category_ms"),
+    )
+    row["source_category"] = (
+        source_category.model_dump(by_alias=True) if source_category else None
+    )
+    row["package_size"] = display_package_size(row["item_name"], row["unit"])
+    row["sara_category_candidate"] = is_sara_category_candidate(
+        row["item_category"]
+    )
+    # Only advertise checked-in thumbnails. This avoids making the browser
+    # issue a failed request for every catalogue row without an image.
+    row["image_url"] = catalogue_image_url(row["item_code"])
 
 
 def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[int, dict]:
@@ -254,17 +288,30 @@ def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[
                   AND premise_id = ANY(%s::bigint[])
                   AND current_price > 0
                 GROUP BY item_id
+            ), national_prices AS (
+                -- AC 2.5.5: without a nearby price, show the middle 95 percent of
+                -- current national prices (outliers left out).
+                SELECT item_id,
+                       ROUND((percentile_cont(0.025) WITHIN GROUP (ORDER BY current_price))::numeric, 2) AS low_rm,
+                       ROUND((percentile_cont(0.975) WITHIN GROUP (ORDER BY current_price))::numeric, 2) AS high_rm
+                FROM current_status
+                WHERE item_id = ANY(%s::bigint[])
+                  AND current_price > 0
+                  AND item_id NOT IN (SELECT item_id FROM nearby_prices)
+                GROUP BY item_id
             )
-            SELECT i.item_id, COALESCE(p.min_rm, i.median_price_rm),
-                   COALESCE(p.max_rm, i.median_price_rm),
+            SELECT i.item_id, COALESCE(p.min_rm, n.low_rm, i.median_price_rm),
+                   COALESCE(p.max_rm, n.high_rm, i.median_price_rm),
                    COALESCE(p.store_count, 0), p.oldest_observed_date,
-                   CASE WHEN p.item_id IS NOT NULL THEN 'store' ELSE 'median' END
+                   CASE WHEN p.item_id IS NOT NULL THEN 'store' ELSE 'median' END,
+                   i.median_price_rm
             FROM item i
             LEFT JOIN nearby_prices p ON p.item_id = i.item_id
+            LEFT JOIN national_prices n ON n.item_id = i.item_id
             WHERE i.item_id = ANY(%s::bigint[])
               AND COALESCE(p.min_rm, i.median_price_rm) > 0
             """,
-            (item_ids, [int(value) for value in premise_ids], item_ids),
+            (item_ids, [int(value) for value in premise_ids], item_ids, item_ids),
         )
         return {
             int(item_id): {
@@ -272,6 +319,7 @@ def catalogue_price_ranges(item_ids: list[int], premise_ids: list[str]) -> dict[
                 "store_count": int(count),
                 "oldest_observed_date": observed.isoformat() if observed else None,
                 "price_source": source,
+                "estimate_rm": float(median) if source == "median" and median is not None else None,
             }
-            for item_id, low, high, count, observed, source in cursor.fetchall()
+            for item_id, low, high, count, observed, source, median in cursor.fetchall()
         }

@@ -811,11 +811,14 @@
 
 /* Store plans use the same card, product-row and summary styles as stores. */
 .multi-plan-card { display: flex; flex-direction: column; height: 100%; }
-.multi-plan-stores { display: flex; flex-direction: column; gap: 12px; min-height: 152px; }
-.multi-plan-stores .store-card-header { min-height: 64px; align-items: center; }
-.multi-plan-stores .store-symbol { width: 44px; height: 44px; flex: 0 0 44px; }
-.multi-plan-stores .store-card-identity h3 { font-size: 14px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.multi-plan-stores .store-card-identity > small { color: var(--muted); font-size: 11px; }
+/* A two-store card keeps one header row: overlapping logos and both names. */
+.multi-plan-logos { position: relative; width: 56px; height: 56px; }
+.multi-plan-logos .store-symbol { position: absolute; width: 40px; height: 40px; padding: 3px; }
+.multi-plan-logos .store-symbol:first-child { top: 0; left: 0; }
+.multi-plan-logos .store-symbol:nth-child(2) { right: 0; bottom: 0; box-shadow: 0 0 0 2px white; }
+.multi-plan-header .store-card-identity h3 { display: flex; flex-direction: column; width: 100%; font-size: 14px; white-space: normal; }
+.multi-plan-header .store-card-identity h3 > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.multi-plan-plus { color: var(--green); font-weight: 800; }
 .multi-plan-card .store-card-travel { margin-top: 12px; }
 .multi-plan-card .store-card-actions { margin-top: auto; padding-top: 12px; }
 .multi-plan-card .store-card-costs { flex: 0 0 auto; }
@@ -845,13 +848,6 @@
 .mixed-store-grid .store-card { display: flex; flex-direction: column; height: 100%; }
 .mixed-store-grid .store-card-marker { display: flex; align-items: center; justify-content: space-between; min-height: 28px; }
 .mixed-store-grid .store-card-marker small { color: var(--muted); font-size: 11px; margin-left: auto; }
-.mixed-store-grid .store-card > .store-card-header, .mixed-store-grid .multi-plan-stores { height: 112px; min-height: 112px; margin: 0; }
-.mixed-store-grid .multi-plan-stores { display: flex; gap: 6px; }
-.mixed-store-grid .multi-plan-stores .store-card-header { min-height: 48px; }
-.mixed-store-grid .multi-plan-stores .store-symbol { width: 36px; height: 36px; flex-basis: 36px; }
-.mixed-store-grid .multi-plan-stores .store-card-identity > small { display: none; }
-.mixed-store-grid .multi-plan-stores .store-card-identity h3 { font-size: 13px; line-height: 1.3; -webkit-line-clamp: 1; }
-.mixed-store-grid .multi-plan-stores .store-card-identity > span { padding: 2px 6px; font-size: 10px; }
 .mixed-store-grid .store-card .store-card-travel { min-height: 106px; margin-top: 12px; align-content: start; }
 .mixed-store-grid .store-card .store-card-costs { margin-top: 12px; }
 .mixed-store-grid .store-card .price-coverage { min-height: 48px; }
@@ -1364,3 +1360,36 @@ button.planned-card-week:focus-visible { outline: 2px solid var(--green); outlin
 .report-menu-language>span { color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
 .report-menu-language .cadence-toggle { display:grid; grid-template-columns:1fr 1fr; padding:3px; }
 .report-menu-language .cadence-toggle button { padding:6px 8px; font-size:12px; font-weight:650; }
+
+@media (max-width: 700px) {
+  .multi-plan-logos { width: 50px; height: 50px; }
+  .multi-plan-logos .store-symbol { width: 36px !important; height: 36px !important; }
+}
+
+/* US 4.8: "Planned items" button beside the Shop and basket page titles. */
+.page-header-with-action { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; }
+.page-header-with-action > div { min-width: 0; flex: 1 1 260px; }
+.planned-items-trigger { display: inline-flex; flex-shrink: 0; align-items: center; gap: 8px; min-height: var(--control-height); padding: 8px 14px; border: 1px solid #55a77a; border-radius: var(--control-radius); background: white; color: var(--green); font-size: 14px; font-weight: 700; }
+.planned-items-trigger > span { min-width: 22px; padding: 1px 7px; border-radius: 999px; background: #f0eadb; color: var(--ink); font-size: 12px; text-align: center; }
+.planned-items-trigger:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.planned-items-drawer { position: fixed; inset: 0 0 0 auto; width: min(440px, 100vw); max-width: 100vw; height: 100dvh; max-height: 100dvh; margin: 0; padding: 0; border: 0; background: #fbfcfb; box-shadow: -8px 0 28px #10152e26; }
+.planned-items-drawer::backdrop { background: #10152e55; }
+.planned-items-drawer-body { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.planned-items-drawer-body > header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.planned-items-drawer-body > header h2 { color: var(--ink); font-size: 18px; font-weight: 800; }
+.planned-items-drawer-hint { color: var(--muted); font-size: 13px; line-height: 1.5; }
+.planned-items-drawer-added { padding: 8px 12px; border-radius: var(--control-radius); background: #e5f5ed; color: #166534; font-size: 13px; font-weight: 600; }
+.planned-items-drawer .next-trip-panel { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.planned-items-drawer .next-trip-panel > div:first-child { display: none; }
+.planned-add-basket { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; border-radius: 7px; background: var(--green); color: white; font-size: 13px; font-weight: 700; }
+.planned-add-basket:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+/* US 4.9 / 5.9: a catalogue item's name opens its details. */
+.item-name-button { display: inline; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; text-decoration: underline; text-decoration-color: #9cc9ad; text-underline-offset: 3px; cursor: pointer; }
+.item-name-button:hover { color: var(--green); text-decoration-color: currentColor; }
+.item-name-button:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 2px; }
+
+/* The public transport icon (walk + bus) is wider than the others: let the
+   icon column fit it instead of overlapping the label. */
+.store-detail-facts > span { grid-template-columns: minmax(20px, max-content) minmax(0, 1fr); }
+.smartcart-app .item-name-line > .item-name-button { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,6 +1,6 @@
 # Epic 2 — Reachable store recommendation
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Size | 10 |
 | Planned window | 2026-08-26 → 2026-09-01 |
 | Assigned | Shunnosuke Takei |
-| Stories / ACs | 5 / 68 |
+| Stories / ACs | 5 / 72 |
 
 As a household shopper, I want to set where I am starting from and how far I am willing to travel, see nearby prices while I shop, and then see reachable stores ranked by basket cost plus estimated return travel cost, so I can choose a practical and affordable place to shop.
 
@@ -16,10 +16,10 @@ As a household shopper, I want to set where I am starting from and how far I am 
 
 | Story | Title | Priority | Size | ACs | Assigned |
 | --- | --- | --- | --- | --- | --- |
-| [2.1](#us-21-set-travel-preferences) | Set travel preferences | — | 10 | 20 | Shunnosuke Takei |
+| [2.1](#us-21-set-travel-preferences) | Set travel preferences | — | 10 | 22 | Shunnosuke Takei |
 | [2.2](#us-22-filter-stores-by-reachability) | Filter stores by reachability | — | 10 | 8 | Shunnosuke Takei |
-| [2.3](#us-23-recommend-the-lowest-combined-cost-reachable-store) | Recommend the lowest combined-cost reachable store | — | 10 | 20 | Zhihao Zhao, Shunnosuke Takei |
-| [2.4](#us-24-view-store-recommendation-overview) | View store recommendation overview | — | 10 | 13 | Chenglong Meng |
+| [2.3](#us-23-recommend-the-lowest-combined-cost-reachable-store) | Recommend the lowest combined-cost reachable store | — | 10 | 21 | Zhihao Zhao, Shunnosuke Takei |
+| [2.4](#us-24-view-store-recommendation-overview) | View store recommendation overview | — | 10 | 14 | Chenglong Meng |
 | [2.5](#us-25-see-nearby-prices-while-i-shop) | See nearby prices while I shop | — | 5 | 7 | Shunnosuke Takei |
 
 ## US 2.1 Set travel preferences
@@ -28,7 +28,7 @@ Card [2502891671](https://monashie.leankit.com/card/2502891671) · size 10
 
 As a household shopper, I want to choose my starting point, transport mode, travel limit and whether to see only SARA stores before I start shopping, so SmartCart only shows stores I can realistically reach.
 
-**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (LocationScreen), [`api-client.ts`](../../frontend/lib/api-client.ts); backend/data: [`api.py`](../../backend/smartcart/api.py) (/locations/*), [`maps.py`](../../backend/smartcart/maps.py).
+**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (LocationScreen), [`api-client.ts`](../../frontend/lib/api-client.ts), [`shopping-session.ts`](../../frontend/lib/shopping-session.ts); backend/data: [`api.py`](../../backend/smartcart/api.py) (/locations/*), [`maps.py`](../../backend/smartcart/maps.py).
 
 **Tests** — [`test_maps.py`](../../backend/tests/test_maps.py), [`test_api.py`](../../backend/tests/test_api.py), [`api-client.test.ts`](../../frontend/lib/api-client.test.ts).
 
@@ -46,7 +46,7 @@ As a household shopper, I want to choose my starting point, transport mode, trav
 | **2.1.10** Suggestions cannot load | Given the shopper types in the location search bar, when suggestions cannot be loaded, then a message says location search is unavailable. | 1 |
 | **2.1.11** Clear the location | Given a location is in the search bar, when the shopper presses its "×" button, then the starting location is cleared and the map asks them to choose one. | 1 |
 | **2.1.12** Keyboard selection of suggestions | Given location suggestions are showing, when the shopper presses the Up/Down arrow keys and then Enter, then the highlighted suggestion is selected. | 3 |
-| **2.1.13** Choose a transport mode | Given the shopper opens "Transport mode", when they select "Walking", "Public transport", "Motorcycle" or "Car", then that mode is highlighted and shown as the current choice. | 3 |
+| **2.1.13** Choose a transport mode | Given the shopper opens "Transport mode", when they look at the options, then "Car", "Motorcycle", "Public transport" and "Walking" are offered in that order, and the one they select is highlighted and shown as the current choice. | 3 |
 | **2.1.14** Choose a travel limit | Given the shopper opens "Travel limit", when they choose "Distance", "Travel time" or "Both" and press a preset, then that limit is highlighted and shown as the current choice. | 3 |
 | **2.1.15** Location not found | Given the shopper allowed location access, when their location cannot be found, then a message says it could not be found and suggests trying again or searching. | 1 |
 | **2.1.16** Browser cannot share location | Given the browser cannot share location, when the shopper presses "Use my precise location", then a message says precise location is not supported. | 1 |
@@ -54,6 +54,8 @@ As a household shopper, I want to choose my starting point, transport mode, trav
 | **2.1.18** Suggestion cannot be used | Given suggestions are showing, when the shopper selects one that cannot be used, then a message says that location could not be selected. | 1 |
 | **2.1.19** Location search progress | Given the shopper is searching for or selecting a location, when SmartCart is still looking it up, then a progress message is shown under the search bar. | 1 |
 | **2.1.20** Hide suggestions | Given location suggestions are showing, when the shopper presses Escape, then the suggestions are hidden. | 1 |
+| **2.1.21** SARA stores by default | Given the shopper has no remembered travel preferences, when the Travel screen opens, then "SARA stores" is selected in "SARA store filter". | 1 |
+| **2.1.22** Car by default | Given the shopper has no remembered travel preferences, when the Travel screen opens, then "Car" is selected in "Transport mode". | 1 |
 
 ## US 2.2 Filter stores by reachability
 
@@ -61,9 +63,9 @@ Card [2502892774](https://monashie.leankit.com/card/2502892774) · size 10
 
 As a household shopper, I want the recommended stores to respect my transport mode, travel limit and SARA store choice, so I am not shown stores I cannot or would not visit.
 
-**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (CompareScreen); backend/data: [`api.py`](../../backend/smartcart/api.py) (_recommend_stores), [`premises.py`](../../backend/smartcart/premises.py), [`recommendation.py`](../../backend/smartcart/recommendation.py) (rank_reachable_stores), [`maps.py`](../../backend/smartcart/maps.py).
+**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (CompareScreen); backend/data: [`api.py`](../../backend/smartcart/api.py) (_recommend_stores), [`premises.py`](../../backend/smartcart/premises.py), [`recommendation.py`](../../backend/smartcart/recommendation.py) (rank_reachable_stores), [`maps.py`](../../backend/smartcart/maps.py), [`route_cache.py`](../../backend/smartcart/route_cache.py).
 
-**Tests** — [`test_recommendation.py`](../../backend/tests/test_recommendation.py), [`test_premises.py`](../../backend/tests/test_premises.py), [`test_api.py`](../../backend/tests/test_api.py), [`test_migrate_premise_open_status.py`](../../database/tests/test_migrate_premise_open_status.py), [`test_migrate_sara_verified.py`](../../database/tests/test_migrate_sara_verified.py), [`test_migrate_sara_chain_partners.py`](../../database/tests/test_migrate_sara_chain_partners.py), [`test_sara_chain_catalog.py`](../../database/tests/test_sara_chain_catalog.py).
+**Tests** — [`test_recommendation.py`](../../backend/tests/test_recommendation.py), [`test_premises.py`](../../backend/tests/test_premises.py), [`test_api.py`](../../backend/tests/test_api.py), [`test_route_cache.py`](../../backend/tests/test_route_cache.py), [`test_migrate_premise_open_status.py`](../../database/tests/test_migrate_premise_open_status.py), [`test_migrate_sara_verified.py`](../../database/tests/test_migrate_sara_verified.py), [`test_migrate_sara_chain_partners.py`](../../database/tests/test_migrate_sara_chain_partners.py), [`test_sara_chain_catalog.py`](../../database/tests/test_sara_chain_catalog.py).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -71,8 +73,8 @@ As a household shopper, I want the recommended stores to respect my transport mo
 | **2.2.2** Distance limit | Given the shopper chose a Distance limit, when the Recommendations screen opens, then only stores whose one-way route distance is within that limit are listed. | 5 |
 | **2.2.3** Time limit | Given the shopper chose a Travel time limit, when the Recommendations screen opens, then only stores whose one-way travel time is within that limit are listed. | 5 |
 | **2.2.4** Both limits | Given the shopper chose "Both", when the Recommendations screen opens, then only stores within both the distance and the time limit are listed. | 5 |
-| **2.2.5** SARA store filter | Given the shopper chose "SARA stores", when the Recommendations screen opens, then only verified SARA stores and possible matches are listed and a note says the SARA filter is on. | 5 |
-| **2.2.6** SARA filter note | Given the shopper opens "SARA store filter", when they select "SARA stores", then a note reminds them to confirm store participation and item eligibility before shopping. | 1 |
+| **2.2.5** SARA store filter | Given the shopper chose "SARA stores", when the Recommendations screen opens, then only verified SARA partner stores are listed and a note says the SARA filter is on. | 5 |
+| **2.2.6** SARA filter note | Given the shopper opens "SARA store filter", when they select "SARA stores", then a note says only verified SARA partner stores are shown and reminds them to check item eligibility before shopping. | 1 |
 | **2.2.7** Nothing within the limit | Given no store is within the travel limit, when the Recommendations screen opens, then the nearest stores are shown with a notice that they exceed the limit, and each is tagged "Beyond travel limit". | 5 |
 | **2.2.8** Approximate routes | Given route data is unavailable, when the Recommendations screen opens, then a note explains that distances and times are rough estimates and the travel limit is not checked. | 3 |
 
@@ -107,6 +109,7 @@ As a household shopper on a limited budget, I want the system to compare prices 
 | **2.3.18** Compare stores from the basket | Given the shopper has chosen a starting location and the basket has at least one item, when they press "Compare Stores" on the "Review your basket" screen, then the Recommendations screen opens using the latest store prices for the current basket. | 3 |
 | **2.3.19** No tag for other stores | Given a store is not a verified SARA partner, when its card or store details page is shown, then no SARA tag is shown. | 1 |
 | **2.3.20** Close item prices | Given a store's "Basket items" pop-up is open, when the shopper presses "Hide item prices", "×", Escape, or opens another store's prices, then the pop-up closes. | 1 |
+| **2.3.21** No SARA store in reach | Given "SARA stores" is selected, when no verified SARA partner store is within the travel limit, then a message says so with a "Show all stores" button that lists every reachable store. | 1 |
 | **2.3.21** No starting location | Given the shopper reaches the Recommendations screen without a starting location, when the screen loads, then a message asks them to choose one, with a "Change travel preferences" button that opens the Travel screen. | 1 |
 
 ## US 2.4 View store recommendation overview
@@ -115,9 +118,9 @@ Card [2502907270](https://monashie.leankit.com/card/2502907270) · size 10
 
 As a household shopper, I want to open a store's details, so I can check its item prices, travel costs and totals, and adjust quantities before deciding where to shop.
 
-**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (RecommendationOverview), [`recommendation-detail.ts`](../../frontend/lib/recommendation-detail.ts), [`travel-cost-breakdown.tsx`](../../frontend/components/travel-cost-breakdown.tsx); backend/data: [`fuel.py`](../../backend/smartcart/fuel.py), [`recommendation.py`](../../backend/smartcart/recommendation.py) (fuel_cost_breakdown).
+**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (RecommendationOverview), [`recommendation-detail.ts`](../../frontend/lib/recommendation-detail.ts), [`travel-cost-breakdown.tsx`](../../frontend/components/travel-cost-breakdown.tsx), [`store-basket-row.tsx`](../../frontend/components/store-basket-row.tsx), [`estimate-label.ts`](../../frontend/lib/estimate-label.ts); backend/data: [`fuel.py`](../../backend/smartcart/fuel.py), [`recommendation.py`](../../backend/smartcart/recommendation.py) (fuel_cost_breakdown), [`estimate_ranges.py`](../../backend/smartcart/estimate_ranges.py).
 
-**Tests** — [`test_fuel.py`](../../backend/tests/test_fuel.py), [`recommendation-detail.test.ts`](../../frontend/lib/recommendation-detail.test.ts), [`travel-cost-breakdown.test.tsx`](../../frontend/lib/travel-cost-breakdown.test.tsx).
+**Tests** — [`test_fuel.py`](../../backend/tests/test_fuel.py), [`test_estimate_ranges.py`](../../backend/tests/test_estimate_ranges.py), [`estimate-label.test.ts`](../../frontend/lib/estimate-label.test.ts), [`recommendation-detail.test.ts`](../../frontend/lib/recommendation-detail.test.ts), [`travel-cost-breakdown.test.tsx`](../../frontend/lib/travel-cost-breakdown.test.tsx).
 
 | AC | Criterion | Size |
 | --- | --- | --- |
@@ -130,6 +133,7 @@ As a household shopper, I want to open a store's details, so I can check its ite
 | **2.4.7** Change quantity on store details | Given the store details page is open, when the shopper changes an item's quantity, then that line and the totals update immediately and the basket keeps the new quantity. | 3 |
 | **2.4.8** Fuel cost estimate | Given the shopper travels by car or motorcycle, when they view the travel costs on the store details page, then an expected fuel cost is shown, and pressing its "i" button explains how it was calculated. | 8 |
 | **2.4.9** Tolls not included | Given a fuel estimate is shown, when the shopper presses the "i" button beside "Tolls", then it explains that tolls and parking are not included in the total. | 3 |
+| **2.4.10** Estimated price range on store details | Given an item's price at a store is an estimate, when the store details page or a two-store plan page shows it, then the line says it is estimated from a range of prices across stores and shows that range. | 3 |
 | **2.4.10** Return travel for other modes | Given the shopper walks or uses public transport, when they view the travel costs on the store details page, then a single return travel amount is shown. | 3 |
 | **2.4.11** Back to the store list | Given the shopper did not change the basket on the store details page, when they press "← Back to plans", then the Recommendations list reopens exactly as before. | 3 |
 | **2.4.12** Stock and affordability note | Given the store details page is open, when the shopper reads below the item list, then a note says SmartCart does not verify affordability or in-store stock. | 1 |
@@ -141,7 +145,7 @@ Card [2529695313](https://monashie.leankit.com/card/2529695313) · size 5
 
 As a household shopper, I want to see what products cost at stores near me while I build my basket, so I can choose items that fit my budget before comparing stores.
 
-**Implementation** — frontend: [`nearby-price-status.tsx`](../../frontend/components/nearby-price-status.tsx), [`catalogue-price.ts`](../../frontend/lib/catalogue-price.ts); backend/data: [`api.py`](../../backend/smartcart/api.py) (/recommendations/prepare), [`catalogue.py`](../../backend/smartcart/catalogue.py) (catalogue_price_ranges).
+**Implementation** — frontend: [`nearby-price-status.tsx`](../../frontend/components/nearby-price-status.tsx), [`catalogue-price.ts`](../../frontend/lib/catalogue-price.ts), [`catalogue-item-details.tsx`](../../frontend/components/catalogue-item-details.tsx); backend/data: [`api.py`](../../backend/smartcart/api.py) (/recommendations/prepare), [`catalogue.py`](../../backend/smartcart/catalogue.py) (catalogue_price_ranges).
 
 **Tests** — [`test_catalogue_prices.py`](../../backend/tests/test_catalogue_prices.py), [`nearby-price-status.test.tsx`](../../frontend/components/nearby-price-status.test.tsx), [`catalogue-price.test.ts`](../../frontend/lib/catalogue-price.test.ts).
 
@@ -151,6 +155,6 @@ As a household shopper, I want to see what products cost at stores near me while
 | **2.5.2** Nearby prices ready | Given nearby store prices have loaded, when the shopper views the Shop screen, then a message says how many nearby stores the prices come from. | 1 |
 | **2.5.3** Nearby prices failed | Given nearby store prices could not be loaded, when the shopper views the Shop screen, then a message says so, with a "Retry nearby prices" button that tries again. | 1 |
 | **2.5.4** No location yet | Given the shopper opened Shop without a starting location, when the product list appears, then a message asks them to set a location in Travel to see nearby prices. | 1 |
-| **2.5.5** Price on product cards | Given products are listed, when the shopper views a product card, then it shows the price range at nearby stores, an estimated price marked "(estimated)", or "Price unavailable". | 5 |
-| **2.5.6** Price in item details | Given the item details window is open for a priced product, when the shopper reads the price, then a note says whether it comes from nearby stores or is an estimate, and that the final price depends on the store. | 3 |
+| **2.5.5** Price on product cards | Given products are listed, when the shopper views a product card, then it shows the price range at nearby stores, an estimated price range across stores marked "(estimated)", or "Price unavailable". | 5 |
+| **2.5.6** Price in item details | Given the item details window is open for a priced product, when the shopper reads the price, then it shows a price range with a note saying whether the range comes from nearby stores or is estimated from prices across stores nationally, and that the final price depends on the store. | 3 |
 | **2.5.7** Sorting by nearby price | Given nearby prices have loaded, when the shopper sorts by "Cheapest first" or "Highest price first", then products are ordered by their lowest nearby price, with unpriced products last. | 5 |

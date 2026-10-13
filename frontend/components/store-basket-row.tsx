@@ -6,6 +6,7 @@ import { localizedPackageSize } from "@/lib/package-size";
 import { formatRm } from "@/lib/format-rm";
 import { displayItemName } from "@/lib/item-name";
 import { CatalogueItemImage } from "./catalogue-item-image";
+import { estimateLabel } from "@/lib/estimate-label";
 import { SaraEligibilityFlag } from "./store-tags";
 
 export function StoreBasketRow({price, imageUrl, copy, locale, originalNote, replacementNote, quantityControl, disclosure}: {
@@ -21,7 +22,7 @@ export function StoreBasketRow({price, imageUrl, copy, locale, originalNote, rep
           <small>{categoryLabel(locale, price.category)}</small>
           <small>{localizedPackageSize(price.packageSize, locale) ?? "—"}<span className="store-item-mobile-quantity"> × {price.quantity}</span>{originalNote}</small>
           {replacementNote && <small className="store-item-replaced">{replacementNote}</small>}
-          {price.priceSource === "median" && <small className="store-item-estimate">{copy.medianPriceEstimate}</small>}
+          {price.priceSource === "median" && <small className="store-item-estimate">{estimateLabel(price, locale)}</small>}
         </div>
         <div className="store-item-sara"><SaraEligibilityFlag status={price.saraEligible} candidate={price.saraCategoryCandidate} copy={copy}/></div>
         <span className="store-item-package">{localizedPackageSize(price.packageSize, locale) ?? "—"}</span>
@@ -35,12 +36,12 @@ export function StoreBasketRow({price, imageUrl, copy, locale, originalNote, rep
   );
 }
 
-export function StorePriceTable({prices, copy, locale}: {
-  prices: Pick<RecommendationDetailPrice, "itemId" | "itemName" | "itemNameEn" | "itemNameMs" | "packageSize" | "quantity" | "unitPriceRm" | "lineTotalRm" | "priceSource">[];
+export function StorePriceTable({prices, locale}: {
+  prices: (Pick<RecommendationDetailPrice, "itemId" | "itemName" | "itemNameEn" | "itemNameMs" | "packageSize" | "quantity" | "unitPriceRm" | "lineTotalRm" | "priceSource"> & { estimateLowRm?: number | null; estimateHighRm?: number | null })[];
   copy: AppCopy; locale: Locale;
 }) {
   return <>
     <div className="store-price-table-head"><span>Item</span><span>{locale === "ms" ? "Saiz" : "Pack"}</span><span>{locale === "ms" ? "Kuantiti" : "Qty"}</span><span>{locale === "ms" ? "Harga" : "Unit"}</span><span>{locale === "ms" ? "Jumlah" : "Total"}</span></div>
-    <ul>{prices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{(locale === "ms" ? price.itemNameMs : price.itemNameEn) || price.itemName}{price.priceSource === "median" && <small>{copy.medianPriceEstimate}</small>}</span><span>{localizedPackageSize(price.packageSize, locale) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
+    <ul>{prices.map(price => <li key={price.itemId} className="store-price-table-row"><span>{(locale === "ms" ? price.itemNameMs : price.itemNameEn) || price.itemName}{price.priceSource === "median" && <small>{estimateLabel(price, locale)}</small>}</span><span>{localizedPackageSize(price.packageSize, locale) ?? "—"}</span><span>{price.quantity}</span><span>{price.unitPriceRm == null ? "—" : formatRm(price.unitPriceRm)}</span><strong>{price.lineTotalRm == null ? "—" : formatRm(price.lineTotalRm)}</strong></li>)}</ul>
   </>;
 }

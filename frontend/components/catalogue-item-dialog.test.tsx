@@ -28,6 +28,24 @@ describe("combined catalogue item dialog", () => {
       min_rm: 3.2, max_rm: 3.2, store_count: 0, oldest_observed_date: null, price_source: "median",
     } }, "en")).toBe("RM3.20 (estimated)");
   });
+
+  it("shows an estimated price as a range (AC 2.5.5)", () => {
+    expect(cataloguePrice({ price_range: {
+      min_rm: 2.8, max_rm: 3.6, store_count: 0, oldest_observed_date: null, price_source: "median", estimate_rm: 3.2,
+    } }, "en")).toBe("RM2.80 – RM3.60 (estimated)");
+  });
+
+  it("leaves out quantity and Add to basket when opened from planned items or the checklist (AC 5.9.2)", () => {
+    const markup = renderToStaticMarkup(createElement(CatalogueItemDialog, {
+      open: true, title: "Chicken", locale: "en", onClose: () => {},
+      details: "Details", initialTrendsOpen: true,
+      trends: () => createElement("section", null, "Trend chart"),
+    }));
+    expect(markup).not.toContain("Add to basket");
+    expect(markup).not.toContain("catalogue-dialog-quantity");
+    // AC 4.9.1: price trends are already open.
+    expect(markup).toContain("Trend chart");
+  });
 });
 
 

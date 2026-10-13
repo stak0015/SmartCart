@@ -44,7 +44,7 @@ The steps bar (Travel → Shop → Basket → Recommendations → Store details 
 | 1 | Essential basket building | Search, browse by category, add quantities, review basket |
 | 2 | Reachable store recommendation | Rank reachable stores by basket + return travel cost; nearby prices while shopping |
 | 3 | Smart budget alternatives | Cheaper equivalents and better-value pack sizes at the chosen store |
-| 4 | Price history, forecasting, planned items | National weekly price history, 4–12 week forecasts for qualifying items, schedule purchases by week |
+| 4 | Price history, forecasting, planned items | National weekly price history, 4–12 week forecasts for qualifying items, schedule purchases by week, planned items and their forecasts reachable while shopping |
 | 5 | Checklist and trip tracking | Shop from a checklist, record trips, export, track tolls, schedule unbought items |
 | 6 | Multi-store recommendations | Optional two-store plans with inter-store travel limits |
 | 7 | Healthier alternatives and nutrition | Curated healthier swaps with transparent nutrient comparisons |
@@ -55,7 +55,7 @@ Full stories and acceptance criteria: [Requirements](../02-requirements/README.m
 ## Principles that shape every feature
 
 1. **Never invent numbers.** Missing prices, routes, nutrients or forecasts are shown as unavailable, never as zero.
-2. **Label estimates.** Median prices, straight-line travel, forecasts and savings are always marked as estimates.
+2. **Label estimates.** Median prices (with the range they come from), straight-line travel, forecasts and savings are always marked as estimates.
 3. **A price is not stock.** A PriceCatcher observation does not prove an item is on the shelf today.
 4. **SARA states stay distinct.** *Verified*, *candidate* and *unverified* are never merged; unknown is not "ineligible".
 5. **Privacy by default.** Location is never stored on the server; it is kept on the device only with the trip in progress and the active checklist, and is never sent with reports. Trips, checklists and plans stay on the device.

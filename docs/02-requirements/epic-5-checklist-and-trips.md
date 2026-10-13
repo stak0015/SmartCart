@@ -1,6 +1,6 @@
 # Epic 5 — Shopping checklist and trip tracking
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Size | 10 |
 | Planned window | 2026-09-08 → 2026-09-18 |
 | Assigned | Zhihao Zhao, Chenglong Meng, Shunnosuke Takei |
-| Stories / ACs | 7 / 65 |
+| Stories / ACs | 8 / 68 |
 
 As a household shopper, I want to build checklists, record shopping trips, and keep track of items I did not buy, so that I can plan, review, and continue my shopping over time.
 
@@ -23,6 +23,7 @@ As a household shopper, I want to build checklists, record shopping trips, and k
 | [5.6](#us-56-schedule-unbought-items-for-a-later-trip) | Schedule unbought items for a later trip | SHOULD | 8 | 10 | Shunnosuke Takei |
 | [5.7](#us-57-export-a-shopping-checklist) | Export a shopping checklist | COULD | 8 | 8 | Zhihao Zhao |
 | [5.8](#us-58-record-the-travel-costs-of-my-trip) | Record the travel costs of my trip | — | 5 | 4 | Shunnosuke Takei |
+| [5.9](#us-59-check-a-checklist-items-details) | Check a checklist item's details | — | 5 | 3 | Shunnosuke Takei |
 
 ## US 5.1 Use the shopping checklist
 
@@ -179,3 +180,19 @@ As a household shopper, I want to see my trip's travel costs and add the tolls I
 | **5.8.2** Enter tolls | Given the checklist is open, when the shopper types a toll amount in the "Tolls" box, then the travel and trip totals include it. | 3 |
 | **5.8.3** Invalid toll | Given the checklist is open, when the shopper types an invalid toll amount, then an error message appears and "Record shopping trip" is disabled. | 3 |
 | **5.8.4** Tolls saved with the trip | Given the shopper entered tolls, when they press "Record shopping trip" and confirm, then that trip in Shopping history includes the recorded tolls. | 3 |
+
+## US 5.9 Check a checklist item's details
+
+Card [2530713452](https://monashie.leankit.com/card/2530713452) · size 5
+
+As a household shopper, I want to open an item's details from my checklist, so that I can check its nutrition and price trends while shopping.
+
+**Implementation** — frontend: [`item-details-dialog.tsx`](../../frontend/components/item-details-dialog.tsx), [`shopping-checklist.tsx`](../../frontend/components/shopping-checklist.tsx) (ChecklistRow); backend/data: [`api.py`](../../backend/smartcart/api.py) (/items/lookup).
+
+**Tests** — [`shopping-checklist.test.tsx`](../../frontend/components/shopping-checklist.test.tsx), [`catalogue-item-dialog.test.tsx`](../../frontend/components/catalogue-item-dialog.test.tsx).
+
+| AC | Criterion | Size |
+| --- | --- | --- |
+| **5.9.1** Open details from the checklist | Given an item from the store plan is on the checklist, when the shopper presses its name, then the item details window opens with the item's details, nutrition and the price-trends button. | 3 |
+| **5.9.2** Checklist details do not change the checklist | Given the item details window was opened from the checklist, when the shopper closes it, then the checklist line, ticks and totals are unchanged and no "Add to basket" button was offered. | 1 |
+| **5.9.3** No details for manual checklist items | Given a manually added item is on the checklist, when the shopper looks at its name, then it cannot be pressed. | 1 |

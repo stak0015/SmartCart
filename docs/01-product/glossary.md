@@ -9,14 +9,16 @@
 | **Observed date** | The date PriceCatcher recorded a price. Not proof of current stock or today's price. |
 | **Store price** | A price observed at that exact premise. `priceSource = "store"`. |
 | **Median estimate** | When a premise has no observation for an item, the item's cached median price across all premises (`item.median_price_rm`) is used and labelled. `priceSource = "median"`. |
+| **Estimate range** | The range shown beside a median estimate: the middle 95% of current prices across all premises (2.5th–97.5th percentile). Display only; totals use the median. |
 | **Unpriced line** | A basket line with neither a store price nor a median. Shown as missing; never counted as RM0. |
 | **Coverage** | How many basket lines a store has a usable price for, e.g. "7 of 8 priced". |
 | **Combined total** | Basket subtotal + estimated return travel cost. The main ranking value. |
 | **Candidate snapshot** | A short-lived (30 min) server-side cache of the stores reachable from the shopper's origin, referenced by an opaque `candidate_cache_id`. Lets the Shop screen show nearby prices without re-routing. |
+| **Route cache** | Google route matrix results (distance, duration, fare) kept for 30 minutes per origin–destination pair. Home legs stay in process memory; store-to-store legs are also shared in PostgreSQL. |
 | **Straight-line fallback** | When Google Routes is unavailable, the 25 nearest stores are used with straight-line distance and planning speeds. Travel limits are then *not* verified and the UI says so. |
 | **SARA** | *Sumbangan Asas Rahmah*, a government credit programme for essential goods, redeemed through MyKasih at participating merchants. |
 | **SARA verified store** | `premise.sara_partner = TRUE`: matched from a documented source (strict MyKasih match or official partner-chain list). |
-| **SARA candidate store** | `premise.sara_match_candidate = TRUE`: an automated one-to-one match that still needs verification. |
+| **SARA candidate store** | `premise.sara_match_candidate = TRUE`: an automated one-to-one match that still needs verification. Not included by the app's *SARA stores* filter, which shows verified stores only. |
 | **SARA category candidate** | An item whose category appears on the official SARA 2026 category list. Indicates likely eligibility only; the shelf label must be checked. |
 | **SARA credit / cash needed** | Split of a basket subtotal into lines likely payable with SARA credit and lines needing cash. |
 | **Cheaper equivalent** | A lower-priced item at the same store, same category and same package basis, with a similar name (token Jaccard ≥ 0.67). Epic 3. |

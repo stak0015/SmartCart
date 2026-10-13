@@ -22,6 +22,8 @@ export interface RecommendationDetailPrice {
   lineTotalRm: number | null;
   observedDate: string | null;
   priceSource?: PriceSource | null;
+  estimateLowRm?: number | null;
+  estimateHighRm?: number | null;
   saraEligible: boolean | null;
   saraCategoryCandidate: boolean;
   isSaraCreditCandidate: boolean;
@@ -69,6 +71,8 @@ function detailFromAlternative(item: AlternativePriceItem, quantity: number): Re
     lineTotalRm: item.unitPriceRm == null ? null : money(item.unitPriceRm * quantity),
     observedDate: item.observedDate,
     priceSource: item.priceSource,
+    estimateLowRm: item.estimateLowRm ?? null,
+    estimateHighRm: item.estimateHighRm ?? null,
     saraEligible: item.saraEligible,
     saraCategoryCandidate: item.saraCategoryCandidate,
     isSaraCreditCandidate: item.isSaraCreditCandidate,
@@ -120,6 +124,8 @@ function fallbackCurrentPrice(
     lineTotalRm: line.unitPriceRm == null ? null : money(line.unitPriceRm * basketItem.qty),
     observedDate: line.observedDate,
     priceSource: line.priceSource ?? price?.priceSource,
+    estimateLowRm: price?.estimateLowRm ?? null,
+    estimateHighRm: price?.estimateHighRm ?? null,
     saraEligible,
     saraCategoryCandidate,
     isSaraCreditCandidate: saraEligible === true || saraCategoryCandidate,

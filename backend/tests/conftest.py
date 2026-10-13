@@ -13,6 +13,17 @@ def offline_candidate_snapshots(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolated_route_cache(monkeypatch):
+    """Each test starts with an empty route cache and never touches the shared table."""
+    from smartcart import route_cache
+    route_cache.clear_memory_cache()
+    monkeypatch.setattr(route_cache, "_shared_get", lambda keys: {})
+    monkeypatch.setattr(route_cache, "_shared_put", lambda entries: None)
+    yield
+    route_cache.clear_memory_cache()
+
+
+@pytest.fixture(autouse=True)
 def offline_nutrition_records(monkeypatch):
     """Service tests supply food fixtures; production reads PostgreSQL."""
     from smartcart import item_nutrition
