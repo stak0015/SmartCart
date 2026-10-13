@@ -1861,7 +1861,7 @@ function CompareScreen({
           <h1 className="page-title">
             {copy.recommendationTitle}
           </h1>
-          <p className={result?.routeProvider === "straight_line" ? "page-intro page-intro-wide" : "page-intro"}>
+          <p className="page-intro page-intro-wide">
             {result?.routeProvider === "straight_line" ? copy.straightLineFallbackNote : copy.storesWithinLimit(limitLabel, originLabel, modeLabel)}
           </p>
           {preferences.saraFilter === "candidate" && (
