@@ -130,17 +130,22 @@ def test_other_filter_includes_lain_lain_and_unmapped_nonempty_categories(
 def test_price_aggregation_preserves_observation_date_and_money(monkeypatch):
     class Cursor:
         def execute(self, sql, params):
-            assert params == ([1, 2, 3], [12, 13], [1, 2, 3])
+            assert params == ([1, 2, 3], [12, 13], [1, 2, 3], [1, 2, 3])
+            # AC 2.5.5: without a nearby price, the range is the middle 95%
+            # of national prices.
+            assert "percentile_cont(0.025)" in sql and "percentile_cont(0.975)" in sql
+            # A bare % anywhere in the SQL breaks parameter binding.
+            assert "%" not in sql.replace("%s", "") and sql.count("%s") == len(params)
         def fetchall(self):
             return [
-                (1, Decimal("2.50"), Decimal("4.10"), 2, date(2026, 9, 19), "store"),
-                (2, Decimal("3.20"), Decimal("3.20"), 0, None, "median"),
+                (1, Decimal("2.50"), Decimal("4.10"), 2, date(2026, 9, 19), "store", Decimal("3.00")),
+                (2, Decimal("2.80"), Decimal("3.60"), 0, None, "median", Decimal("3.20")),
             ]
     @contextmanager
     def cursor():
         yield Cursor()
     monkeypatch.setattr(catalogue, "database_cursor", cursor)
     assert catalogue.catalogue_price_ranges([1, 2, 3], ["12", "13"]) == {
-        1: {"min_rm": 2.5, "max_rm": 4.1, "store_count": 2, "oldest_observed_date": "2026-09-19", "price_source": "store"},
-        2: {"min_rm": 3.2, "max_rm": 3.2, "store_count": 0, "oldest_observed_date": None, "price_source": "median"},
+        1: {"min_rm": 2.5, "max_rm": 4.1, "store_count": 2, "oldest_observed_date": "2026-09-19", "price_source": "store", "estimate_rm": None},
+        2: {"min_rm": 2.8, "max_rm": 3.6, "store_count": 0, "oldest_observed_date": None, "price_source": "median", "estimate_rm": 3.2},
     }

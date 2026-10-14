@@ -101,12 +101,14 @@ erDiagram
 
 | Table | Rows (approx.) | Notes |
 | --- | --- | --- |
-| `item` | ~800 | One row per PriceCatcher item. `median_price_rm` is refreshed during ingestion for touched items and backfilled by `migrate_median_prices.py`. |
+| `item` | ~800 | One row per PriceCatcher item. `median_price_rm` is refreshed during ingestion for touched items and backfilled by `migrate_median_prices.py`. The estimate range shown beside it (2.5th–97.5th percentile of `current_status` prices) is computed per request, not stored. |
 | `premise` | thousands | PriceCatcher lookup is authoritative for name and address. Place ID, status and coordinates come from the enrichment snapshot. Only `open` premises with coordinates are recommended. |
 | `current_status` | one per item–premise pair with a price | Latest observation only; older observations never overwrite newer rows. A price is not proof of stock. |
 | `category_translation` | 55 (English only) | Optional labels for 55 of the 59 raw categories; Malay and missing labels fall back to the raw PriceCatcher category. |
 | `nutrition_food` | ~196 current foods | `items` namespace = current item profiles; `foods` = legacy reference snapshot. One table holds values and provenance; there is no separate source table. |
 | `price_forecast_batch` / `_record` / `_active` | current and previous weekly batches, ~796 records each | Created by `database/migrations/003_price_forecasts.sql`; written only by the weekly forecast job ([Weekly forecasts](../../forecasting/README.md)). Publishing inserts a complete batch and moves the single active pointer in one transaction. Read by the API when `SMARTCART_FORECAST_SOURCE=postgres`. |
+
+Two short-lived cache tables are created by the backend on first use, not by migrations: `smartcart_candidate_snapshot` (prepared store lists, 30 minutes, no origin) and `smartcart_route_cache` (store-to-store route distance, duration and fare, 30 minutes, keyed by place IDs and mode; never a shopper's origin).
 
 Key constraints: positive prices and medians; coordinates in range and set together; `open_closed_status` enumerated; JSONB columns must be objects.
 

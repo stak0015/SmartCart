@@ -27,6 +27,14 @@ describe("store plan details", () => {
     }));
     expect(markup).toContain("waypoints=");
   });
+  it("keeps both stores in one header row on the plan card", () => {
+    const markup = renderToStaticMarkup(createElement(MultiPlanCard, {
+      plan, stores, basket, copy: COPY.en, locale: "en", onSelectPlan: () => {},
+    }));
+    expect(markup.match(/class="store-card-header/g)).toHaveLength(1);
+    for (const name of plan.storeNames) expect(markup).toContain(name.replace("'", "&#x27;"));
+    expect(markup).not.toContain("multi-plan-stores");
+  });
   it("labels partially estimated baskets on the plan card", () => {
     const unknownStores = stores.map(store => ({ ...store, name: `Local Store ${store.premiseId}` }));
     const incomplete = { ...plan, storeNames: unknownStores.map(store => store.name), missingItems: ["Bread"] };
@@ -57,9 +65,20 @@ describe("store plan details", () => {
       copy: COPY.en, locale: "en",
     }));
     expect(markup).toContain("store-price-table-row");
-    expect(markup).toContain(COPY.en.medianPriceEstimate);
+    // AC 2.4.10: an estimate without a known range is still labelled.
+    expect(markup).toContain("Estimated price");
     expect(markup).not.toContain("store-item-row");
     expect(markup).not.toContain("<img");
+  });
+
+  it("shows the price range behind an estimate (AC 2.4.10)", () => {
+    const markup = renderToStaticMarkup(createElement(StorePriceTable, {
+      prices: plan.assignments.map(line => ({...line, itemName: line.itemName!, packageSize: line.unit,
+        ...(line.priceSource === "median" ? { estimateLowRm: 4.5, estimateHighRm: 5.8 } : {})})),
+      copy: COPY.en, locale: "en",
+    }));
+    expect(markup).toContain("Estimated from a range of RM4.50 – RM5.80");
+    expect(markup).not.toContain("Price unavailable");
   });
 
   it("shows transport mode, fuel breakdown and multi-store savings without duplicate return travel", () => {

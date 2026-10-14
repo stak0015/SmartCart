@@ -30,7 +30,7 @@ flowchart LR
 | SmartCart backend | Catalogue search text, filters, sort, locale | Shop screen | No |
 | SmartCart backend → Google Places | Location search text (≥ 3 chars), session token, chosen place ID | Travel screen | No |
 | SmartCart backend → Google Geocoding | Device latitude/longitude | "Use precise location" (best-effort label) | No |
-| SmartCart backend → Google Routes | Origin coordinates, candidate store place IDs, travel mode | Recommendations | No |
+| SmartCart backend → Google Routes | Origin coordinates, candidate store place IDs, travel mode | Recommendations (only for routes not already cached) | Route results for 30 min: home legs in process memory only, under a hashed key; store-to-store legs (no personal data) also in PostgreSQL |
 | Google Maps, directly from the browser | Origin latitude/longitude (map embed); origin, store names and addresses (directions links) | Travel screen map; "Open in Google Maps" links | No |
 | SmartCart backend | Basket item IDs and quantities | Recommendations, store alternatives | No |
 | SmartCart backend | Report request: period, locale, and per trip: recorded time, bought line names, categories, quantities, unit prices and totals, unbought line names, store name, travel and plan estimates, cheapest alternative store estimate, estimated savings. **No origin or route.** | Generate report, only after consent | No (report returned, not persisted) |
@@ -61,6 +61,7 @@ Risk to note in governance documents: on a shared device, anyone using the same 
 | Provider keys only in backend environment; never `NEXT_PUBLIC_*` | `backend/smartcart/config.py`, `backend/.env.example` |
 | CORS limited to configured origins; methods GET/POST/OPTIONS; header `Content-Type` | `backend/main.py` |
 | `Cache-Control: private, no-store` on every `/api/` response | `backend/main.py` |
+| Routes cache never writes a shopper's origin to the database: home legs are memory-only under a SHA-256 key; the shared table holds store-to-store legs keyed by place IDs | `backend/smartcart/route_cache.py` |
 | Stable error envelope; no stack traces or provider messages to clients | `backend/smartcart/errors.py` |
 | Input validation: coordinates, enums, travel limits (0.5–100 km, 5–180 min), item IDs, query lengths | `backend/smartcart/models.py`, `api.py` |
 | Report size limits: 512 KiB body read before parsing, ≤128 trips, ≤1,000 lines, item names ≤200 chars | `backend/smartcart/report_models.py`, `api.py` |
@@ -84,7 +85,7 @@ Risk to note in governance documents: on a shared device, anyone using the same 
 | --- | --- |
 | PriceCatcher (data.gov.my) | CC BY 4.0 — attribution required in product and docs |
 | data.gov.my fuel prices | data.gov.my open data terms |
-| Google Maps Platform | Service-specific terms: no Google route content on a non-Google map; attribute Google; cached coordinates ≤ 30 days |
+| Google Maps Platform | Service-specific terms: no Google route content on a non-Google map; attribute Google; cached coordinates ≤ 30 days; route distances and durations cached for 30 minutes only |
 | USDA FoodData Central | Public domain (CC0 1.0) |
 | AFCD (Food Standards Australia New Zealand) | Published reference data; attribution conditions apply |
 | MyFCD (Ministry of Health Malaysia) | Public government reference; no explicit open licence; used with attribution |

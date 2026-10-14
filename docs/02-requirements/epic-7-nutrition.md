@@ -1,6 +1,6 @@
 # Epic 7 — Healthier alternatives and nutrition insights
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |

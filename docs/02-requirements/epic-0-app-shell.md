@@ -1,6 +1,6 @@
 # Epic 0 — App shell, home and navigation
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |
@@ -8,7 +8,7 @@
 | Size | 8 |
 | Planned window | 2026-09-08 → 2026-09-18 |
 | Assigned | Shunnosuke Takei |
-| Stories / ACs | 3 / 20 |
+| Stories / ACs | 3 / 21 |
 
 As a household shopper, I want a clear home screen and consistent navigation, so that I can start, resume and move between my shopping tasks easily.
 
@@ -16,7 +16,7 @@ As a household shopper, I want a clear home screen and consistent navigation, so
 
 | Story | Title | Priority | Size | ACs | Assigned |
 | --- | --- | --- | --- | --- | --- |
-| [0.1](#us-01-move-around-the-app) | Move around the app | — | 8 | 10 | Shunnosuke Takei |
+| [0.1](#us-01-move-around-the-app) | Move around the app | — | 8 | 11 | Shunnosuke Takei |
 | [0.2](#us-02-use-smartcart-in-my-language) | Use SmartCart in my language | — | 5 | 2 | Shunnosuke Takei |
 | [0.3](#us-03-start-or-resume-a-shopping-trip-from-home) | Start or resume a shopping trip from Home | — | 8 | 8 | Shunnosuke Takei |
 
@@ -26,7 +26,7 @@ Card [2529693224](https://monashie.leankit.com/card/2529693224) · size 8
 
 As a household shopper, I want the same header and step guide on every screen, so that I always know where I am and can reach any part of SmartCart.
 
-**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (Header), [`shopping-step-nav.tsx`](../../frontend/components/shopping-step-nav.tsx); backend/data: —.
+**Implementation** — frontend: [`smartcart-app.tsx`](../../frontend/components/smartcart-app.tsx) (Header, steps bar), [`shopping-step-nav.tsx`](../../frontend/components/shopping-step-nav.tsx); backend/data: —.
 
 **Tests** — [`shopping-step-nav.test.tsx`](../../frontend/components/shopping-step-nav.test.tsx).
 
@@ -42,6 +42,7 @@ As a household shopper, I want the same header and step guide on every screen, s
 | **0.1.10** Saved store link without a selected store | Given the shopper opens a saved or shared store details link without having chosen that store in this trip, when the page loads, then SmartCart opens the Recommendations screen instead. | 3 |
 | **0.1.11** Header basket button | Given the shopper is on any screen, when they select the basket button in the header, then the "Review your basket" screen opens. | 3 |
 | **0.1.12** Checklist step is a marker only | Given the steps bar is shown, when the shopper looks at the "Checklist" step, then it shows their progress but cannot be selected, as the checklist is opened from the header or Home. | 1 |
+| **0.1.13** Reopen the last store or plan | Given the shopper opened a store or a two-store plan and went back to Recommendations, when they select "Store details" in the steps bar, then the store or plan they opened last opens again. | 3 |
 
 ## US 0.2 Use SmartCart in my language
 

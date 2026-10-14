@@ -58,7 +58,7 @@
       }
     ],
     "result": "Pass",
-    "notes": "1y state=true; 12w state=true"
+    "notes": "1y state=true; 12w state=true Evidence from the 12 Oct 2026 run. On 13 Oct the local forecast file was older than 28 days, so forecasts were correctly withdrawn (AC 4.2.5) and the projected line could not be shown locally; this code did not change."
   },
   {
     "id": "AT-4.03",
@@ -79,7 +79,7 @@
       }
     ],
     "result": "Pass",
-    "notes": ""
+    "notes": "Evidence from the 12 Oct 2026 run. On 13 Oct the local forecast file was older than 28 days, so forecasts were correctly withdrawn (AC 4.2.5) and the projected line could not be shown locally; this code did not change."
   },
   {
     "id": "AT-4.04",
@@ -100,7 +100,7 @@
       }
     ],
     "result": "Pass",
-    "notes": ""
+    "notes": "Evidence from the 12 Oct 2026 run. On 13 Oct the local forecast file was older than 28 days, so forecasts were correctly withdrawn (AC 4.2.5) and the projected line could not be shown locally; this code did not change."
   },
   {
     "id": "AT-4.05",
@@ -403,6 +403,145 @@
     "notes": ""
   },
   {
+    "id": "AT-4.19",
+    "evidence": [
+      "AT-4.19-nothing-planned-panel.png"
+    ],
+    "checks": [
+      {
+        "name": "Planned items button on Shop shows 0",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Panel explains how to schedule an item",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.20",
+    "evidence": [
+      "AT-4.20-shop-button.png",
+      "AT-4.20-panel-open.png",
+      "AT-4.20-basket-button.png"
+    ],
+    "checks": [
+      {
+        "name": "Button on Shop shows the number planned (2)",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Panel lists each item with quantity and week",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Screen and basket unchanged",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Button also on Review your basket",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.21",
+    "evidence": [
+      "AT-4.21-added-from-panel.png"
+    ],
+    "checks": [
+      {
+        "name": "Item added with its planned quantity (1)",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Confirmation shown",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Item stays in Planned items",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "basket 1 -> 2"
+  },
+  {
+    "id": "AT-4.22",
+    "evidence": [
+      "AT-4.22-details-with-forecast.png",
+      "AT-4.22-after-close.png"
+    ],
+    "checks": [
+      {
+        "name": "Details open with Price trends already open",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Shows the planned week",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No Add to basket from Planned items",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Back on the same panel, list unchanged",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-4.23",
+    "evidence": [
+      "AT-4.23-manual-planned-item.png",
+      "AT-4.23-panel-manual-item.png"
+    ],
+    "checks": [
+      {
+        "name": "Manual item listed in Planned items",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Manual planned item name cannot be pressed",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Panel shows the manual item",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No Add to basket for the manual item",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
     "id": "AT-6.01",
     "evidence": [
       "AT-6.01-menu-default-off.png"
@@ -546,7 +685,7 @@
   {
     "id": "AT-6.07",
     "evidence": [
-      "AT-6.07-applied-without-routes.png"
+      "AT-6.07-plans-with-approximate-routes.png"
     ],
     "checks": [
       {
@@ -555,7 +694,12 @@
         "detail": ""
       },
       {
-        "name": "No two-store plans listed",
+        "name": "Store plans shows limits are active",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Two-store plans listed with approximate routes",
         "ok": true,
         "detail": ""
       },
@@ -566,6 +710,87 @@
       },
       {
         "name": "Basket unchanged",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "two-store plans listed: 10; pages expanded: 5"
+  },
+  {
+    "id": "AT-6.09",
+    "evidence": [
+      "AT-6.09-plan-card.png"
+    ],
+    "checks": [
+      {
+        "name": "Card labelled Two stores",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Both store names in one header row",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Distance, time, travel cost, subtotal and total",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Google Maps link and View stores button",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.10",
+    "evidence": [
+      "AT-6.10-plan-page.png",
+      "AT-6.10-reopened-from-steps-bar.png"
+    ],
+    "checks": [
+      {
+        "name": "Plan page with Store 1 and Store 2 tabs",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Basket summary with subtotal and total",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Back on the list",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Store details in the steps bar reopens the plan",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-6.11",
+    "evidence": [
+      "AT-6.11-two-store-checklist.png"
+    ],
+    "checks": [
+      {
+        "name": "Checklist opens covering both stores",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Open in Google Maps for the route",
         "ok": true,
         "detail": ""
       }
@@ -585,7 +810,180 @@
         "detail": ""
       },
       {
-        "name": "Single-store list still shown",
+        "name": "Two-store plans removed, single stores remain",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-F.01",
+    "evidence": [
+      "AT-F.01-travel-defaults.png"
+    ],
+    "checks": [
+      {
+        "name": "Modes in order Car, Motorcycle, Public transport, Walking",
+        "ok": true,
+        "detail": "Car|Motorcycle|Public transport|Walking"
+      },
+      {
+        "name": "Car selected by default",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "SARA stores selected by default",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Note says only verified SARA partner stores are shown",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-F.02",
+    "evidence": [
+      "AT-F.02-verified-only.png"
+    ],
+    "checks": [
+      {
+        "name": "Only verified SARA partner stores listed",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Note says the SARA filter is on",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "6 of 6 cards tagged"
+  },
+  {
+    "id": "AT-F.03",
+    "evidence": [
+      "AT-F.03-no-sara-store.png",
+      "AT-F.03-all-stores.png"
+    ],
+    "checks": [
+      {
+        "name": "Message says no verified SARA store is in reach",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Show all stores button",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "All reachable stores listed, including non-SARA ones",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "SARA filter note gone",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "6 stores after Show all stores, 1 without a SARA tag (list simulated empty first)"
+  },
+  {
+    "id": "AT-F.04",
+    "evidence": [
+      "AT-F.04-card-estimated-range.png",
+      "AT-F.04-details-estimated-range.png"
+    ],
+    "checks": [
+      {
+        "name": "Product card shows an estimated range",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Details note says estimated from prices across stores",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "KUIH KARIPAP (KENTANG): RM0.35 \u2013 RM1.20 (estimated)"
+  },
+  {
+    "id": "AT-F.05",
+    "evidence": [
+      "AT-F.05-store-details-range.png"
+    ],
+    "checks": [
+      {
+        "name": "Estimated line shows the range it comes from",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No \"Price unavailable; showing estimate\" wording",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": "Estimated from a range of RM0.35 \u2013 RM1.20"
+  },
+  {
+    "id": "AT-F.06",
+    "evidence": [
+      "AT-F.06-checklist-item-details.png",
+      "AT-F.06-checklist-after-close.png"
+    ],
+    "checks": [
+      {
+        "name": "Item details open from the checklist",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Price-trends button available",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "No Add to basket",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Checklist unchanged after closing",
+        "ok": true,
+        "detail": ""
+      }
+    ],
+    "result": "Pass",
+    "notes": ""
+  },
+  {
+    "id": "AT-F.07",
+    "evidence": [
+      "AT-F.07-manual-item-no-details.png"
+    ],
+    "checks": [
+      {
+        "name": "Manual item added",
+        "ok": true,
+        "detail": ""
+      },
+      {
+        "name": "Manual item name cannot be pressed",
         "ok": true,
         "detail": ""
       }
@@ -976,7 +1374,7 @@
         "detail": ""
       },
       {
-        "name": "Missing/median prices disclosed",
+        "name": "Estimated and missing prices disclosed",
         "ok": true,
         "detail": ""
       }

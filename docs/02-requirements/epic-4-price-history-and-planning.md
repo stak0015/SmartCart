@@ -1,6 +1,6 @@
 # Epic 4 — Price history, forecasting and planned items
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |
@@ -8,11 +8,11 @@
 | Size | 10 |
 | Planned window | 2026-10-06 → 2026-10-13 |
 | Assigned | Shunnosuke Takei |
-| Stories / ACs | 5 / 48 |
+| Stories / ACs | 7 / 56 |
 
-As a household shopper, I want to see how an item's price has changed and is forecast to change, schedule items for the week I plan to buy them, and start a trip from those planned items, so that I can decide when to buy essentials and plan my shopping ahead.
+As a household shopper, I want to see how an item's price has changed and is forecast to change, schedule items for the week I plan to buy them, reach my planned items while I shop, and start a trip from them, so that I can decide when to buy essentials and plan my shopping ahead.
 
-History 3m/6m/1y/All; forecasts 4/8/12 weeks for qualifying items only; "Planned items" list with one week per item (this week + next 4 weeks); "Planned this week" on Home; selected planned items start a trip. No weekly budgets, overdue grouping, "In current trip" status or partial-quantity reconciliation.
+History 3m/6m/1y/All; forecasts 4/8/12 weeks for qualifying items only; "Planned items" list with one week per item (this week + next 4 weeks); "Planned this week" on Home; a "Planned items" panel on Shop and basket; item details with the forecast from any planned item; selected planned items start a trip. No weekly budgets, overdue grouping, "In current trip" status or partial-quantity reconciliation.
 
 ## Stories
 
@@ -23,6 +23,8 @@ History 3m/6m/1y/All; forecasts 4/8/12 weeks for qualifying items only; "Planned
 | [4.4](#us-44-schedule-items-in-planned-items) | Schedule items in Planned items | — | 10 | 15 | Shunnosuke Takei |
 | [4.5](#us-45-see-what-is-planned-for-this-week) | See what is planned for this week | — | 5 | 5 | Shunnosuke Takei |
 | [4.6](#us-46-plan-a-shopping-trip-from-planned-items) | Plan a shopping trip from planned items | — | 8 | 7 | Shunnosuke Takei |
+| [4.8](#us-48-use-planned-items-while-building-a-basket) | Use planned items while building a basket | — | 8 | 5 | Shunnosuke Takei |
+| [4.9](#us-49-check-a-planned-items-details-and-forecast) | Check a planned item's details and forecast | — | 5 | 3 | Shunnosuke Takei |
 
 ## US 4.1 View item price history
 
@@ -84,7 +86,7 @@ As a household shopper, I want to schedule an item for the week I plan to buy it
 | AC | Criterion | Size |
 | --- | --- | --- |
 | **4.4.1** Planned items list | Given the shopper has scheduled at least one item, when they open Home, then a "Planned items" list shows each planned item with its quantity and planned week. | 3 |
-| **4.4.2** Schedule from item details | Given the item details window has a valid quantity, when the shopper presses the calendar "Schedule purchase" button, then a "Schedule purchase" window opens with the item and a choice of weeks. | 5 |
+| **4.4.2** Schedule from item details | Given the item details window has a valid quantity, when the shopper presses the bookmark "Schedule purchase" button, then a "Schedule purchase" window opens with the item and a choice of weeks. | 5 |
 | **4.4.3** Week options and default | Given the "Schedule purchase" window opens for an item not yet planned, when the shopper views the week options, then "This week" to "In 4 weeks" are offered with their dates and "This week" is selected. | 3 |
 | **4.4.4** Save a planned purchase | Given the "Schedule purchase" window is open, when the shopper chooses a week and presses "Save planned item", then the window closes, a confirmation appears, and the item is added to Planned items with that quantity and week. | 3 |
 | **4.4.5** Plan items without a forecast | Given an item has no price forecast, when the shopper presses "Schedule purchase", then the item can be scheduled in exactly the same way as a forecast item. | 3 |
@@ -136,3 +138,37 @@ As a household shopper, I want to select planned items and start a shopping trip
 | **4.6.6** Leaving the trip keeps the plan | Given the shopper pressed "Plan trip with selected items" but has not saved a plan, when they leave the trip or start a new one, then those items stay in Planned items unchanged. | 3 |
 | **4.6.7** Manual planned items | Given the shopper ticks a manually added planned item, when they press "Plan trip with selected items", then that item is not added to the basket or the store comparison and stays in Planned items. | 3 |
 | **4.6.8** Plan a trip before choosing a location | Given no starting location is chosen yet, when the shopper ticks planned items and presses "Plan trip with selected items", then the ticked items are added to the basket and the Travel screen opens. | 3 |
+
+## US 4.8 Use planned items while building a basket
+
+Card [2530713910](https://monashie.leankit.com/card/2530713910) · size 8
+
+As a household shopper, I want to see my planned items while I browse and review my basket, so that I can add them without going back to Home.
+
+**Implementation** — frontend: [`planned-items-panel.tsx`](../../frontend/components/planned-items-panel.tsx), [`shopping-checklist.tsx`](../../frontend/components/shopping-checklist.tsx) (NextTripList), [`next-trip.ts`](../../frontend/lib/next-trip.ts) (nextTripBasket); backend/data: —.
+
+**Tests** — [`shopping-checklist.test.tsx`](../../frontend/components/shopping-checklist.test.tsx), [`next-trip.test.ts`](../../frontend/lib/next-trip.test.ts).
+
+| AC | Criterion | Size |
+| --- | --- | --- |
+| **4.8.1** Planned items button | Given the shopper is on the Shop or "Review your basket" screen, when they look at the top of the screen, then a "Planned items" button shows how many items are planned. | 3 |
+| **4.8.2** Open planned items while shopping | Given the shopper is on the Shop or "Review your basket" screen, when they press "Planned items", then a panel lists each planned item with its quantity and week, and the screen and basket stay as they were. | 3 |
+| **4.8.3** Add a planned item to the basket | Given the "Planned items" panel is open, when the shopper presses "Add to basket" on an item, then it is added with its planned quantity (an item already in the basket keeps one line with the larger quantity), a confirmation appears and the item stays in Planned items. | 3 |
+| **4.8.4** Manual planned items while shopping | Given a manually added item is in Planned items, when the "Planned items" panel shows it, then it has no "Add to basket" button. | 1 |
+| **4.8.5** Nothing planned yet | Given the shopper has no planned items, when they press "Planned items", then the panel explains how to schedule an item. | 1 |
+
+## US 4.9 Check a planned item's details and forecast
+
+Card [2530713447](https://monashie.leankit.com/card/2530713447) · size 5
+
+As a household shopper, I want to open a planned item's details and price forecast from my list, so that I can decide whether to keep its planned week.
+
+**Implementation** — frontend: [`item-details-dialog.tsx`](../../frontend/components/item-details-dialog.tsx), [`catalogue-item-dialog.tsx`](../../frontend/components/catalogue-item-dialog.tsx), [`price-history.tsx`](../../frontend/components/price-history.tsx); backend/data: [`api.py`](../../backend/smartcart/api.py) (/items/lookup), [`catalogue.py`](../../backend/smartcart/catalogue.py) (get_catalogue_items).
+
+**Tests** — [`shopping-checklist.test.tsx`](../../frontend/components/shopping-checklist.test.tsx), [`catalogue-item-dialog.test.tsx`](../../frontend/components/catalogue-item-dialog.test.tsx), [`test_estimate_ranges.py`](../../backend/tests/test_estimate_ranges.py).
+
+| AC | Criterion | Size |
+| --- | --- | --- |
+| **4.9.1** Open details from Planned items | Given a catalogue item is in Planned items (on Home, Checklist or the "Planned items" panel), when the shopper presses its name, then the item details window opens with the "Price trends" panel already open, showing the forecast and the planned week. | 5 |
+| **4.9.2** No details for manual planned items | Given a manually added item is in Planned items, when the shopper looks at its name, then it cannot be pressed. | 1 |
+| **4.9.3** Closing details keeps the list | Given the item details window was opened from Planned items, when the shopper closes it, then they return to the same screen and Planned items is unchanged. | 1 |

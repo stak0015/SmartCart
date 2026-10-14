@@ -10,6 +10,8 @@ export interface CataloguePriceRange {
   store_count: number;
   oldest_observed_date: string | null;
   price_source?: "store" | "median";
+  // The median used in totals when the range is a national estimate.
+  estimate_rm?: number | null;
 }
 
 // Shape of a catalogue item (matches the /items/search row)
@@ -79,6 +81,22 @@ export async function searchItems(
   }
   const url = `${API_BASE_URL}/items/search?${params.toString()}`;
   return cachedJson<SearchResult>(url, 30_000, signal);
+}
+
+/**
+ * Catalogue rows for known item IDs, so planned items and checklist lines can
+ * open the item details window (AC 4.9.1, 5.9.1).
+ */
+export async function lookupItems(
+  itemIds: string[],
+  candidateCacheId?: string | null,
+  signal?: AbortSignal,
+): Promise<Item[]> {
+  const params = new URLSearchParams();
+  itemIds.forEach(id => params.append("id", id));
+  if (candidateCacheId) params.set("candidate_cache_id", candidateCacheId);
+  const result = await cachedJson<{ items: Item[] }>(`${API_BASE_URL}/items/lookup?${params.toString()}`, 30_000, signal);
+  return result.items;
 }
 
 /**

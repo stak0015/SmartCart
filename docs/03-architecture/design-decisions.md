@@ -26,7 +26,7 @@ Short decision records: what was decided, why, and what it costs. Newest underst
 
 **Why.** One provider covers all four modes in Malaysia — walking, public transport, car and two-wheeler — with consistent place IDs. Openrouteservice has no public-transport routing. Monthly free tiers (10,000 elements/requests per SKU at the time of choice) cover a student project.
 
-**Trade-off.** Billing must be enabled and quotas watched. Mitigations: at most 25 routed candidates per request (configurable 5–49), a 30-minute candidate snapshot (D6), and a straight-line fallback when Routes is missing or fails — clearly labelled, with travel limits marked as *not verified*.
+**Trade-off.** Billing must be enabled and quotas watched. Mitigations: at most 25 routed candidates per request (configurable 5–49), a 30-minute candidate snapshot (D6), a 30-minute route cache (D6), and a straight-line fallback when Routes is missing or fails — clearly labelled, with travel limits marked as *not verified*.
 
 ## D4. Rank by combined cost, with labelled median estimates
 
@@ -34,7 +34,7 @@ Short decision records: what was decided, why, and what it costs. Newest underst
 
 **Why.** Shoppers care about total outlay, not item prices alone. PriceCatcher coverage per store is patchy; without medians, stores with fewer observed items would look artificially cheap. An earlier version ranked by price coverage first; the current rule compares totals directly and makes coverage visible on each store card instead.
 
-**Trade-off.** A median is not that store's price. The UI always shows which lines are estimates and which are missing.
+**Trade-off.** A median is not that store's price. The UI always shows which lines are estimates and which are missing, and shows the range the estimate comes from: the middle 95% of current prices across all stores (2.5th–97.5th percentile), so one unusually cheap or expensive store does not stretch it. A single median looked more precise than it is; the range makes the uncertainty visible while totals stay comparable.
 
 ## D5. Only show premises believed to be open
 
@@ -50,13 +50,13 @@ Short decision records: what was decided, why, and what it costs. Newest underst
 
 **Why.** The Shop screen shows nearby price ranges for every product, and the basket changes often. Re-routing on every change would multiply Google cost. The fingerprint stops a stale ID being reused after the shopper changes mode or limit.
 
-**Trade-off.** Preparation adds one database write; a cold worker reads the shared snapshot once. This avoids losing nearby prices when requests hit different workers. Multi-store requests bypass it because they need a fresh inter-store matrix.
+**Trade-off.** Preparation adds one database write; a cold worker reads the shared snapshot once. This avoids losing nearby prices when requests hit different workers. Multi-store requests bypass the snapshot because it holds no inter-store routes; instead every route matrix call goes through a 30-minute route cache. Home legs stay in process memory (they contain the shopper's location); store-to-store legs, which hold no personal data, are shared in PostgreSQL. Changing second-store limits or the basket then re-prices without new Routes calls. Measured locally with Google Routes: about 1.6 s for the first two-store request, about 0.3 s when repeated, about 0.7 s on a fresh worker.
 
 ## D7. Transport cost from official fuel prices
 
 **Decision.** Car and motorcycle cost = distance × litres/100 km × the official RON95 price (data.gov.my, refreshed once per Malaysian day). Public transport uses Google's fare when available, otherwise a base fare per leg plus a per-km rate. Walking costs RM0. Tolls are excluded and shown as *not included*; the shopper can record actual tolls on the checklist.
 
-**Why.** Transparent, reproducible and sourced. Google does not support toll estimates in Malaysia. All rates are environment variables so the team can change assumptions without code changes.
+**Why.** Transparent, reproducible and sourced. Google does not support toll estimates in Malaysia (re-checked 13 Oct 2026: a route on the tolled North–South Expressway returned no toll information). All rates are environment variables so the team can change assumptions without code changes.
 
 **Trade-off.** Consumption figures are planning defaults (7.0 and 2.5 L/100 km), not the shopper's vehicle.
 
@@ -105,6 +105,8 @@ Short decision records: what was decided, why, and what it costs. Newest underst
 **Decision.** Stores are *verified* (`sara_partner = TRUE`), *candidate* (`sara_match_candidate = TRUE`) or *unverified* (everything else). Items are SARA-eligible only when verified per item; otherwise a category on the official SARA 2026 list makes them a *category candidate*. Unknown never means ineligible.
 
 **Why.** A wrong "eligible" sends a recipient to pay cash unexpectedly; a wrong "ineligible" hides a benefit. Both errors are avoided by being explicit about uncertainty.
+
+The shopper-facing *SARA stores* filter shows verified stores only and is on by default; candidates appeared as "possible matches" without a tag, which looked like the filter was broken. If no verified store is within reach, a "Show all stores" button turns the filter off.
 
 **Trade-off.** "Verified" includes a documented, team-approved assumption that all branches of the eight chains named in the official SARA 2026 FAQ participate (see [Data sources](../05-data/data-sources-and-pipelines.md#sara-store-status)).
 

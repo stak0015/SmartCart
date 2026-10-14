@@ -115,7 +115,10 @@ export function MultiStorePanel({
     <details ref={menuRef} id="multi-store-settings" className="store-plans-dropdown">
       <summary className="store-plans-trigger">
         <UIIcon name="route" size={18} />
-        <span>{copy.storePlans}</span>
+        <span className="store-plans-label">
+          <span>{copy.storePlans}</span>
+          <small>{copy.storePlansHint}</small>
+        </span>
         {config.applied && <span className="store-plans-active" />}
         <DropdownChevron className="store-plans-chevron" />
       </summary>
@@ -134,6 +137,8 @@ export function MultiStorePanel({
             <span className={"remember-switch " + (config.enabled ? "is-on" : "")} />
           </button>
         </div>
+        {/* Why a second store can help, shown before the shopper opts in. */}
+        <p className="multi-store-benefit">{copy.multiStoreBenefit}</p>
 
         {config.enabled && (
           <div className="multi-store-content">

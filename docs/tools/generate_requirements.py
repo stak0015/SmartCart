@@ -1,8 +1,9 @@
 """Generate docs/02-requirements/* and docs/08-evidence/traceability-matrix.md.
 
-Card text, assignees and IDs come from a LeanKit card export (live-cards.json).
-Sizes and planned windows come from the applied revision (us-ac-revision.md),
-because the export predates the scheduling step of the 11 October sync.
+Card text, assignees, IDs and sizes come from a LeanKit card export
+(live-cards.json, every card on the board). Epic planned windows, and the size
+of any card without one on the board, come from the applied revision
+(us-ac-revision.md).
 
 Usage, from the repository root:
     python docs/tools/generate_requirements.py [--cards PATH] [--backup PATH] [--revision PATH]
@@ -46,7 +47,7 @@ EPICS = {
 
 # Story -> (frontend, backend/data, tests). Paths are repository-relative.
 IMPL = {
-    "0.1": (["frontend/components/smartcart-app.tsx (Header)", "frontend/components/shopping-step-nav.tsx"], [],
+    "0.1": (["frontend/components/smartcart-app.tsx (Header, steps bar)", "frontend/components/shopping-step-nav.tsx"], [],
             ["frontend/components/shopping-step-nav.test.tsx"]),
     "0.2": (["frontend/lib/i18n.ts", "frontend/components/smartcart-app.tsx (LanguageToggle)"],
             ["backend/smartcart/translations.py", "backend/smartcart/categories.py"],
@@ -68,19 +69,19 @@ IMPL = {
             ["frontend/lib/result-row.test.ts"]),
     "1.6": (["frontend/components/smartcart-app.tsx (BasketScreen)", "frontend/lib/result-row.ts"], [],
             ["frontend/lib/result-row.test.ts", "frontend/components/shopping-step-nav.test.tsx"]),
-    "2.1": (["frontend/components/smartcart-app.tsx (LocationScreen)", "frontend/lib/api-client.ts"],
+    "2.1": (["frontend/components/smartcart-app.tsx (LocationScreen)", "frontend/lib/api-client.ts", "frontend/lib/shopping-session.ts"],
             ["backend/smartcart/api.py (/locations/*)", "backend/smartcart/maps.py"],
             ["backend/tests/test_maps.py", "backend/tests/test_api.py", "frontend/lib/api-client.test.ts"]),
     "2.2": (["frontend/components/smartcart-app.tsx (CompareScreen)"],
-            ["backend/smartcart/api.py (_recommend_stores)", "backend/smartcart/premises.py", "backend/smartcart/recommendation.py (rank_reachable_stores)", "backend/smartcart/maps.py"],
-            ["backend/tests/test_recommendation.py", "backend/tests/test_premises.py", "backend/tests/test_api.py", "database/tests/test_migrate_premise_open_status.py", "database/tests/test_migrate_sara_verified.py", "database/tests/test_migrate_sara_chain_partners.py", "database/tests/test_sara_chain_catalog.py"]),
+            ["backend/smartcart/api.py (_recommend_stores)", "backend/smartcart/premises.py", "backend/smartcart/recommendation.py (rank_reachable_stores)", "backend/smartcart/maps.py", "backend/smartcart/route_cache.py"],
+            ["backend/tests/test_recommendation.py", "backend/tests/test_premises.py", "backend/tests/test_api.py", "backend/tests/test_route_cache.py", "database/tests/test_migrate_premise_open_status.py", "database/tests/test_migrate_sara_verified.py", "database/tests/test_migrate_sara_chain_partners.py", "database/tests/test_sara_chain_catalog.py"]),
     "2.3": (["frontend/components/smartcart-app.tsx (CompareScreen, StoreCard)", "frontend/lib/visible-stores.ts", "frontend/lib/basket-coverage.ts", "frontend/lib/travel.ts (directions links)"],
             ["backend/smartcart/pricing.py", "backend/smartcart/recommendation.py (apply_basket_pricing)", "backend/smartcart/sara.py"],
             ["backend/tests/test_pricing.py", "backend/tests/test_recommendation.py", "backend/tests/test_sara.py", "frontend/lib/visible-stores.test.ts", "frontend/lib/basket-coverage.test.ts", "frontend/lib/travel.test.ts", "database/tests/test_migrate_median_prices.py", "frontend/lib/basket-lines.test.ts", "frontend/lib/format-rm.test.ts"]),
-    "2.4": (["frontend/components/smartcart-app.tsx (RecommendationOverview)", "frontend/lib/recommendation-detail.ts", "frontend/components/travel-cost-breakdown.tsx"],
-            ["backend/smartcart/fuel.py", "backend/smartcart/recommendation.py (fuel_cost_breakdown)"],
-            ["backend/tests/test_fuel.py", "frontend/lib/recommendation-detail.test.ts", "frontend/lib/travel-cost-breakdown.test.tsx"]),
-    "2.5": (["frontend/components/nearby-price-status.tsx", "frontend/lib/catalogue-price.ts"],
+    "2.4": (["frontend/components/smartcart-app.tsx (RecommendationOverview)", "frontend/lib/recommendation-detail.ts", "frontend/components/travel-cost-breakdown.tsx", "frontend/components/store-basket-row.tsx", "frontend/lib/estimate-label.ts"],
+            ["backend/smartcart/fuel.py", "backend/smartcart/recommendation.py (fuel_cost_breakdown)", "backend/smartcart/estimate_ranges.py"],
+            ["backend/tests/test_fuel.py", "backend/tests/test_estimate_ranges.py", "frontend/lib/estimate-label.test.ts", "frontend/lib/recommendation-detail.test.ts", "frontend/lib/travel-cost-breakdown.test.tsx"]),
+    "2.5": (["frontend/components/nearby-price-status.tsx", "frontend/lib/catalogue-price.ts", "frontend/components/catalogue-item-details.tsx"],
             ["backend/smartcart/api.py (/recommendations/prepare)", "backend/smartcart/catalogue.py (catalogue_price_ranges)"],
             ["backend/tests/test_catalogue_prices.py", "frontend/components/nearby-price-status.test.tsx", "frontend/lib/catalogue-price.test.ts"]),
     "3.1": (["frontend/components/recommendation-basket-row.tsx", "frontend/components/smartcart-app.tsx (RecommendationOverview)"],
@@ -103,6 +104,11 @@ IMPL = {
             ["frontend/lib/planned-week.test.ts", "frontend/lib/next-trip.test.ts"]),
     "4.6": (["frontend/components/smartcart-app.tsx (planWithSavedItems)", "frontend/lib/next-trip.ts"], [],
             ["frontend/lib/next-trip.test.ts"]),
+    "4.8": (["frontend/components/planned-items-panel.tsx", "frontend/components/shopping-checklist.tsx (NextTripList)", "frontend/lib/next-trip.ts (nextTripBasket)"], [],
+            ["frontend/components/shopping-checklist.test.tsx", "frontend/lib/next-trip.test.ts"]),
+    "4.9": (["frontend/components/item-details-dialog.tsx", "frontend/components/catalogue-item-dialog.tsx", "frontend/components/price-history.tsx"],
+            ["backend/smartcart/api.py (/items/lookup)", "backend/smartcart/catalogue.py (get_catalogue_items)"],
+            ["frontend/components/shopping-checklist.test.tsx", "frontend/components/catalogue-item-dialog.test.tsx", "backend/tests/test_estimate_ranges.py"]),
     "5.1": (["frontend/components/shopping-checklist.tsx", "frontend/lib/shopping-checklist.ts"], [],
             ["frontend/lib/shopping-checklist.test.ts", "frontend/components/shopping-checklist.test.tsx", "frontend/lib/checklist-snapshots.test.ts"]),
     "5.2": (["frontend/components/shopping-checklist.tsx", "frontend/lib/shopping-checklist.ts"], [],
@@ -113,6 +119,9 @@ IMPL = {
             ["frontend/components/shopping-history.test.tsx", "frontend/lib/trip-history.test.ts"]),
     "5.6": (["frontend/lib/next-trip.ts", "frontend/components/shopping-checklist.tsx"], [],
             ["frontend/lib/next-trip.test.ts"]),
+    "5.9": (["frontend/components/item-details-dialog.tsx", "frontend/components/shopping-checklist.tsx (ChecklistRow)"],
+            ["backend/smartcart/api.py (/items/lookup)"],
+            ["frontend/components/shopping-checklist.test.tsx", "frontend/components/catalogue-item-dialog.test.tsx"]),
     "5.7": (["frontend/lib/checklist-export.ts", "frontend/components/shopping-checklist.tsx"], [],
             ["frontend/lib/checklist-export.test.ts"]),
     "5.8": (["frontend/lib/trip-travel-cost.ts", "frontend/components/travel-cost-breakdown.tsx", "frontend/components/shopping-checklist.tsx (toll entry)"], [],
@@ -120,8 +129,8 @@ IMPL = {
     "6.1": (["frontend/components/multi-store-panel.tsx", "frontend/lib/multi-store.ts"],
             ["backend/smartcart/models.py (RecommendationRequest.second_store_limit)"],
             ["frontend/components/multi-store-panel.test.tsx", "frontend/lib/multi-store.test.ts", "backend/tests/test_multi_store_api.py"]),
-    "6.2": ([], ["backend/smartcart/multi_store.py", "backend/smartcart/api.py (_build_multi_store_plans)", "backend/smartcart/maps.py (compute_route_matrix_multi_origin)"],
-            ["backend/tests/test_multi_store.py", "backend/tests/test_multi_store_api.py"]),
+    "6.2": ([], ["backend/smartcart/multi_store.py", "backend/smartcart/api.py (_build_multi_store_plans)", "backend/smartcart/maps.py (compute_route_matrix_multi_origin)", "backend/smartcart/route_cache.py"],
+            ["backend/tests/test_multi_store.py", "backend/tests/test_multi_store_api.py", "backend/tests/test_route_cache.py"]),
     "6.3": (["frontend/lib/multi-store.ts (rankedStorePlanOptions)", "frontend/components/plan-comparison.tsx"],
             ["backend/smartcart/multi_store_pricing.py"],
             ["backend/tests/test_multi_store_pricing.py", "frontend/lib/multi-store-options.test.ts"]),
@@ -223,6 +232,9 @@ def main() -> None:
             "priority": priority.group(1).upper() if priority else None,
             "lane": card["lane"]["title"],
         }
+        number = f"{epic_no}.{story_no}" + (f".{ac_no}" if ac_no else "") if header != "EPIC" else f"{epic_no}.0"
+        if card.get("size"):
+            sizes[number] = int(card["size"])
         if card.get("archivedOn"):
             entry["number"] = f"{epic_no}.{story_no}" + (f".{ac_no}" if ac_no else "")
             entry["header"] = header
@@ -259,7 +271,7 @@ def main() -> None:
         lines = [
             f"# Epic {epic_no} — {short.capitalize() if short[0].islower() else short}",
             "",
-            f"> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).",
+            f"> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).",
             "",
             "| | |", "| --- | --- |",
             f"| Epic card | {card_link(epic['id'])} |",

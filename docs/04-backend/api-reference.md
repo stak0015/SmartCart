@@ -22,6 +22,7 @@ Errors that any endpoint can return:
 | --- | --- | --- | --- |
 | GET | `/health` | Liveness and catalogue row count | — |
 | GET | `/items/search` | Search, filter, sort and page the catalogue | 1, 2.5 |
+| GET | `/items/lookup` | Catalogue rows for known item IDs (item details from planned items and the checklist) | 4, 5 |
 | GET | `/items/categories` | Broad categories with labels | 1 |
 | GET | `/items/{item_code}/price-history` | Weekly national history and forecast | 4 |
 | GET | `/items/{item_code}/nutrition` | Nutrition record for one item | 7 |
@@ -47,9 +48,13 @@ Errors that any endpoint can return:
 | `sara_category_only` | bool | false | Only official SARA 2026 categories |
 | `sort` | `price_asc`, `price_desc`, `name_asc`, `name_desc` | `price_asc` | Price sort uses the lowest nearby price, else the cached median; unpriced last |
 | `locale` | `en`, `ms` | `en` | Name used for name sorting |
-| `candidate_cache_id` | string | none | When valid, adds `price_range` from the 25 nearest cached stores |
+| `candidate_cache_id` | string | none | When valid, adds `price_range` from the 25 nearest cached stores, or the national estimate range for items they do not sell |
 
-Response: `{ count, total, page, page_size, total_pages, items[], price_context: "ready" | "unavailable", price_store_count, sara_category_source }`. Each item has `item_code`, Malay/English names, `package_size`, `category`, `source_category`, `sara_eligible` (null = unverified), `sara_category_candidate`, `image_url`, and `price_range { min_rm, max_rm, store_count, oldest_observed_date, price_source: "store" | "median" }`.
+Response: `{ count, total, page, page_size, total_pages, items[], price_context: "ready" | "unavailable", price_store_count, sara_category_source }`. Each item has `item_code`, Malay/English names, `package_size`, `category`, `source_category`, `sara_eligible` (null = unverified), `sara_category_candidate`, `image_url`, and `price_range { min_rm, max_rm, store_count, oldest_observed_date, price_source: "store" | "median", estimate_rm }`. With `price_source = "median"`, `min_rm`–`max_rm` is the middle 95% of current national prices (2.5th–97.5th percentile) and `estimate_rm` is the median used in totals.
+
+### `GET /items/lookup`
+
+Repeated `id` (catalogue item ID, up to 50) and optional `candidate_cache_id`. Returns `{ items[] }` in the same shape as search results. Unknown IDs are left out.
 
 ### `GET /items/{item_code}/price-history`
 
@@ -93,7 +98,7 @@ Optional `candidate_cache_id` for nearby price ranges. Returns `{ item_code, cou
 | --- | --- |
 | `transportMode` | `walk`, `public_transport`, `motorcycle`, `car` |
 | `limit` | `distance` (`value` 0.5–100 km), `time` (`value` 5–180 min) or `both` (`distanceKm` and `timeMinutes`) |
-| `saraFilter` | `any`, `candidate` (verified or candidate stores), `verified` |
+| `saraFilter` | `any`, `candidate` (verified or candidate stores), `verified`. The app sends `verified` (default) or `any` |
 | `basket` | ≤ 100 lines; quantity 1–99. Empty basket → transport-only ranking |
 | `candidateCacheId` | Reuses the prepared snapshot when travel settings match; ignored when `secondStoreLimit` is set |
 | `secondStoreLimit` | Optional; enables two-store plans (same validation as `limit`) |
@@ -102,7 +107,7 @@ Optional `candidate_cache_id` for nearby price ranges. Returns `{ item_code, cou
 
 | Field | Meaning |
 | --- | --- |
-| `recommendations[]` | Ranked stores: identity, address, SARA status, route distance/time, `estimatedRoundTripCostRm`, `travelCostBreakdown` (fuel), `basketSubtotalRm`, `combinedTotalRm`, `pricedCount`/`basketLineCount`, `storePriceCount`/`medianPriceCount`, `missingItems`, `saraCreditRm`/`cashNeededRm`, `basketPrices[]`, `exceedsLimit` |
+| `recommendations[]` | Ranked stores: identity, address, SARA status, route distance/time, `estimatedRoundTripCostRm`, `travelCostBreakdown` (fuel), `basketSubtotalRm`, `combinedTotalRm`, `pricedCount`/`basketLineCount`, `storePriceCount`/`medianPriceCount`, `missingItems`, `saraCreditRm`/`cashNeededRm`, `basketPrices[]` (median-priced lines add `estimateLowRm`/`estimateHighRm`), `exceedsLimit` |
 | `rankingMethod` | Plain-English description of the ranking applied |
 | `costAssumptions` | Per-mode cost assumptions (shown to the shopper) |
 | `routeProvider` | `google` or `straight_line` |

@@ -1,16 +1,14 @@
 # Epic 1 — Essential basket building
 
-> Mirrors the LeanKit board after the 11 October 2026 US/AC revision. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
+> Mirrors the LeanKit board after the 13 October 2026 update. The board is the source of truth; regenerate this file when cards change (see [README](README.md)).
 
 | | |
 | --- | --- |
 | Epic card | [2495224158](https://monashie.leankit.com/card/2495224158) |
 | Size | 8 |
 | Planned window | 2026-08-26 → 2026-09-01 |
-| Assigned | — |
+| Assigned | Zhihao Zhao, Chenglong Meng, Shunnosuke Takei |
 | Stories / ACs | 6 / 41 |
-
-> **Board gap:** the 11 October sync did not reach this epic card (the card fetch stopped at 500 cards), so its revised size, planned window and assignees were never applied. Size and window below are the revision's intended values.
 
 As a household shopper, I want to search the official supported catalogue, choose quantities, and review a basket, so I can prepare a shopping list before comparing reachable store prices.
 

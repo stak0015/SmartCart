@@ -11,7 +11,7 @@ Code: `backend/smartcart/catalogue.py`, `categories.py`, `translations.py`, `cat
 - **Sort:** `price_asc` (default) / `price_desc` use the lowest observed price among the 25 nearest cached stores (when a candidate snapshot exists), else the item's cached median; unpriced items go last. Name sorts use the English name for `locale=en` and the Malay name for `ms`. Every sort ends with `item_id` for stable paging.
 - **Page:** 25 items per page; the response includes `total` and `total_pages`.
 
-Each row is enriched in Python with: broad and source category, `package_size` (parsed from the name, else the pricing unit), `sara_category_candidate`, `image_url` (only when a checked-in thumbnail exists), and `price_range` when a snapshot is supplied.
+Each row is enriched in Python with: broad and source category, `package_size` (parsed from the name, else the pricing unit), `sara_category_candidate`, `image_url` (only when a checked-in thumbnail exists), and `price_range` when a snapshot is supplied. For an item none of the nearby stores sells, `price_range` is the middle 95% of current national prices (2.5th–97.5th percentile, so outliers are left out), shown as "RMa – RMb (estimated)".
 
 ## Categories
 
@@ -29,8 +29,9 @@ Each broad category also has a spending class (`essential`, `discretionary`, `mi
 | Package size | Parsed size (`850G`, `5X79G`, `10S`, `8 PADS`), else the PriceCatcher unit; grade weight ranges (eggs) are not treated as sizes |
 | Image | Pre-compressed WebP thumbnail listed in `catalogue_image_manifest.py`; neutral icon otherwise |
 | SARA label | Shown only for SARA-category candidates; never claims verified eligibility |
+| Price | Nearby price range, or the national estimate range with a note that it is estimated from prices across stores |
 
-The details window also hosts nutrition (Epic 7), healthier alternatives (Epic 7) and price trends (Epic 4).
+The details window also hosts nutrition (Epic 7), healthier alternatives (Epic 7) and price trends (Epic 4). It also opens from a planned item's name (with price trends already open) and from a checklist item's name, through `GET /items/lookup` (`components/item-details-dialog.tsx`); those copies offer no "Add to basket".
 
 ## Basket rules (frontend)
 
