@@ -11,20 +11,24 @@
 .compare-travel-toolbar .store-detail-facts, .store-detail-header .store-detail-facts { min-width: 0; margin-top: 0; grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr)); }
 .compare-travel-toolbar .store-detail-facts { flex: 1; }
 .store-plans-dropdown { position: relative; flex-shrink: 0; }
-.store-plans-trigger { display: flex; align-items: center; gap: 8px; min-height: var(--control-height); padding: 8px 12px; border: 1px solid var(--line); border-radius: 6px; background: white; color: var(--ink); font-size: 13px; font-weight: 600; cursor: pointer; list-style: none; }
+.store-plans-trigger { display: flex; align-items: center; gap: 8px; min-height: var(--control-height); padding: 8px 16px; border: 1px solid var(--green); border-radius: 6px; background: var(--green); color: white; font-size: 14px; font-weight: 700; cursor: pointer; list-style: none; box-shadow: 0 2px 8px #007d3833; transition: background .15s, box-shadow .15s; }
 .store-plans-trigger::-webkit-details-marker { display: none; }
-.store-plans-trigger > svg { color: var(--green); }
+.store-plans-trigger > svg { color: white; }
+.store-plans-trigger:hover { background: #00692f; box-shadow: 0 4px 12px #007d3840; }
 .store-plans-trigger:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
-.store-plans-active { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
-.store-plans-dropdown[open] .store-plans-trigger { border-color: var(--green); background: #eef9f1; }
+.store-plans-label { display: flex; flex-direction: column; line-height: 1.2; text-align: left; }
+.store-plans-label small { font-size: 11px; font-weight: 500; opacity: .9; }
+.store-plans-active { width: 8px; height: 8px; border-radius: 50%; background: white; box-shadow: 0 0 0 2px #ffffff55; }
+.store-plans-dropdown[open] .store-plans-trigger { background: #00692f; border-color: #00692f; }
 .store-plans-dropdown[open] .store-plans-chevron { transform: rotate(180deg); }
-.store-plans-dropdown > .multi-store-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 40; width: 440px; max-width: calc(100vw - 48px); max-height: min(560px, 65dvh); overflow-y: auto; box-shadow: 0 8px 28px #10152e20; }
+.store-plans-dropdown > .multi-store-panel { position: absolute; top: calc(100% + 8px); left: 0; z-index: 40; width: 440px; max-width: calc(100vw - 48px); max-height: min(560px, 65dvh); overflow-y: auto; box-shadow: 0 8px 28px #10152e20; }
 .multi-store-panel { width: 100%; max-width: 440px; border: 1px solid var(--line); border-radius: var(--control-radius); background: white; padding: 8px 16px; }
 .multi-store-header { display: flex; align-items: center; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; }
 .multi-store-toggle { display: flex; align-items: center; gap: 8px; min-height: var(--control-height); font-size: 13px; font-weight: 600; text-align: left; }
 .multi-store-toggle > svg { color: var(--green); }
 .multi-store-toggle .remember-switch { position: relative; display: inline-block; flex-shrink: 0; width: 36px; height: 20px; border-radius: 20px; background: #aebcbb; }
 .multi-store-toggle .remember-switch.is-on { background: var(--green); }
+.multi-store-benefit { padding-bottom: 8px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .multi-store-content { display: flex; flex-direction: column; gap: 12px; padding: 10px 0 8px; border-top: 1px solid var(--line); }
 .multi-store-intro h2 { font-size: 14px; font-weight: 700; }
 .multi-store-intro p { margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
@@ -68,12 +72,14 @@
   .plan-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 600px) {
-  .compare-travel-toolbar { gap: 10px; align-items: flex-start; }
+  .compare-travel-toolbar { flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+  .compare-travel-toolbar .store-detail-facts { flex-basis: 100%; }
+  .store-plans-dropdown { width: 100%; }
+  .store-plans-chevron { margin-left: auto; }
   .compare-travel-toolbar .store-detail-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 8px; }
   .compare-travel-toolbar .store-detail-facts > span { border-right: 0; padding-inline: 0; }
   .compare-travel-toolbar .store-detail-facts > span:first-child { display: grid; grid-column: 1 / -1; }
-  .store-plans-trigger { gap: 6px; padding-inline: 8px; font-size: 12px; }
-  .store-plans-trigger > svg { display: none; }
+  .store-plans-trigger { gap: 8px; padding-inline: 12px; }
   .store-plans-dropdown > .multi-store-panel, .store-plans-dropdown > .multi-store-panel.has-both-limits { position: fixed; inset: auto 16px 16px; width: auto; max-width: none; max-height: 70dvh; }
   .multi-store-panel { padding-inline: 12px; }
   .multi-store-controls { gap: 10px; align-items: stretch; }

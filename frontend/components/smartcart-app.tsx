@@ -1885,6 +1885,14 @@ function CompareScreen({
         </div>
 
         <div className="compare-travel-toolbar">
+          {/* US 6.1: the opt-in multi-store toggle and second-store travel limits.
+              Placed first so the option is seen before the trip summary. */}
+          <MultiStorePanel
+            config={multiStore}
+            onChange={onMultiStoreChange}
+            copy={copy}
+          />
+
           <div className="store-detail-facts">
             <TripFactsItems facts={[
               { icon: <UIIcon name="home"/>, label: copy === COPY.ms ? "Dari" : "From", value: originLabel || "—" },
@@ -1893,13 +1901,6 @@ function CompareScreen({
               { icon: <UIIcon name="history" size={20}/>, label: copy.travelTime, value: preferences.limitType === "distance" ? "—" : `${preferences.limitType === "both" ? preferences.timeMinutes : preferences.limitValue} ${copy.minutes}` },
             ]}/>
           </div>
-
-          {/* US 6.1: the opt-in multi-store toggle and second-store travel limits. */}
-          <MultiStorePanel
-            config={multiStore}
-            onChange={onMultiStoreChange}
-            copy={copy}
-          />
         </div>
 
         {loading && (
