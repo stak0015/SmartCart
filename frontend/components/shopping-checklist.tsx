@@ -28,6 +28,7 @@ import {
   type ChecklistExportModel,
 } from "@/lib/checklist-export";
 import {
+  checklistPaymentBreakdown,
   effectiveChecklistLineTotal,
   effectiveChecklistQuantity,
   effectiveChecklistUnitPrice,
@@ -824,11 +825,17 @@ export function ShoppingChecklistScreen({
   const progress = checklistProgress(checklist);
   // AC 5.7.1: an empty checklist disables the export action and explains why.
   const isEmpty = checklist.items.length === 0;
-  const totals = checklist.items.map(effectiveChecklistLineTotal).filter((value): value is number => value != null);
+  // Once anything is marked bought, totals follow the bought items (what history records);
+  // before that they show the planned total for every item.
+  const boughtItems = checklist.items.filter(item => item.status === "bought");
+  const totalItems = boughtItems.length ? boughtItems : checklist.items;
+  const totals = totalItems.map(effectiveChecklistLineTotal).filter((value): value is number => value != null);
   const subtotal = totals.length ? totals.reduce((sum, value) => sum + value, 0) : null;
   const travelTotal = tripTravelTotalRm(checklist);
-  const unavailableCount = checklist.items.length - totals.length;
-  const containsEstimate = checklist.items.some(item => item.actualPriceRm == null && item.priceSource !== "manual" && item.unitPriceRm != null);
+  const payment = checklistPaymentBreakdown(totalItems);
+  const summaryCopy = APP_COPY[locale];
+  const unavailableCount = totalItems.length - totals.length;
+  const containsEstimate = totalItems.some(item => item.actualPriceRm == null && item.priceSource !== "manual" && item.unitPriceRm != null);
   const routeOrigin = checklist.routeOrigin ?? origin;
   const routeStores = checklist.stores?.length ? checklist.stores : [checklist.store];
   const planRouteUrl = routeOrigin || routeStores.length > 1
@@ -984,7 +991,7 @@ export function ShoppingChecklistScreen({
                   <span>{progress.bought}/{progress.total} {locale === "en" ? "bought" : "dibeli"}</span>
                 </div>
                 <div className="checklist-summary-total">
-                  <span>{containsEstimate ? copy.checklistEstimatedTotal : copy.checklistTotal}</span>
+                  <span>{boughtItems.length ? (locale === "en" ? (containsEstimate ? "Estimated bought total" : "Bought total") : (containsEstimate ? "Anggaran jumlah dibeli" : "Jumlah dibeli")) : containsEstimate ? copy.checklistEstimatedTotal : copy.checklistTotal}</span>
                   <strong>{subtotal == null ? "—" : formatRm(subtotal)}</strong>
                 </div>
                 {unavailableCount > 0 && <span className="checklist-summary-disclosure">{copy.checklistPriceDisclosure(unavailableCount)}</span>}
@@ -1021,15 +1028,23 @@ export function ShoppingChecklistScreen({
         </section>
 
         <aside className="checklist-side-panel">
-        <section className="store-detail-summary checklist-travel-summary" aria-label={locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}>
-          <h2><UIIcon name="route"/>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h2>
-          {checklist.travelCostBreakdowns?.length ? <TravelCostDetails breakdowns={checklist.travelCostBreakdowns} locale={locale}
-            roundTrip={(checklist.stores?.length ?? 1) === 1} recordedTollCostRm={checklist.actualTollCostRm}
-            tollControl={<TollCostInput value={tollText} invalid={tollInvalid} locale={locale} onChange={changeTollCost}/>} />
-            : <div className="travel-cost-breakdown"><div className="travel-cost-row"><span>{locale === "en" ? "Travel estimate" : "Anggaran perjalanan"}</span><strong>{checklist.estimatedRoundTripCostRm == null ? "—" : formatRm(checklist.estimatedRoundTripCostRm)}</strong></div><div className="travel-cost-row"><span>{locale === "en" ? "Tolls" : "Tol"}</span><TollCostInput value={tollText} invalid={tollInvalid} locale={locale} onChange={changeTollCost}/></div></div>}
+        <section className="store-detail-summary checklist-travel-summary" aria-label={locale === "en" ? "Basket summary" : "Ringkasan bakul"}>
+          <h2><UIIcon name="basket" size={22}/>{locale === "en" ? "Basket summary" : "Ringkasan bakul"}</h2>
+          <dl className="store-summary-money"><div><dt>{unavailableCount ? (containsEstimate ? summaryCopy.estimatedPartialTotal : summaryCopy.partialTotal) : containsEstimate ? summaryCopy.estimatedSubtotal : summaryCopy.basketSubtotal}</dt><dd>{subtotal == null ? "—" : formatRm(subtotal)}</dd></div>{subtotal != null && <><div><dt>{summaryCopy.saraCreditLabel}</dt><dd>{payment.saraCreditRm == null ? "—" : formatRm(payment.saraCreditRm)}</dd></div><div><dt>{summaryCopy.cashNeededLabel}</dt><dd>{payment.cashNeededRm == null ? "—" : formatRm(payment.cashNeededRm)}</dd></div></>}</dl>
+          <p className="store-summary-note">{boughtItems.length
+            ? (locale === "en" ? `Totals include the ${boughtItems.length} of ${checklist.items.length} items marked bought.` : `Jumlah merangkumi ${boughtItems.length} daripada ${checklist.items.length} item yang ditanda dibeli.`)
+            : (locale === "en" ? "Planned totals for all items. They update as you mark items bought." : "Jumlah dirancang untuk semua item. Ia dikemas kini apabila anda menanda item dibeli.")}</p>
+          {unavailableCount > 0 && <p className="store-summary-note">{copy.checklistPriceDisclosure(unavailableCount)}</p>}
+          <p className="store-summary-note">{locale === "en" ? "SARA eligibility and final payment should be verified at the store." : "Kelayakan SARA dan bayaran akhir perlu disahkan di kedai."}</p>
+          <div className="store-summary-travel"><h3>{locale === "en" ? "Travel and total cost" : "Perjalanan dan jumlah kos"}</h3>
+            {checklist.travelCostBreakdowns?.length ? <TravelCostDetails breakdowns={checklist.travelCostBreakdowns} locale={locale}
+              roundTrip={(checklist.stores?.length ?? 1) === 1} recordedTollCostRm={checklist.actualTollCostRm}
+              tollControl={<TollCostInput value={tollText} invalid={tollInvalid} locale={locale} onChange={changeTollCost}/>} />
+              : <><div><span>{summaryCopy.returnTravel}</span><strong>{checklist.estimatedRoundTripCostRm == null ? "—" : formatRm(checklist.estimatedRoundTripCostRm)}</strong></div><div className="travel-cost-row"><span>{locale === "en" ? "Tolls" : "Tol"}</span><TollCostInput value={tollText} invalid={tollInvalid} locale={locale} onChange={changeTollCost}/></div></>}
+            <div><span>{unavailableCount ? summaryCopy.partialEstimatedTotal : containsEstimate ? summaryCopy.estimatedCombinedTotal : summaryCopy.combinedTotal}</span><strong>{subtotal == null || travelTotal == null ? "—" : formatRm(subtotal + travelTotal)}</strong></div>
+          </div>
           <p className="store-summary-note">{locale === "en" ? "Enter the toll total for the whole trip, including the return journey. Fuel remains an estimate." : "Masukkan jumlah tol untuk seluruh perjalanan, termasuk perjalanan balik. Bahan api kekal sebagai anggaran."}</p>
           {tollInvalid && <p id="checklist-toll-error" role="alert" className="toll-cost-error">{locale === "en" ? "Enter a non-negative amount with up to two decimal places." : "Masukkan amaun bukan negatif dengan sehingga dua tempat perpuluhan."}</p>}
-          <div className="store-summary-travel"><div><span>{locale === "en" ? "Travel total" : "Jumlah perjalanan"}</span><strong>{travelTotal == null ? "—" : formatRm(travelTotal)}</strong></div><div><span>{locale === "en" ? "Items + travel" : "Item + perjalanan"}</span><strong>{subtotal == null || travelTotal == null ? "—" : formatRm(subtotal + travelTotal)}</strong></div></div>
         </section>
 
           <section className="checklist-record-panel">

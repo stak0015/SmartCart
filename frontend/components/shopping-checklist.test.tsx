@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { COPY } from "@/lib/i18n";
 import { basket, plan, stores } from "../tests/fixtures/store-plan";
-import { createPlanShoppingChecklist, createShoppingChecklist, setChecklistTollCost } from "@/lib/shopping-checklist";
+import { createPlanShoppingChecklist, createShoppingChecklist, effectiveChecklistLineTotal, setChecklistTollCost } from "@/lib/shopping-checklist";
+import { formatRm } from "@/lib/format-rm";
 import { buildTripRecord } from "@/lib/trip-history";
 import { NextTripList, ShoppingChecklistScreen } from "./shopping-checklist";
 import type { NextTripItem } from "@/lib/next-trip";
@@ -24,6 +25,19 @@ describe("checklist and saved travel", () => {
     expect(html).toContain('aria-label="Recorded toll cost (RM)"');
     expect(html).toContain("Expected fuel cost");
     expect(html).toContain(COPY.en.saraCategory);
+  });
+
+  it("bases the item list and Basket summary totals on bought items once any are bought", () => {
+    const planned = createPlanShoppingChecklist(plan, stores, basket);
+    const plannedHtml = renderToStaticMarkup(<ShoppingChecklistScreen checklist={planned} copy={COPY.en} locale="en" savedItems={[]} alreadyRecorded={false} {...handlers}/>);
+    expect(plannedHtml).toContain("Planned totals for all items.");
+
+    const checklist = { ...planned, items: planned.items.map((item, index) => index === 0 ? { ...item, status: "bought" as const } : item) };
+    const boughtTotal = effectiveChecklistLineTotal(checklist.items[0])!;
+    const html = renderToStaticMarkup(<ShoppingChecklistScreen checklist={checklist} copy={COPY.en} locale="en" savedItems={[]} alreadyRecorded={false} {...handlers}/>);
+    expect(html).toMatch(new RegExp(`<span>(Estimated bought total|Bought total)</span><strong>${formatRm(boughtTotal)}</strong>`));
+    expect(html).toContain(`<dd>${formatRm(boughtTotal)}</dd>`);
+    expect(html).toContain(`Totals include the 1 of ${checklist.items.length} items marked bought.`);
   });
 
   it("renders recorded tolls, the saved fuel estimate and SARA/cash in history", () => {

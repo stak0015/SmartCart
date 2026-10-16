@@ -27,6 +27,13 @@ describe("shopping history", () => {
     expect(body.indexOf("MYDIN")).toBeLessThan(body.indexOf("Milk"));
   });
 
+  it("headlines each trip with total spending including travel", () => {
+    const record = { ...recordedTrip(), actualTotalRm: 40, estimatedRoundTripCostRm: 6.5, actualTollCostRm: 2, travelCostBreakdowns: undefined };
+    const html = renderToStaticMarkup(<ReceiptHistoryScreen history={[record]} locale="en" onDeleteTrip={() => {}}/>);
+    expect(html).toContain('<small>Total spending</small><strong>RM48.50</strong>');
+    expect(html).not.toContain("Item spending");
+  });
+
   it("keeps unassigned purchases separate and discloses partial totals", () => {
     const record = recordedTrip();
     const line = { ...record.lines[0], id: "unassigned", storePremiseId: undefined, storeName: undefined, itemName: "Custom purchase", itemNameEn: null, unitPriceRm: null, actualPriceRm: null };
@@ -42,7 +49,7 @@ describe("shopping history", () => {
     const html = renderToStaticMarkup(<ReceiptHistoryScreen history={[{ ...record, stores: undefined, store: record.stores![0], estimatedRoundTripCostRm: null, lines: record.lines.map(line => ({ ...line, storePremiseId: undefined })) }]} locale="en" onDeleteTrip={() => {}}/>);
     expect(html).toContain("Single-store trip");
     expect(html).toContain('aria-label="Purchased items"');
-    expect(html).toContain('class="history-combined-total"><span>Items + estimated travel</span><strong>—</strong>');
+    expect(html).toContain('class="history-combined-total"><span>Combined total</span><strong>—</strong>');
   });
 
   it("renders bilingual empty history and keeps the delete action", () => {

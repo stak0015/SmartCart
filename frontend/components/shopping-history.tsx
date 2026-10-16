@@ -16,10 +16,10 @@ const COPY = {
   en: {
     title: "Shopping history", description: "Review your purchases, store visits and trip costs.",
     empty: "No trips recorded yet", emptyHint: "Record a completed trip from your checklist to see your purchases here.",
-    single: "Single-store trip", multi: "Multi-store trip", bought: "items bought", spending: "Item spending",
+    single: "Single-store trip", multi: "Multi-store trip", bought: "items bought", spending: "Total spending",
     purchases: "Purchased items", noBought: "No bought items recorded for this store.", other: "Other purchases",
     receipt: "View purchases & costs", close: "Hide purchases & costs", summary: "Trip costs", items: "Bought items",
-    travel: "Travel estimate", total: "Items + estimated travel", partial: "Partial spending total",
+    travel: "Travel estimate", total: "Combined total", partial: "Partial spending total",
     partialNote: "Some bought items have no price. Spending includes priced items only.",
     estimateNote: "Fuel and other travel estimates are saved estimates. Recorded tolls are included when available.", travelHeading: "Travel and total cost",
     route: "Travel used an approximate straight-line route.", remove: "Delete trip", unavailable: "Store unavailable",
@@ -27,10 +27,10 @@ const COPY = {
   ms: {
     title: "Sejarah membeli-belah", description: "Semak pembelian, kedai yang dikunjungi dan kos perjalanan.",
     empty: "Belum ada perjalanan direkodkan", emptyHint: "Rekodkan perjalanan selesai daripada senarai semak untuk melihat pembelian anda di sini.",
-    single: "Perjalanan satu kedai", multi: "Perjalanan berbilang kedai", bought: "item dibeli", spending: "Perbelanjaan item",
+    single: "Perjalanan satu kedai", multi: "Perjalanan berbilang kedai", bought: "item dibeli", spending: "Jumlah perbelanjaan",
     purchases: "Item yang dibeli", noBought: "Tiada item dibeli direkodkan untuk kedai ini.", other: "Pembelian lain",
     receipt: "Lihat pembelian & kos", close: "Sembunyikan pembelian & kos", summary: "Kos perjalanan", items: "Item dibeli",
-    travel: "Anggaran perjalanan", total: "Item + anggaran perjalanan", partial: "Jumlah perbelanjaan separa",
+    travel: "Anggaran perjalanan", total: "Jumlah gabungan", partial: "Jumlah perbelanjaan separa",
     partialNote: "Sesetengah item dibeli tiada harga. Perbelanjaan hanya merangkumi item yang mempunyai harga.",
     estimateNote: "Bahan api dan anggaran perjalanan lain ialah anggaran tersimpan. Tol direkodkan termasuk jika tersedia.", travelHeading: "Perjalanan dan jumlah kos",
     route: "Perjalanan menggunakan anggaran jarak garis lurus.", remove: "Padam perjalanan", unavailable: "Kedai tidak tersedia",
@@ -85,7 +85,7 @@ export function ReceiptHistoryScreen({ history, locale, onDeleteTrip }: {
             <span className="history-store-logo" aria-hidden="true"><StoreChainLogo name={store.name}/></span>
             <span className="history-store-copy">{multi && <small>{locale === "en" ? "Store" : "Kedai"} {storeIndex + 1}</small>}<strong>{store.name}</strong>{store.saraStatus && <SaraStoreTag status={store.saraStatus} copy={APP_COPY[locale]}/>}</span>
           </span>)}</span>
-          <span className="history-heading-total"><small>{copy.spending}</small><strong>{record.actualTotalRm == null ? "—" : formatRm(record.actualTotalRm)}</strong>{partial && <small className="history-partial-label">{copy.partial}</small>}</span>
+          <span className="history-heading-total"><small>{copy.spending}</small><strong>{total == null ? "—" : formatRm(total)}</strong>{partial && <small className="history-partial-label">{copy.partial}</small>}</span>
           <button type="button" className="history-delete" aria-label={`${copy.remove}: ${stores.map(store => store.name).join(" → ")}`} onClick={() => onDeleteTrip(record.id)}><UIIcon name="trash" size={16}/><span>{copy.remove}</span></button>
         </div>
       <details className="history-receipt">
