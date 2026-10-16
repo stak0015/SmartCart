@@ -1,9 +1,13 @@
 """Route matrix caching (Epics 2 and 6): only missing legs go to Google."""
 import asyncio
+import threading
+from contextlib import contextmanager
 
 from smartcart import route_cache
 from smartcart.maps import RouteMatrixResult
 
+# conftest replaces _shared_put for every test; keep the real one for the SQL test.
+REAL_SHARED_PUT = route_cache._shared_put
 HOME = {"latitude": 3.0733, "longitude": 101.5185}
 
 
@@ -70,6 +74,7 @@ def test_store_pairs_are_shared_and_reused(monkeypatch):
     monkeypatch.setattr(route_cache, "_shared_put", lambda entries: shared.update(entries))
     provider = FakeProvider()
     run(route_cache.cached_route_matrix_multi_origin(provider, ["s1", "s2"], ["s3"], "car"))
+    route_cache.flush_shared_writes(timeout=5)
     assert set(shared) == {"pair:car:s1:s3", "pair:car:s2:s3"}
     assert all(":" in key and "." not in key for key in shared)  # place IDs only, no coordinates
 
@@ -78,3 +83,51 @@ def test_store_pairs_are_shared_and_reused(monkeypatch):
     routes = run(route_cache.cached_route_matrix_multi_origin(provider, ["s1", "s2"], ["s3", "s4"], "car"))
     assert provider.multi_calls == [(["s1", "s2"], ["s3"]), (["s1", "s2"], ["s4"])]
     assert {(r.origin_index, r.destination_index) for r in routes} == {(0, 0), (1, 0), (0, 1), (1, 1)}
+
+
+def test_store_pairs_are_returned_without_waiting_for_the_shared_write(monkeypatch):
+    release = threading.Event()
+    written = []
+
+    def slow_put(entries):
+        release.wait(timeout=5)
+        written.append(entries)
+
+    monkeypatch.setattr(route_cache, "_shared_put", slow_put)
+    routes = run(route_cache.cached_route_matrix_multi_origin(FakeProvider(), ["s1"], ["s2"], "car"))
+    assert len(routes) == 1
+    assert written == []  # the response is ready while the write is still blocked
+
+    release.set()
+    route_cache.flush_shared_writes(timeout=5)
+    assert written == [{"pair:car:s1:s2": (1000, 120, None)}]
+
+
+def test_shared_write_sends_the_whole_matrix_in_one_statement(monkeypatch):
+    calls = []
+
+    class FakeCursor:
+        connection = type("Connection", (), {"commit": lambda self: None})()
+
+        def execute(self, sql, params=None):
+            calls.append(("execute", sql))
+
+        def executemany(self, sql, rows):
+            calls.append(("executemany", len(rows)))
+
+    @contextmanager
+    def fake_cursor():
+        yield FakeCursor()
+
+    def fake_execute_values(cursor, sql, rows, template=None, page_size=100):
+        calls.append(("execute_values", len(rows), page_size))
+
+    monkeypatch.setattr(route_cache, "get_settings", lambda: type("S", (), {"database_url": "postgres://test"})())
+    monkeypatch.setattr(route_cache, "_ensure_table", lambda url: None)
+    monkeypatch.setattr(route_cache, "database_cursor", fake_cursor)
+    monkeypatch.setattr(route_cache, "execute_values", fake_execute_values)
+
+    entries = {f"pair:car:s{o}:s{d}": (1000.0, 60.0, None) for o in range(24) for d in range(24)}
+    REAL_SHARED_PUT(entries)
+
+    assert [call for call in calls if call[0] != "execute"] == [("execute_values", 576, 576)]

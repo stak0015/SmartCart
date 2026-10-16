@@ -8,17 +8,21 @@ a request are sent to Google.
 - Home -> store legs include the shopper's location, so they stay in this
   process's memory under a hashed key and are never written to the database.
 - Store -> store legs (two-store plans) hold no personal data, so they are also
-  shared between serverless workers through PostgreSQL.
+  shared between serverless workers through PostgreSQL. That write runs in
+  the background as one batched statement, so requests never wait on it.
 
 Owners: Shun
 """
 import asyncio
 import hashlib
 import logging
+from concurrent.futures import Future, ThreadPoolExecutor
 from functools import lru_cache
 from threading import Lock
 from time import monotonic
 from typing import Protocol
+
+from psycopg2.extras import execute_values
 
 from .config import get_settings
 from .database import database_cursor
@@ -138,17 +142,47 @@ def _shared_put(entries: dict[str, Leg]) -> None:
         _ensure_table(url)
         with database_cursor() as cursor:
             cursor.execute("DELETE FROM smartcart_route_cache WHERE expires_at <= NOW()")
-            cursor.executemany("""INSERT INTO smartcart_route_cache
+            # One statement for the whole matrix: executemany costs a database
+            # round trip per row, which took minutes for a cross-region database.
+            execute_values(cursor, """INSERT INTO smartcart_route_cache
                 (cache_key, distance_meters, duration_seconds, transit_fare_rm, expires_at)
-                VALUES (%s, %s, %s, %s, NOW() + make_interval(secs => %s))
+                VALUES %s
                 ON CONFLICT (cache_key) DO UPDATE SET
                     distance_meters = EXCLUDED.distance_meters,
                     duration_seconds = EXCLUDED.duration_seconds,
                     transit_fare_rm = EXCLUDED.transit_fare_rm,
-                    expires_at = EXCLUDED.expires_at""", rows)
+                    expires_at = EXCLUDED.expires_at""", rows,
+                template="(%s, %s, %s, %s, NOW() + make_interval(secs => %s))",
+                page_size=len(rows))
             cursor.connection.commit()
     except Exception:  # noqa: BLE001 - the cache is an optimisation only
         logger.warning("Shared route cache write failed", exc_info=True)
+
+
+# Shared writes run on one background thread so a request never waits on them.
+_writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix="route-cache-writer")
+_pending_writes: set[Future] = set()
+_pending_lock = Lock()
+
+
+def _schedule_shared_put(entries: dict[str, Leg]) -> None:
+    future = _writer.submit(_shared_put, entries)
+    with _pending_lock:
+        _pending_writes.add(future)
+
+    def forget(done: Future) -> None:
+        with _pending_lock:
+            _pending_writes.discard(done)
+
+    future.add_done_callback(forget)
+
+
+def flush_shared_writes(timeout: float | None = None) -> None:
+    """Wait for scheduled shared-cache writes to finish (tests and shutdown)."""
+    with _pending_lock:
+        pending = list(_pending_writes)
+    for future in pending:
+        future.result(timeout=timeout)
 
 
 # ── Cached matrix calls ─────────────────────────────────────────────────────
@@ -231,7 +265,7 @@ async def cached_route_matrix_multi_origin(
         legs.update(fresh)
         entries = {keys[pair]: leg for pair, leg in fresh.items()}
         _memory_put(entries)
-        await asyncio.to_thread(_shared_put, entries)
+        _schedule_shared_put(entries)
 
     return [
         RouteMatrixResult(destination_index=d, origin_index=o, distance_meters=leg[0], duration_seconds=leg[1], transit_fare_rm=leg[2])
