@@ -25,7 +25,7 @@ const TEXT = {
     tripsRecorded: (count: number) => `${count} ${count === 1 ? "trip" : "trips"} recorded`,
     inbox: "Report",
     unreadReports: (count: number) => count === 0 ? "No unread reports" : `${count} unread ${count === 1 ? "report" : "reports"}`,
-    planned: "Planned basket + transport",
+    planned: "Planned combined total",
     bought: (count: number, total: number) => `${count} of ${total} bought`,
   },
   ms: {
@@ -46,7 +46,7 @@ const TEXT = {
     tripsRecorded: (count: number) => `${count} perjalanan direkodkan`,
     inbox: "Laporan",
     unreadReports: (count: number) => count === 0 ? "Tiada laporan belum dibaca" : `${count} laporan belum dibaca`,
-    planned: "Bakul + pengangkutan yang dirancang",
+    planned: "Jumlah gabungan yang dirancang",
     bought: (count: number, total: number) => `${count} daripada ${total} dibeli`,
   },
 } as const;

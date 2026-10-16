@@ -99,14 +99,14 @@ describe("store plan details", () => {
     expect(markup).toContain("Expected fuel cost");
     expect(markup).toContain("RM3.00");
     expect(markup).toContain("Estimated savings");
-    expect(markup).toContain("Estimated RM5.00 savings vs the median plan");
+    expect(markup).toContain("Estimated RM5.00 savings compared to the typical plan");
     expect(markup).toContain("Plan choice");
   });
 
   it.each([
-    [null, "A comparable median plan cost is not available yet."],
-    [-3, "Estimated RM3.00 above the median plan"],
-    [0, "About the same cost as the median plan"],
+    [null, "A comparable typical plan cost is not available yet."],
+    [-3, "Estimated RM3.00 above the typical plan"],
+    [0, "About the same cost as the typical plan"],
   ])("discloses unavailable and signed multi-store savings (%s)", (saving, expected) => {
     const markup = renderToStaticMarkup(createElement(PlanDetailView, {
       plan,

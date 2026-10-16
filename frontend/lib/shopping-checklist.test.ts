@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import { withActualPrice, withActualQuantity } from "../tests/fixtures/legacy-checklist";
 import type { StoreRecommendation } from "./contracts";
 import type { RecommendationDetailRow } from "./recommendation-detail";
+import type { ChecklistItem } from "./shopping-checklist";
 import {
+  checklistPaymentBreakdown,
   SHOPPING_CHECKLIST_STORAGE_KEY,
   SHOPPING_CHECKLIST_VERSION,
   actualLineTotalRm,
@@ -876,5 +878,25 @@ describe("route provenance (AC 8.2.3)", () => {
     const corrupt = JSON.parse(serializeShoppingChecklist(checklist)) as Record<string, unknown>;
     corrupt.routeProvider = "telepathy";
     expect(parseShoppingChecklist(JSON.stringify(corrupt))).toBeNull();
+  });
+});
+
+describe("checklistPaymentBreakdown", () => {
+  const line = (overrides: Partial<ChecklistItem>): ChecklistItem => ({
+    ...checklistFromDetails().items[0], actualPriceRm: null, actualQuantity: null, quantity: 1, ...overrides,
+  });
+
+  it("credits SARA-eligible priced lines and leaves the rest as cash", () => {
+    expect(checklistPaymentBreakdown([
+      line({ id: "a", unitPriceRm: 10, saraEligible: true, saraCategoryCandidate: false }),
+      line({ id: "b", unitPriceRm: 4, quantity: 2, saraEligible: false, saraCategoryCandidate: false }),
+      line({ id: "c", unitPriceRm: null, saraEligible: true, saraCategoryCandidate: false }),
+    ])).toEqual({ saraCreditRm: 10, cashNeededRm: 8 });
+  });
+
+  it("returns unknown when a priced line has no SARA status or nothing is priced", () => {
+    expect(checklistPaymentBreakdown([line({ unitPriceRm: 5, source: "catalogue", saraEligible: undefined, saraCategoryCandidate: undefined })]))
+      .toEqual({ saraCreditRm: null, cashNeededRm: null });
+    expect(checklistPaymentBreakdown([line({ unitPriceRm: null })])).toEqual({ saraCreditRm: null, cashNeededRm: null });
   });
 });

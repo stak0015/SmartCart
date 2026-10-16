@@ -540,6 +540,20 @@ export function effectiveChecklistLineTotal(item: ChecklistItem): number | null 
 }
 
 /**
+ * Estimated SARA credit and cash needed for the checklist's priced lines, matching the plan
+ * details basket summary. Null when nothing is priced or a line's SARA status is unknown.
+ */
+export function checklistPaymentBreakdown(items: ChecklistItem[]): { saraCreditRm: number | null; cashNeededRm: number | null } {
+  const priced = items.filter(item => effectiveChecklistLineTotal(item) != null);
+  const unknown = priced.some(item => item.source !== "manual" && item.saraEligible !== true
+    && item.saraCategoryCandidate !== true && (item.saraEligible === undefined || item.saraCategoryCandidate === undefined));
+  if (!priced.length || unknown) return { saraCreditRm: null, cashNeededRm: null };
+  const subtotal = money(priced.reduce((sum, item) => sum + effectiveChecklistLineTotal(item)!, 0));
+  const saraCreditRm = money(priced.reduce((sum, item) => sum + (item.saraEligible === true || item.saraCategoryCandidate === true ? effectiveChecklistLineTotal(item)! : 0), 0));
+  return { saraCreditRm, cashNeededRm: money(Math.max(0, subtotal - saraCreditRm)) };
+}
+
+/**
  * Change one field of a line, remembering the original values first so the change can be reverted
  * (US 5.1). A price equal to the original restores its source and observed date; any other price
  * is marked manual. Returns null for invalid input.
